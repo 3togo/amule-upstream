@@ -1249,13 +1249,13 @@ void CKademliaUDPListener::Process2PublishKeyRequest(const uint8_t *packetData,
 											publisherVersion)) {
 									acceptTag = false;
 									AddDebugLogLineN(logClientKadUDP,
-										"TAG_KADAICHHASHPUB received "
-										"from node "
-										"advertising Kad version " +
-											CFormat("%u") %
-												publisherVersion +
-											" (< 0x09), "
-											"rejecting. " +
+										CFormat("TAG_KADAICHHASHPUB "
+											"received from node "
+											"advertising Kad "
+											"version %u (< "
+											"0x09), rejecting. "
+											"%s") %
+											publisherVersion %
 											KadIPToString(ip));
 								}
 							}

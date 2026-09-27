@@ -93,7 +93,7 @@ bool CEC_Category_Tag::Create()
 	if (!ret) {
 		GetTagByName(EC_TAG_CATEGORY_PATH)
 			->SetStringData(theApp->glob_prefs->GetCatPath(theApp->glob_prefs->GetCatCount() - 1)
-					.GetRaw());
+						.GetRaw());
 	}
 	return ret;
 }
@@ -953,14 +953,14 @@ void CEC_Prefs_Packet::Apply() const
 		}
 	}
 
-	if ((thisTab = GetTagByName(EC_TAG_PREFS_KADEMLIA)) != NULL) {
-		if ((oneTag = thisTab->GetTagByName(EC_TAG_KADEMLIA_UPDATE_URL)) != NULL) {
+	if ((thisTab = GetTagByName(EC_TAG_PREFS_KADEMLIA)) != nullptr) {
+		if ((oneTag = thisTab->GetTagByName(EC_TAG_KADEMLIA_UPDATE_URL)) != nullptr) {
 			thePrefs::SetKadNodesUrl(oneTag->GetStringData());
 		}
-		if ((oneTag = thisTab->GetTagByName(EC_TAG_KADEMLIA_PROTOCOL10)) != NULL) {
+		if ((oneTag = thisTab->GetTagByName(EC_TAG_KADEMLIA_PROTOCOL10)) != nullptr) {
 			thePrefs::SetKadProtocol10(oneTag->GetInt() != 0);
 		}
-		if ((oneTag = thisTab->GetTagByName(EC_TAG_KADEMLIA_STRICT_AICH_PUBLISHERS)) != NULL) {
+		if ((oneTag = thisTab->GetTagByName(EC_TAG_KADEMLIA_STRICT_AICH_PUBLISHERS)) != nullptr) {
 			thePrefs::SetKadStrictAichPublishers(oneTag->GetInt() != 0);
 		}
 	}
