@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-26 17:32+0100\n"
+"POT-Creation-Date: 2026-09-27 13:47+0800\n"
 "PO-Revision-Date: 2026-09-26 19:30+0000\n"
 "Last-Translator: Jure Repinc <jlp@holodeck1.com>\n"
 "Language-Team: Slovenian\n"
@@ -4655,6 +4655,35 @@ msgstr "Samodejno se poveži ob zagonu"
 #: src/muuli_wdr.cpp
 msgid "Reconnect on loss"
 msgstr "Ponovno se poveži ob prekinjeni povezavi"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Kad protocol version"
+msgstr "Neveljavna različica protokola."
+
+#: src/muuli_wdr.cpp
+msgid "Advertise Kad protocol 0x0a (AICH keyword storage)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"When enabled, aMule advertises Kad protocol version 0x0a and processes AICH hashes in keyword publish/search results. This matches eMule 0.50a+ behaviour.\n"
+"\n"
+"WARNING: Enabling this may cause search results to be dropped by older Kad clients (pre-0.49b) that cannot parse the AICH result tags. Most current clients support it, but if you experience missing search results, try disabling this option.\n"
+"\n"
+"Security: Trusted AICH hashes require corroboration from at least 2 publishers."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Reject AICH publish tags from legacy Kad peers (< 0x09)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"When enabled, AICH keyword publish tags from nodes advertising a Kad version below 0x09 are rejected. A node at 0x08 cannot have produced an AICH tag itself, so accepting it would allow a malicious low-version node to inject forged AICH hashes.\n"
+"\n"
+"WARNING: This may reject legitimate publishers whose routing-table version is stale, reducing AICH hash coverage. Nodes with unknown version are still accepted. The SelectTrusted() corroboration rule (>= 2 publishers) applies regardless of this setting."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Remove dead server after"
