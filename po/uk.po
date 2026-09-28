@@ -9,8 +9,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-27 13:47+0800\n"
-"PO-Revision-Date: 2026-09-26 19:32+0000\n"
+"POT-Creation-Date: 2026-09-26 17:32+0100\n"
+"PO-Revision-Date: 2026-09-28 19:06+0000\n"
 "Last-Translator: Oleksandr Kovalenko <alx.kovalenko@gmail.com>\n"
 "Language-Team: Ukrainian <translation@linux.org.ua>\n"
 "Language: uk\n"
@@ -63,7 +63,7 @@ msgstr " Copyright (c) 2002-2011 Petar Maymounkov ( petar@maymounkov.org )\n"
 
 #: src/AboutDialog.cpp
 msgid "Website:"
-msgstr "Сторінка в Інтернет:"
+msgstr "Сторінка в Інтернеті:"
 
 #: src/AboutDialog.cpp
 msgid "Forum:"
@@ -278,7 +278,7 @@ msgstr "Зупиняю екземпляр amuleweb з pid '%d' ... "
 #: src/amule.cpp
 #, c-format
 msgid "Killing amuleweb instance with pid '%d' ... "
-msgstr "Вбиваю екземпляр amuleweb з pid `%d' ... "
+msgstr "Вбиваю екземпляр amuleweb з pid '%d' ... "
 
 #: src/amule.cpp src/ClientRef.cpp src/SearchDlg.cpp src/ServerListCtrl.cpp
 msgid "Failed"
@@ -4123,7 +4123,7 @@ msgstr "Передавання"
 
 #: src/muuli_wdr.cpp
 msgid "Partfilestatus"
-msgstr "Стан часткових файлів"
+msgstr "Стан часткового файлу"
 
 #: src/muuli_wdr.cpp
 msgid "Last seen complete"
@@ -4135,11 +4135,11 @@ msgstr "Знайдено джерел"
 
 #: src/muuli_wdr.cpp
 msgid "Transferring Sources"
-msgstr "Передані джерела"
+msgstr "Джерела, що передають"
 
 #: src/muuli_wdr.cpp
 msgid "Filepart-Count"
-msgstr "Кількість часткових файлів"
+msgstr "Кількість частин файлу"
 
 #: src/muuli_wdr.cpp
 msgid "Available"
@@ -4151,11 +4151,11 @@ msgstr "Швидкість передачі"
 
 #: src/muuli_wdr.cpp
 msgid "Download Active Time"
-msgstr "Чинний час звантаження"
+msgstr "Час активного звантаження"
 
 #: src/muuli_wdr.cpp
 msgid "Completed Size"
-msgstr "Розмір завершених"
+msgstr "Завершений обсяг"
 
 #: src/muuli_wdr.cpp
 msgid "Intelligent Corruption Handling"
@@ -4163,7 +4163,7 @@ msgstr "Розумна обробка пошкоджень"
 
 #: src/muuli_wdr.cpp
 msgid "Lost to corruption"
-msgstr "Втрачено за рахунок спотворень"
+msgstr "Втрачено через пошкодження"
 
 #: src/muuli_wdr.cpp
 msgid "Gained by compression"
@@ -4262,8 +4262,8 @@ msgid ""
 "For a film you can say its length, its story, language ...\n"
 "and if it's a fake, you can tell that to other users of aMule."
 msgstr ""
-"Для фільму ви можете написати тривалість, сюжет, мову... \n"
-"або ж якщо він підробний, ви можете розповісти це іншим користувачам aMule."
+"Для фільму ви можете написати тривалість, сюжет, мову ...\n"
+"і якщо він підробний, ви можете розповісти про це іншим користувачам aMule."
 
 #: src/muuli_wdr.cpp
 msgid "File Quality"
@@ -4396,7 +4396,7 @@ msgstr "Передано клієнту"
 
 #: src/muuli_wdr.cpp
 msgid "Current request"
-msgstr "Поточні запити"
+msgstr "Поточний запит"
 
 #: src/muuli_wdr.cpp
 msgid "Average upload rate"
@@ -4639,35 +4639,6 @@ msgstr "Автоматичне з'єднання після запуску"
 #: src/muuli_wdr.cpp
 msgid "Reconnect on loss"
 msgstr "Перез'єднатись при втраті з'єднання"
-
-#: src/muuli_wdr.cpp
-#, fuzzy
-msgid "Kad protocol version"
-msgstr "Невірна версія протоколу."
-
-#: src/muuli_wdr.cpp
-msgid "Advertise Kad protocol 0x0a (AICH keyword storage)"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"When enabled, aMule advertises Kad protocol version 0x0a and processes AICH hashes in keyword publish/search results. This matches eMule 0.50a+ behaviour.\n"
-"\n"
-"WARNING: Enabling this may cause search results to be dropped by older Kad clients (pre-0.49b) that cannot parse the AICH result tags. Most current clients support it, but if you experience missing search results, try disabling this option.\n"
-"\n"
-"Security: Trusted AICH hashes require corroboration from at least 2 publishers."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Reject AICH publish tags from legacy Kad peers (< 0x09)"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"When enabled, AICH keyword publish tags from nodes advertising a Kad version below 0x09 are rejected. A node at 0x08 cannot have produced an AICH tag itself, so accepting it would allow a malicious low-version node to inject forged AICH hashes.\n"
-"\n"
-"WARNING: This may reject legitimate publishers whose routing-table version is stale, reducing AICH hash coverage. Nodes with unknown version are still accepted. The SelectTrusted() corroboration rule (>= 2 publishers) applies regardless of this setting."
-msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Remove dead server after"
@@ -5254,7 +5225,7 @@ msgstr "Вхідна тека"
 
 #: src/muuli_wdr.cpp
 msgid "Change priority for new assigned files"
-msgstr "Змінити перевагу для нового призначеного файлу"
+msgstr "Змінити перевагу для нових призначених файлів"
 
 #: src/muuli_wdr.cpp
 #, fuzzy

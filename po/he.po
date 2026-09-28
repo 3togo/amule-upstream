@@ -9,8 +9,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-27 13:47+0800\n"
-"PO-Revision-Date: 2026-09-26 19:22+0000\n"
+"POT-Creation-Date: 2026-09-26 17:32+0100\n"
+"PO-Revision-Date: 2026-09-28 18:57+0000\n"
 "Last-Translator: Peace Kramer <kpeace1@gmail.com>\n"
 "Language-Team: Hebrew\n"
 "Language: he\n"
@@ -4143,7 +4143,7 @@ msgstr "רווח באמצעות כיווץ"
 
 #: src/muuli_wdr.cpp
 msgid "Packages saved by I.C.H."
-msgstr "חבילות שנשמרו ע\"י I.C.H.·"
+msgstr "חבילות שנשמרו ע\"י I.C.H."
 
 #: src/muuli_wdr.cpp
 msgid "Sharing"
@@ -4299,7 +4299,7 @@ msgstr "מידע נוסף"
 
 #: src/muuli_wdr.cpp
 msgid "Userhash"
-msgstr "גיבוב משתשמ"
+msgstr "גיבוב משתמש"
 
 #: src/muuli_wdr.cpp src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Add"
@@ -4611,35 +4611,6 @@ msgstr "התחבר אוטומטית בהפעלה"
 #: src/muuli_wdr.cpp
 msgid "Reconnect on loss"
 msgstr "התחבר מחדש בעת ניתוק"
-
-#: src/muuli_wdr.cpp
-#, fuzzy
-msgid "Kad protocol version"
-msgstr "גרסת פרוטוקל לא תקפה."
-
-#: src/muuli_wdr.cpp
-msgid "Advertise Kad protocol 0x0a (AICH keyword storage)"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"When enabled, aMule advertises Kad protocol version 0x0a and processes AICH hashes in keyword publish/search results. This matches eMule 0.50a+ behaviour.\n"
-"\n"
-"WARNING: Enabling this may cause search results to be dropped by older Kad clients (pre-0.49b) that cannot parse the AICH result tags. Most current clients support it, but if you experience missing search results, try disabling this option.\n"
-"\n"
-"Security: Trusted AICH hashes require corroboration from at least 2 publishers."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Reject AICH publish tags from legacy Kad peers (< 0x09)"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"When enabled, AICH keyword publish tags from nodes advertising a Kad version below 0x09 are rejected. A node at 0x08 cannot have produced an AICH tag itself, so accepting it would allow a malicious low-version node to inject forged AICH hashes.\n"
-"\n"
-"WARNING: This may reject legitimate publishers whose routing-table version is stale, reducing AICH hash coverage. Nodes with unknown version are still accepted. The SelectTrusted() corroboration rule (>= 2 publishers) applies regardless of this setting."
-msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Remove dead server after"

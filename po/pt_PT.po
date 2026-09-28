@@ -17,8 +17,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-27 13:47+0800\n"
-"PO-Revision-Date: 2026-09-26 19:29+0000\n"
+"POT-Creation-Date: 2026-09-26 17:32+0100\n"
+"PO-Revision-Date: 2026-09-28 19:03+0000\n"
 "Last-Translator: Luís Picciochi Oliveira <Pitxyoki@Gmail.com>\n"
 "Language-Team: Portuguese <traduz@debianpt.org>\n"
 "Language: pt_PT\n"
@@ -4086,7 +4086,7 @@ msgstr "Nome completo"
 
 #: src/muuli_wdr.cpp
 msgid "met-File"
-msgstr "Ficheiro de servidores conhecidos"
+msgstr "Ficheiro met"
 
 #: src/muuli_wdr.cpp
 msgid "Hash"
@@ -4375,7 +4375,7 @@ msgstr "A transferir"
 
 #: src/muuli_wdr.cpp
 msgid "Current request"
-msgstr "Pedidos actuais"
+msgstr "Pedido actual"
 
 #: src/muuli_wdr.cpp
 msgid "Average upload rate"
@@ -4411,7 +4411,7 @@ msgstr "Identificação segura"
 
 #: src/muuli_wdr.cpp
 msgid "Queue rank"
-msgstr "Pontuação na fila de espera"
+msgstr "Posição na fila de espera"
 
 #: src/muuli_wdr.cpp
 msgid "Queue score"
@@ -4617,35 +4617,6 @@ msgstr "Ligar automaticamente no arranque"
 #: src/muuli_wdr.cpp
 msgid "Reconnect on loss"
 msgstr "Voltar a ligar se perder ligação"
-
-#: src/muuli_wdr.cpp
-#, fuzzy
-msgid "Kad protocol version"
-msgstr "Versão de protocolo inválida."
-
-#: src/muuli_wdr.cpp
-msgid "Advertise Kad protocol 0x0a (AICH keyword storage)"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"When enabled, aMule advertises Kad protocol version 0x0a and processes AICH hashes in keyword publish/search results. This matches eMule 0.50a+ behaviour.\n"
-"\n"
-"WARNING: Enabling this may cause search results to be dropped by older Kad clients (pre-0.49b) that cannot parse the AICH result tags. Most current clients support it, but if you experience missing search results, try disabling this option.\n"
-"\n"
-"Security: Trusted AICH hashes require corroboration from at least 2 publishers."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Reject AICH publish tags from legacy Kad peers (< 0x09)"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"When enabled, AICH keyword publish tags from nodes advertising a Kad version below 0x09 are rejected. A node at 0x08 cannot have produced an AICH tag itself, so accepting it would allow a malicious low-version node to inject forged AICH hashes.\n"
-"\n"
-"WARNING: This may reject legitimate publishers whose routing-table version is stale, reducing AICH hash coverage. Nodes with unknown version are still accepted. The SelectTrusted() corroboration rule (>= 2 publishers) applies regardless of this setting."
-msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Remove dead server after"
@@ -5233,7 +5204,7 @@ msgstr "Pasta de completos"
 
 #: src/muuli_wdr.cpp
 msgid "Change priority for new assigned files"
-msgstr "Trocar prioridade nos novos ficheiros"
+msgstr "Alterar prioridade dos novos ficheiros"
 
 #: src/muuli_wdr.cpp
 msgid "Don't change"
@@ -5605,7 +5576,7 @@ msgstr "Tipo de proxy"
 
 #: src/muuli_wdr.cpp
 msgid "Proxy host"
-msgstr "Servidor"
+msgstr "Servidor proxy"
 
 #: src/muuli_wdr.cpp
 msgid "The proxy host name"

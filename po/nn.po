@@ -10,8 +10,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-27 13:47+0800\n"
-"PO-Revision-Date: 2026-09-26 19:27+0000\n"
+"POT-Creation-Date: 2026-09-26 17:32+0100\n"
+"PO-Revision-Date: 2026-09-28 19:01+0000\n"
 "Last-Translator: Hallvor Brunstad <Hallvor_1976@yahoo.com>\n"
 "Language-Team: <i18n-nn@lister.ping.uio.no>\n"
 "Language: nn\n"
@@ -4370,7 +4370,7 @@ msgstr "Overføringar til klient"
 
 #: src/muuli_wdr.cpp
 msgid "Current request"
-msgstr "Novérande etterspurnader"
+msgstr "Noverande etterspurnad"
 
 #: src/muuli_wdr.cpp
 msgid "Average upload rate"
@@ -4612,35 +4612,6 @@ msgstr "Automatisk tilkopling ved oppstart"
 #: src/muuli_wdr.cpp
 msgid "Reconnect on loss"
 msgstr "Kople til dersom fråkopla"
-
-#: src/muuli_wdr.cpp
-#, fuzzy
-msgid "Kad protocol version"
-msgstr "Ugyldig protokullutgåve."
-
-#: src/muuli_wdr.cpp
-msgid "Advertise Kad protocol 0x0a (AICH keyword storage)"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"When enabled, aMule advertises Kad protocol version 0x0a and processes AICH hashes in keyword publish/search results. This matches eMule 0.50a+ behaviour.\n"
-"\n"
-"WARNING: Enabling this may cause search results to be dropped by older Kad clients (pre-0.49b) that cannot parse the AICH result tags. Most current clients support it, but if you experience missing search results, try disabling this option.\n"
-"\n"
-"Security: Trusted AICH hashes require corroboration from at least 2 publishers."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Reject AICH publish tags from legacy Kad peers (< 0x09)"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"When enabled, AICH keyword publish tags from nodes advertising a Kad version below 0x09 are rejected. A node at 0x08 cannot have produced an AICH tag itself, so accepting it would allow a malicious low-version node to inject forged AICH hashes.\n"
-"\n"
-"WARNING: This may reject legitimate publishers whose routing-table version is stale, reducing AICH hash coverage. Nodes with unknown version are still accepted. The SelectTrusted() corroboration rule (>= 2 publishers) applies regardless of this setting."
-msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Remove dead server after"
@@ -5235,7 +5206,7 @@ msgstr "Ikkje endre"
 
 #: src/muuli_wdr.cpp
 msgid "Select color for this Category (currently selected)"
-msgstr "Vel farge for denne kategprien (no valt)"
+msgstr "Vel farge for denne kategorien (no valt)"
 
 #: src/muuli_wdr.cpp
 msgid "Click this button to reset the log."
@@ -8744,7 +8715,7 @@ msgstr "Mellombels stogge opplastingar av fila: %s"
 #: src/UserEvents.cpp
 #, c-format
 msgid "Failed to execute command '%s' on '%s' event."
-msgstr "Greidde ikkje å utføre kommendoen '%s'·på·`%s hending."
+msgstr "Greidde ikkje å utføre kommandoen '%s' ved hendinga '%s'."
 
 #: src/UserEvents.h
 msgid "Download completed"
