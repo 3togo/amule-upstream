@@ -1,5 +1,5 @@
 // Stub for CPreferences::s_KadProtocol10 and s_KadStrictAichPublishers so unit tests
-// that compile AICHHashList.cpp or Entry.cpp directly can link without pulling in
+// that compile Entry.cpp directly can link without pulling in
 // all of Preferences.cpp.
 #include <Preferences.h>
 

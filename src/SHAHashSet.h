@@ -96,6 +96,14 @@ enum EAICHStatus
 	AICH_HASHSETCOMPLETE
 };
 
+// Kad storage nodes supply both the hash and its claimed publisher counts. Neither
+// establishes trust: download-source corroboration must precede AICH recovery.
+// Preserve the existing server-search policy independently of this Kad feature.
+constexpr EAICHStatus SearchResultAICHStatus(bool fromKad)
+{
+	return fromKad ? AICH_UNTRUSTED : AICH_TRUSTED;
+}
+
 class CFileDataIO;
 class CKnownFile;
 class CMemFile;

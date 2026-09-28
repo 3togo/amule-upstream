@@ -306,9 +306,9 @@ option (ENABLE_VERSION_CHECK "compile in the in-app new-version check (startup n
 # starts with KadProtocol10 enabled, OFF means it starts disabled for maximum
 # backward compatibility with older Kad peers.
 #
-# The switch is a plain compile definition rather than a config.h entry because
-# it has to be visible inside src/include/protocol/kad2/Constants.h, which is
-# pulled in by headers that never see config.h.
+# The compile definition is consumed by Preferences.cpp when constructing the
+# default preference. The AICH codec and trust-selection helper remain independent
+# of this build option.
 option (ENABLE_KAD_PROTOCOL_10 "set the compile-time default for the Kad protocol 0x0a runtime preference (AICH hashes on keyword storage)" OFF)
 
 # Master switch for the local Kad node-protection heuristics: the adaptive

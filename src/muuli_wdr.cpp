@@ -1615,11 +1615,12 @@ wxSizer *PreferencesConnectionTab( wxWindow *parent, bool call_fit, bool set_siz
     kadProtoChk->SetValue( FALSE );
     kadProtoChk->SetToolTip(
         _("When enabled, aMule advertises Kad protocol version 0x0a and processes AICH hashes "
-          "in keyword publish/search results. This matches eMule 0.50a+ behaviour.\n\n"
+          "in keyword publish/search results.\n\n"
           "WARNING: Enabling this may cause search results to be dropped by older Kad clients "
           "(pre-0.49b) that cannot parse the AICH result tags. Most current clients support it, "
           "but if you experience missing search results, try disabling this option.\n\n"
-          "Security: Trusted AICH hashes require corroboration from at least 2 publishers.") );
+          "Hashes learned from Kad search results remain untrusted until download sources "
+          "corroborate them. Reported publisher counts alone never authorize AICH recovery.") );
     kadProtoSizer->Add( kadProtoChk, wxSizerFlags().CenterVertical().Border(wxLEFT|wxRIGHT|wxBOTTOM, 5) );
 
     wxCheckBox *strictAichChk = new wxCheckBox( kadProtoBox, IDC_KADSTRICTAICHPUBLISHERS,
@@ -1627,12 +1628,12 @@ wxSizer *PreferencesConnectionTab( wxWindow *parent, bool call_fit, bool set_siz
     strictAichChk->SetValue( FALSE );
     strictAichChk->SetToolTip(
         _("When enabled, AICH keyword publish tags from nodes advertising a Kad version below "
-          "0x09 are rejected. A node at 0x08 cannot have produced an AICH tag itself, so "
-          "accepting it would allow a malicious low-version node to inject forged AICH hashes.\n\n"
+          "0x09 are rejected because these versions do not support AICH keyword storage. "
+          "Advertised versions are not proof that a publisher is trustworthy.\n\n"
           "WARNING: This may reject legitimate publishers whose routing-table version is stale, "
           "reducing AICH hash coverage. Nodes with unknown version are still accepted. "
-          "The SelectTrusted() corroboration rule (>= 2 publishers) applies regardless of "
-          "this setting.") );
+          "Hashes learned from Kad search results require download-source corroboration "
+          "regardless of this setting.") );
     kadProtoSizer->Add( strictAichChk, wxSizerFlags().CenterVertical().Border(wxLEFT|wxRIGHT|wxBOTTOM, 5) );
 
     item0->Add( kadProtoSizer, wxSizerFlags().Expand().CenterVertical().Border(wxTOP, 5) );

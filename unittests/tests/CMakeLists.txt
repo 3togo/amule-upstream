@@ -639,7 +639,6 @@ target_link_libraries (CUInt128Test
 add_executable (KadAICHHashListTest
 	KadAICHHashListTest.cpp
 	${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/AICHHashList.cpp
-	KadPrefsStub.cpp
 )
 
 add_test (NAME KadAICHHashListTest

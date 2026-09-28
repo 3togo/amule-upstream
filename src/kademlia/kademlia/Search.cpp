@@ -1383,16 +1383,15 @@ void CSearch::ProcessResultKeyword(
 		taglist.push_back(new CTagVarInt(TAG_SOURCES, availability));
 	}
 	if (thePrefs::GetKadProtocol10()) {
-		// Carry a trusted AICH root hash into the search result, under the same tag name
-		// (FT_AICH_HASH) that an ed2k result and the part-file metadata use, so CPartFile takes it
-		// as its master hash when a download starts. SelectTrusted() answers nullptr far more often
-		// than not: see its declaration for why refusing is the right default here.
+		// Carry only a candidate root. The responder controls both reported counts;
+		// CPartFile keeps Kad candidates AICH_UNTRUSTED until download sources
+		// corroborate a root, regardless of how popular the responder claims it is.
 		const uint32_t publishersKnown = (publishInfo & 0x00FF0000) >> 16;
-		const CKadAICHHashList::SResultHash *bestAICHHash =
-			CKadAICHHashList::SelectTrusted(aichHashes, publishersKnown);
-		if (bestAICHHash != nullptr) {
+		const CKadAICHHashList::SResultHash *candidateAICHHash =
+			CKadAICHHashList::SelectCandidate(aichHashes, publishersKnown);
+		if (candidateAICHHash != nullptr) {
 			CAICHHash hash;
-			memcpy(hash.GetRawHash(), bestAICHHash->m_hash.data(), CAICHHash::GetHashSize());
+			memcpy(hash.GetRawHash(), candidateAICHHash->m_hash.data(), CAICHHash::GetHashSize());
 			taglist.push_back(new CTagString(TAG_AICHHASH, hash.GetString()));
 		}
 	}

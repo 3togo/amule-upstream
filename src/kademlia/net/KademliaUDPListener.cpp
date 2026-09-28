@@ -1217,21 +1217,20 @@ void CKademliaUDPListener::Process2PublishKeyRequest(const uint8_t *packetData,
 								   CFormat("  Size=%u") % entry->m_uSize;)
 						}
 						delete tag; // tag is no longer stored, but membervar is used
-					} else if (!tag->GetName().Cmp(TAG_KADAICHHASHPUB)) {
-						// AICH root hash of the published file (Kad protocol version
-						// 0x09). Kept as a member rather than a tag:
+					} else if (thePrefs::GetKadProtocol10() &&
+						   !tag->GetName().Cmp(TAG_KADAICHHASHPUB)) {
+						// With the feature off, preserve the legacy AddTag() path
+						// below. AICH root hash of the published file (Kad protocol
+						// version 0x09). Kept as a member rather than a tag:
 						// MergeIPsAndFilenames() attaches it to this publisher and
 						// maintains the popularity counts of the stored entry.
 						//
-						// Security: when KadStrictAichPublishers is enabled, AICH
-						// publish tags from nodes whose advertised Kad version is <
-						// 0x09 are rejected, since a node at 0x08 cannot have
-						// produced this tag itself. Nodes with unknown version (not
-						// in our routing table) are still accepted: a legitimate
-						// 0x09+ publisher we have not yet exchanged a hello with
-						// should not be penalised, and SelectTrusted() on the
-						// search-result side still refuses uncorroborated hashes.
-						if (thePrefs::GetKadProtocol10() && tag->IsBsob() &&
+						// The optional version filter rejects known legacy
+						// publishers, but advertised versions are not authentication.
+						// Unknown peers remain accepted. Search-result roots stay
+						// untrusted until download sources corroborate them, with
+						// either filter setting.
+						if (tag->IsBsob() &&
 							tag->GetBsobSize() == KAD_AICH_HASH_SIZE) {
 							bool acceptTag = true;
 							if (thePrefs::GetKadStrictAichPublishers()) {
@@ -1275,7 +1274,7 @@ void CKademliaUDPListener::Process2PublishKeyRequest(const uint8_t *packetData,
 											KadIPToString(ip));
 								}
 							}
-						} else if (thePrefs::GetKadProtocol10()) {
+						} else {
 							AddDebugLogLineN(logClientKadUDP,
 								"Bad TAG_KADAICHHASHPUB received from " +
 									KadIPToString(ip));

@@ -300,24 +300,15 @@ CPartFile::CPartFile(CSearchFile *searchresult)
 		}
 
 		if (pTag.GetNameID() == FT_AICH_HASH && pTag.IsStr()) {
-			// The AICH root hash a search result carried, from an ed2k server or from Kad. Set
-			// as the master hash rather than stored as a tag: the tag copies above all end at
-			// m_taglist, and nothing reads an AICH hash back out of there. This is the whole
-			// point of carrying the hash on a result -- a download that starts already knowing
-			// its root hash never has to collect one from a pool of peers before it can recover
-			// a corrupt part.
-			//
-			// AICH_TRUSTED, not AICH_VERIFIED, and the difference matters. Nothing vouches for
-			// a search result: it is whatever the server or the Kad node chose to answer.
-			// AICH_VERIFIED is terminal -- UntrustedHashReceived() refuses to correct it -- so
-			// one wrong hash would break this download's recovery for good, persist to
-			// part.met, reload as verified on every later start, and go back out in our own
-			// ed2k and magnet links. AICH_TRUSTED is used for recovery exactly the same way
-			// and stays correctable by peer consensus, which is the whole difference between a
-			// hash we were told and a hash we can stand behind.
+			// Search results are claims, never locally verified roots. In particular,
+			// Kad publisher counts come from the same responder as the hash, so even
+			// a plausible count cannot authorize recovery. Keep a Kad root untrusted
+			// until UntrustedHashReceived() obtains download-source corroboration.
+			// Untrusted roots are neither persisted as verified nor exported in links.
 			CAICHHash hash;
 			if (hash.DecodeBase32(pTag.GetStr()) == CAICHHash::GetHashSize()) {
-				m_pAICHHashSet->SetMasterHash(hash, AICH_TRUSTED);
+				m_pAICHHashSet->SetMasterHash(
+					hash, SearchResultAICHStatus(searchresult->IsKademlia()));
 				MarkECChanged();
 				AddDebugLogLineN(logPartFile,
 					"CPartFile::CPartFile(CSearchFile*): took master AICH hash "

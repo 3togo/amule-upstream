@@ -45,6 +45,7 @@ there client on the eMule forum..
 #include "UDPFirewallTester.h"
 #include "../routing/RoutingZone.h"
 #include "../../amule.h"
+#include "../../Preferences.h"
 #include "../../CFile.h"
 #include "../../ServerList.h"
 #include "../../Logger.h"
