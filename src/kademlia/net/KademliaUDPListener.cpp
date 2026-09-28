@@ -1230,7 +1230,8 @@ void CKademliaUDPListener::Process2PublishKeyRequest(const uint8_t *packetData,
 						// in our routing table) are still accepted: a legitimate
 						// 0x09+ publisher we have not yet exchanged a hello with
 						// should not be penalised, and SelectTrusted() on the
-						// search-result side still refuses uncorroborated hashes.
+						// search-result side requires two reported publishers of
+						// the hash. These counts are not authenticated.
 						if (thePrefs::GetKadProtocol10() && tag->IsBsob() &&
 							tag->GetBsobSize() == KAD_AICH_HASH_SIZE) {
 							bool acceptTag = true;

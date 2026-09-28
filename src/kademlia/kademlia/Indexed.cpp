@@ -381,7 +381,8 @@ CIndexed::~CIndexed()
 			// KadProtocol10 off we write the version-3 file upstream writes. Reading
 			// both is unconditional, so toggling the preference never invalidates an
 			// existing keyword index.
-			k_file.WriteUInt32(thePrefs::GetKadProtocol10() ? 4 : 3);
+			const bool includesAICH = thePrefs::GetKadProtocol10();
+			k_file.WriteUInt32(includesAICH ? 4 : 3);
 			k_file.WriteUInt32(now + KADEMLIAREPUBLISHTIMEK);
 			k_file.WriteUInt128(Kademlia::CKademlia::GetPrefs()->GetKadID());
 
@@ -415,7 +416,8 @@ CIndexed::~CIndexed()
 							static_cast<Kademlia::CKeyEntry *>(*itEntry);
 						wxASSERT(currName->IsKeyEntry());
 						k_file.WriteUInt32(currName->m_tLifeTime);
-						currName->WritePublishTrackingDataToFile(&k_file);
+						currName->WritePublishTrackingDataToFile(
+							&k_file, includesAICH);
 						currName->WriteTagList(&k_file);
 						currName->DirtyDeletePublishData();
 						delete currName;

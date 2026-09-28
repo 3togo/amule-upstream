@@ -26,7 +26,6 @@
 #include "AICHHashList.h"
 
 #include <protocol/kad2/Constants.h> // Needed for KADEMLIA_VERSION9_50a
-#include "../../Preferences.h"
 
 #include <algorithm>
 
@@ -216,12 +215,10 @@ const CKadAICHHashList::SResultHash *CKadAICHHashList::SelectTrusted(
 		return nullptr;
 	}
 
-	// Additional security: when KadProtocol10 is enabled, require at least 2 known publishers.
-	// A single publisher can set its own popularity to any value, so publishersKnown == 1 with
-	// popularity == 1 passes the ratio check (1/1 = 1, which is <= 3) but provides no
-	// independent corroboration. This stricter rule prevents a lone malicious publisher from
-	// injecting a forged AICH hash that would be set as the download's verified master hash.
-	if (thePrefs::GetKadProtocol10() && publishersKnown < 2) {
+	// Require two publishers of this hash, not merely two publishers of the file:
+	// other publishers may have supplied no AICH hash at all. Both counts are reported
+	// by the responding storage node, so this heuristic cannot authenticate its claims.
+	if (publishersKnown < 2 || popularity < 2) {
 		return nullptr;
 	}
 

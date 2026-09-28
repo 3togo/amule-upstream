@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-27 13:47+0800\n"
+"POT-Creation-Date: 2026-09-29 02:10+0800\n"
 "PO-Revision-Date: 2026-09-26 19:28+0000\n"
 "Last-Translator: Michał Trzebiatowski <hippie_1968@hotmail.com>\n"
 "Language-Team: translationproject.org/team/pl.html <translation-team-pl@lists.sourceforge.net>\n"
@@ -4651,7 +4651,7 @@ msgid ""
 "\n"
 "WARNING: Enabling this may cause search results to be dropped by older Kad clients (pre-0.49b) that cannot parse the AICH result tags. Most current clients support it, but if you experience missing search results, try disabling this option.\n"
 "\n"
-"Security: Trusted AICH hashes require corroboration from at least 2 publishers."
+"AICH hashes require at least 2 reported publishers of the same hash. These counts are supplied by the responding node and cannot protect against a dishonest node."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -4660,9 +4660,9 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid ""
-"When enabled, AICH keyword publish tags from nodes advertising a Kad version below 0x09 are rejected. A node at 0x08 cannot have produced an AICH tag itself, so accepting it would allow a malicious low-version node to inject forged AICH hashes.\n"
+"When enabled, AICH keyword publish tags from nodes advertising a Kad version below 0x09 are rejected because these versions do not support AICH keyword storage. Advertised versions are not proof that a publisher is trustworthy.\n"
 "\n"
-"WARNING: This may reject legitimate publishers whose routing-table version is stale, reducing AICH hash coverage. Nodes with unknown version are still accepted. The SelectTrusted() corroboration rule (>= 2 publishers) applies regardless of this setting."
+"WARNING: This may reject legitimate publishers whose routing-table version is stale, reducing AICH hash coverage. Nodes with unknown version are still accepted. The requirement for at least 2 reported publishers of the same AICH hash applies regardless of this setting."
 msgstr ""
 
 #: src/muuli_wdr.cpp

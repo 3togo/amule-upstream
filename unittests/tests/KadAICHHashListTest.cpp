@@ -394,3 +394,20 @@ TEST(KadAICHHashList, PopularitySaturatesInsteadOfWrapping)
 	ASSERT_EQUALS(255u, (unsigned)list.GetPopularityAt(0));
 	ASSERT_EQUALS(1u, (unsigned)list.GetSlotCount());
 }
+
+TEST(KadAICHHashList, RequiresTwoReportedPublishersOfTheHash)
+{
+	std::vector<CKadAICHHashList::SResultHash> hashes = { { 1, MakeHash(1) } };
+
+	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 1) == nullptr);
+	// A second or third publisher of the file may not have supplied any AICH hash.
+	// Their presence must not turn a single hash publisher into corroboration.
+	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 2) == nullptr);
+	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 3) == nullptr);
+
+	hashes[0].m_popularity = 2;
+	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 1) == nullptr);
+	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 2) != nullptr);
+	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 6) != nullptr);
+	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 8) == nullptr);
+}

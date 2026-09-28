@@ -42,6 +42,7 @@ there client on the eMule forum..
 #include <protocol/kad/Constants.h>
 #include "Indexed.h"
 #include "../../SafeFile.h"
+#include "../../Preferences.h"
 #include "../../GetTickCount.h"
 #include "../../Logger.h"
 #include "../../NetworkFunctions.h"
@@ -682,7 +683,7 @@ void CKeyEntry::SetPublishedAICHHash(const CKadAICHHash &hash)
 	m_aichHashes.AddReference(hash);
 }
 
-void CKeyEntry::WritePublishTrackingDataToFile(CFileDataIO *data)
+void CKeyEntry::WritePublishTrackingDataToFile(CFileDataIO *data, bool includesAICH)
 {
 	// format: <AICH_HashCount 2><{<AICH Hash 20>} AICH_HashCount>
 	//         <Names_Count 4><{<Name string><PopularityIndex 4>} Names_Count>
@@ -697,7 +698,7 @@ void CKeyEntry::WritePublishTrackingDataToFile(CFileDataIO *data)
 	// index, which is byte-for-byte what upstream writes and what an upstream binary
 	// can read back.
 	std::vector<uint16_t> newIndexes;
-	if (thePrefs::GetKadProtocol10()) {
+	if (includesAICH) {
 		newIndexes = m_aichHashes.BuildCompactionMap();
 		data->WriteUInt16(m_aichHashes.GetReferencedCount());
 		for (uint16_t i = 0; i < m_aichHashes.GetSlotCount(); i++) {
@@ -722,7 +723,7 @@ void CKeyEntry::WritePublishTrackingDataToFile(CFileDataIO *data)
 			wxASSERT(it->m_ip != 0);
 			data->WriteUInt32(it->m_ip);
 			data->WriteUInt32((uint32_t)it->m_lastPublish);
-			if (thePrefs::GetKadProtocol10()) {
+			if (includesAICH) {
 				uint16_t idx = CKadAICHHashList::INVALID_INDEX;
 				if (it->m_aichHashIdx != CKadAICHHashList::INVALID_INDEX) {
 					idx = newIndexes[it->m_aichHashIdx];

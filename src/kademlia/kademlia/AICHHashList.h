@@ -130,7 +130,9 @@ public:
 	// lying and AICH is ignored for the result, and a lone hash still has to come from at least
 	// a third of the publishers known for the file. @p publishersKnown is the middle byte of
 	// TAG_PUBLISHINFO. The destination is SetMasterHash(..., AICH_VERIFIED), which has no room
-	// for a hash that is merely ahead on a count the publisher itself supplies.
+	// for a hash that is merely ahead on a count the storage node itself supplies.
+	// At least two reported publishers must supply this hash.
+	// These counts are not authenticated and cannot protect against a lying storage node.
 	static const SResultHash *SelectTrusted(
 		const std::vector<SResultHash> &hashes, uint32_t publishersKnown);
 

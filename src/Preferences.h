@@ -760,8 +760,8 @@ public:
 
 	// When enabled, reject AICH publish tags from nodes advertising Kad version < 0x09.
 	// Default off: this can reject legitimate publishers whose routing-table version is
-	// stale. SelectTrusted() corroboration (>= 2 publishers when KadProtocol10 is on)
-	// applies regardless of this setting.
+	// stale. SelectTrusted() requires >= 2 reported publishers of the hash when KadProtocol10 is on;
+	// this applies regardless of this setting.
 	static bool GetKadStrictAichPublishers() { return s_KadStrictAichPublishers; }
 	static void SetKadStrictAichPublishers(bool val) { s_KadStrictAichPublishers = val; }
 
