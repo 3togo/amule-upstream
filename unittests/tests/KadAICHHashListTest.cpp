@@ -25,6 +25,7 @@
 #include <muleunit/test.h>
 #include <kademlia/kademlia/AICHHashList.h>
 #include <protocol/kad2/Constants.h>
+#include <SHAHashSet.h>
 
 using namespace muleunit;
 using Kademlia::CKadAICHHash;
@@ -311,14 +312,14 @@ TEST(KadAICHHashList, CompetingHashesAreAllRefused)
 
 	// 9 out of 10 publishers would pass the ratio comfortably if it were
 	// reached. It is not: more than one hash ends the question.
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(decoded, 10) == NULL);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(decoded, 10) == NULL);
 
 	// Two is already more than one.
 	decoded.pop_back();
 	decoded.pop_back();
 	CKadAICHHashList::SResultHash d = { 1, MakeHash(4) };
 	decoded.push_back(d);
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(decoded, 10) == NULL);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(decoded, 10) == NULL);
 }
 
 // A lone hash is necessary but not sufficient: it still has to come from at
@@ -330,25 +331,25 @@ TEST(KadAICHHashList, ALoneHashStillNeedsAThirdOfThePublishers)
 	decoded.push_back(only);
 
 	// 12 / 4 == 3: exactly at the boundary, and accepted.
-	const CKadAICHHashList::SResultHash *best = CKadAICHHashList::SelectTrusted(decoded, 12);
+	const CKadAICHHashList::SResultHash *best = CKadAICHHashList::SelectCandidate(decoded, 12);
 	ASSERT_TRUE(best != NULL);
 	ASSERT_TRUE(best->m_hash == MakeHash(1));
 
 	// 13 / 4 == 3 by integer division, so the boundary is where upstream's
 	// own arithmetic puts it rather than where exact division would.
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(decoded, 13) != NULL);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(decoded, 13) != NULL);
 
 	// 16 / 4 == 4: four publishers for every one that names this hash.
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(decoded, 16) == NULL);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(decoded, 16) == NULL);
 
 	// No publisher count is not a passing ratio. The ratio alone would let it through, 0
 	// divided by anything being 0, which is why upstream guards byPublishers > 0 separately and
 	// so do we: a missing TAG_PUBLISHINFO means there is no count to be a third of, and
 	// accepting it would make the least corroborated result the easiest to get accepted.
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(decoded, 0) == NULL);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(decoded, 0) == NULL);
 
 	decoded.clear();
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(decoded, 10) == NULL);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(decoded, 10) == NULL);
 }
 
 // Mixed-version publish and search. Both the publish gate (TAG_KADAICHHASHPUB) and the
@@ -399,15 +400,33 @@ TEST(KadAICHHashList, RequiresTwoReportedPublishersOfTheHash)
 {
 	std::vector<CKadAICHHashList::SResultHash> hashes = { { 1, MakeHash(1) } };
 
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 1) == nullptr);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(hashes, 1) == nullptr);
 	// A second or third publisher of the file may not have supplied any AICH hash.
 	// Their presence must not turn a single hash publisher into corroboration.
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 2) == nullptr);
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 3) == nullptr);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(hashes, 2) == nullptr);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(hashes, 3) == nullptr);
 
 	hashes[0].m_popularity = 2;
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 1) == nullptr);
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 2) != nullptr);
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 6) != nullptr);
-	ASSERT_TRUE(CKadAICHHashList::SelectTrusted(hashes, 8) == nullptr);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(hashes, 1) == nullptr);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(hashes, 2) != nullptr);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(hashes, 6) != nullptr);
+	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(hashes, 8) == nullptr);
+}
+
+TEST(KadAICHHashList, FabricatedCountsCannotAuthorizeKadRecovery)
+{
+	// A single storage responder can claim any publisher counts. Exercise its
+	// actual BSOB payload through decoding and candidate selection, then the
+	// policy CPartFile uses when inheriting that candidate into a download.
+	for (uint8_t claimed : { 2, 3, 255 }) {
+		std::vector<uint8_t> payload(1 + 1 + Kademlia::KAD_AICH_HASH_SIZE, 0xAB);
+		payload[0] = 1;
+		payload[1] = claimed;
+		std::vector<CKadAICHHashList::SResultHash> decoded;
+		ASSERT_TRUE(CKadAICHHashList::DecodeResultTag(payload.data(), payload.size(), decoded));
+		ASSERT_TRUE(CKadAICHHashList::SelectCandidate(decoded, claimed) != nullptr);
+		ASSERT_EQUALS(AICH_UNTRUSTED, SearchResultAICHStatus(true));
+	}
+	// This Kad change does not silently alter server-search policy or verify either source.
+	ASSERT_EQUALS(AICH_TRUSTED, SearchResultAICHStatus(false));
 }

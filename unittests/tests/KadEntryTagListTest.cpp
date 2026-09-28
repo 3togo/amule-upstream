@@ -23,6 +23,7 @@
 //
 
 #include <muleunit/test.h>
+#include <algorithm>
 #include <kademlia/kademlia/Entry.h>
 #include <kademlia/kademlia/AICHHashList.h>
 #include <MemFile.h>
@@ -266,4 +267,37 @@ TEST(KadEntryTagList, RuntimeToggleControlsResultTagsAndIndexFormat)
 		ASSERT_EQUALS(index.GetLength(), index.GetPosition());
 		ASSERT_EQUALS(enabled ? 1u : 0u, (unsigned)loaded.GetAICHHashCount());
 	}
+}
+
+TEST(KadEntryTagList, DisabledProtocolPreservesLegacyPublishTags)
+{
+	struct RestorePreference
+	{
+		bool previous = thePrefs::GetKadProtocol10();
+		~RestorePreference() { thePrefs::SetKadProtocol10(previous); }
+	} restore;
+	thePrefs::SetKadProtocol10(false);
+	CTestKeyEntry entry;
+	entry.AddTestPublisher(0x0A000001);
+	Kademlia::CKadAICHHash hash = {};
+	hash[0] = 0xAB;
+	// The disabled UDP handler leaves this tag on the ordinary AddTag path.
+	entry.AddTag(new CTagBsob(TAG_KADAICHHASHPUB, hash.data(), hash.size()), 0);
+	CMemFile answer;
+	WriteAnswerWithSentinel(entry, answer);
+	TagPtrList tags;
+	ReadBackAndCheckAlignment(answer, &tags);
+	unsigned publishTags = 0;
+	for (const CTag *tag : tags) {
+		ASSERT_FALSE(tag->GetName() == TAG_KADAICHHASHRESULT);
+		if (tag->GetName() == TAG_KADAICHHASHPUB) {
+			++publishTags;
+			ASSERT_TRUE(tag->IsBsob());
+			ASSERT_EQUALS((unsigned)hash.size(), (unsigned)tag->GetBsobSize());
+			ASSERT_TRUE(std::equal(hash.begin(), hash.end(), tag->GetBsob()));
+		}
+	}
+	deleteTagPtrListEntries(&tags);
+	ASSERT_EQUALS(1u, publishTags);
+	ASSERT_EQUALS(0u, (unsigned)entry.GetAICHHashCount());
 }
