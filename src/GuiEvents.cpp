@@ -970,7 +970,7 @@ void CompletedFiles_DeleteFromDisk(const std::vector<CKnownFile *> &files, wxWin
 	// Resolve after each modal dialog. Never retain the resolved pointer across one.
 	auto resolve = [](const Selection &selection) -> CKnownFile * {
 		CKnownFile *file = theApp->sharedfiles->GetFileByID(selection.hash);
-		if (!file) {
+		if (!file || file->ECID() != selection.ecid) {
 			file = theApp->downloadqueue->GetFileByID(selection.hash);
 		}
 		if (!file || file->IsPartFile() || file->ECID() != selection.ecid ||
@@ -996,9 +996,9 @@ void CompletedFiles_DeleteFromDisk(const std::vector<CKnownFile *> &files, wxWin
 		}
 		// Try unlink before changing lists or uploads so a failure can leave them
 		// untouched. Clean up each success before opening the failure dialog.
-		if (CPath::RemoveFile(selection.fullpath)) {
+		if (CPath::RemoveFile(selection.fullpath) || !selection.fullpath.FileExists()) {
 			removeEntries(file, selection);
-			AddLogLineC(
+			AddLogLineN(
 				CFormat(_("Deleted '%s' from disk.")) % selection.fullpath.GetPrintable());
 		} else {
 			failed.push_back(selection);

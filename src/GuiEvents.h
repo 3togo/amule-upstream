@@ -206,10 +206,8 @@ void PartFile_PrioSet(CPartFile *file, uint8 newDownPriority, bool bSave);
 void PartFile_Delete(CPartFile *file);
 void PartFile_SetCat(CPartFile *file, uint32 val);
 
-// Delete completed/shared files from local disk. Monolithic GUI only: the transfer list and
-// the shared files list share one CPartFile/CKnownFile, so a single action drops the completed
-// row, unshares the bytes, and removes the file. See issue #1520. Guarded out of amulegui (which
-// talks EC and has no such opcode yet) and of amuled (wxBase has no wxMessageBox).
+// Monolithic GUI only: EC has no delete-from-disk opcode yet.
+// Keeps values rather than file pointers across confirmation dialogs.
 #if !defined(CLIENT_GUI) && !defined(AMULE_DAEMON)
 void CompletedFiles_DeleteFromDisk(const std::vector<CKnownFile *> &files, wxWindow *parent);
 #endif

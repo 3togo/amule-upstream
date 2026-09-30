@@ -465,10 +465,7 @@ void CDownloadListCtrl::OnItemRightClicked(wxDataViewEvent &event)
 	m_menu->Append(MP_RESUME, _("&Resume"));
 	m_menu->Append(MP_CLEARCOMPLETED, _("C&lear completed"));
 #ifndef CLIENT_GUI
-	// Completed rows only (enabled below): Cancel is gone once a download finishes because
-	// there is nothing left to abort, which left finished files with no way to remove them
-	// from the queue short of the file manager (issue #1520). amulegui has no EC opcode that
-	// deletes bytes on the daemon yet, so the entry is monolithic-only for now.
+	// Monolithic only: EC has no delete-from-disk opcode yet.
 	m_menu->Append(MP_DELETEFROMDISK, _("Delete file from &disk"));
 #endif
 	m_menu->AppendSeparator();
