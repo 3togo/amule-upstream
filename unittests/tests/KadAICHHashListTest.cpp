@@ -25,7 +25,6 @@
 #include <muleunit/test.h>
 #include <kademlia/kademlia/AICHHashList.h>
 #include <protocol/kad2/Constants.h>
-#include <SHAHashSet.h>
 
 using namespace muleunit;
 using Kademlia::CKadAICHHash;
@@ -411,22 +410,4 @@ TEST(KadAICHHashList, RequiresTwoReportedPublishersOfTheHash)
 	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(hashes, 2) != nullptr);
 	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(hashes, 6) != nullptr);
 	ASSERT_TRUE(CKadAICHHashList::SelectCandidate(hashes, 8) == nullptr);
-}
-
-TEST(KadAICHHashList, FabricatedCountsCannotAuthorizeKadRecovery)
-{
-	// A single storage responder can claim any publisher counts. Exercise its
-	// actual BSOB payload through decoding and candidate selection, then the
-	// policy CPartFile uses when inheriting that candidate into a download.
-	for (uint8_t claimed : { 2, 3, 255 }) {
-		std::vector<uint8_t> payload(1 + 1 + Kademlia::KAD_AICH_HASH_SIZE, 0xAB);
-		payload[0] = 1;
-		payload[1] = claimed;
-		std::vector<CKadAICHHashList::SResultHash> decoded;
-		ASSERT_TRUE(CKadAICHHashList::DecodeResultTag(payload.data(), payload.size(), decoded));
-		ASSERT_TRUE(CKadAICHHashList::SelectCandidate(decoded, claimed) != nullptr);
-		ASSERT_EQUALS(AICH_UNTRUSTED, SearchResultAICHStatus(true));
-	}
-	// This Kad change does not silently alter server-search policy or verify either source.
-	ASSERT_EQUALS(AICH_TRUSTED, SearchResultAICHStatus(false));
 }

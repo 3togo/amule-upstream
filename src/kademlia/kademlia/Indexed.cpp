@@ -381,6 +381,8 @@ CIndexed::~CIndexed()
 			// KadProtocol10 off we write the version-3 file upstream writes. Reading
 			// both is unconditional, so toggling the preference never invalidates an
 			// existing keyword index.
+			// Saving with the preference off discards accumulated AICH data;
+			// re-enabling it starts collecting that data again from empty.
 			const bool includesAICH = thePrefs::GetKadProtocol10();
 			k_file.WriteUInt32(includesAICH ? 4 : 3);
 			k_file.WriteUInt32(now + KADEMLIAREPUBLISHTIMEK);

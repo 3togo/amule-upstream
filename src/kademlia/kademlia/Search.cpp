@@ -1384,8 +1384,7 @@ void CSearch::ProcessResultKeyword(
 	}
 	if (thePrefs::GetKadProtocol10()) {
 		// Carry only a candidate root. The responder controls both reported counts;
-		// CPartFile keeps Kad candidates AICH_UNTRUSTED until download sources
-		// corroborate a root, regardless of how popular the responder claims it is.
+		// CPartFile registers one consensus vote attributed to this responder.
 		const uint32_t publishersKnown = (publishInfo & 0x00FF0000) >> 16;
 		const CKadAICHHashList::SResultHash *candidateAICHHash =
 			CKadAICHHashList::SelectCandidate(aichHashes, publishersKnown);
@@ -1397,8 +1396,9 @@ void CSearch::ProcessResultKeyword(
 	}
 
 	m_answers++;
+	// Kad IPs use the opposite byte order to peer IPs used by AICH consensus.
 	theApp->searchlist->KademliaSearchKeyword(
-		m_searchID, &answer, name, size, type, publishInfo, taglist);
+		m_searchID, &answer, name, size, type, publishInfo, taglist, wxUINT32_SWAP_ALWAYS(fromIP));
 
 	deleteTagPtrListEntries(&taglist);
 }

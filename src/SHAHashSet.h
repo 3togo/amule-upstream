@@ -96,14 +96,6 @@ enum EAICHStatus
 	AICH_HASHSETCOMPLETE
 };
 
-// Kad storage nodes supply both the hash and its claimed publisher counts. Neither
-// establishes trust: download-source corroboration must precede AICH recovery.
-// Preserve the existing server-search policy independently of this Kad feature.
-constexpr EAICHStatus SearchResultAICHStatus(bool fromKad)
-{
-	return fromKad ? AICH_UNTRUSTED : AICH_TRUSTED;
-}
-
 class CFileDataIO;
 class CKnownFile;
 class CMemFile;
@@ -278,6 +270,18 @@ public:
 	bool ReCalculateHash(bool bDontReplace = false);
 	bool VerifyHashTree(bool bDeleteBadTrees);
 	void UntrustedHashReceived(const CAICHHash &Hash, uint32 dwFromIP);
+	// A Kad result is one report from its actual responder, never its claimed
+	// publisher count. Zero means provenance is unavailable (e.g. a saved search).
+	void SearchResultHashReceived(const CAICHHash &hash, bool fromKad, uint32 responderIP)
+	{
+		if (fromKad) {
+			if (responderIP != 0) {
+				UntrustedHashReceived(hash, responderIP);
+			}
+		} else {
+			SetMasterHash(hash, AICH_TRUSTED);
+		}
+	}
 	bool IsPartDataAvailable(uint64 nPartStartPos);
 	void SetStatus(EAICHStatus bNewValue) { m_eStatus = bNewValue; }
 	EAICHStatus GetStatus() const { return m_eStatus; }

@@ -9,8 +9,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-29 02:27+0800\n"
-"PO-Revision-Date: 2026-09-28 17:21+0000\n"
+"POT-Creation-Date: 2026-09-30 12:46+0800\n"
+"PO-Revision-Date: 2026-09-29 09:58+0000\n"
 "Last-Translator: Alex Thomsen Leth <alexl@stofanet.dk>\n"
 "Language-Team: aMule Team <https://github.com/amule-org/amule>\n"
 "Language: da\n"
@@ -279,6 +279,7 @@ msgid "Killing amuleweb instance with pid '%d' ... "
 msgstr "Dræber amuleweb-instans med pid '%d' ... "
 
 #: src/amule.cpp src/ClientRef.cpp src/SearchDlg.cpp src/ServerListCtrl.cpp
+#: src/SharedFilesCtrl.cpp
 msgid "Failed"
 msgstr "Fejlede"
 
@@ -537,6 +538,11 @@ msgstr "Servernavn :"
 #: src/amule.cpp
 #, c-format
 msgid "Media metadata: probed file is no longer known, result discarded (%s)"
+msgstr ""
+
+#: src/amule.cpp
+#, c-format
+msgid "Verify Local Data: another file named '%s' in your shared folders has the same content as '%s' and may be an intact copy of it."
 msgstr ""
 
 #: src/amule.cpp
@@ -3217,6 +3223,11 @@ msgstr "Kad-bruger"
 
 #: src/KnownFile.cpp
 #, c-format
+msgid "Verify Local Data: %s is still downloading, so it was not checked."
+msgstr ""
+
+#: src/KnownFile.cpp
+#, c-format
 msgid "Kad note search for '%s' not started: Kad is not connected"
 msgstr "Kad-notesøgning for '%s' ikke startet: Kad er ikke forbundet"
 
@@ -4635,6 +4646,8 @@ msgid ""
 "\n"
 "WARNING: Enabling this may cause search results to be dropped by older Kad clients (pre-0.49b) that cannot parse the AICH result tags. Most current clients support it, but if you experience missing search results, try disabling this option.\n"
 "\n"
+"Disabling this option discards stored AICH keyword-index data on the next save; re-enabling it requires collecting that data again.\n"
+"\n"
 "Hashes learned from Kad search results remain untrusted until download sources corroborate them. Reported publisher counts alone never authorize AICH recovery."
 msgstr ""
 
@@ -5214,7 +5227,7 @@ msgstr "Nulstil side til standardværdier"
 msgid "Reset the settings on the current page to their default values."
 msgstr "Nulstil indstillingerne på den aktuelle side til deres standardværdier."
 
-#: src/muuli_wdr.cpp src/ServerWnd.cpp
+#: src/muuli_wdr.cpp src/ServerWnd.cpp src/SharedFilesCtrl.cpp
 msgid "OK"
 msgstr "OK"
 
@@ -7566,6 +7579,10 @@ msgstr ""
 msgid "Directory Path"
 msgstr "Mappe sti"
 
+#: src/SharedFilesCtrl.cpp
+msgid "Verify Local Data"
+msgstr "Verificer lokale data"
+
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Delte Filer"
@@ -7581,10 +7598,6 @@ msgstr "Rediger Kommentar/Bedømmelse"
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
 msgstr "Omdøb"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Verify Local Data"
-msgstr "Verificer lokale data"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Re-extract &media metadata"
@@ -8624,11 +8637,6 @@ msgstr "Verificer lokale data (%s): FEJL FUNDET! %s Fejlede blokke: MD4: %s. %s 
 #: src/ThreadTasks.cpp
 #, c-format
 msgid "Verify Local Data: file %s was removed before it could be checked."
-msgstr ""
-
-#: src/ThreadTasks.cpp
-#, c-format
-msgid "Verify Local Data: %s is still downloading, so it was not checked."
 msgstr ""
 
 #: src/ThreadTasks.cpp

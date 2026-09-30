@@ -300,18 +300,16 @@ CPartFile::CPartFile(CSearchFile *searchresult)
 		}
 
 		if (pTag.GetNameID() == FT_AICH_HASH && pTag.IsStr()) {
-			// Search results are claims, never locally verified roots. In particular,
-			// Kad publisher counts come from the same responder as the hash, so even
-			// a plausible count cannot authorize recovery. Keep a Kad root untrusted
-			// until UntrustedHashReceived() obtains download-source corroboration.
-			// Untrusted roots are neither persisted as verified nor exported in links.
+			// Kad roots participate in peer consensus as one report from the responder.
+			// The responder's claimed publisher counts do not confer trust.
 			CAICHHash hash;
 			if (hash.DecodeBase32(pTag.GetStr()) == CAICHHash::GetHashSize()) {
-				m_pAICHHashSet->SetMasterHash(
-					hash, SearchResultAICHStatus(searchresult->IsKademlia()));
+				m_pAICHHashSet->SearchResultHashReceived(hash,
+					searchresult->IsKademlia(),
+					searchresult->GetKadAICHResponderIP());
 				MarkECChanged();
 				AddDebugLogLineN(logPartFile,
-					"CPartFile::CPartFile(CSearchFile*): took master AICH hash "
+					"CPartFile::CPartFile(CSearchFile*): processed AICH candidate "
 					"from the search result");
 				bTagAdded = true;
 			} else {

@@ -66,6 +66,7 @@ public:
 	 * @param serverPort The port of the server that sent this result.
 	 * @param directory If from a client's shared files, the directory this file is in.
 	 * @param kademlia Whether this came from a kad search.
+	 * @param kadAICHResponderIP Actual responder in peer IP byte order; zero if unknown.
 	 */
 	CSearchFile(const CMemFile &data,
 		bool optUTF8,
@@ -73,7 +74,8 @@ public:
 		uint32_t serverIP = 0,
 		uint16_t serverPort = 0,
 		const wxString &directory = "",
-		bool kademlia = false);
+		bool kademlia = false,
+		uint32_t kadAICHResponderIP = 0);
 
 	/** Frees all children owned by this file. */
 	virtual ~CSearchFile();
@@ -197,6 +199,7 @@ public:
 
 	void SetKadPublishInfo(uint32_t val) noexcept { m_kadPublishInfo = val; }
 	uint32_t GetKadPublishInfo() const noexcept { return m_kadPublishInfo; }
+	uint32_t GetKadAICHResponderIP() const noexcept { return m_kadAICHResponderIP; }
 
 	const wxString &GetDirectory() const noexcept { return m_directory; }
 
@@ -248,6 +251,10 @@ private:
 
 	//! Kademlia publish information.
 	uint32_t m_kadPublishInfo;
+
+	// Provenance for this result's AICH tag, copied with the result. Not persisted:
+	// restored searches have no live responder and must not contribute a vote.
+	uint32_t m_kadAICHResponderIP = 0;
 
 	friend class CPartFile;
 	friend class CSearchListRem;

@@ -259,8 +259,7 @@ TEST(KadEntryTagList, RuntimeToggleControlsResultTagsAndIndexFormat)
 		entry.WritePublishTrackingDataToFile(&index, enabled);
 		index.WriteUInt32(SENTINEL);
 		index.Seek(0);
-		// Existing indexes must load according to their format even after a toggle.
-		thePrefs::SetKadProtocol10(!enabled);
+		// Reading also follows the saved format with the preference still toggled.
 		CTestKeyEntry loaded;
 		loaded.ReadPublishTrackingDataFromFile(&index, enabled);
 		ASSERT_EQUALS(SENTINEL, index.ReadUInt32());

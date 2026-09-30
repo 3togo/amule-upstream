@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule GIT\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-29 02:27+0800\n"
-"PO-Revision-Date: 2026-09-28 17:32+0000\n"
+"POT-Creation-Date: 2026-09-30 12:46+0800\n"
+"PO-Revision-Date: 2026-09-29 10:14+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: none\n"
 "Language: bn\n"
@@ -275,6 +275,7 @@ msgid "Killing amuleweb instance with pid '%d' ... "
 msgstr "pid '%d' সহ amuleweb ইনস্ট্যান্স কিল করা হচ্ছে ... "
 
 #: src/amule.cpp src/ClientRef.cpp src/SearchDlg.cpp src/ServerListCtrl.cpp
+#: src/SharedFilesCtrl.cpp
 msgid "Failed"
 msgstr "ব্যর্থ"
 
@@ -526,6 +527,11 @@ msgstr "সার্ভার হোস্টনেম জানানো হয
 #: src/amule.cpp
 #, c-format
 msgid "Media metadata: probed file is no longer known, result discarded (%s)"
+msgstr ""
+
+#: src/amule.cpp
+#, c-format
+msgid "Verify Local Data: another file named '%s' in your shared folders has the same content as '%s' and may be an intact copy of it."
 msgstr ""
 
 #: src/amule.cpp
@@ -3193,6 +3199,11 @@ msgstr "Kad ব্যবহারকারী"
 
 #: src/KnownFile.cpp
 #, c-format
+msgid "Verify Local Data: %s is still downloading, so it was not checked."
+msgstr ""
+
+#: src/KnownFile.cpp
+#, c-format
 msgid "Kad note search for '%s' not started: Kad is not connected"
 msgstr "'%s' এর জন্য Kad নোট অনুসন্ধান শুরু হয়নি: Kad সংযুক্ত নেই"
 
@@ -4589,6 +4600,8 @@ msgid ""
 "\n"
 "WARNING: Enabling this may cause search results to be dropped by older Kad clients (pre-0.49b) that cannot parse the AICH result tags. Most current clients support it, but if you experience missing search results, try disabling this option.\n"
 "\n"
+"Disabling this option discards stored AICH keyword-index data on the next save; re-enabling it requires collecting that data again.\n"
+"\n"
 "Hashes learned from Kad search results remain untrusted until download sources corroborate them. Reported publisher counts alone never authorize AICH recovery."
 msgstr ""
 
@@ -5167,7 +5180,7 @@ msgstr "পেজ ডিফল্টে রিসেট করুন"
 msgid "Reset the settings on the current page to their default values."
 msgstr "বর্তমান পেজের সেটিংস তাদের ডিফল্ট মানে রিসেট করুন।"
 
-#: src/muuli_wdr.cpp src/ServerWnd.cpp
+#: src/muuli_wdr.cpp src/ServerWnd.cpp src/SharedFilesCtrl.cpp
 msgid "OK"
 msgstr "ঠিক আছে"
 
@@ -7508,6 +7521,10 @@ msgstr ""
 msgid "Directory Path"
 msgstr "ডিরেক্টরি পথ"
 
+#: src/SharedFilesCtrl.cpp
+msgid "Verify Local Data"
+msgstr "স্থানীয় ডেটা যাচাই করুন"
+
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "শেয়ার করা ফাইল"
@@ -7523,10 +7540,6 @@ msgstr "মন্তব্য/রেটিং সম্পাদনা করু
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
 msgstr "নাম পরিবর্তন করুন"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Verify Local Data"
-msgstr "স্থানীয় ডেটা যাচাই করুন"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Re-extract &media metadata"
@@ -8565,11 +8578,6 @@ msgstr "স্থানীয় ডেটা যাচাইকরণ (%s): ত
 #: src/ThreadTasks.cpp
 #, c-format
 msgid "Verify Local Data: file %s was removed before it could be checked."
-msgstr ""
-
-#: src/ThreadTasks.cpp
-#, c-format
-msgid "Verify Local Data: %s is still downloading, so it was not checked."
 msgstr ""
 
 #: src/ThreadTasks.cpp

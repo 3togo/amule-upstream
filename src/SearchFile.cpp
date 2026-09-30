@@ -43,7 +43,8 @@ CSearchFile::CSearchFile(const CMemFile &data,
 	uint32_t serverIP,
 	uint16_t serverPort,
 	const wxString &directory,
-	bool kademlia)
+	bool kademlia,
+	uint32_t kadAICHResponderIP)
 : m_parent(NULL)
 , m_showChildren(false)
 , m_searchID(searchID)
@@ -55,6 +56,7 @@ CSearchFile::CSearchFile(const CMemFile &data,
 , m_clientServerIP(serverIP)
 , m_clientServerPort(serverPort)
 , m_kadPublishInfo(0)
+, m_kadAICHResponderIP(kadAICHResponderIP)
 {
 	m_abyFileHash = data.ReadHash();
 	SetDownloadStatus();
@@ -129,6 +131,7 @@ CSearchFile::CSearchFile(const CSearchFile &other) // NOLINT(bugprone-copy-const
 , m_clientServerIP(other.m_clientServerIP)
 , m_clientServerPort(other.m_clientServerPort)
 , m_kadPublishInfo(other.m_kadPublishInfo)
+, m_kadAICHResponderIP(other.m_kadAICHResponderIP)
 {
 	for (size_t i = 0; i < other.m_children.size(); ++i) {
 		m_children.push_back(new CSearchFile(*other.m_children.at(i)));

@@ -1619,6 +1619,8 @@ wxSizer *PreferencesConnectionTab( wxWindow *parent, bool call_fit, bool set_siz
           "WARNING: Enabling this may cause search results to be dropped by older Kad clients "
           "(pre-0.49b) that cannot parse the AICH result tags. Most current clients support it, "
           "but if you experience missing search results, try disabling this option.\n\n"
+          "Disabling this option discards stored AICH keyword-index data on the next save; "
+          "re-enabling it requires collecting that data again.\n\n"
           "Hashes learned from Kad search results remain untrusted until download sources "
           "corroborate them. Reported publisher counts alone never authorize AICH recovery.") );
     kadProtoSizer->Add( kadProtoChk, wxSizerFlags().CenterVertical().Border(wxLEFT|wxRIGHT|wxBOTTOM, 5) );

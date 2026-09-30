@@ -9,8 +9,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-29 02:27+0800\n"
-"PO-Revision-Date: 2026-09-28 17:19+0000\n"
+"POT-Creation-Date: 2026-09-30 12:46+0800\n"
+"PO-Revision-Date: 2026-09-29 09:55+0000\n"
 "Last-Translator: saleh alhathal <hathalsal@hotmail.com>\n"
 "Language-Team: \n"
 "Language: ar\n"
@@ -287,6 +287,7 @@ msgid "Killing amuleweb instance with pid '%d' ... "
 msgstr "جارٍ إيقاف نسخة amuleweb ذات المعرّف '%d' قسرًا ... "
 
 #: src/amule.cpp src/ClientRef.cpp src/SearchDlg.cpp src/ServerListCtrl.cpp
+#: src/SharedFilesCtrl.cpp
 msgid "Failed"
 msgstr "فشل"
 
@@ -539,6 +540,11 @@ msgstr "تم إشعار اسم مضيف الخادم"
 #, c-format
 msgid "Media metadata: probed file is no longer known, result discarded (%s)"
 msgstr "معلومات الوسائط: الملف المفحوص لم يعد معروفًا، تم تجاهل النتيجة (%s)"
+
+#: src/amule.cpp
+#, c-format
+msgid "Verify Local Data: another file named '%s' in your shared folders has the same content as '%s' and may be an intact copy of it."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -3216,6 +3222,11 @@ msgstr "مستخدم Kad"
 
 #: src/KnownFile.cpp
 #, c-format
+msgid "Verify Local Data: %s is still downloading, so it was not checked."
+msgstr ""
+
+#: src/KnownFile.cpp
+#, c-format
 msgid "Kad note search for '%s' not started: Kad is not connected"
 msgstr "لم يبدأ بحث ملاحظات Kad عن '%s': Kad غير متصل"
 
@@ -4631,6 +4642,8 @@ msgid ""
 "\n"
 "WARNING: Enabling this may cause search results to be dropped by older Kad clients (pre-0.49b) that cannot parse the AICH result tags. Most current clients support it, but if you experience missing search results, try disabling this option.\n"
 "\n"
+"Disabling this option discards stored AICH keyword-index data on the next save; re-enabling it requires collecting that data again.\n"
+"\n"
 "Hashes learned from Kad search results remain untrusted until download sources corroborate them. Reported publisher counts alone never authorize AICH recovery."
 msgstr ""
 
@@ -5210,7 +5223,7 @@ msgstr "إعادة تعيين الصفحة إلى الإعدادات الافت�
 msgid "Reset the settings on the current page to their default values."
 msgstr "إعادة تعيين إعدادات الصفحة الحالية إلى قيمها الافتراضية."
 
-#: src/muuli_wdr.cpp src/ServerWnd.cpp
+#: src/muuli_wdr.cpp src/ServerWnd.cpp src/SharedFilesCtrl.cpp
 msgid "OK"
 msgstr "موافق"
 
@@ -7560,6 +7573,10 @@ msgstr "غير متوفر"
 msgid "Directory Path"
 msgstr "مسار المجلد"
 
+#: src/SharedFilesCtrl.cpp
+msgid "Verify Local Data"
+msgstr "التحقق من البيانات المحلية"
+
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "ملفات مشاركة"
@@ -7575,10 +7592,6 @@ msgstr "تعديل التعليق/التقييم"
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
 msgstr "اعد تسمية"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Verify Local Data"
-msgstr "التحقق من البيانات المحلية"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Re-extract &media metadata"
@@ -8618,11 +8631,6 @@ msgstr "التحقق من البيانات المحلية (%s): تم العثو�
 #: src/ThreadTasks.cpp
 #, c-format
 msgid "Verify Local Data: file %s was removed before it could be checked."
-msgstr ""
-
-#: src/ThreadTasks.cpp
-#, c-format
-msgid "Verify Local Data: %s is still downloading, so it was not checked."
 msgstr ""
 
 #: src/ThreadTasks.cpp
