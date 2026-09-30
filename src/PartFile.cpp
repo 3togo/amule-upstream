@@ -222,6 +222,15 @@ CPartFile::CPartFile(CSearchFile *searchresult)
 	SetFileName(searchresult->GetFileName());
 	SetFileSize(searchresult->GetFileSize());
 
+	if (searchresult->IsKademlia()) {
+		for (const auto &vote : searchresult->GetKadAICHVotes()) {
+			m_pAICHHashSet->UntrustedHashReceived(vote.second, vote.first);
+		}
+		if (!searchresult->GetKadAICHVotes().empty()) {
+			MarkECChanged();
+		}
+	}
+
 	for (unsigned int i = 0; i < searchresult->m_taglist.size(); ++i) {
 		const CTag &pTag = searchresult->m_taglist[i];
 
@@ -299,14 +308,11 @@ CPartFile::CPartFile(CSearchFile *searchresult)
 			}
 		}
 
-		if (pTag.GetNameID() == FT_AICH_HASH && pTag.IsStr()) {
-			// Kad roots participate in peer consensus as one report from the responder.
-			// The responder's claimed publisher counts do not confer trust.
+		if (!searchresult->IsKademlia() && pTag.GetNameID() == FT_AICH_HASH && pTag.IsStr()) {
+			// Preserve the existing server-result trust policy.
 			CAICHHash hash;
 			if (hash.DecodeBase32(pTag.GetStr()) == CAICHHash::GetHashSize()) {
-				m_pAICHHashSet->SearchResultHashReceived(hash,
-					searchresult->IsKademlia(),
-					searchresult->GetKadAICHResponderIP());
+				m_pAICHHashSet->SearchResultHashReceived(hash, false, 0);
 				MarkECChanged();
 				AddDebugLogLineN(logPartFile,
 					"CPartFile::CPartFile(CSearchFile*): processed AICH candidate "

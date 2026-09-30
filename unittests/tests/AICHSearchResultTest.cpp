@@ -4,7 +4,9 @@
 
 #include <muleunit/test.h>
 #include <SHAHashSet.h>
+#include <KadAICHVotes.h>
 #include <Preferences.h>
+#include <Logger.h>
 #include <kademlia/kademlia/AICHHashList.h>
 
 using namespace muleunit;
@@ -12,14 +14,8 @@ using Kademlia::CKadAICHHashList;
 
 DECLARE_SIMPLE(AICHSearchResult)
 
-// The test uses the real hashset and consensus. It never creates a client or
-// recovery request; the empty global request list still needs this destructor hook.
-void CClientRef::Unlink()
-{
-	ASSERT_TRUE(m_client == nullptr);
-}
-
-bool CPreferences::s_AICHTrustEveryHash = false;
+// Ownerless consensus is supported; enable real logging so these tests do not
+// rely on MULEUNIT discarding expressions that access the owner.
 
 static CAICHHash MakeRoot(uint8_t seed)
 {
@@ -30,6 +26,7 @@ static CAICHHash MakeRoot(uint8_t seed)
 
 TEST(AICHSearchResult, FabricatedCountsContributeOnlyOneVote)
 {
+	theLogger.SetVerbose(true);
 	for (uint8_t claimed : { 2, 3, 255 }) {
 		std::vector<uint8_t> payload(2 + CAICHHash::GetHashSize(), 0xAB);
 		payload[0] = 1;
@@ -101,4 +98,59 @@ TEST(AICHSearchResult, VerifiedRootCannotBeReplacedByKad)
 	hashes.SearchResultHashReceived(MakeRoot(0xCD), true, 0x04030201);
 	ASSERT_EQUALS(AICH_VERIFIED, hashes.GetStatus());
 	ASSERT_TRUE(hashes.GetMasterHash() == verified);
+}
+
+TEST(AICHSearchResult, MergedRespondersReachConsensus)
+{
+	CKadAICHVotes merged;
+	const CAICHHash root = MakeRoot(0xAB);
+	for (uint32_t i = 1; i <= 10; ++i) {
+		CKadAICHVotes incoming;
+		incoming.Add(0x04030200 | i, root);
+		merged.Merge(incoming);
+	}
+	ASSERT_EQUALS(size_t(10), merged.Get().size());
+	CAICHHashSet hashes(nullptr);
+	for (const auto &vote : merged.Get()) {
+		hashes.UntrustedHashReceived(vote.second, vote.first);
+	}
+	ASSERT_EQUALS(AICH_TRUSTED, hashes.GetStatus());
+	ASSERT_TRUE(hashes.GetMasterHash() == root);
+}
+
+TEST(AICHSearchResult, MergePreservesDisagreementAndDeduplicatesResponders)
+{
+	CKadAICHVotes merged;
+	const CAICHHash root = MakeRoot(0xAB);
+	const CAICHHash other = MakeRoot(0xCD);
+	merged.Add(0x04030201, other);
+	for (uint32_t i = 1; i <= 11; ++i) {
+		CKadAICHVotes incoming;
+		incoming.Add(0x04030200 | i, root);
+		merged.Merge(incoming);
+	}
+	ASSERT_EQUALS(size_t(11), merged.Get().size());
+	ASSERT_TRUE(merged.Get().at(0x04030201) == other);
+	CAICHHashSet hashes(nullptr);
+	for (const auto &vote : merged.Get()) {
+		hashes.UntrustedHashReceived(vote.second, vote.first);
+	}
+	ASSERT_EQUALS(AICH_UNTRUSTED, hashes.GetStatus());
+}
+
+TEST(AICHSearchResult, VotesAreBoundedAndUnknownRespondersExcluded)
+{
+	CKadAICHVotes merged;
+	const CAICHHash root = MakeRoot(0xAB);
+	merged.Add(0, root);
+	ASSERT_TRUE(merged.Get().empty());
+	for (uint32_t i = 1; i <= 1000; ++i) {
+		CKadAICHVotes incoming;
+		incoming.Add(i, root);
+		merged.Merge(incoming);
+	}
+	ASSERT_EQUALS(size_t(64), merged.Get().size());
+	CKadAICHVotes copy(merged);
+	ASSERT_EQUALS(size_t(64), copy.Get().size());
+	ASSERT_TRUE(copy.Get().at(1) == root);
 }

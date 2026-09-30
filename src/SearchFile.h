@@ -26,6 +26,8 @@
 #ifndef SEARCHFILE_H
 #define SEARCHFILE_H
 
+#include "KadAICHVotes.h"
+
 #include "KnownFile.h" // Needed for CAbstractFile
 
 class CMemFile;
@@ -199,7 +201,7 @@ public:
 
 	void SetKadPublishInfo(uint32_t val) noexcept { m_kadPublishInfo = val; }
 	uint32_t GetKadPublishInfo() const noexcept { return m_kadPublishInfo; }
-	uint32_t GetKadAICHResponderIP() const noexcept { return m_kadAICHResponderIP; }
+	const std::map<uint32_t, CAICHHash> &GetKadAICHVotes() const noexcept { return m_kadAICHVotes.Get(); }
 
 	const wxString &GetDirectory() const noexcept { return m_directory; }
 
@@ -252,9 +254,9 @@ private:
 	//! Kademlia publish information.
 	uint32_t m_kadPublishInfo;
 
-	// Provenance for this result's AICH tag, copied with the result. Not persisted:
+	// Per-responder AICH evidence, copied and merged with the result. Not persisted:
 	// restored searches have no live responder and must not contribute a vote.
-	uint32_t m_kadAICHResponderIP = 0;
+	CKadAICHVotes m_kadAICHVotes;
 
 	friend class CPartFile;
 	friend class CSearchListRem;

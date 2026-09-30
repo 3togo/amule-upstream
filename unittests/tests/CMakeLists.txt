@@ -1888,23 +1888,32 @@ if (UNIX AND NOT APPLE)
 	target_link_libraries (AutostartManagerTest muleunit mulecommon)
 endif()
 
-# Exercise the real AICH consensus without the daemon. ELF section collection
-# drops unrelated disk/recovery functions in SHAHashSet.cpp and their app dependencies.
-if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	add_executable (AICHSearchResultTest
-		AICHSearchResultTest.cpp
-		${CMAKE_SOURCE_DIR}/src/SHAHashSet.cpp
-		${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/AICHHashList.cpp
-	)
-	target_compile_definitions (AICHSearchResultTest PRIVATE MULEUNIT AMULE_DAEMON)
-	target_compile_options (AICHSearchResultTest PRIVATE -ffunction-sections -fdata-sections)
-	# LINK_FLAGS keeps this target compatible with the CMake 3.12 minimum.
-	set_property (TARGET AICHSearchResultTest APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--gc-sections")
-	target_include_directories (AICHSearchResultTest PRIVATE
-		${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
-		${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs
-		${CMAKE_BINARY_DIR}/src/libs/ec/cpp
-	)
-	target_link_libraries (AICHSearchResultTest muleunit mulecommon wxWidgets::BASE)
-	add_test (NAME AICHSearchResultTest COMMAND AICHSearchResultTest)
+# Exercise production consensus with explicit, fail-fast application stubs.
+add_executable (AICHSearchResultTest
+	AICHSearchResultTest.cpp
+	AICHSearchResultStubs.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+	${CMAKE_SOURCE_DIR}/src/Tag.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+	${CMAKE_SOURCE_DIR}/src/CFile.cpp
+	${CMAKE_SOURCE_DIR}/src/SafeFile.cpp
+	${CMAKE_SOURCE_DIR}/src/SHA.cpp
+	${CMAKE_SOURCE_DIR}/src/OtherFunctions.cpp
+	${CMAKE_SOURCE_DIR}/src/SHAHashSet.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/AICHHashList.cpp
+)
+target_compile_definitions (AICHSearchResultTest PRIVATE AMULE_DAEMON)
+# muleunit exports MULEUNIT; undo it here to exercise ownerless consensus with
+# real logging expressions (including in Debug builds).
+if (MSVC)
+	target_compile_options (AICHSearchResultTest PRIVATE /UMULEUNIT)
+else()
+	target_compile_options (AICHSearchResultTest PRIVATE -UMULEUNIT)
 endif()
+target_include_directories (AICHSearchResultTest PRIVATE
+	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+	${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs
+	${CMAKE_BINARY_DIR}/src/libs/ec/cpp
+)
+target_link_libraries (AICHSearchResultTest muleunit mulecommon wxWidgets::BASE CRYPTOPP::CRYPTOPP)
+add_test (NAME AICHSearchResultTest COMMAND AICHSearchResultTest)
