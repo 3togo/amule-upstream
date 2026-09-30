@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-28 22:29+0200\n"
+"POT-Creation-Date: 2026-09-30 15:25+0800\n"
 "PO-Revision-Date: 2026-09-29 10:06+0000\n"
 "Last-Translator: Marcel Pol <marcel@timelord.nl>\n"
 "Language-Team: Dutch <nl@li.org>\n"
@@ -1650,11 +1650,6 @@ msgstr[1] "%u commentaren"
 #, c-format
 msgid "Banned client %s for sending %s corrupt data of %s total for the file '%s'"
 msgstr "Client %s geband voor het sturen van %s beschadigde gegeven van in totaal %s voor het bestand '%s'"
-
-#: src/CountryFlags.cpp
-#, c-format
-msgid "Failed to load country data for '%s'."
-msgstr "Kon landgegevens niet laden voor '%s'."
 
 #: src/DataToText.cpp
 msgid "Auto [Lo]"
@@ -9436,6 +9431,10 @@ msgstr "aMule lijkt te worden uitgevoerd. Sluit het en voer het verwijderprogram
 #: packaging/windows/installer_strings.c
 msgid "Removing user data at $APPDATA\\aMule..."
 msgstr "Gebruikersgegevens op $APPDATA\\aMule worden verwijderd..."
+
+#, c-format
+#~ msgid "Failed to load country data for '%s'."
+#~ msgstr "Kon landgegevens niet laden voor '%s'."
 
 #~ msgid ""
 #~ "The number of a file from the last search has to be given.\n"

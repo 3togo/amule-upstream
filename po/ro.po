@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-28 22:29+0200\n"
+"POT-Creation-Date: 2026-09-30 15:25+0800\n"
 "PO-Revision-Date: 2026-09-29 10:08+0000\n"
 "Last-Translator: Angelescu Constantin <titus0818@yahoo.com>\n"
 "Language-Team: English <kde-i18n-doc@kde.org>\n"
@@ -1665,11 +1665,6 @@ msgstr[2] "%u de comentarii"
 #, c-format
 msgid "Banned client %s for sending %s corrupt data of %s total for the file '%s'"
 msgstr "Client interzis %s pentru trimiterea %s date corupte a %s total pentru fișierul '%s'"
-
-#: src/CountryFlags.cpp
-#, c-format
-msgid "Failed to load country data for '%s'."
-msgstr "A eșuat încărcarea datei țării pentru '%s'."
 
 #: src/DataToText.cpp
 msgid "Auto [Lo]"
@@ -9528,6 +9523,10 @@ msgstr "Se pare că aMule rulează. Închideți-l și rulați din nou dezinstala
 #: packaging/windows/installer_strings.c
 msgid "Removing user data at $APPDATA\\aMule..."
 msgstr "Se elimină datele utilizatorului de la $APPDATA\\aMule..."
+
+#, c-format
+#~ msgid "Failed to load country data for '%s'."
+#~ msgstr "A eșuat încărcarea datei țării pentru '%s'."
 
 #~ msgid ""
 #~ "The number of a file from the last search has to be given.\n"

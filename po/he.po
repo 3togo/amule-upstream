@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-28 22:29+0200\n"
+"POT-Creation-Date: 2026-09-30 15:25+0800\n"
 "PO-Revision-Date: 2026-09-29 10:03+0000\n"
 "Last-Translator: Peace Kramer <kpeace1@gmail.com>\n"
 "Language-Team: Hebrew\n"
@@ -1660,11 +1660,6 @@ msgstr[1] "%u הערות"
 #, c-format
 msgid "Banned client %s for sending %s corrupt data of %s total for the file '%s'"
 msgstr "הלקוח %s נחסם על שליחת %s נתונים פגומים מתוך %s סה\"כ עבור הקובץ '%s'"
-
-#: src/CountryFlags.cpp
-#, c-format
-msgid "Failed to load country data for '%s'."
-msgstr "טעינת נתוני המדינה עבור '%s' נכשלה."
 
 #: src/DataToText.cpp
 msgid "Auto [Lo]"
@@ -9465,6 +9460,10 @@ msgstr "נראה כי aMule פועל. אנא סגור אותו והרץ מחדש
 #: packaging/windows/installer_strings.c
 msgid "Removing user data at $APPDATA\\aMule..."
 msgstr "מסיר נתוני משתמש ב-$APPDATA\\aMule..."
+
+#, c-format
+#~ msgid "Failed to load country data for '%s'."
+#~ msgstr "טעינת נתוני המדינה עבור '%s' נכשלה."
 
 #~ msgid ""
 #~ "The number of a file from the last search has to be given.\n"

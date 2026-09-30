@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-28 22:29+0200\n"
+"POT-Creation-Date: 2026-09-30 15:25+0800\n"
 "PO-Revision-Date: 2026-09-29 09:55+0000\n"
 "Last-Translator: saleh alhathal <hathalsal@hotmail.com>\n"
 "Language-Team: \n"
@@ -1658,11 +1658,6 @@ msgstr[1] "%u تعليقات"
 #, c-format
 msgid "Banned client %s for sending %s corrupt data of %s total for the file '%s'"
 msgstr "تم حظر العميل %s لإرساله %s من بيانات تالفة من أصل %s إجمالي للملف '%s'"
-
-#: src/CountryFlags.cpp
-#, c-format
-msgid "Failed to load country data for '%s'."
-msgstr "فشل تحميل بيانات الدولة لـ '%s'."
 
 #: src/DataToText.cpp
 msgid "Auto [Lo]"
@@ -9457,6 +9452,10 @@ msgstr "يبدو أن aMule قيد التشغيل. يرجى إغلاقه وإع�
 #: packaging/windows/installer_strings.c
 msgid "Removing user data at $APPDATA\\aMule..."
 msgstr "جارٍ إزالة بيانات المستخدم في $APPDATA\\aMule..."
+
+#, c-format
+#~ msgid "Failed to load country data for '%s'."
+#~ msgstr "فشل تحميل بيانات الدولة لـ '%s'."
 
 #, fuzzy
 #~ msgid "Ratio"
