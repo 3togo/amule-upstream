@@ -41,6 +41,7 @@
 
 #include "SearchDlg.h" // Interface declarations.
 #include "SearchModeIcons.h"
+#include "SearchTypeChoices.h"
 #include "SearchHistory.h"  // Needed for ApplySearchHistoryEntry
 #include "SearchListCtrl.h" // Needed for CSearchListCtrl
 #include "muuli_wdr.h"      // Needed for IDC_STARTS
@@ -502,52 +503,20 @@ void CSearchDlg::FixSearchTypes()
 
 	searchchoice->Clear();
 
-	const auto appendMode = [searchchoice](SearchType type) {
-		searchchoice->Append(SearchModeLabel(type),
-			wxArtProvider::GetBitmapBundle(SearchModeArtId(type), wxART_OTHER, wxSize(16, 16)));
-	};
-
-	if (thePrefs::GetNetworkED2K()) {
-		appendMode(LocalSearch);
-		appendMode(GlobalSearch);
-	}
-
-	if (thePrefs::GetNetworkKademlia()) {
-		appendMode(KadSearch);
-	}
-
 	bool supportsAll = true;
 #ifdef CLIENT_GUI
 	supportsAll = theApp->m_connect && theApp->m_connect->ServerSupportsSearchAll();
 #endif
-	if (supportsAll && thePrefs::GetNetworkED2K() && thePrefs::GetNetworkKademlia()) {
-		appendMode(AllSearch);
-	}
-
-	// Restore the last-used search type (persisted in OnSearchTypeChanged) instead of always
-	// defaulting to Local. The stored value is the stable canonical code (0 = Local, 1 =
-	// Remote Servers, 2 = Kad, 5 = All); map it back onto whichever entries are present now,
-	// falling back to the first entry when the saved type's network is disabled.
 	long savedType = 0;
 	wxConfigBase::Get()->Read("/eMule/DefaultSearchType", &savedType, 0);
-	int selection = 0;
-	if (thePrefs::GetNetworkED2K()) {
-		if (savedType == 1) { // Remote Servers
-			selection = 1;
-		} else if (savedType == 2 && thePrefs::GetNetworkKademlia()) { // Kad
-			selection = 2;
-		} else if ((savedType == AllSearch || savedType == 3) && supportsAll &&
-			   thePrefs::GetNetworkKademlia()) { // All
-			selection = 3;
-		}
-		// else Local (0), or the saved network is gone -> first entry
+	const auto choices = BuildSearchTypeChoices(
+		thePrefs::GetNetworkED2K(), thePrefs::GetNetworkKademlia(), supportsAll, savedType);
+	for (SearchType type : choices.types) {
+		searchchoice->Append(SearchModeLabel(type),
+			wxArtProvider::GetBitmapBundle(SearchModeArtId(type), wxART_OTHER, wxSize(16, 16)));
 	}
-	// With ED2K disabled the only entry is Kad at index 0, so 0 is correct.
-	if (searchchoice->GetCount()) {
-		if (selection >= (int)searchchoice->GetCount()) {
-			selection = 0;
-		}
-		searchchoice->SetSelection(selection);
+	if (choices.selection >= 0) {
+		searchchoice->SetSelection(choices.selection);
 		searchchoice->SetToolTip(
 			SearchModeHelp(static_cast<SearchType>(GetSelectedSearchTypeCanonical())));
 	}

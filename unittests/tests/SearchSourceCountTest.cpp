@@ -118,3 +118,58 @@ TEST(SearchSourceCount, TooltipExplainsCounts)
 	ASSERT_FALSE(FormatSearchSourcesTooltip(50, 3, std::nullopt).Contains("Direct client endpoints:"));
 	ASSERT_TRUE(FormatSearchSourcesTooltip(50, 3, 0).Contains("Direct client endpoints: 0"));
 }
+
+TEST(SearchSourceCount, IncrementalUpdatesRetainTheMissingHalf)
+{
+	std::optional<CSearchSourceCount> counts;
+	ASSERT_TRUE(UpdateSearchSourceCounts(counts, 10, 50));
+	ASSERT_TRUE(UpdateSearchSourceCounts(counts, 20, std::nullopt));
+	ASSERT_EQUALS(uint32_t(20), counts->Ed2k());
+	ASSERT_EQUALS(uint32_t(50), counts->Kad());
+	ASSERT_TRUE(UpdateSearchSourceCounts(counts, std::nullopt, 60));
+	ASSERT_EQUALS(uint32_t(20), counts->Ed2k());
+	ASSERT_EQUALS(uint32_t(60), counts->Kad());
+	ASSERT_EQUALS(wxString("E:20 K:60"), FormatSearchSources(counts->Total(), counts));
+}
+
+TEST(SearchSourceCount, IncrementalUpdatesReplaceRatherThanAccumulate)
+{
+	std::optional<CSearchSourceCount> counts = CSearchSourceCount::FromNetworks(20, 60);
+	ASSERT_TRUE(UpdateSearchSourceCounts(counts, 5, std::nullopt));
+	ASSERT_EQUALS(uint32_t(5), counts->Ed2k());
+	ASSERT_EQUALS(uint32_t(60), counts->Kad());
+	ASSERT_TRUE(UpdateSearchSourceCounts(counts, std::nullopt, 3));
+	ASSERT_EQUALS(uint32_t(5), counts->Ed2k());
+	ASSERT_EQUALS(uint32_t(3), counts->Kad());
+	ASSERT_TRUE(UpdateSearchSourceCounts(counts, 0, std::nullopt));
+	ASSERT_EQUALS(uint32_t(0), counts->Ed2k());
+	ASSERT_EQUALS(uint32_t(3), counts->Kad());
+	ASSERT_TRUE(UpdateSearchSourceCounts(counts, std::nullopt, 0));
+	ASSERT_EQUALS(uint32_t(0), counts->Total());
+}
+
+TEST(SearchSourceCount, UnchangedUpdatesDoNotRequestRepaint)
+{
+	std::optional<CSearchSourceCount> counts = CSearchSourceCount::FromNetworks(10, 50);
+	ASSERT_FALSE(UpdateSearchSourceCounts(counts, std::nullopt, std::nullopt));
+	ASSERT_FALSE(UpdateSearchSourceCounts(counts, 10, std::nullopt));
+	ASSERT_FALSE(UpdateSearchSourceCounts(counts, std::nullopt, 50));
+	ASSERT_FALSE(UpdateSearchSourceCounts(counts, 10, 50));
+	ASSERT_EQUALS(uint32_t(10), counts->Ed2k());
+	ASSERT_EQUALS(uint32_t(50), counts->Kad());
+}
+
+TEST(SearchSourceCount, UnknownSplitRequiresAnInitialPair)
+{
+	std::optional<CSearchSourceCount> counts;
+	ASSERT_FALSE(UpdateSearchSourceCounts(counts, std::nullopt, std::nullopt));
+	ASSERT_FALSE(UpdateSearchSourceCounts(counts, 10, std::nullopt));
+	ASSERT_FALSE(UpdateSearchSourceCounts(counts, std::nullopt, 50));
+	ASSERT_FALSE(counts.has_value());
+	// A known zero is different from unknown and must trigger the initial repaint.
+	ASSERT_TRUE(UpdateSearchSourceCounts(counts, 0, 0));
+	ASSERT_TRUE(counts.has_value());
+	ASSERT_EQUALS(uint32_t(0), counts->Ed2k());
+	ASSERT_EQUALS(uint32_t(0), counts->Kad());
+	ASSERT_FALSE(UpdateSearchSourceCounts(counts, 0, 0));
+}

@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <optional>
 
 // Server reports contribute to an eD2k total; Kad reports repeat a network-wide
 // estimate. The networks can overlap, so display the larger estimate, not their
@@ -67,5 +68,21 @@ private:
 	uint32_t m_ed2k = 0;
 	uint32_t m_kad = 0;
 };
+
+// Apply an EC update, not a new source report: values replace the supplied
+// halves, including decreases and zero. An absent half retains its last value.
+// Without an initial pair the split remains unknown rather than inventing zero.
+inline bool UpdateSearchSourceCounts(
+	std::optional<CSearchSourceCount> &counts, std::optional<uint32_t> ed2k, std::optional<uint32_t> kad)
+{
+	if ((!ed2k && !kad) || (!counts && (!ed2k || !kad))) {
+		return false;
+	}
+	const uint32_t nextEd2k = ed2k ? *ed2k : counts->Ed2k();
+	const uint32_t nextKad = kad ? *kad : counts->Kad();
+	const bool changed = !counts || counts->Ed2k() != nextEd2k || counts->Kad() != nextKad;
+	counts = CSearchSourceCount::FromNetworks(nextEd2k, nextKad);
+	return changed;
+}
 
 #endif

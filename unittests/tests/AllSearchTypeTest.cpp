@@ -38,6 +38,7 @@
 
 #include "SearchList.h"
 #include "SearchRequest.h"
+#include "SearchTypeChoices.h"
 
 #include <ECCodes.h>
 
@@ -158,4 +159,59 @@ TEST(AllSearchType, ChoiceMappingPreservesSingleNetworkSearches)
 	ASSERT_EQUALS(-1, SearchTypeFromChoice(-1, false));
 	ASSERT_EQUALS(-1, SearchTypeFromChoice(1, false));
 	ASSERT_EQUALS(-1, SearchTypeFromChoice(4, true));
+}
+
+TEST(AllSearchType, OldDaemonOmitsAllAndRejectsSavedAllSelection)
+{
+	for (long saved : { long(AllSearch), 3L }) {
+		const auto choices = BuildSearchTypeChoices(true, true, false, saved);
+		ASSERT_EQUALS(size_t(3), choices.types.size());
+		ASSERT_EQUALS(int(LocalSearch), int(choices.types[0]));
+		ASSERT_EQUALS(int(GlobalSearch), int(choices.types[1]));
+		ASSERT_EQUALS(int(KadSearch), int(choices.types[2]));
+		ASSERT_EQUALS(0, choices.selection);
+	}
+}
+
+TEST(AllSearchType, CapableDaemonOffersAndRestoresAll)
+{
+	for (long saved : { long(AllSearch), 3L }) {
+		const auto choices = BuildSearchTypeChoices(true, true, true, saved);
+		ASSERT_EQUALS(size_t(4), choices.types.size());
+		ASSERT_EQUALS(3, choices.selection);
+		ASSERT_EQUALS(int(AllSearch), int(choices.types[choices.selection]));
+		ASSERT_EQUALS(int(AllSearch), SearchTypeFromChoice(choices.selection, true));
+	}
+}
+
+TEST(AllSearchType, AllRequiresBothNetworksEvenWithCapability)
+{
+	for (bool supported : { false, true }) {
+		const auto ed2k = BuildSearchTypeChoices(true, false, supported, AllSearch);
+		ASSERT_EQUALS(size_t(2), ed2k.types.size());
+		ASSERT_EQUALS(int(LocalSearch), int(ed2k.types[0]));
+		ASSERT_EQUALS(int(GlobalSearch), int(ed2k.types[1]));
+		ASSERT_EQUALS(0, ed2k.selection);
+		const auto kad = BuildSearchTypeChoices(false, true, supported, AllSearch);
+		ASSERT_EQUALS(size_t(1), kad.types.size());
+		ASSERT_EQUALS(int(KadSearch), int(kad.types[0]));
+		ASSERT_EQUALS(0, kad.selection);
+		const auto none = BuildSearchTypeChoices(false, false, supported, AllSearch);
+		ASSERT_TRUE(none.types.empty());
+		ASSERT_EQUALS(-1, none.selection);
+	}
+}
+
+TEST(AllSearchType, CapabilityDoesNotDisturbOtherSavedModes)
+{
+	for (bool supported : { false, true }) {
+		for (SearchType saved : { LocalSearch, GlobalSearch, KadSearch }) {
+			const auto choices = BuildSearchTypeChoices(true, true, supported, saved);
+			ASSERT_EQUALS(int(saved), int(choices.types[choices.selection]));
+		}
+		const auto unknown = BuildSearchTypeChoices(true, true, supported, 99);
+		ASSERT_EQUALS(0, unknown.selection);
+		const auto disabled = BuildSearchTypeChoices(false, true, supported, GlobalSearch);
+		ASSERT_EQUALS(int(KadSearch), int(disabled.types[disabled.selection]));
+	}
 }
