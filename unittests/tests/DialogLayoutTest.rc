@@ -1,0 +1,9 @@
+// This file is part of the aMule Project.
+// Copyright (c) 2026 aMule Team ( https://amule-org.github.io )
+// Licensed under the GNU General Public License, version 2 or later.
+
+// wxWidgets GUI DLLs need Common Controls v6 at load time. Explicitly
+// enable the manifest: wx.rc does not emit one by default with MinGW.
+#define wxUSE_RC_MANIFEST 1
+#define wxUSE_DPI_AWARE_MANIFEST 2
+#include <wx/msw/wx.rc>
