@@ -58,7 +58,9 @@ inline CSearchTypeChoices BuildSearchTypeChoices(
 	}
 	if (!choices.types.empty()) {
 		const auto found = std::find(choices.types.begin(), choices.types.end(), savedType);
-		choices.selection = found == choices.types.end() ? 0 : found - choices.types.begin();
+		// There are at most four choices; wxWidgets takes an int index.
+		choices.selection =
+			found == choices.types.end() ? 0 : static_cast<int>(found - choices.types.begin());
 	}
 	return choices;
 }
