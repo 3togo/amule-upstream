@@ -24,6 +24,7 @@
 //
 
 #include "PrefsUnifiedDlg.h"
+#include "DialogLayout.h"
 
 #include <common/Constants.h>
 #include <common/Macros.h> // Needed for itemsof()
@@ -39,6 +40,7 @@
 #include <wx/listctrl.h> // shared-folders editor (remote GUI)
 #include <set>           // set-compare of shared roots (session refresh)
 #include <wx/progdlg.h>
+#include <wx/scrolwin.h>               // independently scrollable preference pages
 #include "SharedFilesReloadProgress.h" // ReloadSharedFilesWithProgress
 
 #include <memory> // std::unique_ptr (progress dialog lifetime)
@@ -326,7 +328,7 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 	wxDataViewColumn *iconTextCol = m_PrefsIcons->AppendIconTextColumn(
 		"", wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_DEFAULT, wxALIGN_LEFT, 0);
 
-	// Temp variables for finding the smallest height and width needed
+	// Preferred content size, independent of the scrollable viewport minimum.
 	int width = 0;
 	int height = 0;
 
@@ -390,14 +392,18 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 	Bind(wxEVT_SHOW, &PrefsUnifiedDlg::OnShowMeasureSidebar, this);
 #endif
 
-	// Now add the pages and calculate the minimum size
+	const wxSize minimumPageSize = FromDIP(wxSize(240, 200));
+
+	// Build each page with its own scroll position and virtual content size.
 	m_pageWidgets.assign(itemsof(pages), nullptr);
 	wxPanel *DefaultWidget = NULL;
 	for (unsigned int i = 0; i < itemsof(pages); ++i) {
 		// Create a container widget and the contents of the page
-		wxPanel *Widget = new wxPanel(this, -1);
+		wxScrolledWindow *Widget = new wxScrolledWindow(this, wxID_ANY);
+		Widget->SetScrollRate(FromDIP(10), FromDIP(10));
+		Widget->SetMinSize(minimumPageSize);
 		m_pageWidgets[i] = Widget;
-		pages[i].m_function(Widget, true, true);
+		pages[i].m_function(Widget, false, true);
 		if (i == 0) {
 			DefaultWidget = Widget;
 		}
@@ -406,7 +412,7 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 		prefs_sizer->Add(Widget, wxSizerFlags().Expand().Expand());
 
 		if (pages[i].m_function == PreferencesGeneralTab) {
-// This must be done now or pages won't Fit();
+// Adjust visibility before measuring the page contents.
 #if defined(CLIENT_GUI)
 			// Remote GUI: this checkbox toggles the *daemon's* version-check preference, so
 			// its visibility follows the connected daemon's capability, NOT amulegui's own
@@ -522,19 +528,12 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 		}
 #endif
 
-		// Align and resize the page
-		Fit();
-		Layout();
-
-		// Find the greatest sizes
-		wxSize size = prefs_sizer->GetSize();
-		if (size.GetWidth() > width) {
-			width = size.GetWidth();
-		}
-
-		if (size.GetHeight() > height) {
-			height = size.GetHeight();
-		}
+		// Preserve the controls' natural size as the scrollable content size without
+		// imposing it on the dialog's minimum size.
+		Widget->FitInside();
+		const wxSize size = Widget->GetSizer()->GetMinSize();
+		width = std::max(width, size.GetWidth());
+		height = std::max(height, size.GetHeight());
 
 		// Hide it for now
 		prefs_sizer->Detach(Widget);
@@ -575,9 +574,6 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 
 	// Select the first item
 	m_PrefsIcons->SelectRow(0);
-
-	// We now have the needed minimum height and width
-	prefs_sizer->SetMinSize(width, height);
 
 #ifdef CLIENT_GUI
 	// amulegui: drop the IP2Country page from the menu when the connected core has no
@@ -646,11 +642,12 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 				     it->first % it->second->GetKey());
 		}
 	}
-	Fit();
-
-	// It must not be resized to something smaller than what it currently is
-	wxSize size = GetClientSize();
-	SetSizeHints(size.GetWidth(), size.GetHeight());
+	// Allow the viewport to shrink independently of the largest page. Start
+	// with enough room for the content when possible, but leave space for the
+	// desktop panels and window decorations on the parent's display.
+	FitDialogToDisplay(this,
+		wxSize(width + m_PrefsIcons->GetMinSize().GetWidth() + FromDIP(4),
+			height + GetSizer()->GetMinSize().GetHeight() - minimumPageSize.GetHeight()));
 
 	// Position the dialog.
 	Center();

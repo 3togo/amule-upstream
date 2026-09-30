@@ -23,7 +23,8 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
-#include "muuli_wdr.h"          // Needed for ID_CLOSEWNDFD,...,IDC_APPLY
+#include "muuli_wdr.h" // Needed for ID_CLOSEWNDFD,...,IDC_APPLY
+#include "DialogLayout.h"
 #include "FileDetailDialog.h"   // Interface declarations
 #include "FileDetailListCtrl.h" // Needed for CFileDetailListCtrl
 #include "CommentDialogLst.h"   // Needed for CCommentDialogLst
@@ -77,10 +78,10 @@ CFileDetailDialog::CFileDetailDialog(wxWindow *parent, std::vector<CKnownFile *>
 {
 	m_timer.SetOwner(this, ID_MY_TIMER);
 	m_timer.Start(5000);
-	wxSizer *content = fileDetails(this, true);
+	wxSizer *content = fileDetails(this, false);
 	m_file = m_files[m_index];
 	UpdateData(true);
-	content->SetSizeHints(this);
+	FitScrollableDialog(this, CastChild(IDC_FILE_DETAILS_CONTENT, wxScrolledWindow));
 	content->Show(this, true);
 	OpenInstances().insert(this);
 }
@@ -275,21 +276,17 @@ void CFileDetailDialog::UpdateData(bool resetFilename)
 	// actually shares data.
 	bool showDownload = (part != nullptr);
 	bool showSharing = (part == nullptr) || (part->GetCompletedSize() > 0);
-	bool relayout = false;
 	wxWindow *dlPanel = FindWindow(IDC_FD_DOWNLOAD_PANEL);
 	if (dlPanel && dlPanel->IsShown() != showDownload) {
 		dlPanel->Show(showDownload);
-		relayout = true;
 	}
 	wxWindow *shPanel = FindWindow(IDC_FD_SHARING_PANEL);
 	if (shPanel && shPanel->IsShown() != showSharing) {
 		shPanel->Show(showSharing);
-		relayout = true;
 	}
-	if (relayout && GetSizer()) {
-		GetSizer()->Layout();
-		Fit();
-	}
+	// Labels and section visibility change when navigating files or on a timer.
+	// Update the virtual content size without resizing the user's dialog.
+	CastChild(IDC_FILE_DETAILS_CONTENT, wxScrolledWindow)->FitInside();
 
 	setEnableForApplyButton();
 	// "Show all comments" opens the ratings/comments dialog, which works for a shared file as
