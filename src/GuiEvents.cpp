@@ -29,6 +29,7 @@
 #include "updownclient.h" // Needed for IsBrowseEcInitiated (Browse_Started)
 #endif
 #include <common/MenuIDs.h> // MP_PAUSE/STOP/RESUME/CANCEL + MP_PRIO* for the
+#include <common/Format.h>  // CFormat for CompletedFiles_DeleteFromDisk
 #ifndef AMULE_DAEMON
 #include "CommentDialog.h"         // CCommentDialog::DropReferencesTo
 #include "CommentDialogLst.h"      // CCommentDialogLst::DropReferencesTo
@@ -76,6 +77,7 @@
 
 #ifndef CLIENT_GUI
 #include "UploadQueue.h"
+#include "SharedFileList.h"
 #include "EMSocket.h"
 #include "ListenSocket.h"
 #include "MuleUDPSocket.h"
@@ -910,6 +912,94 @@ void PartFile_SetCat(CPartFile *file, uint32 val)
 {
 	file->SetCategory(val);
 }
+
+#ifndef AMULE_DAEMON
+void CompletedFiles_DeleteFromDisk(const std::vector<CKnownFile *> &files, wxWindow *parent)
+{
+	if (files.empty()) {
+		return;
+	}
+
+	// Keep values across the modal event loop, not file pointers: a share rescan or
+	// known-file pruning can replace or destroy a selected record while it is open.
+	struct Selection
+	{
+		CMD4Hash hash;
+		uint32 ecid;
+		CPath name;
+		CPath fullpath;
+	};
+	std::vector<Selection> selected;
+	selected.reserve(files.size());
+	for (const CKnownFile *file : files) {
+		selected.push_back({ file->GetFileHash(),
+			file->ECID(),
+			file->GetFileName(),
+			file->GetFilePath().JoinPaths(file->GetFileName()) });
+	}
+
+	wxString question;
+	if (files.size() == 1) {
+		question = CFormat(_("Are you sure you want to delete '%s' from disk?\n\n"
+				     "File: %s\n\n"
+				     "The file is deleted and no longer shared. "
+				     "This cannot be undone.")) %
+			   selected.front().name.GetPrintable() % selected.front().fullpath.GetPrintable();
+	} else {
+		wxString listing;
+		const size_t shown = files.size() < 10 ? files.size() : 10;
+		for (size_t i = 0; i < shown; i++) {
+			listing += selected[i].fullpath.GetPrintable() + "\n";
+		}
+		if (files.size() > shown) {
+			listing += CFormat(_("... and %i more")) % static_cast<int>(files.size() - shown);
+		}
+		question = CFormat(_("Are you sure you want to delete the selected %i files from disk?\n\n"
+				     "%s\n"
+				     "The files are deleted and no longer shared. "
+				     "This cannot be undone.")) %
+			   static_cast<int>(files.size()) % listing;
+	}
+
+	if (wxMessageBox(
+		    question, _("Delete from disk"), wxICON_QUESTION | wxYES_NO | wxNO_DEFAULT, parent) !=
+		wxYES) {
+		return;
+	}
+
+	for (const Selection &selection : selected) {
+		// Resolve again after confirmation. A hash can now identify a different copy,
+		// so require the same ECID and path before acting on the confirmed selection.
+		CKnownFile *file = theApp->sharedfiles->GetFileByID(selection.hash);
+		if (!file) {
+			file = theApp->downloadqueue->GetFileByID(selection.hash);
+		}
+		if (!file || file->IsPartFile() || file->ECID() != selection.ecid ||
+			file->GetFilePath().JoinPaths(file->GetFileName()) != selection.fullpath) {
+			AddLogLineC(CFormat(_("Skipped deleting '%s': the selected file has changed.")) %
+				    selection.fullpath.GetPrintable());
+			continue;
+		}
+
+		// Unshare, clear the completed row, then unlink, as for an external deletion.
+		// Stop current uploads after unsharing so they cannot reopen the file. This
+		// action is final even if unlink fails; no upload rollback is needed.
+		theApp->sharedfiles->RemoveFile(file);
+		// Do not dereference file after detaching it: known-file pruning may free it.
+		theApp->uploadqueue->SuspendUpload(selection.hash, true);
+		theApp->downloadqueue->ClearCompleted(ListOfUInts32(1, selection.ecid));
+		if (CPath::RemoveFile(selection.fullpath)) {
+			AddLogLineC(
+				CFormat(_("Deleted '%s' from disk.")) % selection.fullpath.GetPrintable());
+		} else {
+			// A subsequent share scan may rediscover the surviving file.
+			AddLogLineC(CFormat(_("Could not delete '%s' from disk; removed from the "
+					      "transfer list and shares. The file remains on disk.")) %
+				    selection.fullpath.GetPrintable());
+		}
+	}
+}
+#endif
 
 void KnownFile_Up_Prio_Set(CKnownFile *file, uint8 val)
 {

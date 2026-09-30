@@ -29,6 +29,8 @@
 
 #include <wx/event.h>
 
+#include <vector>
+
 #include "Types.h"
 #include "ChatSessionStore.h" // CChatTarget: hash locally, legacy projection in amulegui
 #include "Constants.h"
@@ -36,6 +38,7 @@
 #include "PartFileConvert.h"
 
 class CKnownFile;
+class wxWindow;
 class CUpDownClient;
 class CSearchFile;
 class CPartFile;
@@ -202,6 +205,14 @@ void PartFile_PrioAuto(CPartFile *file, bool val);
 void PartFile_PrioSet(CPartFile *file, uint8 newDownPriority, bool bSave);
 void PartFile_Delete(CPartFile *file);
 void PartFile_SetCat(CPartFile *file, uint32 val);
+
+// Delete completed/shared files from local disk. Monolithic GUI only: the transfer list and
+// the shared files list share one CPartFile/CKnownFile, so a single action drops the completed
+// row, unshares the bytes, and removes the file. See issue #1520. Guarded out of amulegui (which
+// talks EC and has no such opcode yet) and of amuled (wxBase has no wxMessageBox).
+#if !defined(CLIENT_GUI) && !defined(AMULE_DAEMON)
+void CompletedFiles_DeleteFromDisk(const std::vector<CKnownFile *> &files, wxWindow *parent);
+#endif
 
 void KnownFile_Up_Prio_Set(CKnownFile *file, uint8 val);
 void KnownFile_Up_Prio_Auto(CKnownFile *file);
