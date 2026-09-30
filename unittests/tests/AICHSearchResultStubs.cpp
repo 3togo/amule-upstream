@@ -40,8 +40,11 @@ void CPartFile::RequestAICHRecovery(uint16)
 	FAIL_M("AICH consensus test unexpectedly requested recovery");
 }
 
+#ifdef __DEBUG__
 wxString CUpDownClient::GetClientFullInfo()
 {
 	FAIL_M("AICH consensus test unexpectedly inspected a recovery client");
 	return wxString();
 }
+
+#endif
