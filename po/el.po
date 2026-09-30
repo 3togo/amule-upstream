@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-09-30 14:12+0800\n"
+"POT-Creation-Date: 2026-09-30 14:22+0800\n"
 "PO-Revision-Date: 2026-09-29 09:59+0000\n"
 "Last-Translator: Dimitris <dgalanak@yahoo.com>\n"
 "Language-Team: Greek\n"
@@ -237,8 +237,20 @@ msgid "Deleted '%s' from disk."
 msgstr ""
 
 #: src/GuiEvents.cpp
+#, fuzzy, c-format
+msgid "Could not delete '%s' from disk."
+msgstr "Κατάλογος για τα προσωρινά αρχεία"
+
+#: src/GuiEvents.cpp
 #, c-format
-msgid "Could not delete '%s' from disk; removed from the transfer list and shares. The file remains on disk."
+msgid ""
+"Could not delete these files from disk:\n"
+"\n"
+"%s\n"
+"Remove them from shares and the completed transfer list anyway?\n"
+"\n"
+"Yes: stop sharing and remove the list entries. A later share scan may share the files again.\n"
+"No: keep the files shared and listed."
 msgstr ""
 
 #: src/amuleAppCommon.cpp

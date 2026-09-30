@@ -967,9 +967,8 @@ void CompletedFiles_DeleteFromDisk(const std::vector<CKnownFile *> &files, wxWin
 		return;
 	}
 
-	for (const Selection &selection : selected) {
-		// Resolve again after confirmation. A hash can now identify a different copy,
-		// so require the same ECID and path before acting on the confirmed selection.
+	// Resolve after each modal dialog. Never retain the resolved pointer across one.
+	auto resolve = [](const Selection &selection) -> CKnownFile * {
 		CKnownFile *file = theApp->sharedfiles->GetFileByID(selection.hash);
 		if (!file) {
 			file = theApp->downloadqueue->GetFileByID(selection.hash);
@@ -978,24 +977,57 @@ void CompletedFiles_DeleteFromDisk(const std::vector<CKnownFile *> &files, wxWin
 			file->GetFilePath().JoinPaths(file->GetFileName()) != selection.fullpath) {
 			AddLogLineC(CFormat(_("Skipped deleting '%s': the selected file has changed.")) %
 				    selection.fullpath.GetPrintable());
-			continue;
+			return nullptr;
 		}
-
-		// Unshare, clear the completed row, then unlink, as for an external deletion.
-		// Stop current uploads after unsharing so they cannot reopen the file. This
-		// action is final even if unlink fails; no upload rollback is needed.
+		return file;
+	};
+	auto removeEntries = [](CKnownFile *file, const Selection &selection) {
 		theApp->sharedfiles->RemoveFile(file);
 		// Do not dereference file after detaching it: known-file pruning may free it.
 		theApp->uploadqueue->SuspendUpload(selection.hash, true);
 		theApp->downloadqueue->ClearCompleted(ListOfUInts32(1, selection.ecid));
+	};
+
+	std::vector<Selection> failed;
+	for (const Selection &selection : selected) {
+		CKnownFile *file = resolve(selection);
+		if (!file) {
+			continue;
+		}
+		// Try unlink before changing lists or uploads so a failure can leave them
+		// untouched. Clean up each success before opening the failure dialog.
 		if (CPath::RemoveFile(selection.fullpath)) {
+			removeEntries(file, selection);
 			AddLogLineC(
 				CFormat(_("Deleted '%s' from disk.")) % selection.fullpath.GetPrintable());
 		} else {
-			// A subsequent share scan may rediscover the surviving file.
-			AddLogLineC(CFormat(_("Could not delete '%s' from disk; removed from the "
-					      "transfer list and shares. The file remains on disk.")) %
+			failed.push_back(selection);
+			AddLogLineC(CFormat(_("Could not delete '%s' from disk.")) %
 				    selection.fullpath.GetPrintable());
+		}
+	}
+	if (failed.empty()) {
+		return;
+	}
+
+	wxString listing;
+	for (const Selection &selection : failed) {
+		listing += selection.fullpath.GetPrintable() + "\n";
+	}
+	const wxString failure =
+		CFormat(_("Could not delete these files from disk:\n\n%s\n"
+			  "Remove them from shares and the completed transfer list anyway?\n\n"
+			  "Yes: stop sharing and remove the list entries. A later share scan may "
+			  "share the files again.\n"
+			  "No: keep the files shared and listed.")) %
+		listing;
+	if (wxMessageBox(failure, _("Delete from disk"), wxICON_WARNING | wxYES_NO | wxNO_DEFAULT, parent) !=
+		wxYES) {
+		return;
+	}
+	for (const Selection &selection : failed) {
+		if (CKnownFile *file = resolve(selection)) {
+			removeEntries(file, selection);
 		}
 	}
 }
