@@ -129,7 +129,7 @@ const CTag *CAbstractFile::GetTag(uint8 tagname, uint8 tagtype) const
 			return &(*it);
 		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 const CTag *CAbstractFile::GetTag(const wxString &tagname, uint8 tagtype) const
@@ -140,7 +140,7 @@ const CTag *CAbstractFile::GetTag(const wxString &tagname, uint8 tagtype) const
 			return &(*it);
 		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 const CTag *CAbstractFile::GetTag(uint8 tagname) const
@@ -151,7 +151,7 @@ const CTag *CAbstractFile::GetTag(uint8 tagname) const
 			return &(*it);
 		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 const CTag *CAbstractFile::GetTag(const wxString &tagname) const
@@ -162,7 +162,7 @@ const CTag *CAbstractFile::GetTag(const wxString &tagname) const
 			return &(*it);
 		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 void CAbstractFile::AddTagUnique(const CTag &rTag)
