@@ -1737,6 +1737,58 @@ for FT in Audio Iso iso image document unknown nonsuch; do
 	_assert_json_eq '.error.code' bad_request "POST /search (file_type=$FT) → bad_request"
 done
 
+# --- Discover an All search started by another EC client. -----------------
+# POST /search intentionally still accepts local/global/kad only. Desktop All
+# searches nevertheless appear in the shared list and search_progress stream.
+ALL_SSE=$(mktemp -t amuleapi_all_sse.XXXXXX)
+curl -s -N --max-time 12 -H "Authorization: Bearer $ADMIN_TOKEN" \
+	"$API/events" >"$ALL_SSE" 2>/dev/null &
+ALL_SSE_PID=$!
+ALL_SID=$(python3 - "$(dirname "$0")/../../tests" "$EC_HOST" "$EC_PORT" "$EC_PASSWORD" <<'PYEOF'
+import sys
+import time
+sys.path.insert(0, sys.argv[1])
+from AllSearchIntegrationTest import EC, C, tag, string
+ec = EC(int(sys.argv[3]), host=sys.argv[2], password=sys.argv[4])
+with ec.sock:
+    op, tags = ec.call(C['EC_OP_SEARCH_START'], [tag(C['EC_TAG_SEARCH_TYPE'],
+        bytes([C['EC_SEARCH_ALL']]), 2,
+        [string(C['EC_TAG_SEARCH_NAME'], f'allsmoke{time.time_ns()}')])])
+    if op == C['EC_OP_FAILED']:
+        print(tags, file=sys.stderr)
+        sys.exit(2)
+    assert op == C['EC_OP_STRINGS'], (op, tags)
+    print(tags[C['EC_TAG_SEARCH_ID']][0])
+PYEOF
+)
+ALL_START_STATUS=$?
+if [ "$ALL_START_STATUS" -eq 0 ]; then
+	_curl -H "Authorization: Bearer $ADMIN_TOKEN" "$API/search"
+	_assert_status 200 'GET /search discovers an EC All search'
+	_assert_json_eq "[.searches[] | select(.search_id == $ALL_SID)][0].type" all \
+		'the discovered search reports type all'
+	# Seed this session's slot so the refresher emits its progress via SSE.
+	_curl -H "Authorization: Bearer $ADMIN_TOKEN" "$API/search/$ALL_SID/results"
+	_assert_status 200 'GET results discovers an EC All search'
+	wait "$ALL_SSE_PID" || true
+	if awk '/^event: / { progress = ($0 == "event: search_progress") } \
+		progress && /^data: / { sub(/^data: /, ""); print }' "$ALL_SSE" \
+		| jq -es --argjson sid "$ALL_SID" 'any(.[]; .search_id == $sid and .type == "all")' >/dev/null; then
+		_pass 'SSE search_progress reports type all'
+	else
+		_fail 'SSE search_progress reports type all' 'no matching event received'
+	fi
+	_curl -X DELETE -H "Authorization: Bearer $ADMIN_TOKEN" "$API/search/$ALL_SID"
+	_assert_status 204 'DELETE the EC All smoke search'
+elif [ "$ALL_START_STATUS" -eq 2 ]; then
+	_skip 'All search requires an available eD2k or Kad network'
+else
+	_fail 'start an All search over EC' "fixture exited $ALL_START_STATUS"
+fi
+kill "$ALL_SSE_PID" 2>/dev/null || true
+wait "$ALL_SSE_PID" 2>/dev/null || true
+rm -f "$ALL_SSE"
+
 # --- Summary. -----------------------------------------------------
 echo
 SKIP_NOTE=""

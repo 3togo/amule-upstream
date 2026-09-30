@@ -666,12 +666,8 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 		if (type == AllSearch && kadData.get()) {
 			try {
 				// Always allocate a distinct Kad ID, including for legacy EC's sentinel.
-				Kademlia::CSearch *search =
-					Kademlia::CSearchManager::PrepareFindKeywords(params.strKeyword,
-						kadData->GetLength(),
-						kadData->GetRawBuffer(),
-						0,
-						true);
+				Kademlia::CSearch *search = Kademlia::CSearchManager::PrepareFindKeywords(
+					params.strKeyword, kadData->GetLength(), kadData->GetRawBuffer(), 0);
 				m_kadToEd2kSearchId[search->GetSearchID()] = *searchID;
 			} catch (const wxString &what) {
 				if (!theApp->IsConnectedED2K()) {
@@ -793,12 +789,24 @@ void CSearchList::FinalizeLocalSearch()
 uint32 CSearchList::GetSearchProgress() const
 {
 	if (m_searchType == AllSearch) {
-		if (HasKadComponent(static_cast<uint32_t>(m_currentSearch))) {
-			return 0; // Kad progress is not measurable.
-		}
-		if (!m_searchInProgress) {
+		const bool kadActive = HasKadComponent(static_cast<uint32_t>(m_currentSearch));
+		if (!m_searchInProgress && !kadActive) {
 			return 0xfffe;
 		}
+		uint32 sweep = 100;
+		if (m_searchInProgress) {
+			const uint32 servers = theApp->serverlist->GetServerCount();
+			sweep = m_serverQueue.IsActive() && servers
+					? 100 - (m_serverQueue.GetRemaining() * 100) / servers
+					: 0;
+		}
+		const auto it = m_searchStartTimes.find(static_cast<uint32_t>(m_currentSearch));
+		const time_t start = it != m_searchStartTimes.end() ? it->second : m_searchStart;
+		const time_t elapsed = std::max<time_t>(0, time(nullptr) - start);
+		const uint32 kad = kadActive ? static_cast<uint32>(std::min<time_t>(
+						       99, elapsed * 100 / SEARCHKEYWORD_LIFETIME))
+					     : 100;
+		return std::min(sweep, kad);
 	}
 	if (m_searchType == KadSearch) {
 		// We cannot measure the progress of Kad searches.
@@ -1514,6 +1522,9 @@ uint8 CSearchList::GetSearchLifecyclePercentById(wxUIntPtr searchID) const
 		const uint16 pct = theApp->browsemanager->BarValue(sid);
 		// 0xffff is the bar's terminal sentinel, not a percent.
 		return (pct == 0xffff) ? 100 : static_cast<uint8>(pct);
+	}
+	if (searchID == m_currentSearch && m_searchType == AllSearch) {
+		return static_cast<uint8>(std::min<uint32>(100, GetSearchProgress()));
 	}
 	if (HasKadComponent(sid)) {
 		std::map<uint32_t, time_t>::const_iterator it = m_searchStartTimes.find(sid);

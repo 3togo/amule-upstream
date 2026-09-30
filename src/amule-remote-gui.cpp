@@ -4096,9 +4096,9 @@ void CSearchListRem::ProcessItemUpdate(const CEC_SearchFile_Tag *tag, CSearchFil
 	bool networkCountsChanged = false;
 	const CECTag *ed2kTag = tag->GetTagByName(EC_TAG_SEARCHFILE_ED2K_SOURCES);
 	const CECTag *kadTag = tag->GetTagByName(EC_TAG_SEARCHFILE_KAD_SOURCES);
-	if (ed2kTag && kadTag) {
-		const uint32 ed2k = ed2kTag->GetInt();
-		const uint32 kad = kadTag->GetInt();
+	if ((ed2kTag && kadTag) || (file->m_networkSourceCounts && (ed2kTag || kadTag))) {
+		const uint32 ed2k = ed2kTag ? ed2kTag->GetInt() : file->m_networkSourceCounts->Ed2k();
+		const uint32 kad = kadTag ? kadTag->GetInt() : file->m_networkSourceCounts->Kad();
 		networkCountsChanged = !file->m_networkSourceCounts ||
 				       file->m_networkSourceCounts->Ed2k() != ed2k ||
 				       file->m_networkSourceCounts->Kad() != kad;

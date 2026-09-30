@@ -516,7 +516,11 @@ void CSearchDlg::FixSearchTypes()
 		appendMode(KadSearch);
 	}
 
-	if (thePrefs::GetNetworkED2K() && thePrefs::GetNetworkKademlia()) {
+	bool supportsAll = true;
+#ifdef CLIENT_GUI
+	supportsAll = theApp->m_connect && theApp->m_connect->ServerSupportsSearchAll();
+#endif
+	if (supportsAll && thePrefs::GetNetworkED2K() && thePrefs::GetNetworkKademlia()) {
 		appendMode(AllSearch);
 	}
 
@@ -532,7 +536,7 @@ void CSearchDlg::FixSearchTypes()
 			selection = 1;
 		} else if (savedType == 2 && thePrefs::GetNetworkKademlia()) { // Kad
 			selection = 2;
-		} else if ((savedType == AllSearch || savedType == 3) &&
+		} else if ((savedType == AllSearch || savedType == 3) && supportsAll &&
 			   thePrefs::GetNetworkKademlia()) { // All
 			selection = 3;
 		}

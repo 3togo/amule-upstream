@@ -534,10 +534,9 @@ CEC_SearchFile_Tag::CEC_SearchFile_Tag(
 	AddTag(CECTag(EC_TAG_PARTFILE_SOURCE_COUNT, file->GetSourceCount()), valuemap);
 	AddTag(CECTag(EC_TAG_PARTFILE_SOURCE_COUNT_XFER, file->GetCompleteSourceCount()), valuemap);
 	if (const auto counts = file->GetNetworkSourceCounts()) {
-		// Keep the pair together on every update, including when a result is recreated
-		// on a connection whose value map has already seen its counts.
-		AddTag(CECTag(EC_TAG_SEARCHFILE_ED2K_SOURCES, counts->Ed2k()));
-		AddTag(CECTag(EC_TAG_SEARCHFILE_KAD_SOURCES, counts->Kad()));
+		// Each half is incremental; clients retain the last-known other half.
+		AddTag(CECTag(EC_TAG_SEARCHFILE_ED2K_SOURCES, counts->Ed2k()), valuemap);
+		AddTag(CECTag(EC_TAG_SEARCHFILE_KAD_SOURCES, counts->Kad()), valuemap);
 	}
 	AddTag(CECTag(EC_TAG_PARTFILE_STATUS, (uint32)file->GetDownloadStatus()), valuemap);
 

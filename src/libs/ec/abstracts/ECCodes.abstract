@@ -489,8 +489,9 @@ EC_TAG_SEARCHFILE                         0x0700
 	EC_TAG_SEARCH_MORE_REASKABLE              0x0716
 ## Whether this search currently has a running Kad component (including EC_SEARCH_ALL).
 	EC_TAG_SEARCH_KAD_ACTIVE                  0x0717
-## Optional pair on ALL search results, including updates. Absent means the
-## network split is unknown, not zero. Aggregate source tags remain unchanged.
+## Optional pair on ALL search results. Incremental updates send only changed
+## halves; retain the last-known other half. Without an initial pair the split
+## is unknown, not zero. Aggregate source tags remain unchanged.
 	EC_TAG_SEARCHFILE_ED2K_SOURCES            0x0718
 	EC_TAG_SEARCHFILE_KAD_SOURCES             0x0719
 

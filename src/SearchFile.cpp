@@ -190,19 +190,11 @@ CSearchFile::~CSearchFile()
 
 std::optional<CSearchSourceCount> CSearchFile::GetNetworkSourceCounts() const
 {
-	switch (theApp->searchlist->GetSearchLifecycleKindById(m_searchID)) {
-	case LocalSearch:
-	case GlobalSearch:
-		return CSearchSourceCount::FromNetworks(GetSourceCount(), 0);
-	case KadSearch:
-		return CSearchSourceCount::FromNetworks(0, GetSourceCount());
-	case AllSearch:
-		if (m_sourceContributionsKnown) {
-			return m_sourceContributions;
-		}
-		break;
-	default:
-		break;
+	// Single-network searches already identify their source network by kind.
+	// Only All needs an explicit breakdown on disk, over EC, or in the UI.
+	if (theApp->searchlist->GetSearchLifecycleKindById(m_searchID) == AllSearch &&
+		m_sourceContributionsKnown) {
+		return m_sourceContributions;
 	}
 	return std::nullopt;
 }

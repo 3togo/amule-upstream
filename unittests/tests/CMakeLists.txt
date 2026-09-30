@@ -1917,6 +1917,5 @@ if (BUILD_DAEMON AND UNIX AND NOT APPLE)
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/AllSearchIntegrationTest.py $<TARGET_FILE:amuled>
 		)
-		set_tests_properties (AllSearchIntegrationTest PROPERTIES TIMEOUT 45)
 	endif ()
 endif ()

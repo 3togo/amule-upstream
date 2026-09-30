@@ -177,8 +177,7 @@ bool CSearchManager::StartSearch(CSearch *search)
 CSearch *CSearchManager::PrepareFindKeywords(const wxString &keyword,
 	uint32_t searchTermsDataSize,
 	const uint8_t *searchTermsData,
-	uint32_t searchid,
-	bool replaceKeyword)
+	uint32_t searchid)
 {
 	// Create a keyword search object.
 	auto s = std::make_unique<CSearch>();
@@ -200,17 +199,10 @@ CSearch *CSearchManager::PrepareFindKeywords(const wxString &keyword,
 		// GonoszTopi - seconded
 		KadGetKeywordHash(wstrKeyword, &s->m_target);
 
-		// Prepare the replacement before stopping anything. Kad routes replies by
-		// target, so two keyword searches for the same target cannot run together.
+		// Kad routes replies by target. Never preempt another client's search.
 		s->SetSearchTermData(searchTermsDataSize, searchTermsData);
-		const auto existing = m_searches.find(s->m_target);
-		if (existing != m_searches.end()) {
-			if (!replaceKeyword || existing->second->GetSearchTypes() != CSearch::KEYWORD) {
-				throw _("Kademlia: Search keyword is already on search list: ") + wstrKeyword;
-			}
-			// Detaching first lets completion callbacks finish the previous tab;
-			// its results remain owned by CSearchList.
-			DeleteSearch(existing);
+		if (m_searches.find(s->m_target) != m_searches.end()) {
+			throw _("Kademlia: Search keyword is already on search list: ") + wstrKeyword;
 		}
 
 		// Inc our searchID

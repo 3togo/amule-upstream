@@ -131,7 +131,7 @@ public:
 		return m_completeSourceContributions.Total();
 #endif
 	}
-	// Single-network searches use their aggregate; ALL requires a known split.
+	// Only ALL exposes a known split; single-network searches use their aggregate.
 	// Older daemons and legacy ALL snapshots may expose only the aggregate.
 	std::optional<CSearchSourceCount> GetNetworkSourceCounts() const;
 
