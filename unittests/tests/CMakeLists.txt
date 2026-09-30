@@ -1898,7 +1898,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	)
 	target_compile_definitions (AICHSearchResultTest PRIVATE MULEUNIT AMULE_DAEMON)
 	target_compile_options (AICHSearchResultTest PRIVATE -ffunction-sections -fdata-sections)
-	target_link_options (AICHSearchResultTest PRIVATE -Wl,--gc-sections)
+	# LINK_FLAGS keeps this target compatible with the CMake 3.12 minimum.
+	set_property (TARGET AICHSearchResultTest APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--gc-sections")
 	target_include_directories (AICHSearchResultTest PRIVATE
 		${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
 		${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs
