@@ -24,6 +24,8 @@
 
 #include <muleunit/test.h>
 #include <SHAHashSet.h>
+#include <SearchFile.h>
+#include <memory>
 #include <KadAICHVotes.h>
 #include <Preferences.h>
 #include <Logger.h>
@@ -173,4 +175,68 @@ TEST(AICHSearchResult, VotesAreBoundedAndUnknownRespondersExcluded)
 	CKadAICHVotes copy(merged);
 	ASSERT_EQUALS(size_t(64), copy.Get().size());
 	ASSERT_TRUE(copy.Get().at(1) == root);
+}
+
+// Build model rows without consulting the live download/known-file queues.
+// Constructors, ownership, copying, AddChild, MergeResults and evidence replay
+// are production code; the fixture only supplies incoming search data.
+class CSearchFileTestFixture
+{
+public:
+	static CSearchFile *Result(const wxString &name, uint32_t responder, const CAICHHash &root)
+	{
+		auto *result = new CSearchFile;
+		result->SetFileName(CPath(name));
+		result->SetFileSize(1024);
+		result->m_kademlia = true;
+		result->m_kadAICHVotes.Add(responder, root);
+		return result;
+	}
+};
+
+TEST(AICHSearchResult, EveryFilenameChildReplaysAllGroupVotes)
+{
+	const CAICHHash root = MakeRoot(0xAB);
+	std::unique_ptr<CSearchFile> group(CSearchFileTestFixture::Result("first", 1, root));
+	// Exercise the duplicate-name deletion path before a group has children.
+	group->AddChild(CSearchFileTestFixture::Result("first", 2, root));
+	ASSERT_FALSE(group->HasChildren());
+	// Creating the next variant copies the original row into the first child.
+	for (uint32_t i = 3; i <= 10; ++i) {
+		group->AddChild(CSearchFileTestFixture::Result(i <= 6 ? "second" : "third", i, root));
+	}
+	ASSERT_EQUALS(size_t(3), group->GetChildren().size());
+	ASSERT_EQUALS(size_t(10), group->GetKadAICHVotes().size());
+	ASSERT_EQUALS(size_t(2), group->GetChildren().front()->GetKadAICHVotes().size());
+	for (const CSearchFile *child : group->GetChildren()) {
+		ASSERT_TRUE(child->GetParent() == group.get());
+		const CPath filename = child->GetFileName();
+		CAICHHashSet downloaded(nullptr);
+		// This is the same production handoff called by CPartFile's constructor.
+		ASSERT_TRUE(child->ApplyKadAICHVotes(downloaded));
+		ASSERT_EQUALS(AICH_TRUSTED, downloaded.GetStatus());
+		ASSERT_TRUE(downloaded.GetMasterHash() == root);
+		ASSERT_TRUE(child->GetFileName() == filename);
+	}
+	CAICHHashSet parentDownload(nullptr);
+	ASSERT_TRUE(group->ApplyKadAICHVotes(parentDownload));
+	ASSERT_EQUALS(AICH_TRUSTED, parentDownload.GetStatus());
+}
+
+TEST(AICHSearchResult, ChildDownloadRetainsOtherVariantsDisagreement)
+{
+	const CAICHHash root = MakeRoot(0xAB);
+	const CAICHHash other = MakeRoot(0xCD);
+	std::unique_ptr<CSearchFile> group(CSearchFileTestFixture::Result("minority", 1, other));
+	for (uint32_t i = 2; i <= 11; ++i) {
+		group->AddChild(CSearchFileTestFixture::Result("majority", i, root));
+	}
+	ASSERT_EQUALS(size_t(2), group->GetChildren().size());
+	const CSearchFile *majority = group->GetChildren().back();
+	ASSERT_EQUALS(size_t(10), majority->GetKadAICHVotes().size());
+	CAICHHashSet downloaded(nullptr);
+	ASSERT_TRUE(majority->ApplyKadAICHVotes(downloaded));
+	// Its own ten matching votes would be trusted. Including the other filename's
+	// disagreement keeps ten out of eleven below the existing 92% threshold.
+	ASSERT_EQUALS(AICH_UNTRUSTED, downloaded.GetStatus());
 }

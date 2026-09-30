@@ -1963,6 +1963,9 @@ endif()
 add_executable (AICHSearchResultTest
 	AICHSearchResultTest.cpp
 	AICHSearchResultStubs.cpp
+	${CMAKE_SOURCE_DIR}/src/AbstractFile.cpp
+	${CMAKE_SOURCE_DIR}/src/SearchFile.cpp
+	${CMAKE_SOURCE_DIR}/src/MemFile.cpp
 	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
 	${CMAKE_SOURCE_DIR}/src/Tag.cpp
 	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp

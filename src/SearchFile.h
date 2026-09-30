@@ -199,6 +199,9 @@ public:
 		return ((GetClientID() && GetClientPort()) ? 1 : 0) + m_clients.size();
 	}
 
+	// Replay group-wide evidence even when this is a selected filename variant.
+	bool ApplyKadAICHVotes(CAICHHashSet &hashes) const;
+
 	void SetKadPublishInfo(uint32_t val) noexcept { m_kadPublishInfo = val; }
 	uint32_t GetKadPublishInfo() const noexcept { return m_kadPublishInfo; }
 	const std::map<uint32_t, CAICHHash> &GetKadAICHVotes() const noexcept { return m_kadAICHVotes.Get(); }
@@ -258,6 +261,7 @@ private:
 	// restored searches have no live responder and must not contribute a vote.
 	CKadAICHVotes m_kadAICHVotes;
 
+	friend class CSearchFileTestFixture;
 	friend class CPartFile;
 	friend class CSearchListRem;
 	// Needs to assign m_searchID directly after LoadFromFile() reconstructs a result tree from

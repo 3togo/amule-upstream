@@ -218,20 +218,12 @@ CPartFile::CPartFile(CSearchFile *searchresult)
 {
 	Init();
 
-	// Filename variants share the complete group's AICH evidence.
-	const CSearchFile *evidence = searchresult->GetParent() ? searchresult->GetParent() : searchresult;
-
 	m_abyFileHash = searchresult->GetFileHash();
 	SetFileName(searchresult->GetFileName());
 	SetFileSize(searchresult->GetFileSize());
 
-	if (evidence->IsKademlia()) {
-		for (const auto &vote : evidence->GetKadAICHVotes()) {
-			m_pAICHHashSet->UntrustedHashReceived(vote.second, vote.first);
-		}
-		if (!evidence->GetKadAICHVotes().empty()) {
-			MarkECChanged();
-		}
+	if (searchresult->ApplyKadAICHVotes(*m_pAICHHashSet)) {
+		MarkECChanged();
 	}
 
 	for (unsigned int i = 0; i < searchresult->m_taglist.size(); ++i) {

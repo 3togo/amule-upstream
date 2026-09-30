@@ -339,6 +339,18 @@ void CSearchFile::AddClient(const ClientStruct &client)
 	m_clients.push_back(client);
 }
 
+bool CSearchFile::ApplyKadAICHVotes(CAICHHashSet &hashes) const
+{
+	const CSearchFile *evidence = GetParent() ? GetParent() : this;
+	if (!evidence->IsKademlia()) {
+		return false;
+	}
+	for (const auto &vote : evidence->GetKadAICHVotes()) {
+		hashes.UntrustedHashReceived(vote.second, vote.first);
+	}
+	return !evidence->GetKadAICHVotes().empty();
+}
+
 void CSearchFile::MergeResults(const CSearchFile &other)
 {
 	m_kadAICHVotes.Merge(other.m_kadAICHVotes);

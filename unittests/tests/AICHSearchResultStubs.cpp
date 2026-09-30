@@ -25,6 +25,8 @@
 // Application dependencies of the production SHAHashSet.cpp.
 // Consensus tests must never enter client recovery; fail at that boundary.
 #include <muleunit/test.h>
+#include <cstdio>
+#include <cstdlib>
 #include <amule.h>
 #include <Preferences.h>
 #include <DownloadQueue.h>
@@ -72,3 +74,60 @@ wxString CUpDownClient::GetClientFullInfo()
 }
 
 #endif
+
+// Search model tests do not query live queues, clients, or Kad notes. UI
+// notifications are intentionally ignored by this headless fixture.
+#include <KnownFileList.h>
+#include <CanceledFileList.h>
+#include <GuiEvents.h>
+
+uint32 CECID::s_IDCounter = 0;
+bool CPreferences::s_filterLanIP = false;
+
+bool IsGoodIP(uint32, bool) noexcept
+{
+	std::fputs("Search model test unexpectedly validated a client endpoint\n", stderr);
+	std::abort();
+}
+
+void CAbstractFile::GetKadNotesComments(FileRatingList &) const
+{
+	FAIL_M("Search model test unexpectedly queried Kad notes");
+}
+
+void CAbstractFile::GetRatingAndComments(FileRatingList &) const
+{
+	FAIL_M("Search model test unexpectedly queried comments");
+}
+
+bool CPartFile::CanAddSource(uint32, uint16, uint32, uint16, uint8 *, bool)
+{
+	FAIL_M("Search model test unexpectedly added a download source");
+	return false;
+}
+
+CPartFile *CDownloadQueue::GetFileByID(const CMD4Hash &) const
+{
+	FAIL_M("Search model test unexpectedly queried the download queue");
+	return nullptr;
+}
+
+CKnownFile *CKnownFileList::FindKnownFileByID(const CMD4Hash &)
+{
+	FAIL_M("Search model test unexpectedly queried known files");
+	return nullptr;
+}
+
+bool CCanceledFileList::IsCanceledFile(const CMD4Hash &) const
+{
+	FAIL_M("Search model test unexpectedly queried canceled files");
+	return false;
+}
+
+namespace MuleNotify
+{
+void SearchFileBeingDestroyed(CSearchFile *) {}
+void Search_Add_Result(CSearchFile *) {}
+void Search_Update_Sources(CSearchFile *) {}
+void HandleNotification(const CMuleNotiferBase &) {}
+} // namespace MuleNotify
