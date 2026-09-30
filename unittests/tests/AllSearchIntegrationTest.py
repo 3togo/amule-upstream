@@ -305,7 +305,11 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                         [string(C['EC_TAG_SEARCH_NAME'], 'fedora ('), string(C['EC_TAG_SEARCH_FILE_TYPE'], '')])])
                     assert op == C['EC_OP_FAILED'], op
                     assert ec.progress(previous)[C['EC_TAG_SEARCH_LIFECYCLE_STATE']][0] == 1
-                    sid = ec.start('fedora workstation')
+                    other_client = EC(ec_port)
+                    try:
+                        sid = other_client.start('fedora workstation')
+                    finally:
+                        other_client.sock.close()
                     assert ec.progress(previous)[C['EC_TAG_SEARCH_LIFECYCLE_STATE']][0] == 1
                     assert ec.progress(sid)[C['EC_TAG_SEARCH_KAD_ACTIVE']][0] == 0
                     assert ec.progress(unrelated)[C['EC_TAG_SEARCH_LIFECYCLE_STATE']][0] == 1
