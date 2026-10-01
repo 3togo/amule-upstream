@@ -2884,6 +2884,11 @@ static CECPacket *Get_EC_Response_Search_List()
 	for (const auto &known : theApp->searchlist->GetKnownSearchIds()) {
 		uint32 sid = known.first;
 		CECTag entry(EC_TAG_SEARCH_ID, sid);
+		entry.AddTag(CECTag(EC_TAG_SEARCH_STATUS, theApp->searchlist->GetSearchBarStatusById(sid)));
+		entry.AddTag(CECTag(EC_TAG_SEARCH_ED2K_ACTIVE,
+			static_cast<uint8>(theApp->searchlist->HasEd2kComponent(sid))));
+		entry.AddTag(CECTag(EC_TAG_SEARCH_KAD_ACTIVE,
+			static_cast<uint8>(theApp->searchlist->HasKadComponent(sid))));
 		// known.second is the same string GetSearchStringById(sid) would
 		// look up -- already have it from this map entry, no need to re-find.
 		entry.AddTag(EC_TAG_SEARCH_NAME, known.second);
@@ -2986,6 +2991,8 @@ static void AppendSearchProgress(CECTag &out, wxUIntPtr sid)
 	out.AddTag(CECTag(EC_TAG_SEARCH_RESULT_COUNT,
 		static_cast<uint32>(theApp->searchlist->GetSearchResults(sid).size())));
 	out.AddTag(CECTag(EC_TAG_SEARCH_LIFECYCLE_PERCENT, pct));
+	out.AddTag(CECTag(EC_TAG_SEARCH_ED2K_ACTIVE,
+		static_cast<uint8>(theApp->searchlist->HasEd2kComponent(static_cast<uint32>(sid)))));
 	out.AddTag(CECTag(EC_TAG_SEARCH_KAD_ACTIVE,
 		static_cast<uint8>(theApp->searchlist->HasKadComponent(static_cast<uint32>(sid)))));
 }
@@ -3214,6 +3221,8 @@ static CECPacket *Get_EC_Response_Search(const CECPacket *request, bool multiSea
 		// Hand the daemon-allocated ID back so the client can address this
 		// search.
 		reply->AddTag(CECTag(EC_TAG_SEARCH_ID, search_id));
+		reply->AddTag(CECTag(EC_TAG_SEARCH_ED2K_ACTIVE,
+			static_cast<uint8>(theApp->searchlist->HasEd2kComponent(search_id))));
 	}
 	if (multiSearch) {
 		// Echo the client's correlation token (if any) on BOTH outcomes, not just success:

@@ -85,10 +85,7 @@ public:
 	 * which must not steal the selection from whatever the user is looking at, possibly mid-
 	 * typing (got3nks, amule-org/amule#703).
 	 */
-	void CreateNewTab(const wxString &searchString,
-		wxUIntPtr nSearchID,
-		bool select = true,
-		SearchType type = BrowseSearch);
+	void CreateNewTab(const wxString &searchString, wxUIntPtr nSearchID, bool select, SearchType type);
 
 	/// The local search is over.
 	void LocalSearchEnd();
@@ -142,6 +139,7 @@ public:
 	// OnBnClickedStart -- that path creates its own tab, selected, right after StartNewSearch
 	// returns, and would otherwise end up with two (#703).
 	void OnSearchAdded(wxUIntPtr searchID, const wxString &name, uint32 kind);
+	void ClearSearchRequest(wxUIntPtr searchID);
 
 	// This search's results are gone, so close its tab: one left open on a freed search can only
 	// mislead (in amuleGUI "Download" silently does nothing, the daemon's m_results no longer
@@ -223,6 +221,7 @@ public:
 	// Current ID_SEARCHTYPE selection normalised to a stable code (0 = Local, 1 = Global, 2 =
 	// Kad, 5 = All) independent of enabled networks, so it can be persisted across restarts.
 	// wxNOT_FOUND if nothing is selected.
+	std::vector<SearchType> m_searchTypeChoices;
 	int GetSelectedSearchTypeCanonical();
 
 private:

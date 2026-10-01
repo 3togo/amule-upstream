@@ -234,7 +234,16 @@ void CSearchListModel::GetValue(wxVariant &variant, const wxDataViewItem &item, 
 		break;
 
 	case COL_SOURCES: {
-		wxString temp = FormatSearchSources(file->GetSourceCount(), file->GetNetworkSourceCounts());
+		const auto networks = file->GetNetworkSourceCounts();
+		wxString temp = FormatSearchSources(file->GetSourceCount(), networks);
+		if (!networks) {
+			if (file->GetCompleteSourceCount()) {
+				temp += CFormat(" (%d)") % file->GetCompleteSourceCount();
+			}
+			if (file->GetClientsCount()) {
+				temp += CFormat(" [%d]") % file->GetClientsCount();
+			}
+		}
 #if defined(__DEBUG__) && !defined(CLIENT_GUI)
 		if (file->GetKadPublishInfo() == 0) {
 			temp += " | -";

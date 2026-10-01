@@ -208,6 +208,7 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                 state = ec.progress(sid)
                 assert state[C['EC_TAG_SEARCH_LIFECYCLE_KIND']][0] == C['EC_SEARCH_ALL'] and state[C['EC_TAG_SEARCH_KAD_ACTIVE']][0] == 1, state
                 assert state[C['EC_TAG_SEARCH_LIFECYCLE_STATE']][0] == 1, state
+                assert state[C['EC_TAG_SEARCH_ED2K_ACTIVE']][0] == 0, state
                 # Standalone Kad retains its duplicate-target rejection policy.
                 op, _ = ec.call(C['EC_OP_SEARCH_START'], [tag(C['EC_TAG_SEARCH_TYPE'], bytes([C['EC_SEARCH_KAD']]), 2,
                     [string(C['EC_TAG_SEARCH_NAME'], 'ubuntu linux'), string(C['EC_TAG_SEARCH_FILE_TYPE'], '')])])
@@ -324,6 +325,8 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                     state = ec.progress(sid)
                     assert state[C['EC_TAG_SEARCH_LIFECYCLE_STATE']][0] == 1 and state[C['EC_TAG_SEARCH_KAD_ACTIVE']][0] == 1, state
                     assert 0 < state[C['EC_TAG_SEARCH_LIFECYCLE_PERCENT']][0] < 100, state
+                    # eD2k has finished while Kad keeps the combined lifecycle running.
+                    assert state[C['EC_TAG_SEARCH_ED2K_ACTIVE']][0] == 0, state
                     # Finishing another Kad search must not complete this combined one.
                     other = ec.start('opensuse tumbleweed', kind=C['EC_SEARCH_KAD'])
                     ec.call(C['EC_OP_SEARCH_STOP'], [integer(C['EC_TAG_SEARCH_ID'], other)])
@@ -337,6 +340,7 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                     assert ec.call(C['EC_OP_KAD_STOP'])[0] == C['EC_OP_NOOP']
                     state = ec.progress(sid)
                     assert state[C['EC_TAG_SEARCH_LIFECYCLE_STATE']][0] == 1 and state[C['EC_TAG_SEARCH_KAD_ACTIVE']][0] == 0, state
+                    assert state[C['EC_TAG_SEARCH_ED2K_ACTIVE']][0] == 1, state
                     answer.set()
                     for _ in range(50):
                         state = ec.progress(sid)

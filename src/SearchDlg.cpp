@@ -511,7 +511,8 @@ void CSearchDlg::FixSearchTypes()
 	wxConfigBase::Get()->Read("/eMule/DefaultSearchType", &savedType, 0);
 	const auto choices = BuildSearchTypeChoices(
 		thePrefs::GetNetworkED2K(), thePrefs::GetNetworkKademlia(), supportsAll, savedType);
-	for (SearchType type : choices.types) {
+	m_searchTypeChoices = choices.types;
+	for (SearchType type : m_searchTypeChoices) {
 		searchchoice->Append(SearchModeLabel(type),
 			wxArtProvider::GetBitmapBundle(SearchModeArtId(type), wxART_OTHER, wxSize(16, 16)));
 	}
@@ -524,8 +525,10 @@ void CSearchDlg::FixSearchTypes()
 
 int CSearchDlg::GetSelectedSearchTypeCanonical()
 {
-	return SearchTypeFromChoice(
-		CastChild(ID_SEARCHTYPE, wxBitmapComboBox)->GetSelection(), thePrefs::GetNetworkED2K());
+	const int selection = CastChild(ID_SEARCHTYPE, wxBitmapComboBox)->GetSelection();
+	return selection >= 0 && static_cast<size_t>(selection) < m_searchTypeChoices.size()
+		       ? static_cast<int>(m_searchTypeChoices[selection])
+		       : wxNOT_FOUND;
 }
 
 void CSearchDlg::OnSearchTypeChanged(wxCommandEvent &WXUNUSED(evt))
@@ -686,23 +689,7 @@ bool CSearchDlg::HasRunningEd2kSearch() const
 			continue;
 		}
 
-		// 0xffff / 0xfffe are the finished sentinels; anything else is a
-		// running percent. Same vocabulary in both builds, different source.
-		uint32 status;
-#ifdef CLIENT_GUI
-		// Only this session's submitted requests can be running before the first poll.
-		const auto it = m_searchProgress.find(sid);
-		if (it == m_searchProgress.end()) {
-			if (ctrl->GetSearchRequest()) {
-				return true;
-			}
-			continue;
-		}
-		status = it->second;
-#else
-		status = theApp->searchlist->GetSearchBarStatusById(sid);
-#endif
-		if (IsRunningSearchStatus(status)) {
+		if (theApp->searchlist->HasEd2kComponent(static_cast<uint32_t>(sid))) {
 			return true;
 		}
 	}
@@ -1022,6 +1009,13 @@ bool CSearchDlg::TryReuseSearch(const CSearchList::CSearchParams &params)
 	return true;
 }
 
+void CSearchDlg::ClearSearchRequest(wxUIntPtr searchID)
+{
+	if (auto *page = GetSearchList(searchID)) {
+		page->ClearSearchRequest();
+	}
+}
+
 void CSearchDlg::ClearSearchRequests()
 {
 	for (size_t i = 0; i < m_notebook->GetPageCount(); ++i) {
@@ -1233,7 +1227,7 @@ void CSearchDlg::EnsureBrowseTab(uint32 peerEcid, const wxString &userName, wxUI
 		return;
 	}
 
-	CreateNewTab(userName, searchID, reveal);
+	CreateNewTab(userName, searchID, reveal, BrowseSearch);
 	if (CSearchListCtrl *page = GetSearchList(searchID)) {
 		page->SetBrowseEcid(peerEcid);
 		page->SetBrowseName(userName);
@@ -1489,30 +1483,11 @@ void CSearchDlg::StartNewSearch()
 	}
 	RecordSearchHistory(params.searchString);
 
-	SearchType search_type = KadSearch;
-
-	// Canonical types (0 = Local, 1 = Global, 2 = Kad, 5 = All), normalised for the
-	// disabled-ED2K case inside the helper.
-	int selection = GetSelectedSearchTypeCanonical();
-
-	switch (selection) {
-	case 0: // Local Search
-		search_type = LocalSearch;
-		break;
-	case 1: // Remote Servers (was Global)
-		search_type = GlobalSearch;
-		break;
-	case 2: // Kad search
-		search_type = KadSearch;
-		break;
-	case AllSearch: // All networks
-		search_type = AllSearch;
-		break;
-	default:
-		// Should never happen
-		wxFAIL;
-		break;
+	const int selection = GetSelectedSearchTypeCanonical();
+	if (selection == wxNOT_FOUND) {
+		return;
 	}
+	const SearchType search_type = static_cast<SearchType>(selection);
 
 	const CSearchRequest request(search_type, params);
 	FindWindow(IDC_STARTS)->Disable();

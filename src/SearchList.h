@@ -73,30 +73,6 @@ enum SearchType
 	AllSearch = 5
 };
 
-// The dropdown omits eD2k entries when that network is disabled. Its fourth
-// entry is AllSearch, whose wire value is 5 (3 is reserved for web searches).
-inline int SearchTypeFromChoice(int selection, bool ed2kEnabled)
-{
-	if (selection < 0) {
-		return selection;
-	}
-	if (!ed2kEnabled) {
-		return selection == 0 ? KadSearch : -1;
-	}
-	switch (selection) {
-	case 0:
-		return LocalSearch;
-	case 1:
-		return GlobalSearch;
-	case 2:
-		return KadSearch;
-	case 3:
-		return AllSearch;
-	default:
-		return -1;
-	}
-}
-
 typedef std::vector<CSearchFile *> CSearchResultList;
 
 class CSearchList : public wxEvtHandler, public CSearchResultIndex
@@ -230,6 +206,10 @@ public:
 	 * AllSearch whose Kad part is still active. Used to gate the "More" button.
 	 */
 	bool HasKadComponent(uint32_t searchID) const;
+	bool HasEd2kComponent(uint32_t searchID) const
+	{
+		return searchID == m_currentSearch && m_searchInProgress && !m_ed2kSearchFinished;
+	}
 
 	/**
 	 * Maps a Kad search ID back to the ed2k tab ID that owns its results, or returns
@@ -559,22 +539,11 @@ private:
 	//! most-recently-started search). Pruned in RemoveResults.
 	std::map<uint32_t, SearchType> m_searchKinds;
 
-	//! Accepted result records per network, including duplicate records merged into a row.
-	//! Used to verify AllSearch actually returns results from all networks.
-	struct ResultSourceCounts
-	{
-		size_t tcp = 0;
-		size_t udp = 0;
-		size_t kad = 0;
-		size_t total() const { return tcp + udp + kad; }
-	};
-	std::map<uint32_t, ResultSourceCounts> m_resultSourceCounts;
-	void LogResultSourceCounts(uint32_t searchID, const wxString &context);
-
 	//! For AllSearch, a Kad search is started alongside the ed2k one under a separate
 	//! Kad-assigned ID. This maps that Kad ID back to the ed2k ID that owns the tab, so
 	//! KademliaSearchKeyword results land in the right bucket. Pruned in RemoveResults.
 	std::map<uint32_t, uint32_t> m_kadToEd2kSearchId;
+	uint32_t KadComponentOf(uint32_t searchID) const;
 
 	//! Peer ecid per browse id; see RegisterBrowseSearch().
 	std::map<uint32_t, uint32> m_browsePeers;

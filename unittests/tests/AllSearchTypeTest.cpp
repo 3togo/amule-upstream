@@ -34,6 +34,7 @@
 //   - CSearchRequest::CanReuse treats type as a distinguishing filter, so AllSearch must
 //     not be reused as (or by) any of the other three types.
 
+#include "SearchEd2kSlot.h"
 #include <muleunit/test.h>
 
 #include "SearchList.h"
@@ -143,22 +144,11 @@ TEST(AllSearchType, AllChoiceReusesSubmittedAllSearch)
 	CSearchList::CSearchParams params;
 	params.searchString = "ubuntu";
 	const CSearchRequest submitted(AllSearch, params);
-	const CSearchRequest selected(SearchTypeFromChoice(3, true), params);
+	const CSearchRequest selected(BuildSearchTypeChoices(true, true, true, AllSearch).types[3], params);
 	const std::vector<CSearchReuseCandidate> pages{ { &submitted, 25 } };
 	ASSERT_EQUALS(size_t(0), FindReusableSearch(pages, selected));
-	ASSERT_EQUALS(static_cast<int>(EC_SEARCH_ALL), SearchTypeFromChoice(3, true));
-}
-
-TEST(AllSearchType, ChoiceMappingPreservesSingleNetworkSearches)
-{
-	ASSERT_EQUALS(static_cast<int>(LocalSearch), SearchTypeFromChoice(0, true));
-	ASSERT_EQUALS(static_cast<int>(GlobalSearch), SearchTypeFromChoice(1, true));
-	ASSERT_EQUALS(static_cast<int>(KadSearch), SearchTypeFromChoice(2, true));
-	ASSERT_EQUALS(static_cast<int>(KadSearch), SearchTypeFromChoice(0, false));
-	ASSERT_EQUALS(-1, SearchTypeFromChoice(-1, true));
-	ASSERT_EQUALS(-1, SearchTypeFromChoice(-1, false));
-	ASSERT_EQUALS(-1, SearchTypeFromChoice(1, false));
-	ASSERT_EQUALS(-1, SearchTypeFromChoice(4, true));
+	ASSERT_EQUALS(static_cast<int>(EC_SEARCH_ALL),
+		BuildSearchTypeChoices(true, true, true, AllSearch).types[3]);
 }
 
 TEST(AllSearchType, OldDaemonOmitsAllAndRejectsSavedAllSelection)
@@ -180,7 +170,7 @@ TEST(AllSearchType, CapableDaemonOffersAndRestoresAll)
 		ASSERT_EQUALS(size_t(4), choices.types.size());
 		ASSERT_EQUALS(3, choices.selection);
 		ASSERT_EQUALS(int(AllSearch), int(choices.types[choices.selection]));
-		ASSERT_EQUALS(int(AllSearch), SearchTypeFromChoice(choices.selection, true));
+		ASSERT_EQUALS(int(AllSearch), int(choices.types[choices.selection]));
 	}
 }
 
@@ -214,4 +204,28 @@ TEST(AllSearchType, CapabilityDoesNotDisturbOtherSavedModes)
 		const auto disabled = BuildSearchTypeChoices(false, true, supported, GlobalSearch);
 		ASSERT_EQUALS(int(KadSearch), int(disabled.types[disabled.selection]));
 	}
+}
+
+TEST(AllSearchType, AcceptedReplacementInvalidatesPreviousEd2kOwnerBeforePolling)
+{
+	CSearchEd2kSlot slot;
+	ASSERT_EQUALS(uint32_t(0), slot.Accept(1));
+	ASSERT_TRUE(slot.IsActive(1));
+	ASSERT_EQUALS(uint32_t(1), slot.Accept(2));
+	ASSERT_FALSE(slot.IsActive(1));
+	ASSERT_TRUE(slot.IsActive(2));
+	// An old tab's completion poll cannot clear the new owner.
+	slot.Observe(1, false);
+	ASSERT_TRUE(slot.IsActive(2));
+}
+
+TEST(AllSearchType, KadOnlyAllDoesNotOwnActiveEd2kSlot)
+{
+	CSearchEd2kSlot slot;
+	slot.Accept(1);
+	slot.Observe(1, false);
+	ASSERT_FALSE(slot.IsActive(1));
+	// Retain the last owner for request invalidation on accepted replacement.
+	ASSERT_EQUALS(uint32_t(1), slot.Accept(2, false));
+	ASSERT_FALSE(slot.IsActive(2));
 }

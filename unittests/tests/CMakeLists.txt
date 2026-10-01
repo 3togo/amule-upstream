@@ -1999,7 +1999,8 @@ if (UNIX AND NOT APPLE)
 endif()
 
 # EC and eD2k loopback integration: isolated config, no public servers or Kad peers.
-if (BUILD_DAEMON AND UNIX AND NOT APPLE)
+option (ENABLE_ALL_SEARCH_INTEGRATION_TEST "Register daemon loopback AllSearch integration test" OFF)
+if (ENABLE_ALL_SEARCH_INTEGRATION_TEST AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 	find_package (Python3 QUIET COMPONENTS Interpreter)
 	if (Python3_Interpreter_FOUND)
 		add_test (NAME AllSearchIntegrationTest

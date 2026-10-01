@@ -103,6 +103,7 @@ env:
     -DBUILD_MONOLITHIC=YES \
     -DBUILD_REMOTEGUI=YES \
     -DBUILD_TESTING=YES \
+    -DENABLE_ALL_SEARCH_INTEGRATION_TEST=YES \
     -DBUILD_WEBSERVER=YES \
     -DENABLE_NLS=YES \
     -DENABLE_UPNP=YES
@@ -295,6 +296,7 @@ jobs:
           "$RUNNER_TEMP/cmake-min/bin/cmake" .. \
             -DBUILD_EVERYTHING=YES \
             -DBUILD_TESTING=YES \
+            -DENABLE_ALL_SEARCH_INTEGRATION_TEST=YES \
             -DENABLE_ALL_EXPERIMENTAL=YES \
             ${{ env.cmake_ubuntu_config_flags }}
 

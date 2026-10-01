@@ -25,6 +25,7 @@
 #ifndef AMULE_REMOTE_GUI_H
 #define AMULE_REMOTE_GUI_H
 
+#include "SearchEd2kSlot.h"
 #include <functional>             // std::function for the CSharedFilesRem
 #include <memory>                 // std::unique_ptr for CPreferencesRem
 #include <vector>                 // std::vector for CChatMsgHandlerRem's tracked sessions
@@ -651,13 +652,14 @@ public:
 	// then rekeys onto -- two tabs, one search (got3nks, PR #680 review). Inserted in
 	// StartNewSearch's multi-search branch, erased in RemapSearch.
 	//
-	// A set of IDs rather than a bare count so an unattributable reply can never clear it:
+	// IDs and submitted kinds rather than a bare count so an unattributable reply can never clear it:
 	// EC_OP_FAILED reaches this same handler for a failed *browse* too (SendBrowseRequest
 	// routes EC_OP_FRIEND here, and the daemon's EC_TAG_FRIEND_SHARED branch has "Friend not
 	// found." / "Client not found." / malformed exits), and "client not found" is ordinary --
 	// the peer gets reaped between the user seeing the row and clicking View Files. A count
 	// would have let that decrement lift the deferral a round trip early.
-	std::set<uint32> m_pendingSearchStarts;
+	std::map<uint32, SearchType> m_pendingSearchStarts;
+	CSearchEd2kSlot m_ed2kSlot;
 
 	// Most-recently-started search ID (0 = none). uint32 so it correctly holds a
 	// daemon-allocated Kad ID (top half of the range); as a signed int those wrapped negative
@@ -692,7 +694,7 @@ public:
 
 	// Multi-search: remap the optimistic local tab ID to the daemon-allocated
 	// ID once the START reply echoes the correlation token.
-	void RemapSearch(uint32 localID, uint32 daemonID);
+	void RemapSearch(uint32 localID, uint32 daemonID, bool ed2kActive = true);
 
 	// Reachability fix (#641): a direct one-off EC_OP_SEARCH_LIST request, bypassing
 	// DoRequery's single-request-in-flight state machine on purpose. HandlePacket answers
@@ -715,6 +717,7 @@ public:
 	// sends EC_OP_SEARCH_REQUEST_MORE for the daemon to widen that search.
 	bool IsKadSearch(uint32_t searchID) const;
 	bool HasKadComponent(uint32_t searchID) const;
+	bool HasEd2kComponent(uint32_t searchID) const { return m_ed2kSlot.IsActive(searchID); }
 	bool RequestMoreResults(uint32_t searchID);
 
 	// template

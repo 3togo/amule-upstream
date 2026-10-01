@@ -850,8 +850,8 @@ describes the peer only.
 `EC_SEARCH_ALL` (`5`) starts a global eD2k search and a Kad keyword search
 under one public search ID. It uses whichever networks are available at
 submission time; neither available is an error. A Kad keyword already in
-use by another keyword search replaces that search's Kad component, retaining
-its results. Other Kad operations using the same target are preserved; if eD2k
+use by another search is preserved. The new search cannot acquire that Kad
+target; if eD2k
 is connected the new search continues there and logs why its Kad component
 could not start. A query with no usable Kad keyword
 also continues over eD2k when connected; it fails when Kad is the only available
@@ -861,11 +861,14 @@ Combined result rows sum eD2k source reports and take the maximum Kad source
 estimate, then display the larger of those two counts because the networks
 can overlap. Summed eD2k counts saturate at the unsigned 32-bit maximum.
 
-Single-network search results and ALL results with a known split carry
+Only ALL results with a known split carry
 `EC_TAG_SEARCHFILE_ED2K_SOURCES` (`0x0718`) and
 `EC_TAG_SEARCHFILE_KAD_SOURCES` (`0x0719`) as an optional pair of unsigned
-counts, including on updates. A zero means that network contributed zero;
-an absent pair means the split is unknown (older daemons or legacy ALL snapshots).
+counts. An initial full result includes both halves, including zero counts.
+Incremental updates use the value map and omit unchanged halves; clients retain
+the last-known value of the omitted half. Without an initial pair the split is
+unknown (older daemons or legacy ALL snapshots). Single-network results do not
+carry this pair.
 Existing aggregate source tags retain their meaning and determine sorting.
 Clients display only nonzero network counts: `E:9`, `K:50`, or `E:9 K:50`.
 Both zero produces `0`; an unknown breakdown displays the aggregate alone.
@@ -873,8 +876,7 @@ A Sources-cell tooltip explains estimated availability, network counts,
 complete sources, direct client endpoints when available locally, and overlapping
 network estimates. EC does not supply a direct-endpoint count, so remote clients
 omit that detail rather than displaying zero.
-Both tags remain present on the wire even when one is zero. New saved results
-retain the split.
+New saved ALL results retain the split; single-network results do not save it.
 
 For multi-search clients, replacement requests are validated before the existing
 eD2k search is stopped. Rejected requests leave it running; standalone Kad searches
@@ -893,3 +895,9 @@ that ID still has an active Kad component, independently of the aggregate
 lifecycle. Clients use it to gate "More"; its absence on older daemons is
 unknown, with the existing Kad kind/state check as the fallback. A restored
 All search retains results but has no running network components.
+
+`EC_TAG_SEARCH_ED2K_ACTIVE` (`0x071A`, integer boolean) reports whether this
+search still owns the active eD2k slot, independently of its Kad component.
+It is included in progress replies and search-list entries. Clients use it
+to decide whether a new eD2k request would interrupt existing work. Its
+absence on older daemons means unknown; use the lifecycle as a fallback.

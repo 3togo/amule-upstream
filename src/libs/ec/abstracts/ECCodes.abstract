@@ -494,6 +494,8 @@ EC_TAG_SEARCHFILE                         0x0700
 ## is unknown, not zero. Aggregate source tags remain unchanged.
 	EC_TAG_SEARCHFILE_ED2K_SOURCES            0x0718
 	EC_TAG_SEARCHFILE_KAD_SOURCES             0x0719
+## Whether this search still owns the active eD2k slot, independent of Kad.
+	EC_TAG_SEARCH_ED2K_ACTIVE                 0x071A
 
 EC_TAG_FRIEND                             0x0800
 	EC_TAG_FRIEND_NAME                        0x0801

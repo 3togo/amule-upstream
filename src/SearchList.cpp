@@ -318,14 +318,9 @@ void CSearchList::RemoveResults(wxUIntPtr searchID)
 			}
 		}
 	} removed{ TakeSearchResults(searchID) };
-	for (auto it = m_kadToEd2kSearchId.begin(); it != m_kadToEd2kSearchId.end();) {
-		if (it->second == searchID) {
-			m_finishedKadSearches.erase(it->first);
-			it = m_kadToEd2kSearchId.erase(it);
-		} else {
-			++it;
-		}
-	}
+	const uint32_t kadID = KadComponentOf(static_cast<uint32_t>(searchID));
+	m_finishedKadSearches.erase(kadID);
+	m_kadToEd2kSearchId.erase(kadID);
 
 	// Drop any per-search tracking for this ID (bounded growth).
 	m_finishedKadSearches.erase(static_cast<uint32_t>(searchID));
@@ -333,7 +328,7 @@ void CSearchList::RemoveResults(wxUIntPtr searchID)
 	m_searchKinds.erase(static_cast<uint32_t>(searchID));
 	m_searchStrings.erase(static_cast<uint32_t>(searchID));
 	m_browsePeers.erase(static_cast<uint32_t>(searchID));
-	m_resultSourceCounts.erase(static_cast<uint32_t>(searchID));
+
 	m_resultTypes.erase(static_cast<uint32_t>(searchID));
 	// The browse record outlives its client but not its search.
 	theApp->browsemanager->Remove(static_cast<uint32_t>(searchID));
@@ -648,7 +643,7 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 				params.strKeyword, data->GetLength(), data->GetRawBuffer(), *searchID);
 
 			*searchID = search->GetSearchID();
-			m_resultSourceCounts[*searchID] = ResultSourceCounts();
+
 			// Do not repoint the ed2k result-attribution scalar when a Kad search runs alongside
 			// an in-flight ed2k search (see preserveEd2kAnchor above); the Kad search is tracked
 			// by its own ID regardless.
@@ -683,7 +678,6 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 		m_currentSearch = *(searchID);
 		m_searchInProgress = theApp->IsConnectedED2K();
 		m_ed2kSearchFinished = !m_searchInProgress;
-		m_resultSourceCounts[static_cast<uint32_t>(*searchID)] = ResultSourceCounts();
 
 		if (m_searchInProgress) {
 			auto searchPacket =
@@ -775,11 +769,6 @@ void CSearchList::FinalizeLocalSearch()
 	m_awaitingServerAnswer = false;
 	m_searchInProgress = false;
 	m_ed2kSearchFinished = true;
-
-	if (m_searchType == AllSearch) {
-		LogResultSourceCounts(
-			static_cast<uint32_t>(m_currentSearch), wxT("AllSearch eD2k component finished"));
-	}
 
 	if (!m_shuttingDown) {
 		Notify_SearchLocalEnd();
@@ -1112,9 +1101,7 @@ void CSearchList::ProcessSearchAnswer(
 	for (; results > 0; --results) {
 		auto file =
 			std::make_unique<CSearchFile>(packet, optUTF8, m_currentSearch, serverIP, serverPort);
-		if (AddToList(std::move(file), false)) {
-			m_resultSourceCounts[static_cast<uint32_t>(m_currentSearch)].tcp++;
-		}
+		AddToList(std::move(file), false);
 	}
 }
 
@@ -1125,9 +1112,7 @@ void CSearchList::ProcessUDPSearchAnswer(
 		return;
 	}
 	auto file = std::make_unique<CSearchFile>(packet, optUTF8, m_currentSearch, serverIP, serverPort);
-	if (AddToList(std::move(file), false)) {
-		m_resultSourceCounts[static_cast<uint32_t>(m_currentSearch)].udp++;
-	}
+	AddToList(std::move(file), false);
 }
 
 bool CSearchList::AddToList(std::unique_ptr<CSearchFile> owned, bool clientResponse)
@@ -1282,13 +1267,18 @@ bool CSearchList::HasKadComponent(uint32_t searchID) const
 	if (IsKadSearch(searchID) && !m_finishedKadSearches.count(searchID)) {
 		return true;
 	}
-	for (const auto &kv : m_kadToEd2kSearchId) {
-		if (kv.second == searchID && !m_finishedKadSearches.count(kv.first) &&
-			IsKadSearch(kv.first)) {
-			return true;
+	const uint32_t kadID = KadComponentOf(searchID);
+	return IsKadSearch(kadID) && !m_finishedKadSearches.count(kadID);
+}
+
+uint32_t CSearchList::KadComponentOf(uint32_t searchID) const
+{
+	for (const auto &entry : m_kadToEd2kSearchId) {
+		if (entry.second == searchID) {
+			return entry.first;
 		}
 	}
-	return false;
+	return searchID;
 }
 
 uint32_t CSearchList::GetEffectiveSearchId(uint32_t searchID) const
@@ -1354,13 +1344,7 @@ bool CSearchList::RequestMoreResults(uint32_t searchID)
 {
 	// AllSearch: the tab's primary ID is the ed2k one, but "More" applies to the Kad
 	// component. Find the mapped Kad ID and widen that.
-	uint32_t kadID = searchID;
-	for (const auto &kv : m_kadToEd2kSearchId) {
-		if (kv.second == searchID) {
-			kadID = kv.first;
-			break;
-		}
-	}
+	const uint32_t kadID = KadComponentOf(searchID);
 
 	// Widen this Kad search (KADEMLIA_FIND_VALUE_MORE). The outcome is logged here so the
 	// message has a single home: the monolithic GUI and the daemon (for a remote-GUI request
@@ -1410,11 +1394,9 @@ void CSearchList::StopSearchById(wxUIntPtr searchID)
 	// Stop the Kad keyword search for this ID, if it is one. Harmless no-op
 	// when the ID is not an active Kad search (ed2k, or already finished).
 	Kademlia::CSearchManager::StopSearch(searchID, false);
-	// For AllSearch, also stop the Kad search that was mapped to this ed2k ID.
-	for (const auto &kv : m_kadToEd2kSearchId) {
-		if (kv.second == static_cast<uint32_t>(searchID)) {
-			Kademlia::CSearchManager::StopSearch(kv.first, false);
-		}
+	const uint32_t kadID = KadComponentOf(static_cast<uint32_t>(searchID));
+	if (kadID != searchID) {
+		Kademlia::CSearchManager::StopSearch(kadID, false);
 	}
 	// If this is the in-flight ed2k global sweep, finalize it. ed2k is
 	// single-in-flight, so only the current search can be running.
@@ -1433,13 +1415,6 @@ void CSearchList::SetKadSearchFinished(uint32_t searchID)
 	m_finishedKadSearches.insert(searchID);
 	if (searchID == m_currentSearch && m_searchType == KadSearch) {
 		m_KadSearchFinished = true;
-	}
-
-	auto remap = m_kadToEd2kSearchId.find(searchID);
-	if (remap != m_kadToEd2kSearchId.end()) {
-		LogResultSourceCounts(remap->second, wxT("AllSearch Kad component finished"));
-	} else {
-		LogResultSourceCounts(searchID, wxT("Kad search finished"));
 	}
 }
 
@@ -1567,18 +1542,6 @@ uint32 CSearchList::GetSearchBarStatusById(wxUIntPtr searchID) const
 	return GetSearchLifecyclePercentById(searchID);
 }
 
-void CSearchList::LogResultSourceCounts(uint32_t searchID, const wxString &context)
-{
-	auto it = m_resultSourceCounts.find(searchID);
-	if (it == m_resultSourceCounts.end()) {
-		return;
-	}
-	const ResultSourceCounts &c = it->second;
-	AddDebugLogLineN(logSearch,
-		CFormat(wxT("%s [search %u]: TCP=%zu  UDP=%zu  Kad=%zu  total=%zu")) % context % searchID %
-			c.tcp % c.udp % c.kad % c.total());
-}
-
 void CSearchList::StopInFlightEd2kSearch()
 {
 	// Cancel the outgoing eD2k timer and packet before a validated replacement
@@ -1599,11 +1562,6 @@ void CSearchList::FinalizeGlobalSearch()
 	m_searchInProgress = false;
 	m_searchTimer.Stop();
 	m_awaitingServerAnswer = false;
-
-	if (m_searchType == AllSearch) {
-		LogResultSourceCounts(
-			static_cast<uint32_t>(m_currentSearch), wxT("AllSearch eD2k component finished"));
-	}
 
 	if (!m_shuttingDown) {
 		CoreNotify_Search_Update_Progress(0xffff);
@@ -1957,8 +1915,7 @@ void CSearchList::KademliaSearchKeyword(uint32_t searchID,
 
 	// AllSearch maps the Kad search ID back to the ed2k tab's primary ID so results
 	// from both networks land in the same bucket.
-	std::map<uint32_t, uint32_t>::const_iterator remap = m_kadToEd2kSearchId.find(searchID);
-	const uint32_t effectiveSearchID = (remap != m_kadToEd2kSearchId.end()) ? remap->second : searchID;
+	const uint32_t effectiveSearchID = GetEffectiveSearchId(searchID);
 
 	CMemFile temp(250);
 	uint8_t fileid[16];
@@ -2003,9 +1960,7 @@ void CSearchList::KademliaSearchKeyword(uint32_t searchID,
 		temp, (eStrEncode == utf8strRaw), effectiveSearchID, 0, 0, "", true, kadAICHResponderIP);
 	tempFile->SetKadPublishInfo(kadPublishInfo);
 
-	if (AddToList(std::move(tempFile))) {
-		m_resultSourceCounts[effectiveSearchID].kad++;
-	}
+	AddToList(std::move(tempFile));
 }
 
 void CSearchList::UpdateSearchFileByHash(const CMD4Hash &hash)
