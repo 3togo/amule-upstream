@@ -61,6 +61,17 @@ if ! command -v msgmerge &>/dev/null; then
 	exit 21
 fi
 
+if ! command -v msgcat &>/dev/null; then
+	echo "Error: msgcat not found. Install gettext." >&2
+	exit 22
+fi
+
+# Generate separately so extraction failures leave the committed template intact.
+POT_WORK=$(mktemp -d "${GIT_ROOT}/po/.update-po.XXXXXX")
+die 23 "failed to create temporary catalog directory"
+trap 'rm -rf "${POT_WORK}"' EXIT
+NEW_POT="${POT_WORK}/amule.pot"
+
 echo "Extracting translatable strings into po/amule.pot ..."
 # --no-wrap: project policy is one msgid/msgstr per line, no width-based
 # wrapping. Keeps Weblate / msgmerge / hand-regen diffs to real content
@@ -83,7 +94,7 @@ xgettext \
 	--keyword=wxTRANSLATE \
 	--keyword=wxPLURAL:1,2 \
 	--files-from=po/POTFILES.in \
-	--output=po/amule.pot \
+	--output="${NEW_POT}" \
 	--from-code=UTF-8 \
 	--add-comments=TRANSLATORS \
 	--copyright-holder='Free Software Foundation, Inc.' \
@@ -94,8 +105,8 @@ die 30 "xgettext failed"
 
 # xgettext writes "Copyright (C) YEAR" as a placeholder; fill it in.
 YEAR=$(date +%Y)
-sed -e "1,5 s/^# Copyright (C) YEAR /# Copyright (C) ${YEAR} /" po/amule.pot > po/amule.pot.tmp \
-	&& mv po/amule.pot.tmp po/amule.pot
+sed -e "1,5 s/^# Copyright (C) YEAR /# Copyright (C) ${YEAR} /" "${NEW_POT}" > "${NEW_POT}.tmp" \
+	&& mv "${NEW_POT}.tmp" "${NEW_POT}"
 die 32 "failed to substitute copyright year in po/amule.pot"
 
 # xgettext stamps "charset=CHARSET" whenever every extracted msgid is ASCII
@@ -103,9 +114,41 @@ die 32 "failed to substitute copyright year in po/amule.pot"
 # is legitimate, but "CHARSET" is not a portable encoding name -- msgcat and
 # the catalog-sync check reject it. Pin the header to UTF-8, which is correct
 # for ASCII and already matches every .po.
-sed -e "s/charset=CHARSET/charset=UTF-8/" po/amule.pot > po/amule.pot.tmp \
-	&& mv po/amule.pot.tmp po/amule.pot
+sed -e "s/charset=CHARSET/charset=UTF-8/" "${NEW_POT}" > "${NEW_POT}.tmp" \
+	&& mv "${NEW_POT}.tmp" "${NEW_POT}"
 die 33 "failed to normalise charset in po/amule.pot"
+
+# Ignore extraction time, copyright year, references and entry ordering when
+# comparing templates. Keep translator comments and format flags: changes to
+# these matter even when the message text stays the same. Canonicalize with
+# gettext rather than comparing msgid lines (which misses contexts and plurals).
+if [[ -f po/amule.pot ]]; then
+	for POT_SIDE in old new; do
+		POT_INPUT=po/amule.pot
+		[[ ${POT_SIDE} == new ]] && POT_INPUT="${NEW_POT}"
+		msgcat --no-wrap --no-location --sort-output "${POT_INPUT}" \
+			--output-file="${POT_WORK}/${POT_SIDE}.canonical"
+		die 34 "failed to normalize ${POT_SIDE} template"
+		sed -e '/^"POT-Creation-Date: /d' \
+			-e '/^# Copyright (C) [0-9][0-9][0-9][0-9] /d' \
+			"${POT_WORK}/${POT_SIDE}.canonical" > "${POT_WORK}/${POT_SIDE}.content"
+		die 34 "failed to compare ${POT_SIDE} template content"
+	done
+	if cmp -s "${POT_WORK}/old.content" "${POT_WORK}/new.content"; then
+		# Read the original line directly so its literal \n stays escaped.
+		awk 'FNR == NR {
+			if ($0 ~ /^"POT-Creation-Date: /) previous_date = $0
+			next
+		}
+		/^"POT-Creation-Date: / && previous_date != "" { $0 = previous_date }
+		{ print }' po/amule.pot "${NEW_POT}" > "${NEW_POT}.tmp"
+		die 35 "failed to preserve template creation date"
+		mv "${NEW_POT}.tmp" "${NEW_POT}"
+		die 35 "failed to install preserved template creation date"
+	fi
+fi
+mv "${NEW_POT}" po/amule.pot
+die 36 "failed to install regenerated template"
 
 echo "Merging po/amule.pot into each .po file ..."
 # Write via --output-file + mv rather than --update: msgmerge --update
