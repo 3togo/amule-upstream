@@ -87,6 +87,19 @@ class UpdatePoTest(unittest.TestCase):
                 self.assertNotEqual(OLD_DATE, self.date())
                 self.assertIn('POT-Creation-Date: changed', self.pot.read_text())
 
+    def test_charset_normalization_does_not_rewrite_messages(self):
+        self.source.write_text(SOURCE +
+                               '_("Literal charset=CHARSET");\n'
+                               '_("Intro\\nContent-Type: text/plain; charset=CHARSET\\nEnd");\n')
+        self.run_update()
+        text = self.pot.read_text()
+        self.assertIn('"Content-Type: text/plain; charset=UTF-8\\n"', text)
+        self.assertIn('msgid "Literal charset=CHARSET"', text)
+        self.assertIn('"Content-Type: text/plain; charset=CHARSET\\n"', text)
+        before = self.pot.read_bytes()
+        self.run_update()
+        self.assertEqual(before, self.pot.read_bytes())
+
     def test_references_order_and_copyright_update_without_new_date(self):
         self.source.unlink()
         (self.root / "moved.cpp").write_text('_("Beta");\n_("Alpha");\n')

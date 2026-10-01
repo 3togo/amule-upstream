@@ -114,7 +114,15 @@ die 32 "failed to substitute copyright year in regenerated template"
 # is legitimate, but "CHARSET" is not a portable encoding name -- msgcat and
 # the catalog-sync check reject it. Pin the header to UTF-8, which is correct
 # for ASCII and already matches every .po.
-sed -e "s/charset=CHARSET/charset=UTF-8/" "${NEW_POT}" > "${NEW_POT}.tmp" \
+awk '
+	/^msgid / { header = ($0 == "msgid \"\""); translation = 0 }
+	/^msgstr / { translation = 1 }
+	/^"/ && !translation { header = 0 }
+	header && translation && /^"Content-Type: / {
+		sub(/charset=CHARSET/, "charset=UTF-8")
+	}
+	{ print }
+' "${NEW_POT}" > "${NEW_POT}.tmp" \
 	&& mv "${NEW_POT}.tmp" "${NEW_POT}"
 die 33 "failed to normalise charset in regenerated template"
 
