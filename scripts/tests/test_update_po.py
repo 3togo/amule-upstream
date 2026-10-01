@@ -59,6 +59,16 @@ class UpdatePoTest(unittest.TestCase):
         for path, data in before.items():
             self.assertEqual(data, path.read_bytes())
 
+    def test_wrapped_creation_date_is_preserved(self):
+        self.pot.write_text(self.pot.read_text().replace(
+            OLD_DATE, '"POT-Creation-Date: "\n"2000-01-01 00:00+0000\\n"'))
+        self.run_update()
+        self.assertEqual(OLD_DATE, self.date())
+        self.assertIn(OLD_DATE, self.po.read_text())
+        before = self.pot.read_bytes()
+        self.run_update()
+        self.assertEqual(before, self.pot.read_bytes())
+
     def test_references_order_and_copyright_update_without_new_date(self):
         self.source.unlink()
         (self.root / "moved.cpp").write_text('_("Beta");\n_("Alpha");\n')

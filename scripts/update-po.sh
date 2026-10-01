@@ -139,13 +139,14 @@ die 34 "failed to normalize regenerated template"
 if [[ -f po/amule.pot ]] &&
 	canonical_content po/amule.pot "${POT_WORK}/old.content"; then
 	if cmp -s "${POT_WORK}/old.content" "${POT_WORK}/new.content"; then
-		# Read the original line directly so its literal \n stays escaped.
+		# Read the normalized header so wrapped dates retain their full value.
+		# awk keeps the literal \n escaped.
 		awk 'FNR == NR {
 			if ($0 ~ /^"POT-Creation-Date: /) previous_date = $0
 			next
 		}
 		/^"POT-Creation-Date: / && previous_date != "" { $0 = previous_date }
-		{ print }' po/amule.pot "${NEW_POT}" > "${NEW_POT}.tmp"
+		{ print }' "${POT_WORK}/old.content.canonical" "${NEW_POT}" > "${NEW_POT}.tmp"
 		die 35 "failed to preserve template creation date"
 		mv "${NEW_POT}.tmp" "${NEW_POT}"
 		die 35 "failed to install preserved template creation date"
