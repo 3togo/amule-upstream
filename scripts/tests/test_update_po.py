@@ -69,6 +69,24 @@ class UpdatePoTest(unittest.TestCase):
         self.run_update()
         self.assertEqual(before, self.pot.read_bytes())
 
+    def test_date_like_message_is_preserved_and_changes_are_meaningful(self):
+        for source in ('_("Intro\\nPOT-Creation-Date: text\\nEnd");\n',
+                       '_("POT-Creation-Date: text\\nEnd");\n'):
+            with self.subTest(source=source):
+                self.source.write_text(SOURCE + source)
+                self.run_update()
+                self.pot.write_text(re.sub(r'^"POT-Creation-Date: [0-9].*$',
+                                          lambda _: OLD_DATE, self.pot.read_text(),
+                                          flags=re.MULTILINE))
+                before = self.pot.read_bytes()
+                self.run_update()
+                self.assertEqual(before, self.pot.read_bytes())
+                self.assertIn('POT-Creation-Date: text', self.pot.read_text())
+                self.source.write_text(SOURCE + source.replace('Date: text', 'Date: changed'))
+                self.run_update()
+                self.assertNotEqual(OLD_DATE, self.date())
+                self.assertIn('POT-Creation-Date: changed', self.pot.read_text())
+
     def test_references_order_and_copyright_update_without_new_date(self):
         self.source.unlink()
         (self.root / "moved.cpp").write_text('_("Beta");\n_("Alpha");\n')

@@ -127,9 +127,14 @@ canonical_content() {
 	local OUTPUT=$2
 	msgcat --no-wrap --no-location --sort-output "${INPUT}" \
 		--output-file="${OUTPUT}.canonical" || return
-	sed -e '/^"POT-Creation-Date: /d' \
-		-e '/^# Copyright (C) [0-9][0-9][0-9][0-9] /d' \
-		"${OUTPUT}.canonical" > "${OUTPUT}"
+	awk '
+		/^msgid / { header = ($0 == "msgid \"\""); translation = 0 }
+		/^msgstr / { translation = 1 }
+		/^"/ && !translation { header = 0 }
+		header && translation && /^"POT-Creation-Date: / { next }
+		/^# Copyright \(C\) [0-9][0-9][0-9][0-9] / { next }
+		{ print }
+	' "${OUTPUT}.canonical" > "${OUTPUT}"
 }
 
 canonical_content "${NEW_POT}" "${POT_WORK}/new.content"
@@ -141,12 +146,19 @@ if [[ -f po/amule.pot ]] &&
 	if cmp -s "${POT_WORK}/old.content" "${POT_WORK}/new.content"; then
 		# Read the normalized header so wrapped dates retain their full value.
 		# awk keeps the literal \n escaped.
-		awk 'FNR == NR {
-			if ($0 ~ /^"POT-Creation-Date: /) previous_date = $0
-			next
-		}
-		/^"POT-Creation-Date: / && previous_date != "" { $0 = previous_date }
-		{ print }' "${POT_WORK}/old.content.canonical" "${NEW_POT}" > "${NEW_POT}.tmp"
+		awk '
+			/^msgid / { header = ($0 == "msgid \"\""); translation = 0 }
+			/^msgstr / { translation = 1 }
+			/^"/ && !translation { header = 0 }
+			FNR == NR {
+				if (header && translation && /^"POT-Creation-Date: /) previous_date = $0
+				next
+			}
+			header && translation && /^"POT-Creation-Date: / && previous_date != "" {
+				$0 = previous_date
+			}
+			{ print }
+		' "${POT_WORK}/old.content.canonical" "${NEW_POT}" > "${NEW_POT}.tmp"
 		die 35 "failed to preserve template creation date"
 		mv "${NEW_POT}.tmp" "${NEW_POT}"
 		die 35 "failed to install preserved template creation date"
