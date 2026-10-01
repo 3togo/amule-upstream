@@ -72,6 +72,8 @@ void TestScrollableContent()
 	top->Add(button, wxSizerFlags().Right().Border(wxALL, 5));
 	dialog.SetSizer(top);
 	FitScrollableDialog(&dialog, content);
+	std::vector<wxSize> sizes;
+	UpdateDialogContentLayout(content, sizes);
 
 	const wxSize available = wxDisplay(&dialog).GetClientArea().GetSize();
 	Check(dialog.GetSize().x <= available.x && dialog.GetSize().y <= available.y,
@@ -98,7 +100,7 @@ void TestScrollableContent()
 	// File Details changes both section visibility and label lengths on updates.
 	section->Hide();
 	label->SetLabel("Short name");
-	content->FitInside();
+	Check(UpdateDialogContentLayout(content, sizes), "Removed content must refresh the layout");
 	dialog.Layout();
 	Check(dialog.GetSize() == compact, "Hiding a section resized the dialog");
 	Check(content->GetVirtualSize().x <= content->GetClientSize().x &&
@@ -106,7 +108,7 @@ void TestScrollableContent()
 		"Virtual size did not shrink after content was removed");
 
 	section->Show();
-	content->FitInside();
+	Check(UpdateDialogContentLayout(content, sizes), "Shown content must refresh the layout");
 	dialog.Layout();
 	Check(dialog.GetSize() == compact, "Showing a section resized the dialog");
 	Check(content->GetVirtualSize().y >= fields->GetMinSize().y,
@@ -150,7 +152,8 @@ void TestHeightCappedContent()
 	ConfigureDialogScrolling(content);
 	wxBoxSizer *fields = new wxBoxSizer(wxVERTICAL);
 	wxPanel *section = new wxPanel(content);
-	section->SetMinSize(wxSize(400, 2000));
+	const wxSize available = wxDisplay(&dialog).GetClientArea().GetSize();
+	section->SetMinSize(wxSize(400, available.y * 2));
 	fields->Add(section, wxSizerFlags().Expand());
 	content->SetSizer(fields);
 	wxBoxSizer *top = new wxBoxSizer(wxVERTICAL);
@@ -163,6 +166,83 @@ void TestHeightCappedContent()
 		"Tall content should scroll vertically");
 	Check(content->GetVirtualSize().x <= content->GetClientSize().x,
 		"Vertical scrollbar unnecessarily forces horizontal scrolling");
+}
+
+void TestWidthCappedContent()
+{
+	wxDialog dialog(nullptr, wxID_ANY, "Wide dialog layout test");
+	wxScrolledWindow *content = new wxScrolledWindow(&dialog);
+	content->SetMinSize(wxSize(240, 200));
+	ConfigureDialogScrolling(content);
+	wxBoxSizer *fields = new wxBoxSizer(wxVERTICAL);
+	wxPanel *section = new wxPanel(content);
+	const wxSize available = wxDisplay(&dialog).GetClientArea().GetSize();
+	section->SetMinSize(wxSize(available.x * 2, 200));
+	fields->Add(section, wxSizerFlags().Expand());
+	content->SetSizer(fields);
+	wxBoxSizer *top = new wxBoxSizer(wxVERTICAL);
+	top->Add(content, wxSizerFlags(1).Expand());
+	dialog.SetSizer(top);
+	FitScrollableDialog(&dialog, content);
+	dialog.Layout();
+	content->FitInside();
+	Check(content->GetVirtualSize().x > content->GetClientSize().x,
+		"Wide content should scroll horizontally");
+	Check(content->GetVirtualSize().y <= content->GetClientSize().y,
+		"Horizontal scrollbar unnecessarily forces vertical scrolling");
+}
+
+void TestChangingColumnsAndRename()
+{
+	wxDialog dialog(nullptr, wxID_ANY, "Changing columns layout test");
+	wxScrolledWindow *content = new wxScrolledWindow(&dialog);
+	ConfigureDialogScrolling(content);
+	wxBoxSizer *fields = new wxBoxSizer(wxVERTICAL);
+	wxPanel *fixed = new wxPanel(content);
+	fixed->SetMinSize(wxSize(1000, 100));
+	fields->Add(fixed);
+	wxPanel *panel = new wxPanel(content);
+	wxFlexGridSizer *grid = new wxFlexGridSizer(2, 0, 0);
+	grid->AddGrowableCol(0);
+	grid->AddGrowableCol(1);
+	wxStaticText *value = new wxStaticText(panel, wxID_ANY, "1");
+	wxStaticText *neighbor = new wxStaticText(panel, wxID_ANY, "Other column");
+	grid->Add(value);
+	grid->Add(neighbor);
+	panel->SetSizer(grid);
+	fields->Add(panel, wxSizerFlags().Expand());
+	content->SetSizer(fields);
+	wxBoxSizer *top = new wxBoxSizer(wxVERTICAL);
+	top->Add(content, wxSizerFlags(1).Expand());
+	dialog.SetSizer(top);
+	dialog.SetClientSize(wxSize(1000, 400));
+	dialog.Layout();
+	std::vector<wxSize> sizes;
+	Check(UpdateDialogContentLayout(content, sizes), "Initial content must be laid out");
+	const wxSize minimum = fields->GetMinSize();
+	const int oldColumnX = neighbor->GetPosition().x;
+	// Choose a label wider than its allocated column but smaller than the fixed section.
+	wxString label;
+	while (value->GetTextExtent(label).x <= oldColumnX + 20) {
+		label += 'W';
+	}
+	value->SetLabel(label);
+	Check(fields->GetMinSize() == minimum, "Test must keep the overall minimum unchanged");
+	Check(UpdateDialogContentLayout(content, sizes), "Changed columns must trigger layout");
+	Check(neighbor->GetPosition().x > value->GetRect().GetRight(),
+		"A growing value overlaps its neighboring column");
+	Check(!UpdateDialogContentLayout(content, sizes), "Unchanged content must skip relayout");
+
+	// Apply updates the filename immediately rather than waiting for the next timer tick.
+	value->SetLabel(wxString('W', 200));
+	UpdateDialogContentLayout(content, sizes);
+	Check(content->GetVirtualSize().x >= fields->GetMinSize().x,
+		"Renamed content is unreachable until the next timer update");
+	Check(dialog.GetClientSize() == wxSize(1000, 400), "Content update resized the dialog");
+	value->SetLabel("Short name");
+	UpdateDialogContentLayout(content, sizes);
+	Check(content->GetVirtualSize().x <= content->GetClientSize().x,
+		"Shorter renamed content leaves a stale horizontal range");
 }
 
 void TestSmallContent()
@@ -204,6 +284,8 @@ int main(int argc, char **argv)
 			TestScrollableContent();
 			TestSmallContent();
 			TestHeightCappedContent();
+			TestWidthCappedContent();
+			TestChangingColumnsAndRename();
 			TestHorizontalScrollEdge();
 			std::cout << "Dialog layout regression tests passed\n";
 		} catch (const std::exception &error) {

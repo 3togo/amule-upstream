@@ -30,11 +30,42 @@
 #include <wx/sizer.h>
 #include <wx/settings.h>
 
+#include <utility>
+#include <vector>
+
 // Horizontal scroll units must be exact pixels: larger units round the range
 // past the virtual content edge and expose a blank strip at the right.
 inline void ConfigureDialogScrolling(wxScrolledWindow *content)
 {
 	content->SetScrollRate(1, content->FromDIP(10));
+}
+
+// A section can dominate the total minimum while individual columns still change.
+// Track every sizer item's minimum, including nested panels, rather than just the total.
+inline void CollectDialogContentSizes(wxSizer *sizer, std::vector<wxSize> &sizes)
+{
+	for (wxSizerItem *item : sizer->GetChildren()) {
+		sizes.push_back(item->IsShown() ? item->GetMinSize() : wxDefaultSize);
+		wxSizer *nested = item->IsSizer()    ? item->GetSizer()
+				  : item->IsWindow() ? item->GetWindow()->GetSizer()
+						     : nullptr;
+		if (nested) {
+			CollectDialogContentSizes(nested, sizes);
+		}
+	}
+}
+
+inline bool UpdateDialogContentLayout(wxScrolledWindow *content, std::vector<wxSize> &previousSizes)
+{
+	std::vector<wxSize> sizes;
+	sizes.push_back(content->GetSizer()->GetMinSize());
+	CollectDialogContentSizes(content->GetSizer(), sizes);
+	if (sizes != previousSizes) {
+		content->FitInside();
+		previousSizes = std::move(sizes);
+		return true;
+	}
+	return false;
 }
 
 // Keep the minimum dictated by the fixed controls, while bounding the initial
@@ -50,6 +81,9 @@ inline void FitDialogToDisplay(wxWindow *dialog, const wxSize &preferredClientSi
 	}
 	const wxSize available = wxDisplay(displayIndex).GetClientArea().GetSize();
 	const wxSize limit(available.GetWidth() * 4 / 5, available.GetHeight() * 4 / 5);
+	if (preferred.GetWidth() > limit.GetWidth()) {
+		preferred.y += wxMax(0, wxSystemSettings::GetMetric(wxSYS_HSCROLL_Y, dialog));
+	}
 	if (preferred.GetHeight() > limit.GetHeight()) {
 		preferred.x += wxMax(0, wxSystemSettings::GetMetric(wxSYS_VSCROLL_X, dialog));
 	}
