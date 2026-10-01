@@ -1950,7 +1950,8 @@ void CSearchList::KademliaSearchKeyword(uint32_t searchID,
 	uint64_t size,
 	const wxString &type,
 	uint32_t kadPublishInfo,
-	const TagPtrList &taglist)
+	const TagPtrList &taglist,
+	uint32_t kadAICHResponderIP)
 {
 	EUtf8Str eStrEncode = utf8strRaw;
 
@@ -1999,7 +2000,7 @@ void CSearchList::KademliaSearchKeyword(uint32_t searchID,
 	temp.Seek(0, wxFromStart);
 
 	auto tempFile = std::make_unique<CSearchFile>(
-		temp, (eStrEncode == utf8strRaw), effectiveSearchID, 0, 0, "", true);
+		temp, (eStrEncode == utf8strRaw), effectiveSearchID, 0, 0, "", true, kadAICHResponderIP);
 	tempFile->SetKadPublishInfo(kadPublishInfo);
 
 	if (AddToList(std::move(tempFile))) {

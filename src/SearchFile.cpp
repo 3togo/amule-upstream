@@ -53,7 +53,8 @@ CSearchFile::CSearchFile(const CMemFile &data,
 	uint32_t serverIP,
 	uint16_t serverPort,
 	const wxString &directory,
-	bool kademlia)
+	bool kademlia,
+	uint32_t kadAICHResponderIP)
 : m_parent(NULL)
 , m_showChildren(false)
 , m_searchID(searchID)
@@ -117,6 +118,13 @@ CSearchFile::CSearchFile(const CMemFile &data,
 		}
 	}
 
+	if (kademlia && kadAICHResponderIP != 0) {
+		CAICHHash root;
+		if (root.DecodeBase32(GetStrTagValue(FT_AICH_HASH)) == CAICHHash::GetHashSize()) {
+			m_kadAICHVotes.Add(kadAICHResponderIP, root);
+		}
+	}
+
 	if (!GetFileName().IsOk()) {
 		throw CInvalidPacket("No filename in search result");
 	}
@@ -143,6 +151,7 @@ CSearchFile::CSearchFile(const CSearchFile &other) // NOLINT(bugprone-copy-const
 , m_clientServerIP(other.m_clientServerIP)
 , m_clientServerPort(other.m_clientServerPort)
 , m_kadPublishInfo(other.m_kadPublishInfo)
+, m_kadAICHVotes(other.m_kadAICHVotes)
 {
 	// Stage ownership until every copy and allocation succeeds. A throwing
 	// constructor does not run this object's destructor.
@@ -392,8 +401,20 @@ void CSearchFile::AddClient(const ClientStruct &client)
 	m_clients.push_back(client);
 }
 
+bool CSearchFile::ApplyKadAICHVotes(CAICHHashSet &hashes) const
+{
+	const CSearchFile *evidence = GetParent() ? GetParent() : this;
+	// AllSearch groups can start with an eD2k row and later acquire Kad votes.
+	// Each vote already carries its Kad responder provenance.
+	for (const auto &vote : evidence->GetKadAICHVotes()) {
+		hashes.UntrustedHashReceived(vote.second, vote.first);
+	}
+	return !evidence->GetKadAICHVotes().empty();
+}
+
 void CSearchFile::MergeResults(const CSearchFile &other)
 {
+	m_kadAICHVotes.Merge(other.m_kadAICHVotes);
 	m_sourceContributionsKnown = m_sourceContributionsKnown && other.m_sourceContributionsKnown;
 	m_sourceContributions.Merge(other.m_sourceContributions);
 	m_completeSourceContributions.Merge(other.m_completeSourceContributions);
@@ -474,6 +495,7 @@ void CSearchFile::AddChild(CSearchFile *file)
 		}
 	}
 
+	m_kadAICHVotes.Merge(file->m_kadAICHVotes);
 	file->m_parent = this;
 
 	for (size_t i = 0; i < m_children.size(); ++i) {
