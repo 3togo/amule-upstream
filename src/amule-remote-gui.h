@@ -619,7 +619,7 @@ public:
 class CSearchListRem : public CRemoteContainer<CSearchFile, uint32, CEC_SearchFile_Tag>,
 		       public CSearchResultIndex
 {
-	virtual void HandlePacket(const CECPacket *);
+	virtual void HandlePacket(const CECPacket *) override;
 
 	// Partial-update union poll: delete a result only when the daemon says so
 	// (EC_TAG_FILE_REMOVED), instead of the base class's "anything missing from this reply is
@@ -631,7 +631,7 @@ class CSearchListRem : public CRemoteContainer<CSearchFile, uint32, CEC_SearchFi
 	// removal made explicit the daemon can skip an unchanged result entirely, and an idle
 	// search costs nothing. Falls back to the base implementation against a daemon that did
 	// not echo EC_TAG_CAN_PARTIAL_UPDATE, which still relies on absence.
-	virtual void ProcessUpdate(const CECTag *reply, CECPacket *full_req, int req_type);
+	virtual void ProcessUpdate(const CECTag *reply, CECPacket *full_req, int req_type) override;
 
 public:
 	CSearchListRem(CRemoteConnect *);
@@ -737,11 +737,11 @@ public:
 	bool RequestMoreResults(uint32_t searchID);
 
 	// template
-	CSearchFile *CreateItem(const CEC_SearchFile_Tag *);
-	void DeleteItem(CSearchFile *);
-	uint32 GetItemID(CSearchFile *);
-	void ProcessItemUpdate(const CEC_SearchFile_Tag *, CSearchFile *);
-	bool Phase1Done(const CECPacket *);
+	CSearchFile *CreateItem(const CEC_SearchFile_Tag *) override;
+	void DeleteItem(CSearchFile *) override;
+	uint32 GetItemID(CSearchFile *) override;
+	void ProcessItemUpdate(const CEC_SearchFile_Tag *, CSearchFile *) override;
+	bool Phase1Done(const CECPacket *) override;
 };
 
 class CFriendListRem : public CRemoteContainer<CFriend, uint32, CEC_Friend_Tag>
