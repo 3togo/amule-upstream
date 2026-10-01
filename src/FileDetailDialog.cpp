@@ -276,17 +276,25 @@ void CFileDetailDialog::UpdateData(bool resetFilename)
 	// actually shares data.
 	bool showDownload = (part != nullptr);
 	bool showSharing = (part == nullptr) || (part->GetCompletedSize() > 0);
+	bool visibilityChanged = false;
 	wxWindow *dlPanel = FindWindow(IDC_FD_DOWNLOAD_PANEL);
 	if (dlPanel && dlPanel->IsShown() != showDownload) {
 		dlPanel->Show(showDownload);
+		visibilityChanged = true;
 	}
 	wxWindow *shPanel = FindWindow(IDC_FD_SHARING_PANEL);
 	if (shPanel && shPanel->IsShown() != showSharing) {
 		shPanel->Show(showSharing);
+		visibilityChanged = true;
 	}
 	// Labels and section visibility change when navigating files or on a timer.
 	// Update the virtual content size without resizing the user's dialog.
-	CastChild(IDC_FILE_DETAILS_CONTENT, wxScrolledWindow)->FitInside();
+	wxScrolledWindow *content = CastChild(IDC_FILE_DETAILS_CONTENT, wxScrolledWindow);
+	const wxSize bestSize = content->GetSizer()->GetMinSize();
+	if (visibilityChanged || bestSize != m_contentBestSize) {
+		content->FitInside();
+		m_contentBestSize = bestSize;
+	}
 
 	setEnableForApplyButton();
 	// "Show all comments" opens the ratings/comments dialog, which works for a shared file as
@@ -296,7 +304,6 @@ void CFileDetailDialog::UpdateData(bool resetFilename)
 	m_file->GetShownRatingAndComments(list);
 	CastChild(IDC_CMTBT, wxControl)->Enable(!list.empty() || theApp->IsConnectedKad());
 	FillSourcenameList();
-	Layout();
 }
 
 // CFileDetailDialog message handlers

@@ -69,6 +69,7 @@ private:
 	int m_index;
 	wxTimer m_timer;
 	bool m_filenameChanged;
+	wxSize m_contentBestSize = wxDefaultSize;
 
 	//! Source-name rows for the currently displayed partfile, keyed by name so
 	//! FillSourcenameList() can find-or-create by identity across ticks instead of searching

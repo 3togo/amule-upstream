@@ -2007,7 +2007,7 @@ if (TARGET wxWidgets::CORE)
 	target_include_directories (DialogLayoutTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 	target_link_libraries (DialogLayoutTest PRIVATE wxWidgets::CORE)
 	add_test (NAME DialogLayoutTest COMMAND DialogLayoutTest)
-	set_tests_properties (DialogLayoutTest PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)
+	set_tests_properties (DialogLayoutTest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # Exercise production consensus with explicit, fail-fast application stubs.

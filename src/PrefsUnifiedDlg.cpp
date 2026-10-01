@@ -88,14 +88,25 @@
 #include "UserEvents.h"
 #include "PlatformSpecific.h" // Needed for PLATFORMSPECIFIC_CAN_PREVENT_SLEEP_MODE
 
-#ifdef CLIENT_GUI
 namespace
 {
+// Controls can live inside nested panels/static boxes. Refresh their owning page.
+void RefreshPreferencesPage(wxWindow *window)
+{
+	for (; window; window = window->GetParent()) {
+		if (auto *page = wxDynamicCast(window, wxScrolledWindow)) {
+			page->FitInside();
+			return;
+		}
+	}
+}
+
+#ifdef CLIENT_GUI
 // The open Preferences dialog, or NULL. Lets a GET_SHARED_DIRS reply repaint
 // the editor without holding a pointer that could outlive the dialog.
 PrefsUnifiedDlg *s_openPrefsDlg = nullptr;
-} // namespace
 #endif
+} // namespace
 
 wxBEGIN_EVENT_TABLE(PrefsUnifiedDlg, wxDialog)
 // Events
@@ -980,6 +991,10 @@ bool PrefsUnifiedDlg::TransferToWindow()
 	m_verticalToolbar = thePrefs::VerticalToolbar();
 	m_toolbarOrientationChanged = false;
 
+	for (wxPanel *page : m_pageWidgets) {
+		RefreshPreferencesPage(page);
+	}
+
 	return true;
 }
 
@@ -1085,6 +1100,7 @@ void PrefsUnifiedDlg::UpdateMessageFilterControls()
 void PrefsUnifiedDlg::SetCredentialStateLabel(int id, bool isSet)
 {
 	CastChild(id, wxStaticText)->SetLabel(isSet ? _("A password is set.") : _("No password set."));
+	RefreshPreferencesPage(FindWindow(id));
 }
 
 void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
@@ -1959,7 +1975,7 @@ void PrefsUnifiedDlg::OnButtonExcludePreview(wxCommandEvent &WXUNUSED(event))
 		info->SetLabel(label);
 	}
 	// The label size just changed; re-lay-out its row so it is not clipped.
-	info->GetParent()->Layout();
+	RefreshPreferencesPage(info->GetParent());
 }
 #endif
 
@@ -2190,13 +2206,9 @@ void PrefsUnifiedDlg::UpdateGeoIPSourcePanel()
 	containerSizer->Show(maxmind, src == thePrefs::GeoIPSourceMaxMind);
 	containerSizer->Show(custom, src == thePrefs::GeoIPSourceCustom);
 
-	// Re-layout the prefs page so the height delta from the now-hidden panel propagates
-	// upward through the wxStaticBoxSizer chain. Each sub-panel is a real wxPanel (leaf
-	// from the layout engine's view), so the cascade-loop risk that motivated dropping
-	// Layout() earlier does not apply here.
-	if (m_CurrentPanel) {
-		m_CurrentPanel->Layout();
-	}
+	// Refresh the owning page even when another page is selected, so the newly
+	// shown panel is reachable and hidden panels leave no stale scroll range.
+	RefreshPreferencesPage(dbip);
 }
 
 void PrefsUnifiedDlg::OnGeoIPMasterToggle(wxCommandEvent &event)
@@ -2277,6 +2289,7 @@ void PrefsUnifiedDlg::UpdateGeoIPStatus()
 			line += last;
 		}
 		st->SetLabel(line);
+		RefreshPreferencesPage(st);
 		return;
 	}
 
@@ -2328,6 +2341,7 @@ void PrefsUnifiedDlg::UpdateGeoIPStatus()
 		st->SetLabel(_("Status: Not found - click 'Update now' to download."));
 	}
 #endif // !CLIENT_GUI
+	RefreshPreferencesPage(st);
 }
 #endif // GEOIP_GUI
 
@@ -2411,6 +2425,7 @@ void PrefsUnifiedDlg::OnPrefsPageChange(wxDataViewEvent &event)
 	m_CurrentPanel->Show(true);
 
 	Layout();
+	RefreshPreferencesPage(m_CurrentPanel);
 
 	event.Skip();
 }
@@ -2498,7 +2513,7 @@ void PrefsUnifiedDlg::OnScrollBarChange(wxScrollEvent &event)
 
 	if (widget) {
 		widget->SetLabel(label);
-		widget->GetParent()->Layout();
+		RefreshPreferencesPage(widget->GetParent());
 	}
 }
 
@@ -2531,6 +2546,7 @@ void PrefsUnifiedDlg::OnTCPClientPortChange(wxSpinEvent &WXUNUSED(event))
 		->SetLabel(m_ServerTabVisible
 				   ? (wxString() << (CastChild(IDC_PORT, wxSpinCtrl)->GetValue() + 3))
 				   : wxString(_("disabled")));
+	RefreshPreferencesPage(FindWindow(ID_TEXT_CLIENT_UDP_PORT));
 }
 
 void PrefsUnifiedDlg::OnUserEventSelected(wxListEvent &event)
@@ -2542,7 +2558,7 @@ void PrefsUnifiedDlg::OnUserEventSelected(wxListEvent &event)
 	IDC_PREFS_EVENTS_PAGE->Show(
 		(event.GetData() - USEREVENTS_FIRST_ID) / USEREVENTS_IDS_PER_EVENT + 1, true);
 
-	IDC_PREFS_EVENTS_PAGE->Layout();
+	RefreshPreferencesPage(IDC_PREFS_EVENTS_PAGE->GetContainingWindow());
 
 	event.Skip();
 }
@@ -2622,8 +2638,8 @@ void PrefsUnifiedDlg::CreateEventPanels(const int idx, const wxString &vars, wxW
 
 	IDC_PREFS_EVENTS_PAGE->Add(item7, wxSizerFlags().Expand().CenterVertical().Border(wxALL, 5));
 
-	IDC_PREFS_EVENTS_PAGE->Layout();
 	IDC_PREFS_EVENTS_PAGE->Hide(idx + 1);
+	RefreshPreferencesPage(parent);
 }
 
 namespace
@@ -3188,7 +3204,7 @@ void PrefsUnifiedDlg::WrapPathMappingHint()
 	hint->SetLabel(m_pathMappingHintText);
 	hint->Wrap(width);
 	// The paragraph's height has changed, so the rest of the page moves.
-	page->Layout();
+	RefreshPreferencesPage(page);
 }
 
 void PrefsUnifiedDlg::HarvestPathMappingList()

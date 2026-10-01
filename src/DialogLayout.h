@@ -28,6 +28,7 @@
 #include <wx/display.h>
 #include <wx/scrolwin.h>
 #include <wx/sizer.h>
+#include <wx/settings.h>
 
 // Horizontal scroll units must be exact pixels: larger units round the range
 // past the virtual content edge and expose a blank strip at the right.
@@ -48,7 +49,11 @@ inline void FitDialogToDisplay(wxWindow *dialog, const wxSize &preferredClientSi
 		displayIndex = 0;
 	}
 	const wxSize available = wxDisplay(displayIndex).GetClientArea().GetSize();
-	preferred.DecTo(wxSize(available.GetWidth() * 4 / 5, available.GetHeight() * 4 / 5));
+	const wxSize limit(available.GetWidth() * 4 / 5, available.GetHeight() * 4 / 5);
+	if (preferred.GetHeight() > limit.GetHeight()) {
+		preferred.x += wxMax(0, wxSystemSettings::GetMetric(wxSYS_VSCROLL_X, dialog));
+	}
+	preferred.DecTo(limit);
 	dialog->SetSize(preferred);
 }
 

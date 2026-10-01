@@ -1,6 +1,26 @@
+//
 // This file is part of the aMule Project.
-// Copyright (c) 2026 aMule Team ( https://amule-org.github.io )
-// Licensed under the GNU General Public License, version 2 or later.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// Any parts of this program derived from the xMule, lMule or eMule project,
+// or contributed by third-party developers are copyrighted by their
+// respective authors.
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
+//
 
 #include <wx/wx.h>
 
@@ -122,6 +142,29 @@ void TestHorizontalScrollEdge()
 	}
 }
 
+void TestHeightCappedContent()
+{
+	wxDialog dialog(nullptr, wxID_ANY, "Tall dialog layout test");
+	wxScrolledWindow *content = new wxScrolledWindow(&dialog);
+	content->SetMinSize(wxSize(240, 200));
+	ConfigureDialogScrolling(content);
+	wxBoxSizer *fields = new wxBoxSizer(wxVERTICAL);
+	wxPanel *section = new wxPanel(content);
+	section->SetMinSize(wxSize(400, 2000));
+	fields->Add(section, wxSizerFlags().Expand());
+	content->SetSizer(fields);
+	wxBoxSizer *top = new wxBoxSizer(wxVERTICAL);
+	top->Add(content, wxSizerFlags(1).Expand());
+	dialog.SetSizer(top);
+	FitScrollableDialog(&dialog, content);
+	dialog.Layout();
+	content->FitInside();
+	Check(content->GetVirtualSize().y > content->GetClientSize().y,
+		"Tall content should scroll vertically");
+	Check(content->GetVirtualSize().x <= content->GetClientSize().x,
+		"Vertical scrollbar unnecessarily forces horizontal scrolling");
+}
+
 void TestSmallContent()
 {
 	wxDialog dialog(nullptr, wxID_ANY, "Small dialog layout test");
@@ -160,6 +203,7 @@ int main(int argc, char **argv)
 		try {
 			TestScrollableContent();
 			TestSmallContent();
+			TestHeightCappedContent();
 			TestHorizontalScrollEdge();
 			std::cout << "Dialog layout regression tests passed\n";
 		} catch (const std::exception &error) {
