@@ -107,7 +107,7 @@ die 30 "xgettext failed"
 YEAR=$(date +%Y)
 sed -e "1,5 s/^# Copyright (C) YEAR /# Copyright (C) ${YEAR} /" "${NEW_POT}" > "${NEW_POT}.tmp" \
 	&& mv "${NEW_POT}.tmp" "${NEW_POT}"
-die 32 "failed to substitute copyright year in po/amule.pot"
+die 32 "failed to substitute copyright year in regenerated template"
 
 # xgettext stamps "charset=CHARSET" whenever every extracted msgid is ASCII
 # (it only infers UTF-8 once it sees a non-ASCII byte). An all-ASCII template
@@ -116,24 +116,28 @@ die 32 "failed to substitute copyright year in po/amule.pot"
 # for ASCII and already matches every .po.
 sed -e "s/charset=CHARSET/charset=UTF-8/" "${NEW_POT}" > "${NEW_POT}.tmp" \
 	&& mv "${NEW_POT}.tmp" "${NEW_POT}"
-die 33 "failed to normalise charset in po/amule.pot"
+die 33 "failed to normalise charset in regenerated template"
 
 # Ignore extraction time, copyright year, references and entry ordering when
 # comparing templates. Keep translator comments and format flags: changes to
 # these matter even when the message text stays the same. Canonicalize with
 # gettext rather than comparing msgid lines (which misses contexts and plurals).
-if [[ -f po/amule.pot ]]; then
-	for POT_SIDE in old new; do
-		POT_INPUT=po/amule.pot
-		[[ ${POT_SIDE} == new ]] && POT_INPUT="${NEW_POT}"
-		msgcat --no-wrap --no-location --sort-output "${POT_INPUT}" \
-			--output-file="${POT_WORK}/${POT_SIDE}.canonical"
-		die 34 "failed to normalize ${POT_SIDE} template"
-		sed -e '/^"POT-Creation-Date: /d' \
-			-e '/^# Copyright (C) [0-9][0-9][0-9][0-9] /d' \
-			"${POT_WORK}/${POT_SIDE}.canonical" > "${POT_WORK}/${POT_SIDE}.content"
-		die 34 "failed to compare ${POT_SIDE} template content"
-	done
+canonical_content() {
+	local INPUT=$1
+	local OUTPUT=$2
+	msgcat --no-wrap --no-location --sort-output "${INPUT}" \
+		--output-file="${OUTPUT}.canonical" || return
+	sed -e '/^"POT-Creation-Date: /d' \
+		-e '/^# Copyright (C) [0-9][0-9][0-9][0-9] /d' \
+		"${OUTPUT}.canonical" > "${OUTPUT}"
+}
+
+canonical_content "${NEW_POT}" "${POT_WORK}/new.content"
+die 34 "failed to normalize regenerated template"
+
+# A malformed committed template must not prevent regeneration from repairing it.
+if [[ -f po/amule.pot ]] &&
+	canonical_content po/amule.pot "${POT_WORK}/old.content"; then
 	if cmp -s "${POT_WORK}/old.content" "${POT_WORK}/new.content"; then
 		# Read the original line directly so its literal \n stays escaped.
 		awk 'FNR == NR {

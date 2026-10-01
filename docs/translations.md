@@ -67,8 +67,7 @@ This script:
    count as content changes; messages, contexts, plurals, translator comments,
    and format flags do. References and the copyright year are still updated.
 4. Runs `msgmerge` on every `po/*.po` file so each language file gets the new
-   and changed strings merged in. Translator `PO-Revision-Date` metadata is
-   preserved.
+   and changed strings merged in.
 
 The creation date records the last meaningful template change. Regenerating
 an unchanged template therefore avoids timestamp-only diffs across all language

@@ -1,5 +1,6 @@
 """Exercise catalog timestamp handling with real gettext tools."""
 
+import os
 import re
 import subprocess
 import tempfile
@@ -37,9 +38,9 @@ class UpdatePoTest(unittest.TestCase):
             path.write_text(re.sub(r'^"POT-Creation-Date:.*$', lambda _: OLD_DATE,
                                    text, flags=re.MULTILINE))
 
-    def run_update(self, success=True):
+    def run_update(self, success=True, env=None):
         result = subprocess.run(["bash", str(SCRIPT)], cwd=self.root,
-                                capture_output=True, text=True)
+                                capture_output=True, text=True, env=env)
         if success:
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(REVISION, self.po.read_text())
@@ -94,6 +95,36 @@ class UpdatePoTest(unittest.TestCase):
                                           text, flags=re.MULTILINE))
                 self.run_update()
                 self.assertNotEqual(OLD_DATE, self.date())
+
+    def test_malformed_template_is_repaired_with_new_date(self):
+        for malformed in (
+            '<<<<<<< HEAD\nmsgid "Alpha"\nmsgstr ""\n=======\n>>>>>>> branch\n',
+            'msgid "Alpha"\nmsgstr ""\n',
+        ):
+            with self.subTest(malformed=malformed):
+                self.pot.write_text(self.pot.read_text() + malformed)
+                self.run_update()
+                self.assertNotEqual(OLD_DATE, self.date())
+                text = self.pot.read_text()
+                self.assertNotIn('<<<<<<<', text)
+                self.assertNotIn('>>>>>>>', text)
+                self.assertEqual(text.count('msgid "Alpha"'), 1)
+                subprocess.run(["msgfmt", "--check", "-o", "/dev/null",
+                                str(self.pot)], check=True, capture_output=True)
+                self.pot.write_text(re.sub(r'^"POT-Creation-Date:.*$',
+                                          lambda _: OLD_DATE, text,
+                                          flags=re.MULTILINE))
+
+    def test_failed_new_canonicalization_preserves_template(self):
+        before = self.pot.read_bytes()
+        tools = self.root / "bin"
+        tools.mkdir()
+        msgcat = tools / "msgcat"
+        msgcat.write_text("#!/bin/sh\nexit 1\n")
+        msgcat.chmod(0o755)
+        env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ["PATH"])
+        self.run_update(success=False, env=env)
+        self.assertEqual(before, self.pot.read_bytes())
 
     def test_failed_extraction_preserves_template(self):
         before = self.pot.read_bytes()
