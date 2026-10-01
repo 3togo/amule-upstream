@@ -851,10 +851,9 @@ describes the peer only.
 under one public search ID. It uses whichever networks are available at
 submission time; neither available is an error. A Kad keyword already in
 use by another search is preserved. The new search cannot acquire that Kad
-target; if eD2k
-is connected the new search continues there and logs why its Kad component
-could not start. A query with no usable Kad keyword
-also continues over eD2k when connected; it fails when Kad is the only available
+target; if eD2k is connected the new search continues there and logs why its
+Kad component could not start. A query with no usable Kad keyword also
+continues over eD2k when connected; it fails when Kad is the only available
 network.
 
 Combined result rows sum eD2k source reports and take the maximum Kad source
@@ -898,6 +897,7 @@ All search retains results but has no running network components.
 
 `EC_TAG_SEARCH_ED2K_ACTIVE` (`0x071A`, integer boolean) reports whether this
 search still owns the active eD2k slot, independently of its Kad component.
-It is included in progress replies and search-list entries. Clients use it
-to decide whether a new eD2k request would interrupt existing work. Its
+It is included in successful multi-search START replies, progress replies,
+and search-list entries. Clients use it to decide whether a new eD2k request
+would interrupt existing work. Its
 absence on older daemons means unknown; use the lifecycle as a fallback.

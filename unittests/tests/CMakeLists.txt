@@ -2020,6 +2020,7 @@ if (UNIX AND NOT APPLE)
 endif()
 
 # EC and eD2k loopback integration: isolated config, no public servers or Kad peers.
+# Opt in for CI/development; daemon timing assumptions must not affect package builds.
 option (ENABLE_ALL_SEARCH_INTEGRATION_TEST "Register daemon loopback AllSearch integration test" OFF)
 if (ENABLE_ALL_SEARCH_INTEGRATION_TEST AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 	find_package (Python3 QUIET COMPONENTS Interpreter)
