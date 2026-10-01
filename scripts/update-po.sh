@@ -103,6 +103,13 @@ xgettext \
 	--msgid-bugs-address='https://github.com/amule-org/amule/issues'
 die 30 "xgettext failed"
 
+# With no messages, xgettext succeeds without creating an output file.
+# Stop before editing or installing a template so existing catalogs stay intact.
+if [[ ! -s "${NEW_POT}" ]]; then
+	echo "Error: xgettext extracted no translatable strings from po/POTFILES.in; existing catalogs were left unchanged." >&2
+	exit 30
+fi
+
 # xgettext writes "Copyright (C) YEAR" as a placeholder; fill it in.
 YEAR=$(date +%Y)
 sed -e "1,5 s/^# Copyright (C) YEAR /# Copyright (C) ${YEAR} /" "${NEW_POT}" > "${NEW_POT}.tmp" \

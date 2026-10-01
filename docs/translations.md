@@ -73,6 +73,10 @@ The creation date records the last meaningful template change. Regenerating
 an unchanged template therefore avoids timestamp-only diffs across all language
 catalogs. Real overlapping catalog edits can still cause merge conflicts.
 
+If extraction finds no translatable strings, the script reports an error and
+leaves the existing template and language catalogs unchanged. Check the source
+files and `po/POTFILES.in` before retrying.
+
 `update-po.sh` must be run from the repository root (same requirement
 as `scripts/compile.sh`).
 

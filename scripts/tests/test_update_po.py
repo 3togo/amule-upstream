@@ -48,6 +48,7 @@ class UpdatePoTest(unittest.TestCase):
         else:
             self.assertNotEqual(result.returncode, 0)
         self.assertFalse(list((self.root / "po").glob(".update-po.*")))
+        return result
 
     def date(self):
         return next(line for line in self.pot.read_text().splitlines()
@@ -166,6 +167,19 @@ class UpdatePoTest(unittest.TestCase):
         env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ["PATH"])
         self.run_update(success=False, env=env)
         self.assertEqual(before, self.pot.read_bytes())
+
+    def test_zero_string_extraction_reports_error_and_preserves_catalogs(self):
+        before = {p: p.read_bytes() for p in (self.pot, self.po)}
+        for source in ('', 'int main() { return 0; }\n'):
+            with self.subTest(source=source):
+                self.source.write_text(source)
+                result = self.run_update(success=False)
+                self.assertEqual(result.returncode, 30)
+                self.assertIn('xgettext extracted no translatable strings', result.stderr)
+                self.assertIn('existing catalogs were left unchanged', result.stderr)
+                self.assertNotIn("can't read", result.stderr)
+                for path, data in before.items():
+                    self.assertEqual(data, path.read_bytes())
 
     def test_failed_extraction_preserves_template(self):
         before = self.pot.read_bytes()
