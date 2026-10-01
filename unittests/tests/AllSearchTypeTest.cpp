@@ -35,6 +35,7 @@
 //     not be reused as (or by) any of the other three types.
 
 #include "SearchEd2kSlot.h"
+#include "SearchStartRequests.h"
 #include <muleunit/test.h>
 
 #include "SearchList.h"
@@ -228,4 +229,94 @@ TEST(AllSearchType, KadOnlyAllDoesNotOwnActiveEd2kSlot)
 	// Retain the last owner for request invalidation on accepted replacement.
 	ASSERT_EQUALS(uint32_t(1), slot.Accept(2, false));
 	ASSERT_FALSE(slot.IsActive(2));
+}
+
+TEST(AllSearchType, LegacyProgressReleasesFinishedEd2kSlot)
+{
+	CSearchEd2kSlot slot;
+	slot.Accept(1);
+	slot.ObserveLegacyProgress(1, 50);
+	ASSERT_TRUE(slot.IsActive(1));
+	slot.ObserveLegacyProgress(1, 0xffff);
+	ASSERT_FALSE(slot.IsActive(1));
+	// Kad replaces the legacy single bucket; its live progress cannot acquire eD2k.
+	slot.Accept(2, false);
+	slot.ObserveLegacyProgress(2, 50);
+	ASSERT_FALSE(slot.IsActive(2));
+}
+
+TEST(AllSearchType, PendingCloseWaitsForRealSearchIdAndCloseAcknowledgment)
+{
+	CSearchStartRequests requests;
+	requests.Begin(1, AllSearch);
+	ASSERT_TRUE(requests.DeferStop(1, true));
+	// A later Stop must not undo the user's Close intent.
+	ASSERT_TRUE(requests.DeferStop(1, false));
+	ASSERT_TRUE(requests.DiscoveryBlocked());
+	const auto accepted = requests.Take(1);
+	ASSERT_TRUE(accepted.has_value());
+	ASSERT_EQUALS(int(AllSearch), int(accepted->kind));
+	ASSERT_TRUE(accepted->stopRequested);
+	ASSERT_TRUE(accepted->closeRequested);
+	requests.BeginClose();
+	ASSERT_TRUE(requests.DiscoveryBlocked());
+	requests.FinishClose();
+	ASSERT_FALSE(requests.DiscoveryBlocked());
+}
+
+TEST(AllSearchType, PendingStopPreservesTabAndFailedStartReleasesDiscovery)
+{
+	CSearchStartRequests requests;
+	requests.Begin(1, KadSearch);
+	ASSERT_TRUE(requests.DeferStop(1, false));
+	const auto accepted = requests.Take(1);
+	ASSERT_TRUE(accepted->stopRequested);
+	ASSERT_FALSE(accepted->closeRequested);
+	ASSERT_FALSE(requests.DeferStop(1, true));
+	requests.Begin(2, AllSearch);
+	requests.Take(2); // A rejected START has no daemon search to close.
+	ASSERT_FALSE(requests.DiscoveryBlocked());
+}
+
+TEST(AllSearchType, LostRepliesCannotKeepDiscoveryBlockedAcrossReconnect)
+{
+	CSearchStartRequests requests;
+	requests.Begin(1, AllSearch);
+	requests.BeginClose();
+	ASSERT_EQUALS(size_t(1), requests.PendingIds().size());
+	requests.Reset();
+	ASSERT_FALSE(requests.DiscoveryBlocked());
+	ASSERT_TRUE(requests.PendingIds().empty());
+	requests.FinishClose(); // Multiple discarded FIFO callbacks are harmless.
+	ASSERT_FALSE(requests.DiscoveryBlocked());
+}
+
+TEST(AllSearchType, OneCloseReplyCannotReleaseOtherPendingRequests)
+{
+	CSearchStartRequests requests;
+	requests.Begin(1, AllSearch);
+	requests.BeginClose();
+	requests.BeginClose();
+	requests.FinishClose();
+	ASSERT_TRUE(requests.DiscoveryBlocked());
+	requests.Take(1);
+	ASSERT_TRUE(requests.DiscoveryBlocked());
+	requests.FinishClose();
+	ASSERT_FALSE(requests.DiscoveryBlocked());
+}
+
+TEST(AllSearchType, PendingBrowseCloseNeverReplacesEd2kSlot)
+{
+	CSearchStartRequests requests;
+	requests.Begin(1, BrowseSearch);
+	ASSERT_TRUE(requests.DeferStop(1, true));
+	const auto accepted = requests.Take(1);
+	ASSERT_TRUE(accepted->closeRequested);
+	ASSERT_FALSE(accepted->ReplacesEd2kSlot());
+	for (SearchType kind : { LocalSearch, GlobalSearch, AllSearch }) {
+		requests.Begin(2, kind);
+		ASSERT_TRUE(requests.Take(2)->ReplacesEd2kSlot());
+	}
+	requests.Begin(3, KadSearch);
+	ASSERT_FALSE(requests.Take(3)->ReplacesEd2kSlot());
 }

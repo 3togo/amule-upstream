@@ -50,6 +50,13 @@ public:
 		}
 	}
 
+	void ObserveLegacyProgress(uint32_t searchID, uint32_t progress)
+	{
+		if (progress == 0xffff || progress == 0xfffe) {
+			Observe(searchID, false);
+		}
+	}
+
 	bool IsActive(uint32_t searchID) const { return m_active && m_owner == searchID; }
 
 private:

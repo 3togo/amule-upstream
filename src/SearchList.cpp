@@ -1562,8 +1562,10 @@ void CSearchList::FinalizeGlobalSearch()
 	m_searchInProgress = false;
 	m_searchTimer.Stop();
 	m_awaitingServerAnswer = false;
-
 	if (!m_shuttingDown) {
+		// Discard the completed sweep before another request starts waiting for TCP.
+		// At teardown the server list has already destroyed and detached its observers.
+		theApp->serverlist->RemoveObserver(&m_serverQueue);
 		CoreNotify_Search_Update_Progress(0xffff);
 	}
 }

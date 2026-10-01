@@ -26,6 +26,7 @@
 #define AMULE_REMOTE_GUI_H
 
 #include "SearchEd2kSlot.h"
+#include "SearchStartRequests.h"
 #include <functional>             // std::function for the CSharedFilesRem
 #include <memory>                 // std::unique_ptr for CPreferencesRem
 #include <vector>                 // std::vector for CChatMsgHandlerRem's tracked sessions
@@ -643,22 +644,32 @@ public:
 	// OnPollTimer right after sending the request, so steady state costs nothing.
 	bool m_needSearchListRequery;
 
-	// Optimistic local IDs of this session's own EC_OP_SEARCH_START requests sent but not yet
-	// remapped (see RemapSearch). While non-empty, the EC_OP_SEARCH_LIST discovery branch
-	// defers creating any new tab: the daemon already knows about a just-started search
-	// before this client's START reply (carrying EC_TAG_SEARCH_REF/EC_TAG_SEARCH_ID) comes
-	// back, so a list reply landing in that window would otherwise be indistinguishable from
-	// a genuinely foreign search and create a second tab for the same one, which RemapSearch
-	// then rekeys onto -- two tabs, one search (got3nks, PR #680 review). Inserted in
-	// StartNewSearch's multi-search branch, erased in RemapSearch.
-	//
-	// IDs and submitted kinds rather than a bare count so an unattributable reply can never clear it:
-	// EC_OP_FAILED reaches this same handler for a failed *browse* too (SendBrowseRequest
-	// routes EC_OP_FRIEND here, and the daemon's EC_TAG_FRIEND_SHARED branch has "Friend not
-	// found." / "Client not found." / malformed exits), and "client not found" is ordinary --
-	// the peer gets reaped between the user seeing the row and clicking View Files. A count
-	// would have let that decrement lift the deferral a round trip early.
-	std::map<uint32, SearchType> m_pendingSearchStarts;
+	// Search and browse requests keep their optimistic IDs and cancellation intent
+	// until the daemon returns a real ID. Discovery waits for START and CLOSE
+	// acknowledgments so a stale list cannot duplicate a pending or deleted tab.
+	CSearchStartRequests m_pendingSearchStarts;
+	void AbortPendingRequest() override;
+
+	// A separate FIFO callback identifies close acknowledgments even on older
+	// daemons whose generic MISC_DATA reply carries no identifying tags.
+	class CloseReplyHandler : public CECPacketHandlerBase
+	{
+	public:
+		explicit CloseReplyHandler(CSearchListRem &owner)
+		: m_owner(owner)
+		{
+		}
+		void HandlePacket(const CECPacket *) override
+		{
+			m_owner.m_pendingSearchStarts.FinishClose();
+			m_owner.m_needSearchListRequery = true;
+		}
+		void AbortPendingRequest() override { m_owner.AbortPendingRequest(); }
+
+	private:
+		CSearchListRem &m_owner;
+	};
+	CloseReplyHandler m_closeReplyHandler{ *this };
 	CSearchEd2kSlot m_ed2kSlot;
 
 	// Most-recently-started search ID (0 = none). uint32 so it correctly holds a
@@ -717,7 +728,12 @@ public:
 	// sends EC_OP_SEARCH_REQUEST_MORE for the daemon to widen that search.
 	bool IsKadSearch(uint32_t searchID) const;
 	bool HasKadComponent(uint32_t searchID) const;
-	bool HasEd2kComponent(uint32_t searchID) const { return m_ed2kSlot.IsActive(searchID); }
+	bool HasEd2kComponent(uint32_t searchID) const
+	{
+		// Legacy scalar progress uses 0 for both waiting and idle. Only a
+		// per-search lifecycle can support a reliable interruption warning.
+		return m_conn->ServerSupportsMultiSearch() && m_ed2kSlot.IsActive(searchID);
+	}
 	bool RequestMoreResults(uint32_t searchID);
 
 	// template

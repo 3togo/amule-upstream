@@ -337,6 +337,9 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                     answer.clear()
                     sid = ec.start('alpine linux')
                     queries.get(timeout=5)
+                    time.sleep(1.1)
+                    waiting = ec.progress(sid)
+                    assert waiting[C['EC_TAG_SEARCH_LIFECYCLE_PERCENT']][0] == 0, waiting
                     assert ec.call(C['EC_OP_KAD_STOP'])[0] == C['EC_OP_NOOP']
                     state = ec.progress(sid)
                     assert state[C['EC_TAG_SEARCH_LIFECYCLE_STATE']][0] == 1 and state[C['EC_TAG_SEARCH_KAD_ACTIVE']][0] == 0, state
