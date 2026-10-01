@@ -400,7 +400,7 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 	for (unsigned int i = 0; i < itemsof(pages); ++i) {
 		// Create a container widget and the contents of the page
 		wxScrolledWindow *Widget = new wxScrolledWindow(this, wxID_ANY);
-		Widget->SetScrollRate(FromDIP(10), FromDIP(10));
+		ConfigureDialogScrolling(Widget);
 		Widget->SetMinSize(minimumPageSize);
 		m_pageWidgets[i] = Widget;
 		pages[i].m_function(Widget, false, true);

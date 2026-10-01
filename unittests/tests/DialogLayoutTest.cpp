@@ -36,7 +36,7 @@ void TestScrollableContent()
 		wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
 	wxScrolledWindow *content = new wxScrolledWindow(&dialog);
 	content->SetMinSize(dialog.FromDIP(wxSize(240, 200)));
-	content->SetScrollRate(10, 10);
+	ConfigureDialogScrolling(content);
 
 	wxBoxSizer *fields = new wxBoxSizer(wxVERTICAL);
 	wxStaticText *label = new wxStaticText(content, wxID_ANY, wxString('W', 200));
@@ -93,12 +93,41 @@ void TestScrollableContent()
 		"Newly shown content cannot be reached by scrolling");
 }
 
+void TestHorizontalScrollEdge()
+{
+	wxDialog dialog(nullptr, wxID_ANY, "Horizontal scroll edge test");
+	wxScrolledWindow *content = new wxScrolledWindow(&dialog);
+	ConfigureDialogScrolling(content);
+	wxBoxSizer *fields = new wxBoxSizer(wxVERTICAL);
+	wxPanel *section = new wxPanel(content);
+	section->SetMinSize(wxSize(1003, 100));
+	fields->Add(section, wxSizerFlags().Expand());
+	content->SetSizer(fields);
+	wxBoxSizer *top = new wxBoxSizer(wxVERTICAL);
+	top->Add(content, wxSizerFlags(1).Expand());
+	dialog.SetSizer(top);
+
+	// Exercise every remainder of the old ten-pixel horizontal scroll unit.
+	for (int width = 313; width < 323; ++width) {
+		dialog.SetClientSize(wxSize(width, 300));
+		dialog.Layout();
+		content->FitInside();
+		content->Scroll(100000, 0);
+		int x = 0, y = 0, unitX = 0, unitY = 0;
+		content->GetViewStart(&x, &y);
+		content->GetScrollPixelsPerUnit(&unitX, &unitY);
+		Check(x > 0, "Horizontal edge test must overflow the viewport");
+		Check(x * unitX + content->GetClientSize().x == content->GetVirtualSize().x,
+			"Horizontal scrolling exposes empty space beyond the content edge");
+	}
+}
+
 void TestSmallContent()
 {
 	wxDialog dialog(nullptr, wxID_ANY, "Small dialog layout test");
 	wxScrolledWindow *content = new wxScrolledWindow(&dialog);
 	content->SetMinSize(dialog.FromDIP(wxSize(240, 200)));
-	content->SetScrollRate(10, 10);
+	ConfigureDialogScrolling(content);
 	wxBoxSizer *fields = new wxBoxSizer(wxVERTICAL);
 	fields->Add(new wxStaticText(content, wxID_ANY, "A small setting"));
 	content->SetSizer(fields);
@@ -131,6 +160,7 @@ int main(int argc, char **argv)
 		try {
 			TestScrollableContent();
 			TestSmallContent();
+			TestHorizontalScrollEdge();
 			std::cout << "Dialog layout regression tests passed\n";
 		} catch (const std::exception &error) {
 			std::cerr << error.what() << '\n';

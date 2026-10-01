@@ -44,7 +44,7 @@ WxCasPrefs::WxCasPrefs(wxWindow *parent)
 	  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
 	wxScrolledWindow *content = new wxScrolledWindow(this, wxID_ANY);
-	content->SetScrollRate(FromDIP(10), FromDIP(10));
+	ConfigureDialogScrolling(content);
 	content->SetMinSize(FromDIP(wxSize(240, 200)));
 
 	wxConfigBase *prefs = wxConfigBase::Get();

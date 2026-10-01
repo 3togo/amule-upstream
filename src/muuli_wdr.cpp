@@ -597,11 +597,12 @@ void AddFileDetailRow(
 wxSizer *fileDetails( wxWindow *parent, bool call_fit, bool set_sizer )
 {
     wxScrolledWindow *content = new wxScrolledWindow( parent, IDC_FILE_DETAILS_CONTENT );
-    content->SetScrollRate( parent->FromDIP(10), parent->FromDIP(10) );
+    ConfigureDialogScrolling( content );
     content->SetMinSize( parent->FromDIP(wxSize(240, 200)) );
     wxFlexGridSizer *item0 = new wxFlexGridSizer( 1, 0, 0 );
     item0->AddGrowableCol( 0 );
-    item0->AddGrowableRow( 3 );
+    // Give extra height to File Names, keeping the Media Info fields together.
+    item0->AddGrowableRow( 4 );
 
     wxStaticBox *item2 = new wxStaticBox( content, -1, _("General") );
     wxStaticBoxSizer *item1 = new wxStaticBoxSizer( item2, wxVERTICAL );
@@ -1162,7 +1163,7 @@ item29->SetName("otherScope");
 wxSizer *clientDetails( wxWindow *parent, bool call_fit, bool set_sizer )
 {
     wxScrolledWindow *content = new wxScrolledWindow( parent, IDC_CLIENT_DETAILS_CONTENT );
-    content->SetScrollRate( parent->FromDIP(10), parent->FromDIP(10) );
+    ConfigureDialogScrolling( content );
     content->SetMinSize( parent->FromDIP(wxSize(240, 200)) );
     wxBoxSizer *item0 = new wxBoxSizer( wxVERTICAL );
 

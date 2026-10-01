@@ -29,6 +29,13 @@
 #include <wx/scrolwin.h>
 #include <wx/sizer.h>
 
+// Horizontal scroll units must be exact pixels: larger units round the range
+// past the virtual content edge and expose a blank strip at the right.
+inline void ConfigureDialogScrolling(wxScrolledWindow *content)
+{
+	content->SetScrollRate(1, content->FromDIP(10));
+}
+
 // Keep the minimum dictated by the fixed controls, while bounding the initial
 // window size to the work area of the parent's display.
 inline void FitDialogToDisplay(wxWindow *dialog, const wxSize &preferredClientSize)
