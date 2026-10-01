@@ -116,18 +116,23 @@ sed -e "1,5 s/^# Copyright (C) YEAR /# Copyright (C) ${YEAR} /" "${NEW_POT}" > "
 	&& mv "${NEW_POT}.tmp" "${NEW_POT}"
 die 32 "failed to substitute copyright year in regenerated template"
 
+# Sets in_header=1 while awk is inside the header entry's msgstr. A message
+# can contain "POT-Creation-Date:" or "charset=" text of its own.
+# shellcheck disable=SC2016 # awk program text, not shell
+HEADER_AWK='
+	/^msgid / { header = ($0 == "msgid \"\""); translation = 0 }
+	/^msgstr / { translation = 1 }
+	/^"/ && !translation { header = 0 }
+	{ in_header = header && translation }
+'
+
 # xgettext stamps "charset=CHARSET" whenever every extracted msgid is ASCII
 # (it only infers UTF-8 once it sees a non-ASCII byte). An all-ASCII template
 # is legitimate, but "CHARSET" is not a portable encoding name -- msgcat and
 # the catalog-sync check reject it. Pin the header to UTF-8, which is correct
 # for ASCII and already matches every .po.
-awk '
-	/^msgid / { header = ($0 == "msgid \"\""); translation = 0 }
-	/^msgstr / { translation = 1 }
-	/^"/ && !translation { header = 0 }
-	header && translation && /^"Content-Type: / {
-		sub(/charset=CHARSET/, "charset=UTF-8")
-	}
+awk "${HEADER_AWK}"'
+	in_header && /^"Content-Type: / { sub(/charset=CHARSET/, "charset=UTF-8") }
 	{ print }
 ' "${NEW_POT}" > "${NEW_POT}.tmp" \
 	&& mv "${NEW_POT}.tmp" "${NEW_POT}"
@@ -137,43 +142,39 @@ die 33 "failed to normalise charset in regenerated template"
 # comparing templates. Keep translator comments and format flags: changes to
 # these matter even when the message text stays the same. Canonicalize with
 # gettext rather than comparing msgid lines (which misses contexts and plurals).
+#
+# Writes PREFIX.canonical (unwrapped, sorted) and PREFIX.content (compared).
 canonical_content() {
 	local INPUT=$1
-	local OUTPUT=$2
+	local PREFIX=$2
 	msgcat --no-wrap --no-location --sort-output "${INPUT}" \
-		--output-file="${OUTPUT}.canonical" || return
-	awk '
-		/^msgid / { header = ($0 == "msgid \"\""); translation = 0 }
-		/^msgstr / { translation = 1 }
-		/^"/ && !translation { header = 0 }
-		header && translation && /^"POT-Creation-Date: / { next }
+		--output-file="${PREFIX}.canonical" || return
+	awk "${HEADER_AWK}"'
+		in_header && /^"POT-Creation-Date: / { next }
 		/^# Copyright \(C\) [0-9][0-9][0-9][0-9] / { next }
 		{ print }
-	' "${OUTPUT}.canonical" > "${OUTPUT}"
+	' "${PREFIX}.canonical" > "${PREFIX}.content"
 }
 
-canonical_content "${NEW_POT}" "${POT_WORK}/new.content"
+canonical_content "${NEW_POT}" "${POT_WORK}/new"
 die 34 "failed to normalize regenerated template"
 
-# A malformed committed template must not prevent regeneration from repairing it.
-if [[ -f po/amule.pot ]] &&
-	canonical_content po/amule.pot "${POT_WORK}/old.content"; then
-	if cmp -s "${POT_WORK}/old.content" "${POT_WORK}/new.content"; then
-		# Read the normalized header so wrapped dates retain their full value.
-		# awk keeps the literal \n escaped.
-		awk '
-			/^msgid / { header = ($0 == "msgid \"\""); translation = 0 }
-			/^msgstr / { translation = 1 }
-			/^"/ && !translation { header = 0 }
+if [[ -f po/amule.pot ]]; then
+	# A malformed committed template, e.g. one with conflict markers, must not
+	# prevent regeneration from repairing it.
+	if ! canonical_content po/amule.pot "${POT_WORK}/old" 2>/dev/null; then
+		echo "po/amule.pot is not a valid catalog; regenerating it with a new creation date."
+	elif cmp -s "${POT_WORK}/old.content" "${POT_WORK}/new.content"; then
+		# Take the date from the unwrapped copy so a wrapped date keeps its full
+		# value. awk keeps the literal \n escaped.
+		awk "${HEADER_AWK}"'
 			FNR == NR {
-				if (header && translation && /^"POT-Creation-Date: /) previous_date = $0
+				if (in_header && /^"POT-Creation-Date: /) previous_date = $0
 				next
 			}
-			header && translation && /^"POT-Creation-Date: / && previous_date != "" {
-				$0 = previous_date
-			}
+			in_header && /^"POT-Creation-Date: / && previous_date != "" { $0 = previous_date }
 			{ print }
-		' "${POT_WORK}/old.content.canonical" "${NEW_POT}" > "${NEW_POT}.tmp"
+		' "${POT_WORK}/old.canonical" "${NEW_POT}" > "${NEW_POT}.tmp"
 		die 35 "failed to preserve template creation date"
 		mv "${NEW_POT}.tmp" "${NEW_POT}"
 		die 35 "failed to install preserved template creation date"
