@@ -7495,6 +7495,7 @@ bool CApiDispatcher::DiscoverSearchIfHeldByCore(std::uint32_t search_id)
 		// (an older daemon); the seed then derives it from the lifecycle state.
 		const CECTag *pctTag = entry.GetTagByName(EC_TAG_SEARCH_LIFECYCLE_PERCENT);
 		const int reported_pct = pctTag ? static_cast<int>(pctTag->GetInt()) : -1;
+		const CECTag *kadTag = entry.GetTagByName(EC_TAG_SEARCH_KAD_ACTIVE);
 		m_state.MarkSearchDiscovered(search_id,
 			SearchKindToString(
 				kindTag ? static_cast<std::uint8_t>(kindTag->GetInt()) : EC_SEARCH_GLOBAL)
@@ -7502,7 +7503,8 @@ bool CApiDispatcher::DiscoverSearchIfHeldByCore(std::uint32_t search_id)
 			nameTag ? std::string(nameTag->GetStringData().utf8_str()) : std::string(),
 			state_val == 1,
 			state_val == 2,
-			reported_pct);
+			reported_pct,
+			kadTag && kadTag->GetInt() != 0);
 		found = true;
 		break;
 	}
@@ -10456,6 +10458,8 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 	if (const CECTag *t = ec_resp->GetTagByName(EC_TAG_SEARCH_ID)) {
 		search_id = static_cast<std::uint32_t>(t->GetInt());
 	}
+	const CECTag *kad_tag = ec_resp->GetTagByName(EC_TAG_SEARCH_KAD_ACTIVE);
+	const bool kad_active = kad_tag && kad_tag->GetInt() != 0;
 	delete ec_resp;
 	if (search_id == 0) {
 		return ErrorResponse(
@@ -10466,7 +10470,7 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 	// it each tick until the daemon reports completion. This is the single fetcher, so
 	// SSE search_result_added / search_progress fire on the same delta a polling
 	// consumer would observe.
-	m_state.MarkSearchStarted(search_id, search_kind, query);
+	m_state.MarkSearchStarted(search_id, search_kind, query, kad_active);
 
 	// Same creation shape as the browse handler above: the daemon hands back
 	// EC_TAG_SEARCH_ID, so the response carries the resource and a Location.

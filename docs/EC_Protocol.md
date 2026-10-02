@@ -888,7 +888,8 @@ supporting daemons and requires no new framing or protocol version.
 
 The public ID is used for results, stop, close, and "More". The internal Kad
 ID is never exposed. Lifecycle state remains running until both components
-finish; stopping or closing the public ID stops both. Progress replies add
+finish; stopping or closing the public ID stops both. Successful multi-search
+START replies, progress replies, and search-list entries include
 `EC_TAG_SEARCH_KAD_ACTIVE` (`0x0717`, integer boolean), indicating whether
 that ID still has an active Kad component, independently of the aggregate
 lifecycle. Clients use it to gate "More"; its absence on older daemons is

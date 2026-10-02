@@ -100,6 +100,7 @@ class EC:
                 break
             time.sleep(0.1)
         assert op == C['EC_OP_STRINGS'], (op, tags)
+        assert C['EC_TAG_SEARCH_KAD_ACTIVE'] in tags, tags
         return tags[C['EC_TAG_SEARCH_ID']][0]
 
     def progress(self, sid):

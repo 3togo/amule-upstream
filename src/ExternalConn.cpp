@@ -3223,6 +3223,8 @@ static CECPacket *Get_EC_Response_Search(const CECPacket *request, bool multiSea
 		reply->AddTag(CECTag(EC_TAG_SEARCH_ID, search_id));
 		reply->AddTag(CECTag(EC_TAG_SEARCH_ED2K_ACTIVE,
 			static_cast<uint8>(theApp->searchlist->HasEd2kComponent(search_id))));
+		reply->AddTag(CECTag(EC_TAG_SEARCH_KAD_ACTIVE,
+			static_cast<uint8>(theApp->searchlist->HasKadComponent(search_id))));
 	}
 	if (multiSearch) {
 		// Echo the client's correlation token (if any) on BOTH outcomes, not just success:

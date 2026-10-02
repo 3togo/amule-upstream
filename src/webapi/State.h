@@ -1745,7 +1745,10 @@ public:
 	// Called by POST /search with the daemon-allocated search_id. Creates (or resets) that
 	// search's slot and marks it active. The refresher then polls EC_OP_SEARCH_RESULTS /
 	// _PROGRESS for it each tick.
-	void MarkSearchStarted(std::uint32_t search_id, const std::string &kind, const std::string &query);
+	void MarkSearchStarted(std::uint32_t search_id,
+		const std::string &kind,
+		const std::string &query,
+		bool kad_active = false);
 	/**
 	 * Mark a slot as no longer backed by the daemon. Freezes its results: see
 	 * SearchSlot::detached. Idempotent; a no-op for an unknown id.
@@ -1783,7 +1786,8 @@ public:
 		const std::string &query,
 		bool active,
 		bool complete,
-		int reported_percent = -1);
+		int reported_percent = -1,
+		bool kad_active = false);
 	// Refresher-side write path for one search's progress snapshot.
 	void WriteSearchProgress(std::uint32_t search_id, SearchProgressSnapshot s);
 	// Drop a search's slot entirely: DELETE /search/{id}, or the refresher
