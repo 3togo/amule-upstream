@@ -332,8 +332,8 @@ msgstr "Se termină instanța amuleweb cu pid '%d' ... "
 msgid "Killing amuleweb instance with pid '%d' ... "
 msgstr "Se omoară instanța amuleweb cu pid '%d' ... "
 
-#: src/amule.cpp src/ClientRef.cpp src/SearchDlg.cpp src/ServerListCtrl.cpp
-#: src/SharedFilesCtrl.cpp
+#: src/amule.cpp src/ClientRef.cpp src/FileDetailDialog.cpp src/SearchDlg.cpp
+#: src/ServerListCtrl.cpp src/SharedFilesCtrl.cpp
 msgid "Failed"
 msgstr "Eșuat"
 
@@ -1955,7 +1955,8 @@ msgstr "Surse"
 msgid "Priority"
 msgstr "Prioritate"
 
-#: src/DownloadListCtrl.cpp src/PartFile.cpp src/SearchListCtrl.cpp
+#: src/DownloadListCtrl.cpp src/muuli_wdr.cpp src/PartFile.cpp
+#: src/SearchListCtrl.cpp
 msgid "Status"
 msgstr "Stare"
 
@@ -2723,6 +2724,11 @@ msgstr "%.1f%% realizat"
 #, c-format
 msgid "%.2f KiB/s"
 msgstr ""
+
+#: src/FileDetailDialog.cpp src/muuli_wdr.cpp src/ServerWnd.cpp
+#: src/SharedFilesCtrl.cpp
+msgid "OK"
+msgstr "Bine"
 
 #: src/FileLaunch.cpp
 msgid "File preview"
@@ -4303,6 +4309,10 @@ msgstr ""
 msgid "Title"
 msgstr "Titlu"
 
+#: src/muuli_wdr.cpp src/SharedFilesCtrl.cpp
+msgid "Verify Local Data"
+msgstr "Verifică datele locale"
+
 #: src/muuli_wdr.cpp
 msgid "File Names"
 msgstr "Denumiri fișier"
@@ -5308,10 +5318,6 @@ msgstr "Resetează pagina la valorile implicite"
 #: src/muuli_wdr.cpp
 msgid "Reset the settings on the current page to their default values."
 msgstr "Resetează setările din pagina curentă la valorile implicite."
-
-#: src/muuli_wdr.cpp src/ServerWnd.cpp src/SharedFilesCtrl.cpp
-msgid "OK"
-msgstr "Bine"
 
 #: src/muuli_wdr.cpp
 msgid "Click here to apply any changes made to the preferences."
@@ -7777,10 +7783,6 @@ msgstr "Disponibilitate"
 #: src/SharedFilesCtrl.cpp
 msgid "Directory Path"
 msgstr "Cale director"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Verify Local Data"
-msgstr "Verifică datele locale"
 
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"

@@ -336,8 +336,8 @@ msgstr "Lopetetaan amulewebin instanssi prosessinumerolla '%d' ... "
 msgid "Killing amuleweb instance with pid '%d' ... "
 msgstr "Tuhotaan amulewebin instanssi prosessinumerolla '%d' ... "
 
-#: src/amule.cpp src/ClientRef.cpp src/SearchDlg.cpp src/ServerListCtrl.cpp
-#: src/SharedFilesCtrl.cpp
+#: src/amule.cpp src/ClientRef.cpp src/FileDetailDialog.cpp src/SearchDlg.cpp
+#: src/ServerListCtrl.cpp src/SharedFilesCtrl.cpp
 msgid "Failed"
 msgstr "Epäonnistunut"
 
@@ -1950,7 +1950,8 @@ msgstr "Lähteet"
 msgid "Priority"
 msgstr "Tärkeys"
 
-#: src/DownloadListCtrl.cpp src/PartFile.cpp src/SearchListCtrl.cpp
+#: src/DownloadListCtrl.cpp src/muuli_wdr.cpp src/PartFile.cpp
+#: src/SearchListCtrl.cpp
 msgid "Status"
 msgstr "Tila"
 
@@ -2716,6 +2717,11 @@ msgstr "%.1f%% valmiina"
 #, c-format
 msgid "%.2f KiB/s"
 msgstr ""
+
+#: src/FileDetailDialog.cpp src/muuli_wdr.cpp src/ServerWnd.cpp
+#: src/SharedFilesCtrl.cpp
+msgid "OK"
+msgstr "OK"
 
 #: src/FileLaunch.cpp
 msgid "File preview"
@@ -4279,6 +4285,10 @@ msgstr ""
 msgid "Title"
 msgstr "Otsikko"
 
+#: src/muuli_wdr.cpp src/SharedFilesCtrl.cpp
+msgid "Verify Local Data"
+msgstr "Tarkista paikalliset tiedot"
+
 #: src/muuli_wdr.cpp
 msgid "File Names"
 msgstr "Tiedostonimet"
@@ -5283,10 +5293,6 @@ msgstr "Palauta sivu oletusarvoihin"
 #: src/muuli_wdr.cpp
 msgid "Reset the settings on the current page to their default values."
 msgstr "Palauta nykyisen sivun asetukset oletusarvoihinsa."
-
-#: src/muuli_wdr.cpp src/ServerWnd.cpp src/SharedFilesCtrl.cpp
-msgid "OK"
-msgstr "OK"
 
 #: src/muuli_wdr.cpp
 msgid "Click here to apply any changes made to the preferences."
@@ -7730,10 +7736,6 @@ msgstr "Saatavuus"
 #: src/SharedFilesCtrl.cpp
 msgid "Directory Path"
 msgstr "Kansiopolku"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Verify Local Data"
-msgstr "Tarkista paikalliset tiedot"
 
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"

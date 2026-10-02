@@ -349,8 +349,8 @@ msgstr "Cerrando la instancia de amuleweb con pid '%d'... "
 msgid "Killing amuleweb instance with pid '%d' ... "
 msgstr "Matando la instancia de amuleweb con pid '%d'... "
 
-#: src/amule.cpp src/ClientRef.cpp src/SearchDlg.cpp src/ServerListCtrl.cpp
-#: src/SharedFilesCtrl.cpp
+#: src/amule.cpp src/ClientRef.cpp src/FileDetailDialog.cpp src/SearchDlg.cpp
+#: src/ServerListCtrl.cpp src/SharedFilesCtrl.cpp
 msgid "Failed"
 msgstr "Falló"
 
@@ -1944,7 +1944,8 @@ msgstr "Fuentes"
 msgid "Priority"
 msgstr "Prioridad"
 
-#: src/DownloadListCtrl.cpp src/PartFile.cpp src/SearchListCtrl.cpp
+#: src/DownloadListCtrl.cpp src/muuli_wdr.cpp src/PartFile.cpp
+#: src/SearchListCtrl.cpp
 msgid "Status"
 msgstr "Estado"
 
@@ -2705,6 +2706,15 @@ msgstr "%.1f%% terminado"
 #, c-format
 msgid "%.2f KiB/s"
 msgstr "%.2f KiB/s"
+
+# Se usa tanto en la pestaña «Información de Kad», en Redes, como para el
+# botón para cerrar el diálogo de Preferencias guardando los cambios. La
+# traducción sería distinta en cada caso, así que hay que dejar el OK
+# original.
+#: src/FileDetailDialog.cpp src/muuli_wdr.cpp src/ServerWnd.cpp
+#: src/SharedFilesCtrl.cpp
+msgid "OK"
+msgstr "OK"
 
 #: src/FileLaunch.cpp
 msgid "File preview"
@@ -4262,6 +4272,10 @@ msgstr "Álbum"
 msgid "Title"
 msgstr "Título"
 
+#: src/muuli_wdr.cpp src/SharedFilesCtrl.cpp
+msgid "Verify Local Data"
+msgstr "Verificar datos locales"
+
 #: src/muuli_wdr.cpp
 msgid "File Names"
 msgstr "Nombres del archivo"
@@ -5260,14 +5274,6 @@ msgstr "Restablecer a los valores por defecto"
 #: src/muuli_wdr.cpp
 msgid "Reset the settings on the current page to their default values."
 msgstr "Restablece los ajustes de la página actual a sus valores por defecto."
-
-# Se usa tanto en la pestaña «Información de Kad», en Redes, como para el
-# botón para cerrar el diálogo de Preferencias guardando los cambios. La
-# traducción sería distinta en cada caso, así que hay que dejar el OK
-# original.
-#: src/muuli_wdr.cpp src/ServerWnd.cpp src/SharedFilesCtrl.cpp
-msgid "OK"
-msgstr "OK"
 
 #: src/muuli_wdr.cpp
 msgid "Click here to apply any changes made to the preferences."
@@ -7690,10 +7696,6 @@ msgstr "Disponibilidad de fuentes"
 #: src/SharedFilesCtrl.cpp
 msgid "Directory Path"
 msgstr "Ruta del directorio"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Verify Local Data"
-msgstr "Verificar datos locales"
 
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"

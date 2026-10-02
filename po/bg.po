@@ -335,8 +335,8 @@ msgstr "Прекратяване на инстанция на amuleweb с pid �
 msgid "Killing amuleweb instance with pid '%d' ... "
 msgstr "Принудително спиране на инстанция на amuleweb с pid „%d“ ... "
 
-#: src/amule.cpp src/ClientRef.cpp src/SearchDlg.cpp src/ServerListCtrl.cpp
-#: src/SharedFilesCtrl.cpp
+#: src/amule.cpp src/ClientRef.cpp src/FileDetailDialog.cpp src/SearchDlg.cpp
+#: src/ServerListCtrl.cpp src/SharedFilesCtrl.cpp
 msgid "Failed"
 msgstr "Грешка"
 
@@ -1946,7 +1946,8 @@ msgstr "Източници"
 msgid "Priority"
 msgstr "Приоритет"
 
-#: src/DownloadListCtrl.cpp src/PartFile.cpp src/SearchListCtrl.cpp
+#: src/DownloadListCtrl.cpp src/muuli_wdr.cpp src/PartFile.cpp
+#: src/SearchListCtrl.cpp
 msgid "Status"
 msgstr "Статус"
 
@@ -2709,6 +2710,11 @@ msgstr "%.1f%% завършено"
 #, c-format
 msgid "%.2f KiB/s"
 msgstr ""
+
+#: src/FileDetailDialog.cpp src/muuli_wdr.cpp src/ServerWnd.cpp
+#: src/SharedFilesCtrl.cpp
+msgid "OK"
+msgstr "ОК"
 
 #: src/FileLaunch.cpp
 msgid "File preview"
@@ -4281,6 +4287,10 @@ msgstr ""
 msgid "Title"
 msgstr "Заглавие"
 
+#: src/muuli_wdr.cpp src/SharedFilesCtrl.cpp
+msgid "Verify Local Data"
+msgstr "Проверка на локалните данни"
+
 #: src/muuli_wdr.cpp
 msgid "File Names"
 msgstr "Имена на файлове"
@@ -5297,10 +5307,6 @@ msgstr "Връщане на страницата към стойностите �
 #: src/muuli_wdr.cpp
 msgid "Reset the settings on the current page to their default values."
 msgstr "Връща настройките на текущата страница към стойностите им по подразбиране."
-
-#: src/muuli_wdr.cpp src/ServerWnd.cpp src/SharedFilesCtrl.cpp
-msgid "OK"
-msgstr "ОК"
 
 #: src/muuli_wdr.cpp
 msgid "Click here to apply any changes made to the preferences."
@@ -7726,10 +7732,6 @@ msgstr ""
 #: src/SharedFilesCtrl.cpp
 msgid "Directory Path"
 msgstr "Път до директорията"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Verify Local Data"
-msgstr "Проверка на локалните данни"
 
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
