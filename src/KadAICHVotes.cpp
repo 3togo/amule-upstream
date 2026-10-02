@@ -73,12 +73,17 @@ void CKadAICHVotes::Admit(uint32_t subnet, const Entry &entry)
 		if (std::tie(entry.rank, subnet) >= std::tie(worst->second.rank, worst->first)) {
 			return;
 		}
-		// Reuse the existing node. Erase-then-allocate could lose a retained
-		// witness on allocation failure, invalidating the monotone cutoff.
-		auto replacement = m_entries.extract(worst);
-		replacement.key() = subnet;
-		replacement.mapped() = entry;
-		m_entries.insert(std::move(replacement));
+		// A std::map node's key is const, so the extracted node cannot be
+		// reused under a new key. Detach the lowest-ranked witness, admit the
+		// newcomer, and restore the detached witness only if insertion fails,
+		// so the retained set's size and monotone cutoff survive an allocation
+		// failure instead of transiently dropping a slot.
+		auto detached = m_entries.extract(worst);
+		try {
+			m_entries.emplace(subnet, entry);
+		} catch (...) {
+			m_entries.insert(std::move(detached));
+		}
 		return;
 	}
 	m_entries.emplace(subnet, entry);
