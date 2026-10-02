@@ -29,7 +29,6 @@
 #include "WarningsPop.h"
 #include "Logger.h"
 #include <algorithm>
-#include <stdexcept>
 #include <tuple>
 #include <utility>
 
@@ -99,13 +98,11 @@ void CKadAICHVotes::Add(uint32_t responder, const CAICHHash &root)
 
 void CKadAICHVotes::Merge(const CKadAICHVotes &other)
 {
-	// Re-ranking an already truncated sample would lose eligible witnesses.
-	// The key guards the merge identity (a subnet's rank depends only on
-	// (key, subnet)), so mismatched keys must never be merged. No caller can
-	// reach this with a different key today, but a remote packet that did
-	// would otherwise escape as std::invalid_argument through the UDP socket
-	// callback, which catches only wxString / CInvalidPacket / CEOFException,
-	// and abort the client. Return without merging and log instead.
+	// All rows merged by the current search-result path share one search ID
+	// and its key, so a mismatch is not expected in normal operation. Keep
+	// this defensive check in case that invariant changes: re-ranking a
+	// truncated sample under another key could lose eligible witnesses.
+	// Skip the merge and log it rather than aborting the UDP callback.
 	if (m_key != other.m_key) {
 		AddDebugLogLineC(
 			logKadSearch, "Kad AICH evidence belongs to a different search key; skipping merge");
