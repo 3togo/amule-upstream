@@ -32,6 +32,9 @@
 #include <DownloadQueue.h>
 #include <PartFile.h>
 #include <updownclient.h>
+#ifdef ENABLE_UPNP
+#include "UPnPBase.h" // Needed for CUPnPPortMapping (CamuleApp::m_upnpMappings)
+#endif
 
 using namespace muleunit;
 
