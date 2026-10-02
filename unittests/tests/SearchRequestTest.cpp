@@ -25,9 +25,37 @@
 #include <muleunit/test.h>
 #include "SearchList.h"
 #include "SearchRequest.h"
+#include "SearchStartBookkeeping.h"
 
 using namespace muleunit;
 DECLARE_SIMPLE(SearchRequest)
+
+TEST(SearchRequest, FailedStartKeepsPreviousSearchBookkeeping)
+{
+	SearchType type = GlobalSearch;
+	time_t start = 1234;
+	wxString filter = "Audio";
+	{
+		CSearchStartBookkeeping pending(type, start, filter, KadSearch, "Video", false);
+		// A late startup failure exits without committing the proposed state.
+	}
+	ASSERT_EQUALS(GlobalSearch, type);
+	ASSERT_EQUALS(time_t(1234), start);
+	ASSERT_TRUE(filter == "Audio");
+
+	CSearchStartBookkeeping successful(type, start, filter, KadSearch, "Video", false);
+	successful.Commit(5678);
+	ASSERT_EQUALS(KadSearch, type);
+	ASSERT_EQUALS(time_t(5678), start);
+	ASSERT_TRUE(filter == "Video");
+
+	type = GlobalSearch;
+	CSearchStartBookkeeping parallelKad(type, start, filter, KadSearch, "Archive", true);
+	parallelKad.Commit(9012);
+	ASSERT_EQUALS(GlobalSearch, type);
+	ASSERT_EQUALS(time_t(9012), start);
+	ASSERT_TRUE(filter == "Archive");
+}
 
 TEST(SearchRequest, OnlyRunningRequestsAreReused)
 {

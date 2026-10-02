@@ -24,6 +24,7 @@
 //
 
 #include "SearchList.h" // Interface declarations.
+#include "SearchStartBookkeeping.h"
 
 #include "BrowseManager.h"
 
@@ -626,6 +627,8 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 	// ed2k search's late hits get dropped (wrong type) or misfiled (wrong bucket). Every other
 	// start updates the anchor as before.
 	const bool preserveEd2kAnchor = (type == KadSearch) && m_searchInProgress;
+	CSearchStartBookkeeping pendingStart(
+		m_searchType, m_searchStart, m_resultType, type, resultType, preserveEd2kAnchor);
 
 	// EC clients reuse the sentinel 0xffffffff for every search regardless of network type.
 	// Get_EC_Response_Search -> RemoveResults(0xffffffff) already soft-stops the previous Kad
@@ -685,11 +688,7 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 
 	// Commit the anchor only after a successful start. Rejected Kad keywords,
 	// as well as key-generation failures, must not relabel the previous search.
-	if (!preserveEd2kAnchor) {
-		m_searchType = type;
-	}
-	m_searchStart = time(nullptr);
-	m_resultType = resultType;
+	pendingStart.Commit(time(nullptr));
 
 	// Record this search's own start time so its (cosmetic Kad) progress ramp is computed from
 	// *its* age even after it is no longer the most-recently-started search -- otherwise a Kad
