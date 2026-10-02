@@ -570,16 +570,9 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 		return _("eD2k search can't be done if eD2k is not connected");
 	}
 
-	if (params.typeText != ED2KFTSTR_PROGRAM) {
-		if (params.typeText.CmpNoCase("Any")) {
-			m_resultType = params.typeText;
-		} else {
-			m_resultType.Clear();
-		}
-	} else {
-		// No check is to be made on returned results if the
-		// type is 'Programs', since this returns multiple types.
-		m_resultType.Clear();
+	wxString resultType;
+	if (params.typeText != ED2KFTSTR_PROGRAM && params.typeText.CmpNoCase("Any")) {
+		resultType = params.typeText;
 	}
 
 	if (type == KadSearch) {
@@ -633,10 +626,6 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 	// ed2k search's late hits get dropped (wrong type) or misfiled (wrong bucket). Every other
 	// start updates the anchor as before.
 	const bool preserveEd2kAnchor = (type == KadSearch) && m_searchInProgress;
-	if (!preserveEd2kAnchor) {
-		m_searchType = type;
-	}
-	m_searchStart = time(NULL);
 
 	// EC clients reuse the sentinel 0xffffffff for every search regardless of network type.
 	// Get_EC_Response_Search -> RemoveResults(0xffffffff) already soft-stops the previous Kad
@@ -693,6 +682,14 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 				OP_GLOBSEARCHREQ); // will be changed later when actually sending the packet!!
 		}
 	}
+
+	// Commit the anchor only after a successful start. Rejected Kad keywords,
+	// as well as key-generation failures, must not relabel the previous search.
+	if (!preserveEd2kAnchor) {
+		m_searchType = type;
+	}
+	m_searchStart = time(NULL);
+	m_resultType = resultType;
 
 	// Record this search's own start time so its (cosmetic Kad) progress ramp is computed from
 	// *its* age even after it is no longer the most-recently-started search -- otherwise a Kad
