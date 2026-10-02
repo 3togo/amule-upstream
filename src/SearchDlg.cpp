@@ -523,6 +523,19 @@ void CSearchDlg::FixSearchTypes()
 			searchchoice->SetToolTip(SearchModeHelp(static_cast<SearchType>(canonical)));
 		}
 	}
+	// The control is created empty, so refresh its size after adding the choices.
+	searchchoice->SetMinSize(wxDefaultSize);
+	searchchoice->InvalidateBestSize();
+	wxSize bestSize = searchchoice->GetBestSize();
+#ifdef __WXGTK__
+	// wxGTK measures the text but omits the bitmap cell from the best width.
+	const int bitmapWidth = searchchoice->GetBitmapSize().x;
+	if (bitmapWidth > 0) {
+		bestSize.x += bitmapWidth + searchchoice->FromDIP(4);
+	}
+#endif
+	searchchoice->SetMinSize(bestSize);
+	Layout();
 }
 
 int CSearchDlg::GetSelectedSearchTypeCanonical()
