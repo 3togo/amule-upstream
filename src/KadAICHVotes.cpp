@@ -102,8 +102,8 @@ void CKadAICHVotes::Merge(const CKadAICHVotes &other)
 	// callback, which catches only wxString / CInvalidPacket / CEOFException,
 	// and abort the client. Return without merging and log instead.
 	if (m_key != other.m_key) {
-		AddDebugLogLineC(logKadSearch,
-			"Kad AICH evidence belongs to a different search key; skipping merge");
+		AddDebugLogLineC(
+			logKadSearch, "Kad AICH evidence belongs to a different search key; skipping merge");
 		return;
 	}
 	for (const auto &entry : other.m_entries) {
