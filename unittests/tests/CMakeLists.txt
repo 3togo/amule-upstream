@@ -2014,6 +2014,7 @@ endif()
 add_executable (AICHSearchResultTest
 	AICHSearchResultTest.cpp
 	AICHSearchResultStubs.cpp
+	${CMAKE_SOURCE_DIR}/src/KadAICHVotes.cpp
 	${CMAKE_SOURCE_DIR}/src/AbstractFile.cpp
 	${CMAKE_SOURCE_DIR}/src/SearchFile.cpp
 	${CMAKE_SOURCE_DIR}/src/MemFile.cpp

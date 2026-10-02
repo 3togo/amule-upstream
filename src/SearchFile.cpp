@@ -44,7 +44,8 @@ CSearchFile::CSearchFile(const CMemFile &data,
 	uint16_t serverPort,
 	const wxString &directory,
 	bool kademlia,
-	uint32_t kadAICHResponderIP)
+	uint32_t kadAICHResponderIP,
+	const CKadAICHVotes::Key *kadAICHKey)
 : m_parent(NULL)
 , m_showChildren(false)
 , m_searchID(searchID)
@@ -56,6 +57,7 @@ CSearchFile::CSearchFile(const CMemFile &data,
 , m_clientServerIP(serverIP)
 , m_clientServerPort(serverPort)
 , m_kadPublishInfo(0)
+, m_kadAICHVotes(kadAICHKey ? *kadAICHKey : CKadAICHVotes::Key{})
 {
 	m_abyFileHash = data.ReadHash();
 	SetDownloadStatus();
@@ -108,6 +110,9 @@ CSearchFile::CSearchFile(const CMemFile &data,
 	}
 
 	if (kademlia && kadAICHResponderIP != 0) {
+		if (!kadAICHKey) {
+			throw CInvalidPacket("Kad AICH evidence requires a search sampling key");
+		}
 		CAICHHash root;
 		if (root.DecodeBase32(GetStrTagValue(FT_AICH_HASH)) == CAICHHash::GetHashSize()) {
 			m_kadAICHVotes.Add(kadAICHResponderIP, root);
@@ -345,10 +350,12 @@ bool CSearchFile::ApplyKadAICHVotes(CAICHHashSet &hashes) const
 	if (!evidence->IsKademlia()) {
 		return false;
 	}
-	for (const auto &vote : evidence->GetKadAICHVotes()) {
+	// Snapshot once at download construction; later search updates are not replayed.
+	const auto votes = evidence->GetKadAICHVotes();
+	for (const auto &vote : votes) {
 		hashes.UntrustedHashReceived(vote.second, vote.first);
 	}
-	return !evidence->GetKadAICHVotes().empty();
+	return !votes.empty();
 }
 
 void CSearchFile::MergeResults(const CSearchFile &other)

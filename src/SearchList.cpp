@@ -28,6 +28,7 @@
 #include "BrowseManager.h"
 
 #include <algorithm> // Needed for std::sort (StoreSearches)
+#include <exception> // Needed for sampling-key generation failure
 #include <utility>   // Needed for std::move (LoadSearches)
 
 #include <protocol/Protocols.h>
@@ -310,6 +311,7 @@ void CSearchList::RemoveResults(wxUIntPtr searchID)
 
 	// Drop any per-search tracking for this ID (bounded growth).
 	m_finishedKadSearches.erase(static_cast<uint32_t>(searchID));
+	m_kadAICHKeys.erase(static_cast<uint32_t>(searchID));
 	m_searchStartTimes.erase(static_cast<uint32_t>(searchID));
 	m_searchKinds.erase(static_cast<uint32_t>(searchID));
 	m_searchStrings.erase(static_cast<uint32_t>(searchID));
@@ -611,6 +613,19 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 		return error;
 	}
 
+	// Create the secret before stopping an existing search or changing bookkeeping.
+	// Entropy failure must leave the current search intact, never use a fixed key.
+	CKadAICHVotes::Key evidenceKey{};
+	if (type == KadSearch) {
+		try {
+			evidenceKey = CKadAICHVotes::GenerateKey();
+		} catch (const std::exception &error) {
+			const wxString what = wxString::FromUTF8(error.what());
+			AddLogLineC(what);
+			return _("Unexpected error while attempting Kad search: ") + what;
+		}
+	}
+
 	// The scalar m_searchType / m_currentSearch are the anchor for the single in-flight ed2k
 	// (local/global) search: its results arrive asynchronously for several seconds and are
 	// attributed via these scalars. A Kad search started ALONGSIDE an in-flight ed2k search has
@@ -642,6 +657,7 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 				params.strKeyword, data->GetLength(), data->GetRawBuffer(), *searchID);
 
 			*searchID = search->GetSearchID();
+			m_kadAICHKeys[*searchID] = evidenceKey;
 			// Do not repoint the ed2k result-attribution scalar when a Kad search runs alongside
 			// an in-flight ed2k search (see preserveEd2kAnchor above); the Kad search is tracked
 			// by its own ID regardless.
@@ -1837,8 +1853,12 @@ void CSearchList::KademliaSearchKeyword(uint32_t searchID,
 
 	temp.Seek(0, wxFromStart);
 
+	const auto key = m_kadAICHKeys.find(searchID);
+	if (key == m_kadAICHKeys.end()) {
+		return; // Search removed: do not recreate evidence for a late reply.
+	}
 	CSearchFile *tempFile = new CSearchFile(
-		temp, (eStrEncode == utf8strRaw), searchID, 0, 0, "", true, kadAICHResponderIP);
+		temp, (eStrEncode == utf8strRaw), searchID, 0, 0, "", true, kadAICHResponderIP, &key->second);
 	tempFile->SetKadPublishInfo(kadPublishInfo);
 
 	AddToList(tempFile);
