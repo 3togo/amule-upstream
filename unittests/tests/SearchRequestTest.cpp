@@ -53,8 +53,8 @@ TEST(SearchRequest, FailedStartKeepsPreviousSearchBookkeeping)
 	CSearchStartBookkeeping parallelKad(type, start, filter, KadSearch, "Archive", true);
 	parallelKad.Commit(9012);
 	ASSERT_EQUALS(GlobalSearch, type);
-	ASSERT_EQUALS(time_t(9012), start);
-	ASSERT_TRUE(filter == "Archive");
+	ASSERT_EQUALS(time_t(5678), start);
+	ASSERT_TRUE(filter == "Video");
 }
 
 TEST(SearchRequest, OnlyRunningRequestsAreReused)

@@ -14,23 +14,23 @@ public:
 		wxString &currentResultType,
 		SearchType requestedType,
 		const wxString &requestedResultType,
-		bool preserveType)
+		bool preserveAnchor)
 	: m_currentType(currentType)
 	, m_currentStart(currentStart)
 	, m_currentResultType(currentResultType)
 	, m_requestedType(requestedType)
 	, m_requestedResultType(requestedResultType)
-	, m_preserveType(preserveType)
+	, m_preserveAnchor(preserveAnchor)
 	{
 	}
 
 	void Commit(time_t start)
 	{
-		if (!m_preserveType) {
+		if (!m_preserveAnchor) {
 			m_currentType = m_requestedType;
+			m_currentStart = start;
+			m_currentResultType = m_requestedResultType;
 		}
-		m_currentStart = start;
-		m_currentResultType = m_requestedResultType;
 	}
 
 private:
@@ -39,7 +39,7 @@ private:
 	wxString &m_currentResultType;
 	SearchType m_requestedType;
 	wxString m_requestedResultType;
-	bool m_preserveType;
+	bool m_preserveAnchor;
 };
 
 #endif

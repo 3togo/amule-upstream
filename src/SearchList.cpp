@@ -688,13 +688,14 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 
 	// Commit the anchor only after a successful start. Rejected Kad keywords,
 	// as well as key-generation failures, must not relabel the previous search.
-	pendingStart.Commit(time(nullptr));
+	const time_t searchStart = time(nullptr);
+	pendingStart.Commit(searchStart);
 
 	// Record this search's own start time so its (cosmetic Kad) progress ramp is computed from
 	// *its* age even after it is no longer the most-recently-started search -- otherwise a Kad
 	// search running in parallel with a later ed2k search would report a fixed near-full
 	// percent.
-	m_searchStartTimes[static_cast<uint32_t>(*searchID)] = m_searchStart;
+	m_searchStartTimes[static_cast<uint32_t>(*searchID)] = searchStart;
 	// Record this search's kind by id (same reason as the start time above): a later search of
 	// a different type must not make an older tab report the wrong kind. `type` is this
 	// search's real type regardless of the scalar anchor bookkeeping.
