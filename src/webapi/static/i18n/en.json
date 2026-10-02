@@ -222,7 +222,7 @@
   "search_type_global": "Global",
   "search_type_local": "Local",
   "search_type_kad": "Kad",
-  "search_type_all": "All (eD2k + Kad)",
+  "search_type_all": "All networks",
   "search_update_results": "Update results",
   "search_tab_close": "Close search",
   "search_close_all": "Close all",

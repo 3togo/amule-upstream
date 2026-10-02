@@ -10423,6 +10423,9 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 		}
 	}
 
+	if (search_type == EC_SEARCH_ALL && !m_state.EcConnected()) {
+		return ErrorResponse(503, "ec_unavailable", "the EC connection is unavailable");
+	}
 	if (search_type == EC_SEARCH_ALL && !m_app.IsServerSearchAllActive()) {
 		return ErrorResponse(
 			503, "ec_unsupported", "the connected amuled does not support All searches");

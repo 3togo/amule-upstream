@@ -1340,7 +1340,7 @@ void CamulecmdApp::OnInitCommandSet()
 			    "    GLOBAL\n"
 			    "    LOCAL\n"
 			    "    KAD\n"
-			    "    ALL (eD2k and Kad; requires daemon support)\n"
+			    "    ALL: All networks (requires daemon support)\n"
 			    "Example: 'search kad file' will execute a kad search for \"file\".\n"
 			    "\n"
 			    "Optional filters can be added before, after, or interleaved with\n"

@@ -544,6 +544,7 @@ Rate impact is small: the overhead rates move about as often as the speeds alrea
 ```json
 {
   "ec_connected": true,
+  "search_all_supported": true,
   "ed2k": {
     "state":       "connected",
     "high_id":     true,
