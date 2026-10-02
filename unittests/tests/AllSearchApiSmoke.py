@@ -2,13 +2,15 @@
 """Run the curl All-search checks against an isolated, offline core/API pair."""
 import hashlib
 import os
+import re
 from pathlib import Path
 import subprocess
+import struct
 import sys
 import tempfile
 import time
 
-from AllSearchIntegrationTest import connect_daemon, free_port, stored_search
+from AllSearchIntegrationTest import C, connect_daemon, free_port, integer, stored_search
 
 
 def run(daemon_binary, api_binary, checks):
@@ -21,10 +23,11 @@ def run(daemon_binary, api_binary, checks):
         (core / 'amule.conf').write_text(f'''[eMule]
 Nick=regression
 Port={free_port()}
-UDPEnable=0
+UDPEnable=1
+UDPPort={free_port()}
 Address=127.0.0.1
 Autoconnect=0
-ConnectToKad=0
+ConnectToKad=1
 ConnectToED2K=0
 NewVersionCheck=0
 Reconnect=0
@@ -44,10 +47,12 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
 [WebServer]
 Enabled=0
 ''')
+        (core / 'nodes.dat').write_bytes(struct.pack('<III', 0, 1, 0))
         # A finished All search exercises discovery and progress serialization
-        # without any public peer, enabled network, or search-start skip path.
+        # without public peers; later checks start Kad with no contacts.
         (core / 'StoredSearches.met').write_bytes(stored_search([]))
-        env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'))
+        env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'),
+                   LC_ALL='C.UTF-8')
         processes = []
         with (root / 'fixture.log').open('w') as log:
             try:
@@ -76,6 +81,25 @@ Enabled=0
                                       stdout=subprocess.DEVNULL).returncode == 0:
                         break
                     time.sleep(0.1)
+                # Exercise the command parser and real EC_SEARCH_ALL request too.
+                command = Path(daemon_binary).with_name('amulecmd')
+                if command.exists():
+                    ec = connect_daemon(daemon, port)
+                    assert ec.call(C['EC_OP_KAD_START'])[0] == C['EC_OP_NOOP']
+                    result = subprocess.run([
+                        str(command), '-h', '127.0.0.1', '-p', str(port),
+                        '-P', 'regression', '-c',
+                        'search all offlinecommandregression --type Arc --avail 2'],
+                        check=True, env=env, capture_output=True, text=True)
+                    match = re.search(r'Search started \(id (\d+)\)', result.stdout)
+                    assert match, result.stdout + result.stderr
+                    sid = int(match.group(1))
+                    progress = ec.progress(sid)
+                    assert progress[C['EC_TAG_SEARCH_LIFECYCLE_KIND']][0] == C['EC_SEARCH_ALL']
+                    assert progress[C['EC_TAG_SEARCH_KAD_ACTIVE']][0] == 1
+                    ec.call(C['EC_OP_SEARCH_STOP'], [integer(C['EC_TAG_SEARCH_ID'], sid)])
+                    ec.sock.close()
+                    print('PASS: amulecmd search all starts a combined search with filters')
                 subprocess.run(['bash', checks, '--fixture-ready'], check=True,
                                env=dict(env, API=url, ALL_SID='123'))
             except BaseException:

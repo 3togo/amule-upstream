@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Offline REST/SSE coverage for All searches discovered from the core.
+# Offline REST/SSE coverage for discovered and API-started All searches.
 # Unlike 19-search.sh, this phase needs no public eD2k/Kad connectivity.
 set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -41,6 +41,43 @@ jq -e --argjson sid "$ALL_SID" \
 echo 'PASS: GET /search reports type all'
 curl -fsS --max-time 10 -H "$AUTH" "$API/search/$ALL_SID/results" >"$TMP/results"
 echo 'PASS: GET All search results'
+# Starts are capability-gated, and All can use Kad alone in this offline fixture.
+curl -fsS --max-time 10 -H "$AUTH" "$API/status" | jq -e '.search_all_supported == true' >/dev/null \
+	|| fail 'All capability missing from status'
+echo 'PASS: status advertises All capability'
+STATUS=$(curl -sS --max-time 10 -o "$TMP/more" -w '%{http_code}' \
+	-X POST -H "$AUTH" "$API/search/$ALL_SID/more")
+[ "$STATUS" = 400 ] || fail "more on restored, finished All returned $STATUS"
+echo 'PASS: finished All cannot be extended'
+curl -fsS --max-time 10 -X POST -H "$AUTH" -H 'Content-Type: application/json' \
+	-d '{"network":"kad"}' "$API/networks/connect" >/dev/null
+STATUS=$(curl -sS --max-time 10 -o "$TMP/start" -w '%{http_code}' \
+	-X POST -H "$AUTH" -H 'Content-Type: application/json' \
+	-d '{"query":"offlineallregression","type":"all","file_type":"archive","min_source_count":2}' "$API/search")
+[ "$STATUS" = 202 ] || fail "POST All returned $STATUS: $(cat "$TMP/start")"
+SID=$(jq -er '.search_id' "$TMP/start")
+jq -e '.type == "all" and .state == "running"' "$TMP/start" >/dev/null \
+	|| fail 'POST All response has wrong type/state'
+echo 'PASS: POST All starts using Kad fallback'
+STATUS=$(curl -sS --max-time 10 -o "$TMP/more" -w '%{http_code}' \
+	-X POST -H "$AUTH" "$API/search/$SID/more")
+[ "$STATUS" = 202 ] || fail "more on active All returned $STATUS: $(cat "$TMP/more")"
+echo 'PASS: active Kad component of All can be extended'
+curl -fsS --max-time 10 -H "$AUTH" "$API/search/$SID/results" \
+	| jq -e '.progress.type == "all" and .progress.kad_active == true' >/dev/null \
+	|| fail 'All progress did not report active Kad component'
+echo 'PASS: All results report component activity'
+STATUS=$(curl -sS --max-time 10 -o "$TMP/stop" -w '%{http_code}' \
+	-X POST -H "$AUTH" "$API/search/$SID/stop")
+[ "$STATUS" = 204 ] || fail "stop All returned $STATUS"
+STATUS=$(curl -sS --max-time 10 -o "$TMP/more" -w '%{http_code}' \
+	-X POST -H "$AUTH" "$API/search/$SID/more")
+[ "$STATUS" = 400 ] || fail "more on stopped All returned $STATUS"
+echo 'PASS: stopped All cannot be extended'
+STATUS=$(curl -sS --max-time 10 -o "$TMP/delete" -w '%{http_code}' \
+	-X DELETE -H "$AUTH" "$API/search/$SID")
+[ "$STATUS" = 204 ] || fail "delete API-started All returned $STATUS"
+echo 'PASS: delete API-started All'
 wait "$SSE_PID" || true
 SSE_PID=
 awk '/^event: / { progress = ($0 == "event: search_progress") }
@@ -53,4 +90,4 @@ STATUS=$(curl -sS --max-time 10 -o "$TMP/delete" -w '%{http_code}' \
 	-X DELETE -H "$AUTH" "$API/search/$ALL_SID")
 [ "$STATUS" = 204 ] || fail "DELETE All search returned $STATUS"
 echo 'PASS: DELETE All search (HTTP 204)'
-echo 'OK: 4/4 passed (no skips)'
+echo 'OK: 11/11 passed (no skips)'

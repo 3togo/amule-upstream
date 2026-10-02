@@ -174,6 +174,13 @@ root result and after a complete child result. Every daemon shutdown must exit
 successfully, so sanitizer failures fail the test. It does not use an existing
 daemon or user profile.
 
+With BUILD_AMULEAPI=ON and BUILD_AMULECMD=ON, AllSearchClientCapabilityTest
+also checks a loopback EC peer omitting EC_TAG_CAN_SEARCH_ALL: the API returns
+503 ec_unsupported and amulecmd reports a clear error; neither sends SEARCH_START.
+The offline 45-all-search.sh curl phase covers REST/SSE discovery, API starts,
+Kad-only fallback, component activity, More, stop and close. When amulecmd is
+built alongside amuled, it also starts an All search with command-line filters.
+
 For a sanitizer-instrumented daemon, run this script directly with
 ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 and
 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1:

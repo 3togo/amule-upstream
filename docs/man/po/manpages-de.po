@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: manpages-de\n"
-"POT-Creation-Date: 2026-09-26 12:38+0100\n"
+"POT-Creation-Date: 2026-10-02 08:30+0800\n"
 "PO-Revision-Date: 2026-10-01 13:23+0000\n"
 "Last-Translator: Balla Marcell <marcell.balla@gmx.at>\n"
 "Language-Team: German <kde-i18n-de@kde.org>\n"
@@ -733,6 +733,11 @@ msgstr "Startet eine Suche nach dem angegebenenI I<E<lt>SchlüsselwortE<gt>>. Ei
 #: amulecmd.1.in
 msgid "Available search types:"
 msgstr "Verfügbare Suchtypen:"
+
+#. type: Plain text
+#: amulecmd.1.in
+msgid "Searches eD2k and Kad together, using the available network if the other cannot start. Requires a daemon advertising All search support; older daemons return a clear error without starting a search. Example: 'search all amule'."
+msgstr ""
 
 # type: Plain text
 #. type: Plain text

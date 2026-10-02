@@ -518,8 +518,10 @@ void CSearchDlg::FixSearchTypes()
 	}
 	if (choices.selection >= 0) {
 		searchchoice->SetSelection(choices.selection);
-		searchchoice->SetToolTip(
-			SearchModeHelp(static_cast<SearchType>(GetSelectedSearchTypeCanonical())));
+		const int canonical = GetSelectedSearchTypeCanonical();
+		if (canonical != wxNOT_FOUND) {
+			searchchoice->SetToolTip(SearchModeHelp(static_cast<SearchType>(canonical)));
+		}
 	}
 }
 
@@ -534,9 +536,9 @@ int CSearchDlg::GetSelectedSearchTypeCanonical()
 void CSearchDlg::OnSearchTypeChanged(wxCommandEvent &WXUNUSED(evt))
 {
 	const int canonical = GetSelectedSearchTypeCanonical();
-	CastChild(ID_SEARCHTYPE, wxBitmapComboBox)
-		->SetToolTip(SearchModeHelp(static_cast<SearchType>(canonical)));
 	if (canonical != wxNOT_FOUND) {
+		CastChild(ID_SEARCHTYPE, wxBitmapComboBox)
+			->SetToolTip(SearchModeHelp(static_cast<SearchType>(canonical)));
 		wxConfigBase::Get()->Write("/eMule/DefaultSearchType", (long)canonical);
 	}
 }

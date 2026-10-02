@@ -2029,6 +2029,13 @@ if (ENABLE_ALL_SEARCH_INTEGRATION_TEST AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/AllSearchIntegrationTest.py $<TARGET_FILE:amuled>
 		)
+		if (BUILD_AMULEAPI AND BUILD_AMULECMD)
+			add_test (NAME AllSearchClientCapabilityTest
+				COMMAND ${Python3_EXECUTABLE}
+					${CMAKE_CURRENT_SOURCE_DIR}/AllSearchClientCapabilityTest.py
+					$<TARGET_FILE:amuleapi> $<TARGET_FILE:amulecmd>
+			)
+		endif ()
 	endif ()
 endif ()
 

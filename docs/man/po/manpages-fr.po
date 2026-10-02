@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
-"POT-Creation-Date: 2026-09-26 12:38+0100\n"
+"POT-Creation-Date: 2026-10-02 08:30+0800\n"
 "PO-Revision-Date: 2026-10-01 13:23+0000\n"
 "Last-Translator: Dylan Aïssi <bob.dybian@gmail.com>\n"
 "Language-Team: Français\n"
@@ -647,6 +647,11 @@ msgstr "Effectue une recherche sur I<E<lt>mot-clefE<gt>> donné. Un type de rech
 #: amulecmd.1.in
 msgid "Available search types:"
 msgstr "Types de recherche disponibles :"
+
+#. type: Plain text
+#: amulecmd.1.in
+msgid "Searches eD2k and Kad together, using the available network if the other cannot start. Requires a daemon advertising All search support; older daemons return a clear error without starting a search. Example: 'search all amule'."
+msgstr ""
 
 #. type: Plain text
 #: amulecmd.1.in
