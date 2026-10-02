@@ -2032,6 +2032,19 @@ if (ENABLE_ALL_SEARCH_INTEGRATION_TEST AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 	endif ()
 endif ()
 
+# Exercise native scrolling/sizer behavior without starting the aMule application.
+# MuleUnit defines wxUSE_GUI=0, so this test owns a minimal wxApp instead.
+if (TARGET wxWidgets::CORE)
+	add_executable (DialogLayoutTest DialogLayoutTest.cpp)
+	if (WIN32)
+		target_sources (DialogLayoutTest PRIVATE DialogLayoutTest.rc)
+	endif()
+	target_include_directories (DialogLayoutTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+	target_link_libraries (DialogLayoutTest PRIVATE wxWidgets::CORE)
+	add_test (NAME DialogLayoutTest COMMAND DialogLayoutTest)
+	set_tests_properties (DialogLayoutTest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
 # Exercise production consensus with explicit, fail-fast application stubs.
 add_executable (AICHSearchResultTest
 	AICHSearchResultTest.cpp
