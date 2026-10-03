@@ -644,8 +644,7 @@ wxString CSearchList::StartNewSearch(uint32 *searchID, SearchType type, CSearchP
 	// ed2k search's late hits get dropped (wrong type) or misfiled (wrong bucket). Every other
 	// start updates the anchor as before.
 	const bool preserveEd2kAnchor = (type == KadSearch) && m_searchInProgress;
-	CSearchStartBookkeeping pendingStart(
-		m_searchType, m_searchStart, type, preserveEd2kAnchor);
+	CSearchStartBookkeeping pendingStart(m_searchType, m_searchStart, type, preserveEd2kAnchor);
 
 	// Legacy EC clients reuse the sentinel across networks. Ensure that no old
 	// Kad search can still deliver results to the bucket before reusing it.
@@ -1984,9 +1983,15 @@ void CSearchList::KademliaSearchKeyword(uint32_t searchID,
 	if (key == m_kadAICHKeys.end()) {
 		return; // Search removed: do not recreate evidence for a late reply.
 	}
-	auto tempFile = std::make_unique<CSearchFile>(
-		temp, (eStrEncode == utf8strRaw), effectiveSearchID, 0, 0, "", true,
-		kadAICHResponderIP, &key->second);
+	auto tempFile = std::make_unique<CSearchFile>(temp,
+		(eStrEncode == utf8strRaw),
+		effectiveSearchID,
+		0,
+		0,
+		"",
+		true,
+		kadAICHResponderIP,
+		&key->second);
 	tempFile->SetKadPublishInfo(kadPublishInfo);
 
 	AddToList(std::move(tempFile));

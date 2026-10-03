@@ -33,10 +33,8 @@
 class CSearchStartBookkeeping
 {
 public:
-	CSearchStartBookkeeping(SearchType &currentType,
-		time_t &currentStart,
-		SearchType requestedType,
-		bool preserveAnchor)
+	CSearchStartBookkeeping(
+		SearchType &currentType, time_t &currentStart, SearchType requestedType, bool preserveAnchor)
 	: m_currentType(currentType)
 	, m_currentStart(currentStart)
 	, m_requestedType(requestedType)
