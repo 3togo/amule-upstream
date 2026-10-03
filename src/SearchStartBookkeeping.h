@@ -35,15 +35,11 @@ class CSearchStartBookkeeping
 public:
 	CSearchStartBookkeeping(SearchType &currentType,
 		time_t &currentStart,
-		wxString &currentResultType,
 		SearchType requestedType,
-		const wxString &requestedResultType,
 		bool preserveAnchor)
 	: m_currentType(currentType)
 	, m_currentStart(currentStart)
-	, m_currentResultType(currentResultType)
 	, m_requestedType(requestedType)
-	, m_requestedResultType(requestedResultType)
 	, m_preserveAnchor(preserveAnchor)
 	{
 	}
@@ -53,16 +49,13 @@ public:
 		if (!m_preserveAnchor) {
 			m_currentType = m_requestedType;
 			m_currentStart = start;
-			m_currentResultType = m_requestedResultType;
 		}
 	}
 
 private:
 	SearchType &m_currentType;
 	time_t &m_currentStart;
-	wxString &m_currentResultType;
 	SearchType m_requestedType;
-	wxString m_requestedResultType;
 	bool m_preserveAnchor;
 };
 

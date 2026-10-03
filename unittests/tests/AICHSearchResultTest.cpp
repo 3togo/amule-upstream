@@ -190,12 +190,13 @@ public:
 	static CSearchFile *Result(const wxString &name,
 		uint32_t responder,
 		const CAICHHash &root,
-		const CKadAICHVotes::Key &key = CKadAICHVotes::Key{})
+		const CKadAICHVotes::Key &key = CKadAICHVotes::Key{},
+		bool kad = true)
 	{
 		auto *result = new CSearchFile;
 		result->SetFileName(CPath(name));
 		result->SetFileSize(1024);
-		result->m_kademlia = true;
+		result->m_kademlia = kad;
 		result->m_kadAICHVotes = CKadAICHVotes(key);
 		result->m_kadAICHVotes.Add(responder, root);
 		return result;
@@ -628,4 +629,22 @@ TEST(AICHSearchResult, PolymorphicSearchResultDispatchAndLifetime)
 	ASSERT_TRUE(search->ApplyKadAICHVotes(hashes));
 	ASSERT_EQUALS(AICH_UNTRUSTED, hashes.GetStatus());
 	file.reset(); // Delete the real CSearchFile through CAbstractFile's vtable.
+}
+TEST(AICHSearchResult, ServerFirstAllSearchGroupReplaysKadVotes)
+{
+	const CAICHHash root = MakeRoot(0xAB);
+	CKadAICHVotes::Key key{};
+	key[0] = 42;
+	std::unique_ptr<CSearchFile> group(CSearchFileTestFixture::Result("server", 0, root, key, false));
+	for (uint32_t i = 1; i <= 10; ++i) {
+		group->AddChild(CSearchFileTestFixture::Result("kad", i, root, key));
+	}
+	ASSERT_FALSE(group->IsKademlia());
+	ASSERT_EQUALS(size_t(10), group->GetKadAICHVotes().size());
+	for (const CSearchFile *child : group->GetChildren()) {
+		CAICHHashSet downloaded(nullptr);
+		ASSERT_TRUE(child->ApplyKadAICHVotes(downloaded));
+		ASSERT_EQUALS(AICH_TRUSTED, downloaded.GetStatus());
+		ASSERT_TRUE(downloaded.GetMasterHash() == root);
+	}
 }

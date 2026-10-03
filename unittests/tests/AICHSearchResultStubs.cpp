@@ -32,6 +32,7 @@
 #include <DownloadQueue.h>
 #include <PartFile.h>
 #include <updownclient.h>
+#include <SearchList.h>
 #ifdef ENABLE_UPNP
 #include "UPnPBase.h" // Needed for CUPnPPortMapping (CamuleApp::m_upnpMappings)
 #endif
@@ -264,4 +265,10 @@ void CPartFile::UpdateFileRatingCommentAvail()
 void CPartFile::GetRatingAndComments(FileRatingList &) const
 {
 	UnexpectedApplicationCall("CPartFile::GetRatingAndComments");
+}
+
+SearchType CSearchList::GetSearchLifecycleKindById(wxUIntPtr) const
+{
+	FAIL_M("AICH consensus test unexpectedly queried search lifecycle");
+	return LocalSearch;
 }
