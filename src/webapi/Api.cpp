@@ -44,6 +44,7 @@
 #include "StaticFs.h"      // IsDir, ResolveWithinRoot
 #include "SharedContent.h" // /shared/{hash}/content: path resolution, Range, disposition
 #include "PartIndex.h"     // UsablePartIndex / UsableLastDownloadingPart, unit-tested standalone
+#include "Ipv4Address.h"   // ParseIpv4Dotted / ToKadIpOrder, unit-tested standalone
 #include <cmath>
 #include <cstring>
 #include <map>
@@ -2337,6 +2338,8 @@ CHttpServer::Response CApiDispatcher::HandleStatus(const CHttpServer::Request &r
 	// wall-clock for anyone who needs it.
 	w.Key("ec_connected");
 	w.ValueBool(ec);
+	w.Key("search_all_supported");
+	w.ValueBool(s.search_all_supported);
 	(void)ts;
 
 	w.Key("ed2k");
@@ -5352,18 +5355,6 @@ CHttpServer::Response CApiDispatcher::HandleDownloadsClearCompleted(const CHttpS
 namespace
 {
 
-// Dotted-quad IPv4 to host-order uint32, the encoding EC_TAG_*_IP uses.
-bool ParseIpv4Dotted(const std::string &text, std::uint32_t &out_he)
-{
-	unsigned a = 0, b = 0, c = 0, d = 0;
-	if (std::sscanf(text.c_str(), "%u.%u.%u.%u", &a, &b, &c, &d) != 4)
-		return false;
-	if (a > 255 || b > 255 || c > 255 || d > 255)
-		return false;
-	out_he = (a) | (b << 8) | (c << 16) | (d << 24);
-	return true;
-}
-
 void WriteServerObject(CJsonWriter &w, const webapi::ServerSnapshot &s)
 {
 	w.BeginObject();
@@ -5652,11 +5643,8 @@ bool ParseChatPeerKey(const std::string &peer, std::string &out_key, std::uint64
 	if (colon == std::string::npos || colon == 0 || colon + 1 >= peer.size())
 		return false;
 
-	unsigned a = 0, b = 0, c = 0, d = 0;
-	char extra = 0;
-	if (std::sscanf(peer.substr(0, colon).c_str(), "%3u.%3u.%3u.%3u%c", &a, &b, &c, &d, &extra) != 4)
-		return false;
-	if (a > 255 || b > 255 || c > 255 || d > 255)
+	std::uint32_t ip = 0;
+	if (!webapi::ParseIpv4Dotted(peer.substr(0, colon), ip))
 		return false;
 
 	const std::string port_str = peer.substr(colon + 1);
@@ -5666,10 +5654,6 @@ bool ParseChatPeerKey(const std::string &peer, std::string &out_key, std::uint64
 	if (port == 0 || port > 65535)
 		return false;
 
-	// LSB-first, matching IPv4ToDotted and EC_TAG_CLIENT_USER_IP.
-	const std::uint32_t ip = static_cast<std::uint32_t>(a) | (static_cast<std::uint32_t>(b) << 8) |
-				 (static_cast<std::uint32_t>(c) << 16) |
-				 (static_cast<std::uint32_t>(d) << 24);
 	const std::uint64_t route = (static_cast<std::uint64_t>(ip) << 16) | static_cast<std::uint64_t>(port);
 	out_key = webapi::ChatPeerKeyFromGuiId(route);
 	if (out_route)
@@ -6255,8 +6239,8 @@ CHttpServer::Response CApiDispatcher::HandleFriendAdd(const CHttpServer::Request
 			}
 			ip_str = it->second.get<std::string>();
 		}
-		std::uint32_t ip_he = 0;
-		if (!ParseIpv4Dotted(ip_str, ip_he) || ip_he == 0) {
+		std::uint32_t ip = 0;
+		if (!webapi::ParseIpv4Dotted(ip_str, ip) || ip == 0) {
 			return ErrorResponse(
 				400, "bad_request", "`ip` must be a non-zero dotted IPv4 address");
 		}
@@ -6304,7 +6288,7 @@ CHttpServer::Response CApiDispatcher::HandleFriendAdd(const CHttpServer::Request
 			name = ip_str;
 		}
 		addtag.AddTag(CECTag(EC_TAG_FRIEND_HASH, hash));
-		addtag.AddTag(CECTag(EC_TAG_FRIEND_IP, ip_he));
+		addtag.AddTag(CECTag(EC_TAG_FRIEND_IP, ip));
 		addtag.AddTag(CECTag(EC_TAG_FRIEND_PORT, port));
 		addtag.AddTag(CECTag(EC_TAG_FRIEND_NAME, wxString::FromUTF8(name.c_str())));
 	}
@@ -6629,7 +6613,7 @@ CHttpServer::Response CApiDispatcher::HandleServerUpdateFromUrl(const CHttpServe
 // know -- a 400 and a 404 respectively.
 struct IpPortSelector
 {
-	std::uint32_t ip_he; // host order, as ServerSnapshot::ip holds it
+	std::uint32_t ip; // the ParseIpv4Dotted() order, as ServerSnapshot::ip holds it
 	std::uint16_t port;
 };
 
@@ -6658,8 +6642,8 @@ boost::optional<IpPortSelector> ParseIpPortSelector(const std::string &ip_port)
 	// rejected by the caller instead, so the two get error messages that describe what
 	// actually happened.
 	IpPortSelector sel;
-	sel.ip_he = 0;
-	if (!ParseIpv4Dotted(ip_str, sel.ip_he))
+	sel.ip = 0;
+	if (!webapi::ParseIpv4Dotted(ip_str, sel.ip))
 		return boost::none;
 
 	sel.port = static_cast<std::uint16_t>(port);
@@ -6682,13 +6666,13 @@ std::unique_ptr<CHttpServer::Response> ResolveServerEcid(
 	// below: a ServerSnapshot whose EC_TAG_SERVER_IP the daemon did not ship keeps
 	// `ip == 0`, so a 0.0.0.0 selector would resolve to whichever such row happened to
 	// share the port -- acting on a server the caller never named.
-	if (sel->ip_he == 0) {
+	if (sel->ip == 0) {
 		return std::make_unique<CHttpServer::Response>(
 			ErrorResponse(400, "bad_request", "0.0.0.0 is not a server address"));
 	}
 
 	for (const auto &s : state.Servers()) {
-		if (s.port == sel->port && s.ip == sel->ip_he) {
+		if (s.port == sel->port && s.ip == sel->ip) {
 			ecid = s.ecid;
 			return nullptr;
 		}
@@ -7127,6 +7111,8 @@ wxString SearchKindToString(std::uint8_t kind)
 		return wxString::FromAscii("local");
 	case EC_SEARCH_KAD:
 		return wxString::FromAscii("kad");
+	case EC_SEARCH_ALL:
+		return wxString::FromAscii("all");
 	case EC_SEARCH_BROWSE:
 		// A "View Files" browse of one peer's share. Reported, never accepted
 		// by SearchTypeFromString: browses are not started through /search.
@@ -7448,6 +7434,8 @@ CHttpServer::Response CApiDispatcher::HandleSearchResults(
 	w.ValueString(wxString::FromUTF8(progress.kind.c_str()));
 	w.Key("percent");
 	w.ValueInt(static_cast<int64_t>(progress.percent));
+	w.Key("kad_active");
+	w.ValueBool(progress.kad_active);
 	w.EndObject();
 	w.EndObject();
 	FinalizeJsonBody(w, r);
@@ -7513,6 +7501,7 @@ bool CApiDispatcher::DiscoverSearchIfHeldByCore(std::uint32_t search_id)
 		// (an older daemon); the seed then derives it from the lifecycle state.
 		const CECTag *pctTag = entry.GetTagByName(EC_TAG_SEARCH_LIFECYCLE_PERCENT);
 		const int reported_pct = pctTag ? static_cast<int>(pctTag->GetInt()) : -1;
+		const CECTag *kadTag = entry.GetTagByName(EC_TAG_SEARCH_KAD_ACTIVE);
 		m_state.MarkSearchDiscovered(search_id,
 			SearchKindToString(
 				kindTag ? static_cast<std::uint8_t>(kindTag->GetInt()) : EC_SEARCH_GLOBAL)
@@ -7520,7 +7509,8 @@ bool CApiDispatcher::DiscoverSearchIfHeldByCore(std::uint32_t search_id)
 			nameTag ? std::string(nameTag->GetStringData().utf8_str()) : std::string(),
 			state_val == 1,
 			state_val == 2,
-			reported_pct);
+			reported_pct,
+			kadTag && kadTag->GetInt() != 0);
 		found = true;
 		break;
 	}
@@ -8610,12 +8600,8 @@ CHttpServer::Response CApiDispatcher::HandleKadBootstrap(const CHttpServer::Requ
 	}
 	const auto &obj = root.get<picojson::object>();
 
-	// Body: {"ip": "1.2.3.4", "port": <uint16>}. A dotted quad, and only that. The
-	// integer form is gone: ParseIpv4Dotted() packs a.b.c.d least-significant byte
-	// first, while the integer branch took the JSON value verbatim, so 2130706433
-	// (0x7F000001, the conventional big-endian spelling of 127.0.0.1) bootstrapped
-	// 1.0.0.127.
-	std::uint32_t ip_he = 0;
+	// Body: {"ip": "1.2.3.4", "port": <uint16>}. A dotted quad, and only that.
+	std::uint32_t ip = 0;
 	{
 		const auto it = obj.find("ip");
 		if (it == obj.end()) {
@@ -8627,7 +8613,7 @@ CHttpServer::Response CApiDispatcher::HandleKadBootstrap(const CHttpServer::Requ
 				"`ip` must be a dotted-quad IPv4 address string, e.g. "
 				"\"127.0.0.1\"");
 		}
-		if (!ParseIpv4Dotted(it->second.get<std::string>(), ip_he)) {
+		if (!webapi::ParseIpv4Dotted(it->second.get<std::string>(), ip)) {
 			return ErrorResponse(400, "bad_request", "`ip` must be a dotted-quad IPv4 address");
 		}
 	}
@@ -8646,8 +8632,9 @@ CHttpServer::Response CApiDispatcher::HandleKadBootstrap(const CHttpServer::Requ
 		port = static_cast<std::uint16_t>(v);
 	}
 
+	// Unconverted, the bootstrap request went to d.c.b.a.
 	std::unique_ptr<CECPacket> ec_req(new CECPacket(EC_OP_KAD_BOOTSTRAP_FROM_IP));
-	ec_req->AddTag(CECTag(EC_TAG_BOOTSTRAP_IP, ip_he));
+	ec_req->AddTag(CECTag(EC_TAG_BOOTSTRAP_IP, webapi::ToKadIpOrder(ip)));
 	ec_req->AddTag(CECTag(EC_TAG_BOOTSTRAP_PORT, port));
 
 	const CECPacket *ec_resp = m_app.SendRecvSerialized(ec_req.get());
@@ -8668,11 +8655,10 @@ CHttpServer::Response CApiDispatcher::HandleKadBootstrap(const CHttpServer::Requ
 	r.content_type = "application/json";
 	CJsonWriter w;
 	w.BeginObject();
-	// `ip`/`port` stay as the documented exception to the no-body rule for actions: the
-	// echo reports which address the daemon actually parsed, which the caller cannot
-	// recover anywhere else.
+	// `ip`/`port` stay as the documented exception to the no-body rule for actions. The echo
+	// is amuleapi's own parse in canonical form, not a report of where the probe went.
 	w.Key("ip");
-	w.ValueString(Uint32toStringIP(ip_he));
+	w.ValueString(Uint32toStringIP(ip));
 	w.Key("port");
 	w.ValueInt(static_cast<int64_t>(port));
 	w.EndObject();
@@ -10181,7 +10167,7 @@ namespace
 {
 
 // Map wire-string search types to amule's EC_SEARCH_TYPE enum. "local" /
-// "global" / "kad" matches amulegui's UI labels.
+// "global" / "kad" / "all" matches amulegui's UI labels.
 bool SearchTypeFromString(const std::string &s, std::uint8_t &out)
 {
 	if (s == "local") {
@@ -10192,6 +10178,9 @@ bool SearchTypeFromString(const std::string &s, std::uint8_t &out)
 		return true;
 	} else if (s == "kad") {
 		out = EC_SEARCH_KAD;
+		return true;
+	} else if (s == "all") {
+		out = EC_SEARCH_ALL;
 		return true;
 	}
 	return false;
@@ -10318,7 +10307,7 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 	}
 	const auto &obj = root.get<picojson::object>();
 
-	// Body: { "query": required string, "type": "local"|"global"|"kad" (default
+	// Body: { "query": required string, "type": "local"|"global"|"kad"|"all" (default
 	// "global"), "file_type": optional label, "extension": optional (e.g. "mkv"),
 	// "min_size_bytes"/"max_size_bytes": optional uint64 (0 = no cap),
 	// "min_source_count": optional uint32 }
@@ -10342,13 +10331,13 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 			if (!it->second.is<std::string>()) {
 				return ErrorResponse(400,
 					"bad_request",
-					"`type` must be one of \"local\", \"global\", \"kad\"");
+					"`type` must be one of \"local\", \"global\", \"kad\", \"all\"");
 			}
 			search_kind = it->second.get<std::string>();
 			if (!SearchTypeFromString(search_kind, search_type)) {
 				return ErrorResponse(400,
 					"bad_request",
-					"`type` must be one of \"local\", \"global\", \"kad\"");
+					"`type` must be one of \"local\", \"global\", \"kad\", \"all\"");
 			}
 		}
 	}
@@ -10442,6 +10431,14 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 		}
 	}
 
+	if (search_type == EC_SEARCH_ALL && !m_state.EcConnected()) {
+		return ErrorResponse(503, "ec_unavailable", "the EC connection is unavailable");
+	}
+	if (search_type == EC_SEARCH_ALL && !m_app.IsServerSearchAllActive()) {
+		return ErrorResponse(
+			503, "ec_unsupported", "the connected amuled does not support All searches");
+	}
+
 	std::unique_ptr<CECPacket> ec_req(new CECPacket(EC_OP_SEARCH_START));
 	ec_req->AddTag(CEC_Search_Tag(wxString::FromUTF8(query.c_str()),
 		static_cast<EC_SEARCH_TYPE>(search_type),
@@ -10467,6 +10464,8 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 	if (const CECTag *t = ec_resp->GetTagByName(EC_TAG_SEARCH_ID)) {
 		search_id = static_cast<std::uint32_t>(t->GetInt());
 	}
+	const CECTag *kad_tag = ec_resp->GetTagByName(EC_TAG_SEARCH_KAD_ACTIVE);
+	const bool kad_active = kad_tag && kad_tag->GetInt() != 0;
 	delete ec_resp;
 	if (search_id == 0) {
 		return ErrorResponse(
@@ -10477,7 +10476,7 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 	// it each tick until the daemon reports completion. This is the single fetcher, so
 	// SSE search_result_added / search_progress fire on the same delta a polling
 	// consumer would observe.
-	m_state.MarkSearchStarted(search_id, search_kind, query);
+	m_state.MarkSearchStarted(search_id, search_kind, query, kad_active);
 
 	// Same creation shape as the browse handler above: the daemon hands back
 	// EC_TAG_SEARCH_ID, so the response carries the resource and a Location.
@@ -10587,17 +10586,24 @@ CHttpServer::Response CApiDispatcher::HandleSearchMore(
 	if (auto rej = RequireSearch(search_id))
 		return *rej;
 
-	// The desktop "More" button re-asks already-queried Kad peers for a wider result
-	// frontier. Both constraints below mirror what that button does rather than what the
-	// core tolerates: CSearchManager::RequestMoreResults returns false for a non-Kad id,
-	// and the GUI greys the button out once the search ends.
+	// Refresh component activity before a mutation: All may still be running after
+	// its Kad component stops, or may have just started since the previous tick.
+	if (!RefresherTick(m_app, m_state)) {
+		return ErrorResponse(503, "ec_unavailable", "could not refresh search progress");
+	}
 	const webapi::SearchProgressSnapshot progress = m_state.SearchProgress(search_id);
-	if (progress.kind != "kad") {
-		return ErrorResponse(400, "bad_request", "`more` applies to Kad searches only");
+	if (progress.kind != "kad" && progress.kind != "all") {
+		return ErrorResponse(
+			400, "bad_request", "`more` requires a search with an active Kad component");
 	}
 	if (progress.complete || !progress.active) {
 		return ErrorResponse(
 			400, "bad_request", "`more` applies to a running search; this one has finished");
+	}
+
+	if (!progress.kad_active) {
+		return ErrorResponse(
+			400, "bad_request", "`more` requires a search with an active Kad component");
 	}
 
 	// The daemon logs what actually happened and answers with the other half: whether a
