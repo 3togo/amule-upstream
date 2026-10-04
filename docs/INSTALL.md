@@ -153,15 +153,16 @@ Common `-D` options (`YES` / `NO` unless noted otherwise):
 
 ### Experimental options
 
-These switches are `OFF` by default. Each one compiles in unfinished
-work; with the switch off, that code is left out of the build.
+These switches are `OFF` by default except `ENABLE_KAD_PROTOCOL_10`. Most
+compile in unfinished work; `ENABLE_KAD_PROTOCOL_10` only sets the initial
+value of a runtime preference for new configurations.
 
 | Option                            | Effect |
 | --------------------------------- | ------ |
 | `ENABLE_UTP`                      | IPv4 uTP in `amule` and `amuled`: datagram framing, inbound streams, and dialing a peer that advertises uTP |
 | `ENABLE_IPV6`                     | native IPv6 TCP admission. The IPv6 identity work is not complete |
 | `ENABLE_NATT_SERVER_COORDINATION` | the server-coordinated NAT-T wire codecs. No login advertisement or network traffic yet |
-| `ENABLE_KAD_PROTOCOL_10`          | sets the compile-time default for the Kad protocol `0x0a` runtime preference (AICH hashes on keyword storage). Can be toggled at runtime via Preferences, EC and amuleapi |
+| `ENABLE_KAD_PROTOCOL_10`          | `ON` by default; sets the initial value of the Kad repair-hash preference for new configurations. Existing saved choices remain unchanged. Can be toggled at runtime via Preferences, EC and amuleapi |
 | `ENABLE_KAD_NODE_PROTECTION`      | local Kad node-protection heuristics: adaptive request timeouts and Kad identity checks. No wire-protocol change |
 | `ENABLE_ALL_EXPERIMENTAL`         | all of the switches above |
 

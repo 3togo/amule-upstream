@@ -310,12 +310,13 @@ option (ENABLE_VERSION_CHECK "compile in the in-app new-version check (startup n
 # by the KadProtocol10 preference (Preferences, EC, amuleapi). This compile-time
 # switch sets only the default value of that preference: ON means a fresh config
 # starts with KadProtocol10 enabled, OFF means it starts disabled for maximum
-# backward compatibility with older Kad peers.
+# backward compatibility with older Kad peers. Existing configs keep their
+# saved choice; the default only applies when the preference is absent.
 #
 # The compile definition is consumed by Preferences.cpp when constructing the
 # default preference. The AICH codec and trust-selection helper remain independent
 # of this build option.
-option (ENABLE_KAD_PROTOCOL_10 "set the compile-time default for the Kad protocol 0x0a runtime preference (AICH hashes on keyword storage)" OFF)
+option (ENABLE_KAD_PROTOCOL_10 "set the compile-time default for the Kad protocol 0x0a runtime preference (AICH hashes on keyword storage)" ON)
 
 # Master switch for the local Kad node-protection heuristics: the adaptive
 # request-timeout estimate (CFastKad) and the Kad identity protections
