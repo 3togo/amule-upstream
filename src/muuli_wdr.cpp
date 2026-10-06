@@ -1643,7 +1643,8 @@ wxSizer *PreferencesConnectionTab( wxWindow *parent, bool call_fit, bool set_siz
     kadProtoChk->SetToolTip(
         _("Share file repair hashes with other Kad nodes and learn them from Kad searches. "
           "These hashes can help aMule repair damaged download data without downloading an "
-          "entire part again. aMule checks the evidence before using a hash for repair.\n\n"
+          "entire part again. aMule uses a hash for repair only once enough independent peers "
+          "report the same one.\n\n"
           "Very old Kad clients (before eMule 0.49b) may miss search results containing these "
           "hashes. If you notice missing results, try turning this option off.\n\n"
           "Turning this option off discards the repair hashes stored in your Kad index on the "
@@ -1785,7 +1786,8 @@ wxSizer *PreferencesFilesTab( wxWindow *parent, bool call_fit, bool set_sizer )
     wxStaticText *item17 = new wxStaticText( item6, -1, _("MiB"), wxDefaultPosition, wxDefaultSize, 0 );
     item14->Add( item17, wxSizerFlags().Center().Border(wxLEFT, 5) );
     item5->Add( item14, wxSizerFlags().Expand().CenterVertical() );
-    wxCheckBox *item18 = new wxCheckBox( item6, IDC_SRCSEEDS, _("Save 10 sources on rare files (< 20 sources)"), wxDefaultPosition, wxDefaultSize, 0 );
+    wxCheckBox *item18 = new wxCheckBox( item6, IDC_SRCSEEDS, _("Save up to 10 HighID sources of rare files (20 or fewer sources) on exit"), wxDefaultPosition, wxDefaultSize, 0 );
+    item18->SetToolTip( _("The saved sources are used again only if aMule restarts within 2 hours. LowID sources are not saved: a LowID only identifies a peer on the server that assigned it.") );
     item18->SetValue( TRUE );
     item5->Add( item18, wxSizerFlags().Expand().CenterVertical().Border(wxALL, 0) );
     item0->Add( item5, wxSizerFlags().Expand().CenterVertical().Border(wxALL, 0) );
