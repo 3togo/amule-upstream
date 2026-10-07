@@ -40,6 +40,7 @@ there client on the eMule forum..
 #define ENTRY_H
 
 #include "AICHHashList.h"
+#include <memory>
 #include "../utils/UInt128.h"
 #include "../../Tag.h"
 #include <time.h>
@@ -111,6 +112,8 @@ protected:
 
 class CKeyEntry : public CEntry
 {
+	friend class CIndexed;
+
 protected:
 	struct sPublishingIP
 	{
@@ -123,7 +126,8 @@ protected:
 	};
 
 public:
-	CKeyEntry();
+	using PublishTracking = std::map<uint32_t, uint32_t>;
+	explicit CKeyEntry(std::shared_ptr<PublishTracking> tracking = {});
 	virtual ~CKeyEntry();
 
 	virtual CEntry *Copy() const { return CEntry::Copy(); }
@@ -147,11 +151,10 @@ public:
 	uint16_t GetAICHHashCount() const { return m_aichHashes.GetSlotCount(); }
 	void DirtyDeletePublishData();
 	void WriteTagListWithPublishInfo(CFileDataIO *data);
-	static void ResetGlobalTrackingMap() { s_globalPublishIPs.clear(); }
 
 protected:
 	void ReCalculateTrustValue();
-	static void AdjustGlobalPublishTracking(uint32_t ip, bool increase, const wxString &dbgReason);
+	void AdjustGlobalPublishTracking(uint32_t ip, bool increase, const wxString &dbgReason);
 
 	typedef std::list<sPublishingIP> PublishingIPList;
 	typedef std::map<uint32_t, uint32_t> GlobalPublishIPMap;
@@ -162,8 +165,8 @@ protected:
 	// count per hash.  Empty for entries that only pre-0x09 peers published.
 	CKadAICHHashList m_aichHashes;
 	PublishingIPList *m_publishingIPs;
-	static GlobalPublishIPMap
-		s_globalPublishIPs; // tracks count of publishings for each 255.255.255.0/24 subnet
+	std::shared_ptr<PublishTracking>
+		m_publishTracking; // tracks count of publishings for each 255.255.255.0/24 subnet
 };
 
 } // namespace Kademlia

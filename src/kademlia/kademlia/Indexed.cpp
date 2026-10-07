@@ -37,6 +37,7 @@ there client on the eMule forum..
 */
 
 #include "Indexed.h"
+#include <stdexcept>
 
 #include <protocol/Protocols.h>
 #include <protocol/ed2k/Constants.h>
@@ -58,38 +59,93 @@ there client on the eMule forum..
 using namespace Kademlia;
 ////////////////////////////////////////
 
-wxString CIndexed::m_kfilename;
-wxString CIndexed::m_sfilename;
-wxString CIndexed::m_loadfilename;
-
 CIndexed::CIndexed()
+: CIndexed(thePrefs::GetConfigDir(), CKademlia::GetPrefs()->GetKadID())
 {
-	m_sfilename = thePrefs::GetConfigDir() + "src_index.dat";
-	m_kfilename = thePrefs::GetConfigDir() + "key_index.dat";
-	m_loadfilename = thePrefs::GetConfigDir() + "load_index.dat";
-	m_lastClean = time(NULL) + (60 * 30);
-	m_totalIndexSource = 0;
-	m_totalIndexKeyword = 0;
-	m_totalIndexNotes = 0;
-	m_totalIndexLoad = 0;
-	ReadFile();
 }
 
-void CIndexed::ReadFile()
+CIndexed::CIndexed(const wxString &directory, const CUInt128 &kadID)
+: CIndexed(directory, kadID, false)
+{
+	m_loader = std::make_unique<CBackgroundLoad<std::unique_ptr<CIndexed>>>(
+		[directory, kadID](const std::atomic<bool> &cancel) {
+			auto loaded = std::unique_ptr<CIndexed>(new CIndexed(directory, kadID, true));
+			loaded->ReadFile(cancel);
+			return loaded;
+		});
+}
+
+CIndexed::CIndexed(const wxString &directory, const CUInt128 &kadID, bool worker)
+: m_publishTracking(std::make_shared<CKeyEntry::PublishTracking>())
+, m_loadState(worker ? LoadState::Ready : LoadState::Loading)
+, m_worker(worker)
+, m_kadID(kadID)
+{
+	m_sfilename = directory + "src_index.dat";
+	m_kfilename = directory + "key_index.dat";
+	m_loadfilename = directory + "load_index.dat";
+	m_lastClean = time(NULL) + (60 * 30);
+	m_totalIndexSource = m_totalIndexKeyword = m_totalIndexNotes = m_totalIndexLoad = 0;
+}
+
+void CIndexed::ProcessIndexLoad()
+{
+	if (!m_loader || m_loadState != LoadState::Loading) {
+		return;
+	}
+	std::unique_ptr<CIndexed> loaded;
+	if (m_loader->Take(loaded)) {
+		m_Keyword_map.swap(loaded->m_Keyword_map);
+		m_Sources_map.swap(loaded->m_Sources_map);
+		m_Load_map.swap(loaded->m_Load_map);
+		m_publishTracking.swap(loaded->m_publishTracking);
+		m_totalIndexKeyword = loaded->m_totalIndexKeyword;
+		m_totalIndexSource = loaded->m_totalIndexSource;
+		m_totalIndexLoad = loaded->m_totalIndexLoad;
+		m_loadState = LoadState::Ready;
+		AddDebugLogLineN(logKadIndex, "Kad indexes ready");
+	} else if (m_loader->GetState() == LoadState::Failed) {
+		m_loadState = LoadState::Failed;
+		AddLogLineC(_("Kad could not load its saved index. Existing index files were preserved."));
+		AddDebugLogLineC(logKadIndex,
+			"Kad index load failed; persisted files will be preserved: " +
+				wxString::FromUTF8(m_loader->Error()));
+	}
+	if (m_loadState != LoadState::Loading) {
+		m_loader.reset();
+	}
+}
+
+void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 {
 	try {
 		uint32_t totalLoad = 0;
 		uint32_t totalSource = 0;
 		uint32_t totalKeyword = 0;
+		auto openIndex = [](CFile &file, const wxString &path) {
+			if (!CPath::FileExists(path)) {
+				return false;
+			}
+			if (!file.Open(path, CFile::read)) {
+				throw std::runtime_error("cannot open persisted Kad index");
+			}
+			return true;
+		};
 
 		CFile load_file;
-		if (CPath::FileExists(m_loadfilename) && load_file.Open(m_loadfilename, CFile::read)) {
+		if (openIndex(load_file, m_loadfilename)) {
 			uint32_t version = load_file.ReadUInt32();
+			if (version >= 2) {
+				throw std::runtime_error("unsupported persisted Kad index version");
+			}
 			if (version < 2) {
 				/*time_t savetime =*/load_file.ReadUInt32(); //  Savetime is unused now
 
 				uint32_t numLoad = load_file.ReadUInt32();
 				while (numLoad) {
+					if (cancel.load()) {
+						return;
+					}
 					CUInt128 keyID = load_file.ReadUInt128();
 					if (AddLoad(keyID, load_file.ReadUInt32())) {
 						totalLoad++;
@@ -101,8 +157,11 @@ void CIndexed::ReadFile()
 		}
 
 		CFile k_file;
-		if (CPath::FileExists(m_kfilename) && k_file.Open(m_kfilename, CFile::read)) {
+		if (openIndex(k_file, m_kfilename)) {
 			uint32_t version = k_file.ReadUInt32();
+			if (version >= 5) {
+				throw std::runtime_error("unsupported persisted Kad index version");
+			}
 			// Version 4 added the AICH hash block and the per-publisher hash index that
 			// Kad protocol version 0x09 keyword storage needs; version 3 files still
 			// load, just without any AICH hash.
@@ -110,17 +169,28 @@ void CIndexed::ReadFile()
 				time_t savetime = k_file.ReadUInt32();
 				if (savetime > time(NULL)) {
 					CUInt128 id = k_file.ReadUInt128();
-					if (Kademlia::CKademlia::GetPrefs()->GetKadID() == id) {
+					if (m_kadID == id) {
 						uint32_t numKeys = k_file.ReadUInt32();
 						while (numKeys) {
+							if (cancel.load()) {
+								return;
+							}
 							CUInt128 keyID = k_file.ReadUInt128();
 							uint32_t numSource = k_file.ReadUInt32();
 							while (numSource) {
+								if (cancel.load()) {
+									return;
+								}
 								CUInt128 sourceID = k_file.ReadUInt128();
 								uint32_t numName = k_file.ReadUInt32();
 								while (numName) {
-									Kademlia::CKeyEntry *toAdd =
-										new Kademlia::CKeyEntry();
+									if (cancel.load()) {
+										return;
+									}
+									auto ownedEntry =
+										std::unique_ptr<CKeyEntry>(
+											CreateKeyEntry());
+									CKeyEntry *toAdd = ownedEntry.get();
 									toAdd->m_uKeyID = keyID;
 									toAdd->m_uSourceID = sourceID;
 									toAdd->m_bSource = false;
@@ -210,8 +280,7 @@ void CIndexed::ReadFile()
 										    toAdd,
 										    load)) {
 										totalKeyword++;
-									} else {
-										delete toAdd;
+										ownedEntry.release();
 									}
 									numName--;
 								}
@@ -226,21 +295,33 @@ void CIndexed::ReadFile()
 		}
 
 		CFile s_file;
-		if (CPath::FileExists(m_sfilename) && s_file.Open(m_sfilename, CFile::read)) {
+		if (openIndex(s_file, m_sfilename)) {
 			uint32_t version = s_file.ReadUInt32();
+			if (version >= 3) {
+				throw std::runtime_error("unsupported persisted Kad index version");
+			}
 			if (version < 3) {
 				time_t savetime = s_file.ReadUInt32();
 				if (savetime > time(NULL)) {
 					uint32_t numKeys = s_file.ReadUInt32();
 					while (numKeys) {
+						if (cancel.load()) {
+							return;
+						}
 						CUInt128 keyID = s_file.ReadUInt128();
 						uint32_t numSource = s_file.ReadUInt32();
 						while (numSource) {
+							if (cancel.load()) {
+								return;
+							}
 							CUInt128 sourceID = s_file.ReadUInt128();
 							uint32_t numName = s_file.ReadUInt32();
 							while (numName) {
-								Kademlia::CEntry *toAdd =
-									new Kademlia::CEntry();
+								if (cancel.load()) {
+									return;
+								}
+								auto ownedEntry = std::make_unique<CEntry>();
+								CEntry *toAdd = ownedEntry.get();
 								toAdd->m_bSource = true;
 								toAdd->m_tLifeTime = s_file.ReadUInt32();
 								uint32_t tagList = s_file.ReadUInt8();
@@ -276,8 +357,7 @@ void CIndexed::ReadFile()
 								if (AddSources(
 									    keyID, sourceID, toAdd, load)) {
 									totalSource++;
-								} else {
-									delete toAdd;
+									ownedEntry.release();
 								}
 								numName--;
 							}
@@ -298,15 +378,28 @@ void CIndexed::ReadFile()
 				totalKeyword % totalLoad);
 	} catch (const CSafeIOException &err) {
 		AddDebugLogLineC(logKadIndex, "CSafeIOException in CIndexed::readFile: " + err.what());
+		throw;
 	} catch (const CInvalidPacket &err) {
 		AddDebugLogLineC(
 			logKadIndex, "CInvalidPacket Exception in CIndexed::readFile: " + err.what());
+		throw;
 	} catch (const wxString &e) {
 		AddDebugLogLineC(logKadIndex, "Exception in CIndexed::readFile: " + e);
+		throw;
 	}
 }
 
 CIndexed::~CIndexed()
+{
+	// Joining happens before any worker captures or loaded values are released.
+	m_loader.reset();
+	if (!m_worker && IsReady()) {
+		WriteFile();
+	}
+	Clear();
+}
+
+void CIndexed::WriteFile()
 {
 	try {
 		time_t now = time(NULL);
@@ -327,7 +420,6 @@ CIndexed::~CIndexed()
 					load_file.WriteUInt128(load->keyID);
 					load_file.WriteUInt32(load->time);
 					l_total++;
-					delete load;
 				}
 			}
 			load_file.Close();
@@ -364,12 +456,10 @@ CIndexed::~CIndexed()
 						Kademlia::CEntry *currName = *itEntry;
 						s_file.WriteUInt32(currName->m_tLifeTime);
 						currName->WriteTagList(&s_file);
-						delete currName;
+
 						s_total++;
 					}
-					delete currSource;
 				}
-				delete currSrcHash;
 			}
 			s_file.Close();
 		}
@@ -386,7 +476,7 @@ CIndexed::~CIndexed()
 			const bool includesAICH = thePrefs::GetKadProtocol10();
 			k_file.WriteUInt32(includesAICH ? 4 : 3);
 			k_file.WriteUInt32(now + KADEMLIAREPUBLISHTIMEK);
-			k_file.WriteUInt128(Kademlia::CKademlia::GetPrefs()->GetKadID());
+			k_file.WriteUInt128(m_kadID);
 
 			wxASSERT(m_Keyword_map.size() < 0xFFFFFFFF);
 			k_file.WriteUInt32((uint32_t)m_Keyword_map.size());
@@ -421,14 +511,10 @@ CIndexed::~CIndexed()
 						currName->WritePublishTrackingDataToFile(
 							&k_file, includesAICH);
 						currName->WriteTagList(&k_file);
-						currName->DirtyDeletePublishData();
-						delete currName;
+
 						k_total++;
 					}
-					delete currSource;
 				}
-				CKeyEntry::ResetGlobalTrackingMap();
-				delete currKeyHash;
 			}
 			k_file.Close();
 		}
@@ -436,27 +522,6 @@ CIndexed::~CIndexed()
 			CFormat("Wrote %u source, %u keyword, and %u load entries") % s_total % k_total %
 				l_total);
 
-		for (SrcHashMap::iterator itNoteHash = m_Notes_map.begin(); itNoteHash != m_Notes_map.end();
-			++itNoteHash) {
-			SrcHash *currNoteHash = itNoteHash->second;
-			CKadSourcePtrList &KeyHashNoteMap = currNoteHash->m_Source_map;
-
-			for (CKadSourcePtrList::iterator itNote = KeyHashNoteMap.begin();
-				itNote != KeyHashNoteMap.end();
-				++itNote) {
-				Source *currNote = *itNote;
-				CKadEntryPtrList &NoteEntryList = currNote->entryList;
-				for (CKadEntryPtrList::iterator itNoteEntry = NoteEntryList.begin();
-					itNoteEntry != NoteEntryList.end();
-					++itNoteEntry) {
-					delete *itNoteEntry;
-				}
-				delete currNote;
-			}
-			delete currNoteHash;
-		}
-
-		m_Notes_map.clear();
 	} catch (const CSafeIOException &err) {
 		AddDebugLogLineC(logKadIndex, "CSafeIOException in CIndexed::~CIndexed: " + err.what());
 	} catch (const CInvalidPacket &err) {
@@ -467,8 +532,41 @@ CIndexed::~CIndexed()
 	}
 }
 
+void CIndexed::Clear()
+{
+	for (auto &keyword : m_Keyword_map) {
+		for (auto &source : keyword.second->m_Source_map) {
+			for (auto *entry : source.second->entryList) {
+				delete entry;
+			}
+			delete source.second;
+		}
+		delete keyword.second;
+	}
+	m_Keyword_map.clear();
+	for (auto *map : { &m_Sources_map, &m_Notes_map }) {
+		for (auto &hash : *map) {
+			for (auto *source : hash.second->m_Source_map) {
+				for (auto *entry : source->entryList) {
+					delete entry;
+				}
+				delete source;
+			}
+			delete hash.second;
+		}
+		map->clear();
+	}
+	for (auto &load : m_Load_map) {
+		delete load.second;
+	}
+	m_Load_map.clear();
+}
+
 void CIndexed::Clean()
 {
+	if (!IsReady()) {
+		return;
+	}
 	time_t tNow = time(NULL);
 	if (m_lastClean > tNow) {
 		return;
@@ -568,11 +666,15 @@ void CIndexed::Clean()
 bool CIndexed::AddKeyword(
 	const CUInt128 &keyID, const CUInt128 &sourceID, Kademlia::CKeyEntry *entry, uint8_t &load)
 {
+	if (!IsReady()) {
+		return false;
+	}
 	if (!entry) {
 		return false;
 	}
 
 	wxCHECK(entry->IsKeyEntry(), false);
+	wxCHECK(entry->m_publishTracking == m_publishTracking, false);
 
 	if (m_totalIndexKeyword > KADEMLIAMAXENTRIES) {
 		load = 100;
@@ -664,6 +766,9 @@ bool CIndexed::AddKeyword(
 bool CIndexed::AddSources(
 	const CUInt128 &keyID, const CUInt128 &sourceID, Kademlia::CEntry *entry, uint8_t &load)
 {
+	if (!IsReady()) {
+		return false;
+	}
 	if (!entry) {
 		return false;
 	}
@@ -745,6 +850,9 @@ bool CIndexed::AddSources(
 bool CIndexed::AddNotes(
 	const CUInt128 &keyID, const CUInt128 &sourceID, Kademlia::CEntry *entry, uint8_t &load)
 {
+	if (!IsReady()) {
+		return false;
+	}
 	if (!entry) {
 		return false;
 	}
@@ -822,6 +930,9 @@ bool CIndexed::AddNotes(
 
 bool CIndexed::AddLoad(const CUInt128 &keyID, uint32_t timet)
 {
+	if (!IsReady()) {
+		return false;
+	}
 	Load *load = NULL;
 
 	if ((uint32_t)time(NULL) > timet) {
@@ -850,6 +961,9 @@ void CIndexed::SendValidKeywordResult(const CUInt128 &keyID,
 	uint16_t startPosition,
 	const CKadUDPKey &senderKey)
 {
+	if (!IsReady()) {
+		return;
+	}
 	KeyHash *currKeyHash = NULL;
 	KeyHashMap::iterator itKeyHash = m_Keyword_map.find(keyID);
 	if (itKeyHash != m_Keyword_map.end()) {
@@ -956,6 +1070,9 @@ void CIndexed::SendValidSourceResult(const CUInt128 &keyID,
 	uint64_t fileSize,
 	const CKadUDPKey &senderKey)
 {
+	if (!IsReady()) {
+		return;
+	}
 	SrcHash *currSrcHash = NULL;
 	SrcHashMap::iterator itSrcHash = m_Sources_map.find(keyID);
 	if (itSrcHash != m_Sources_map.end()) {
@@ -1017,6 +1134,9 @@ void CIndexed::SendValidSourceResult(const CUInt128 &keyID,
 void CIndexed::SendValidNoteResult(
 	const CUInt128 &keyID, uint32_t ip, uint16_t port, uint64_t fileSize, const CKadUDPKey &senderKey)
 {
+	if (!IsReady()) {
+		return;
+	}
 	SrcHash *currNoteHash = NULL;
 	SrcHashMap::iterator itNote = m_Notes_map.find(keyID);
 	if (itNote != m_Notes_map.end()) {
@@ -1072,6 +1192,9 @@ void CIndexed::SendValidNoteResult(
 
 bool CIndexed::SendStoreRequest(const CUInt128 &keyID)
 {
+	if (!IsReady()) {
+		return false;
+	}
 	Load *load = NULL;
 	LoadMap::iterator it = m_Load_map.find(keyID);
 	if (it != m_Load_map.end()) {

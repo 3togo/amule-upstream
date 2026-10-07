@@ -2117,3 +2117,24 @@ if (ENABLE_UPNP)
 endif()
 target_link_libraries (AICHSearchResultTest muleunit mulecommon wxWidgets::BASE CRYPTOPP::CRYPTOPP)
 add_test (NAME AICHSearchResultTest COMMAND AICHSearchResultTest)
+
+find_package(Threads REQUIRED)
+add_executable(BackgroundLoadTest BackgroundLoadTest.cpp)
+add_test(NAME BackgroundLoadTest COMMAND BackgroundLoadTest)
+target_include_directories(BackgroundLoadTest PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(BackgroundLoadTest muleunit mulecommon Threads::Threads)
+
+add_executable(IndexedLoadTest
+ IndexedLoadTest.cpp
+ ${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/Indexed.cpp
+ ${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/Entry.cpp
+ ${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/AICHHashList.cpp
+ ${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+ ${CMAKE_SOURCE_DIR}/src/GetTickCount.cpp
+ ${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+ KadPrefsStub.cpp)
+add_test(NAME IndexedLoadTest COMMAND IndexedLoadTest)
+target_include_directories(IndexedLoadTest PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${Boost_INCLUDE_DIR})
+target_link_libraries(IndexedLoadTest muleunit muleappcommon mulecommon Threads::Threads)
+
+set_tests_properties(BackgroundLoadTest IndexedLoadTest PROPERTIES TIMEOUT 15)

@@ -49,8 +49,6 @@ there client on the eMule forum..
 
 using namespace Kademlia;
 
-CKeyEntry::GlobalPublishIPMap CKeyEntry::s_globalPublishIPs;
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////// CEntry
 CEntry::~CEntry()
@@ -224,8 +222,15 @@ void CEntry::WriteTagListInc(CFileDataIO *data, uint32_t increaseTagNumber)
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////// CKeyEntry
-CKeyEntry::CKeyEntry()
+CKeyEntry::CKeyEntry(std::shared_ptr<PublishTracking> tracking)
+: m_publishTracking(std::move(tracking))
 {
+	// Standalone entries (including codec tests) share the historical default.
+	// An index supplies its own table, so a loading worker cannot touch live trust.
+	if (!m_publishTracking) {
+		static auto defaults = std::make_shared<PublishTracking>();
+		m_publishTracking = defaults;
+	}
 	m_publishingIPs = NULL;
 	m_trustValue = 0;
 	m_lastTrustValueCalc = 0;
@@ -390,8 +395,8 @@ void CKeyEntry::AdjustGlobalPublishTracking(uint32_t ip, bool increase, const wx
 	uint32_t count = 0;
 	bool found = false;
 	GlobalPublishIPMap::const_iterator it =
-		s_globalPublishIPs.find(ip & 0xFFFFFF00 /* /24 netmask, take care of endian if needed */);
-	if (it != s_globalPublishIPs.end()) {
+		m_publishTracking->find(ip & 0xFFFFFF00 /* /24 netmask, take care of endian if needed */);
+	if (it != m_publishTracking->end()) {
 		count = it->second;
 		found = true;
 	}
@@ -403,9 +408,9 @@ void CKeyEntry::AdjustGlobalPublishTracking(uint32_t ip, bool increase, const wx
 	}
 
 	if (count > 0) {
-		s_globalPublishIPs[ip & 0xFFFFFF00] = count;
+		(*m_publishTracking)[ip & 0xFFFFFF00] = count;
 	} else if (found) {
-		s_globalPublishIPs.erase(ip & 0xFFFFFF00);
+		m_publishTracking->erase(ip & 0xFFFFFF00);
 	} else {
 		wxFAIL;
 	}
@@ -420,6 +425,7 @@ void CKeyEntry::AdjustGlobalPublishTracking(uint32_t ip, bool increase, const wx
 
 void CKeyEntry::MergeIPsAndFilenames(CKeyEntry *fromEntry)
 {
+	wxASSERT(!fromEntry || fromEntry->m_publishTracking == m_publishTracking);
 	// Called when replacing a stored entry with a refreshed one: the tracked IPs and the
 	// different filenames are taken over from the old entry, and the rest is overwritten with
 	// the refreshed values. Not perfect for the taglist in some cases, but storing hundreds of
@@ -632,9 +638,9 @@ void CKeyEntry::ReCalculateTrustValue()
 	for (PublishingIPList::iterator it = m_publishingIPs->begin(); it != m_publishingIPs->end(); ++it) {
 		sPublishingIP curEntry = *it;
 		uint32_t count = 0;
-		GlobalPublishIPMap::const_iterator itMap = s_globalPublishIPs.find(
+		GlobalPublishIPMap::const_iterator itMap = m_publishTracking->find(
 			curEntry.m_ip & 0xFFFFFF00 /* /24 netmask, take care of endian if needed*/);
-		if (itMap != s_globalPublishIPs.end()) {
+		if (itMap != m_publishTracking->end()) {
 			count = itMap->second;
 		}
 		if (count > 0) {
