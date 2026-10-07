@@ -2138,3 +2138,11 @@ target_include_directories(IndexedLoadTest PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_S
 target_link_libraries(IndexedLoadTest muleunit muleappcommon mulecommon Threads::Threads)
 
 set_tests_properties(BackgroundLoadTest IndexedLoadTest PROPERTIES TIMEOUT 15)
+
+if (TARGET amuled)
+ find_package(Python3 QUIET COMPONENTS Interpreter)
+ if (Python3_Interpreter_FOUND)
+  add_test(NAME KadIndexLifecycleECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadIndexLifecycleECTest.py $<TARGET_FILE:amuled>)
+  set_tests_properties(KadIndexLifecycleECTest PROPERTIES TIMEOUT 180)
+ endif()
+endif()

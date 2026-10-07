@@ -37,6 +37,7 @@ there client on the eMule forum..
 */
 
 #include "Entry.h"
+#include <stdexcept>
 #include <common/Macros.h>
 #include <tags/FileTags.h>
 #include <protocol/kad/Constants.h>
@@ -743,8 +744,15 @@ void CKeyEntry::WritePublishTrackingDataToFile(CFileDataIO *data, bool includesA
 	}
 }
 
-void CKeyEntry::ReadPublishTrackingDataFromFile(CFileDataIO *data, bool includesAICH)
+void CKeyEntry::ReadPublishTrackingDataFromFile(
+	CFileDataIO *data, bool includesAICH, const std::atomic<bool> *cancel)
 {
+	auto checkCancelled = [cancel]() {
+		if (cancel && cancel->load()) {
+			throw std::runtime_error("Kad index loading cancelled");
+		}
+	};
+	checkCancelled();
 	// format: <AICH_HashCount 2><{<AICH Hash 20>} AICH_HashCount>
 	//         <Names_Count 4><{<Name string><PopularityIndex 4>} Names_Count>
 	//         <PublisherCount 4><{<IP 4><Time 4><AICH Idx 2>} PublisherCount>
@@ -757,6 +765,7 @@ void CKeyEntry::ReadPublishTrackingDataFromFile(CFileDataIO *data, bool includes
 	if (includesAICH) {
 		uint16_t hashCount = data->ReadUInt16();
 		for (uint16_t i = 0; i < hashCount; i++) {
+			checkCancelled();
 			CKadAICHHash hash;
 			data->Read(hash.data(), hash.size());
 			loadedHashes.push_back(hash);
@@ -766,6 +775,7 @@ void CKeyEntry::ReadPublishTrackingDataFromFile(CFileDataIO *data, bool includes
 	wxASSERT(m_filenames.empty());
 	uint32_t nameCount = data->ReadUInt32();
 	for (uint32_t i = 0; i < nameCount; i++) {
+		checkCancelled();
 		sFileNameEntry toAdd;
 		toAdd.m_filename = data->ReadString(true, 2);
 		toAdd.m_popularityIndex = data->ReadUInt32();
@@ -779,6 +789,7 @@ void CKeyEntry::ReadPublishTrackingDataFromFile(CFileDataIO *data, bool includes
 	uint32_t dbgLastTime = 0;
 #endif
 	for (uint32_t i = 0; i < ipCount; i++) {
+		checkCancelled();
 		sPublishingIP toAdd;
 		toAdd.m_ip = data->ReadUInt32();
 		wxASSERT(toAdd.m_ip != 0);

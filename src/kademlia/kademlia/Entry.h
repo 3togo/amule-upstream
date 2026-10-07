@@ -39,6 +39,7 @@ there client on the eMule forum..
 #ifndef ENTRY_H
 #define ENTRY_H
 
+#include <atomic>
 #include "AICHHashList.h"
 #include <memory>
 #include "../utils/UInt128.h"
@@ -141,7 +142,8 @@ public:
 	void WritePublishTrackingDataToFile(CFileDataIO *data, bool includesAICH);
 	// `includesAICH` reflects the on-disk keyword-index version: files written before the AICH-
 	// carrying version 4 have no hash block and no per-publisher hash index.
-	void ReadPublishTrackingDataFromFile(CFileDataIO *data, bool includesAICH);
+	void ReadPublishTrackingDataFromFile(
+		CFileDataIO *data, bool includesAICH, const std::atomic<bool> *cancel = nullptr);
 
 	// Records the AICH root hash a publisher sent in TAG_KADAICHHASHPUB. Only meaningful on a
 	// freshly parsed entry, before MergeIPsAndFilenames() folds it into the stored entry: that

@@ -199,7 +199,8 @@ void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 									if (version >= 3) {
 										toAdd->ReadPublishTrackingDataFromFile(
 											&k_file,
-											version >= 4);
+											version >= 4,
+											&cancel);
 									}
 									uint32_t tagList = k_file.ReadUInt8();
 									while (tagList) {

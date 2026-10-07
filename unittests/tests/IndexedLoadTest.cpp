@@ -259,3 +259,102 @@ TEST(IndexedLoad, WrongTypeSourceTagIsDiscarded)
 	CFile file(temp.path + "src_index.dat");
 	ASSERT_EQUALS(originalSize, file.GetLength());
 }
+
+TEST(IndexedLoad, LargeLoadIndexAdoptsAndRoundTripsAsOneResult)
+{
+	TempIndex temp;
+	constexpr uint32_t count = 50000;
+	{
+		CFile file(temp.path + "load_index.dat", CFile::write);
+		file.WriteUInt32(1);
+		file.WriteUInt32(time(nullptr));
+		file.WriteUInt32(count);
+		for (uint32_t i = 1; i <= count; ++i) {
+			file.WriteUInt128(CUInt128(i));
+			file.WriteUInt32(time(nullptr) + 3600);
+		}
+	}
+	{
+		CIndexed index(temp.path, CUInt128(1u));
+		ASSERT_EQUALS(0u, index.m_totalIndexLoad);
+		ASSERT_TRUE(WaitForLoad(index));
+		ASSERT_EQUALS(count, index.m_totalIndexLoad);
+	}
+	CIndexed reloaded(temp.path, CUInt128(1u));
+	ASSERT_TRUE(WaitForLoad(reloaded));
+	ASSERT_EQUALS(count, reloaded.m_totalIndexLoad);
+}
+
+TEST(IndexedLoad, PublisherDecoderHonorsCancellation)
+{
+	TempIndex temp;
+	const wxString path = temp.path + "publisher.dat";
+	{
+		CFile file(path, CFile::write);
+		DiskEntry entry;
+		entry.WritePublishTrackingDataToFile(&file, true);
+	}
+	CFile file(path);
+	const auto position = file.GetPosition();
+	std::atomic<bool> cancel{ true };
+	CKeyEntry entry(std::make_shared<CKeyEntry::PublishTracking>());
+	bool cancelled = false;
+	try {
+		entry.ReadPublishTrackingDataFromFile(&file, true, &cancel);
+	} catch (const std::runtime_error &) {
+		cancelled = true;
+	}
+	ASSERT_TRUE(cancelled);
+	ASSERT_EQUALS(position, file.GetPosition());
+}
+
+class CancellingPublisherFile : public CFile
+{
+	std::atomic<bool> &m_cancel;
+
+public:
+	CancellingPublisherFile(const wxString &path, std::atomic<bool> &cancel)
+	: CFile(path)
+	, m_cancel(cancel)
+	{
+	}
+	void Read(void *buffer, size_t count) const override
+	{
+		CFile::Read(buffer, count);
+		if (GetPosition() >= 20) {
+			m_cancel.store(true);
+		}
+	}
+};
+TEST(IndexedLoad, CancellationStopsInsidePublisherListAndReleasesTracking)
+{
+	TempIndex temp;
+	const wxString path = temp.path + "publishers.dat";
+	{
+		CFile file(path, CFile::write);
+		file.WriteUInt16(0); // no AICH hashes
+		file.WriteUInt32(0); // no names
+		file.WriteUInt32(10000);
+		for (uint32_t i = 0; i < 10000; ++i) {
+			file.WriteUInt32(0x01020304 + i);
+			file.WriteUInt32(time(nullptr));
+			file.WriteUInt16(CKadAICHHashList::INVALID_INDEX);
+		}
+	}
+	std::atomic<bool> cancel{ false };
+	CancellingPublisherFile file(path, cancel);
+	auto tracking = std::make_shared<CKeyEntry::PublishTracking>();
+	{
+		CKeyEntry entry(tracking);
+		bool stopped = false;
+		try {
+			entry.ReadPublishTrackingDataFromFile(&file, true, &cancel);
+		} catch (const std::runtime_error &) {
+			stopped = true;
+		}
+		ASSERT_TRUE(stopped);
+		ASSERT_EQUALS(uint64_t(20), file.GetPosition());
+		ASSERT_EQUALS(size_t(1), tracking->size());
+	}
+	ASSERT_TRUE(tracking->empty());
+}
