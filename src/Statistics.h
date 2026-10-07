@@ -27,6 +27,7 @@
 #ifndef STATISTICS_H
 #define STATISTICS_H
 
+#include "kademlia/utils/ContactDistribution.h"
 #include "Constants.h"    // Needed for StatsGraphType
 #include "StatTree.h"     // Needed for CStatTreeItem* classes
 #include "GetTickCount.h" // Needed for GetTickCount64 in CPreciseRateCounter ctor
@@ -404,6 +405,7 @@ public:
 	static void AddKadNode() { ++s_kadNodesCur; }
 	static void RemoveKadNode() { --s_kadNodesCur; }
 	static uint16_t GetKadNodes() { return s_kadNodesCur; }
+	static bool GetKadContactDistribution(Kademlia::ContactDistribution &distribution);
 
 	/// Free space on the filesystem holding the part files, in bytes, or FREE_SPACE_UNKNOWN
 	/// until CFreeSpaceThread has published a figure -- which is also what an unreachable mount
@@ -589,6 +591,8 @@ private:
 	static CStatTreeItemCounter *s_sizeOfShare;
 
 	// Kad nodes
+	static Kademlia::ContactDistribution s_kadDistribution;
+	static bool s_kadDistributionAvailable;
 	static uint64_t s_kadNodesTotal;
 	static uint16_t s_kadNodesCur;
 
@@ -650,6 +654,8 @@ private:
 	static CStatTreeItemBase *s_statTree;
 	static uint64 s_start_time;
 	static uint64 s_statData[sdTotalItems];
+	static Kademlia::ContactDistribution s_kadDistribution;
+	static bool s_kadDistributionAvailable;
 	uint8 average_minutes;
 
 	// History ring for the Statistics and Network->Kad graphs. Filled by
@@ -732,6 +738,7 @@ public:
 	static uint32 GetBuddyPort() { return s_statData[sdBuddyPort]; }
 	static bool IsKadRunningInLanMode() { return s_statData[sdKadInLanMode] != 0; }
 	static uint32 GetKadNodes() { return s_statData[sdKadNodes]; }
+	static bool GetKadContactDistribution(Kademlia::ContactDistribution &distribution);
 
 	static void UpdateStats(const CECPacket *stats);
 

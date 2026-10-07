@@ -26,9 +26,11 @@
 #ifndef KADDLG_H
 #define KADDLG_H
 
+#include <wx/timer.h>
 #include <wx/panel.h> // Needed for wxPanel
 
 class COScopeCtrl;
+class CKadContactHistogram;
 class wxListEvent;
 class wxCommandEvent;
 class wxMouseEvent;
@@ -53,6 +55,8 @@ public:
 
 private:
 	COScopeCtrl *m_kad_scope;
+	CKadContactHistogram *m_contactHistogram = nullptr;
+	wxTimer m_distributionTimer;
 
 	// Event handlers
 	void OnBnClickedBootstrapClient(wxCommandEvent &evt);

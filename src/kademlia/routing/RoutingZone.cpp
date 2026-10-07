@@ -1108,3 +1108,16 @@ bool CRoutingZone::HasOnlyLANNodes() const noexcept
 		return m_subZones[0]->HasOnlyLANNodes() && m_subZones[1]->HasOnlyLANNodes();
 	}
 }
+
+ContactDistribution CRoutingZone::GetContactDistribution() const
+{
+	ContactList contacts;
+	GetAllEntries(&contacts);
+	ContactDistributionBuilder builder;
+	for (const auto *contact : contacts) {
+		builder.Add(contact->GetClientID().Get32BitChunk(0),
+			contact->GetIPAddress(),
+			contact->IsIPVerified());
+	}
+	return builder.Get();
+}

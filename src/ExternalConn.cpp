@@ -1497,6 +1497,12 @@ static CECPacket *Get_EC_Response_StatRequest(const CECPacket *request, CLoggerA
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_NODES, CStatistics::GetKadNodes()));
 		}
 		// Kad stats
+		{
+			Kademlia::ContactDistribution distribution;
+			CStatistics::GetKadContactDistribution(distribution);
+			const auto wire = distribution.Encode();
+			response->AddTag(CECTag(EC_TAG_STATS_KAD_DISTRIBUTION, wire.size(), wire.data()));
+		}
 		if (Kademlia::CKademlia::IsConnected()) {
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_FIREWALLED_UDP,
 				Kademlia::CUDPFirewallTester::IsFirewalledUDP(true)));

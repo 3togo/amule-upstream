@@ -25,6 +25,10 @@
 //
 
 #include "Statistics.h" // Interface declarations
+#ifndef CLIENT_GUI
+#include "kademlia/kademlia/Kademlia.h"
+#include "kademlia/routing/RoutingZone.h"
+#endif
 
 #include <protocol/ed2k/ClientSoftware.h>
 
@@ -1232,6 +1236,8 @@ CStatistics::CStatistics(CRemoteConnect &conn)
 , m_graphRunningAvgUp(thePrefs::GetStatsAverageMinutes() * 60 * 1000, true)
 , m_graphRunningAvgKad(thePrefs::GetStatsAverageMinutes() * 60 * 1000, true)
 {
+	s_kadDistribution = {};
+	s_kadDistributionAvailable = false;
 	s_start_time = GetTickCount64();
 	average_minutes = thePrefs::GetStatsAverageMinutes();
 
@@ -1298,6 +1304,12 @@ void CStatistics::UpdateStats(const CECPacket *stats)
 	s_statData[sdKadIndexedLoad] = stats->GetTagByNameSafe(EC_TAG_STATS_KAD_INDEXED_LOAD)->GetInt();
 	s_statData[sdKadIPAddress] = stats->GetTagByNameSafe(EC_TAG_STATS_KAD_IP_ADDRESS)->GetInt();
 	s_statData[sdKadNodes] = stats->GetTagByNameSafe(EC_TAG_STATS_KAD_NODES)->GetInt();
+	s_kadDistribution = {};
+	const auto *distributionTag = stats->GetTagByName(EC_TAG_STATS_KAD_DISTRIBUTION);
+	s_kadDistributionAvailable =
+		distributionTag && distributionTag->IsCustom() &&
+		Kademlia::ContactDistribution::Decode(
+			distributionTag->GetTagData(), distributionTag->GetTagDataLen(), s_kadDistribution);
 	s_statData[sdBuddyStatus] = stats->GetTagByNameSafe(EC_TAG_STATS_BUDDY_STATUS)->GetInt();
 	s_statData[sdBuddyIP] = stats->GetTagByNameSafe(EC_TAG_STATS_BUDDY_IP)->GetInt();
 	s_statData[sdBuddyPort] = stats->GetTagByNameSafe(EC_TAG_STATS_BUDDY_PORT)->GetInt();
@@ -1349,3 +1361,20 @@ uint64 CStatistics::GetUptimeSeconds()
 #endif /* !CLIENT_GUI */
 
 // File_checked_for_headers
+
+bool CStatistics::GetKadContactDistribution(Kademlia::ContactDistribution &distribution)
+{
+#ifdef CLIENT_GUI
+	distribution = s_kadDistribution;
+	return s_kadDistributionAvailable;
+#else
+	distribution = {};
+	if (Kademlia::CKademlia::IsRunning()) {
+		distribution = Kademlia::CKademlia::GetRoutingZone()->GetContactDistribution();
+	}
+	return true;
+#endif
+}
+
+Kademlia::ContactDistribution CStatistics::s_kadDistribution;
+bool CStatistics::s_kadDistributionAvailable = false;
