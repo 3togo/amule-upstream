@@ -2894,7 +2894,7 @@ void CamuleApp::SetPublicIP(const uint32 dwIP)
 wxString CamuleApp::GetLog(bool reset)
 {
 	wxFile logfile;
-	const wxString logfileName = theLogger.GetLogfileName();
+	const wxString logfileName = m_logFile;
 	logfile.Open(logfileName);
 	if (!logfile.IsOpened()) {
 		return _("ERROR: can't open logfile");

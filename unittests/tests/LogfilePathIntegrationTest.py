@@ -37,7 +37,7 @@ def stop_forked_daemon(pid):
 
 
 def run(binary, root, setting=None, override=None, expected=None, failure=False,
-        backup_failure=False, full_daemon=False):
+        backup_failure=False, full_daemon=False, reset_failure=False):
     root.mkdir()
     port = free_port()
     config = f'''[eMule]
@@ -67,7 +67,7 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
     (root / 'amule.conf').write_text(config)
     args = [binary, '-c', str(root), '--disable-fatal']
     if override is not None:
-        args += [f'--logfile-path={override}']
+        args += [f'--log-file={override}']
     env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'))
     env.pop('LD_PRELOAD', None)
     env['LC_ALL'] = 'C.UTF-8'
@@ -79,7 +79,6 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
         backup = Path(str(expected) + '.bak')
         backup.mkdir()
         (backup / 'keep').write_bytes(b'existing backup directory content\n')
-        failure = True
     # Run twice to verify startup backup, and read/reset through EC each time.
     for restart in range(1 if failure else 2):
         if full_daemon:
@@ -89,16 +88,12 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
             ec = None
             daemon_pid = None
             try:
-                if full_daemon:
+                if full_daemon and not failure:
                     assert proc.wait(timeout=15) == 0
                 if failure:
                     assert proc.wait(timeout=15) != 0
                     error = (root / 'console.log').read_text()
                     assert 'ERROR:' in error and 'log file' in error, error
-                    if backup_failure:
-                        assert 'unable to back up log file' in error, error
-                        assert expected.read_bytes() == b'previous log must survive a failed backup\n'
-                        assert (backup / 'keep').read_bytes() == b'existing backup directory content\n'
                     if expected != root / 'logfile':
                         assert not (root / 'logfile').exists(), 'silently used default path'
                     return
@@ -117,7 +112,12 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                 assert expected.is_file(), expected
                 if expected != root / 'logfile':
                     assert not (root / 'logfile').exists()
-                if restart:
+                if backup_failure:
+                    prefix = previous if restart else b'previous log must survive a failed backup\n'
+                    assert expected.read_bytes().startswith(prefix)
+                    assert (backup / 'keep').read_bytes() == b'existing backup directory content\n'
+                    assert b'appending to the existing log' in expected.read_bytes()
+                elif restart:
                     assert Path(str(expected) + '.bak').read_bytes() == previous
                 op, tags = ec.call(C['EC_OP_GET_LOG'])
                 text = tags[C['EC_TAG_STRING']][0].decode()
@@ -129,6 +129,16 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                 ])[0] == C['EC_OP_NOOP']
                 _, tags = ec.call(C['EC_OP_GET_LOG'])
                 assert b'logfile-regression-before-reset' in tags[C['EC_TAG_STRING']][0]
+                if reset_failure:
+                    expected.chmod(0o400)
+                    try:
+                        assert ec.call(C['EC_OP_RESET_LOG'])[0] == C['EC_OP_NOOP']
+                        # The log is still readable after a failed reopen. The next
+                        # reset must retry the selected path after permissions recover.
+                        _, tags = ec.call(C['EC_OP_GET_LOG'])
+                        assert b'logfile-regression-before-reset' in tags[C['EC_TAG_STRING']][0]
+                    finally:
+                        expected.chmod(0o600)
                 assert ec.call(C['EC_OP_RESET_LOG'])[0] == C['EC_OP_NOOP']
                 _, tags = ec.call(C['EC_OP_GET_LOG'])
                 text = tags[C['EC_TAG_STRING']][0]
@@ -149,6 +159,17 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                 except subprocess.TimeoutExpired:
                     proc.kill()
                     proc.wait()
+                if full_daemon and failure:
+                    deadline = time.monotonic() + 5
+                    while time.monotonic() < deadline:
+                        try:
+                            ended, _ = os.waitpid(-1, os.WNOHANG)
+                        except ChildProcessError:
+                            break
+                        if not ended:
+                            time.sleep(0.05)
+                    else:
+                        raise AssertionError('failed startup left a child running')
         previous = expected.read_bytes()
         saved = (root / 'amule.conf').read_text()
         assert f'LogFilePath={setting or ""}\n' in saved, saved
@@ -180,7 +201,16 @@ def main():
             backup_failure=True)
         run(binary, base / 'backup-custom', setting=str(logs / 'preserved.log'),
             expected=logs / 'preserved.log', backup_failure=True)
+        if os.geteuid() != 0:
+            run(binary, base / 'reset-recovery', setting='selected.log',
+                expected=base / 'reset-recovery/selected.log', reset_failure=True)
         if sys.platform.startswith('linux'):
+            run(binary, base / 'fork-missing', setting=str(base / 'missing-fork/logfile'),
+                failure=True, full_daemon=True)
+            run(binary, base / 'fork-directory', override=str(logs),
+                failure=True, full_daemon=True)
+            run(binary, base / 'fork-backup', setting='appended.log',
+                expected=base / 'fork-backup/appended.log', backup_failure=True, full_daemon=True)
             run(binary, base / 'fork-relative', setting='daemon.log',
                 expected=base / 'fork-relative/daemon.log', full_daemon=True)
             run(binary, base / 'fork-override', setting='unused.log',
