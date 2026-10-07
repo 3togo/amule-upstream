@@ -6,16 +6,46 @@ import hashlib
 import os
 from pathlib import Path
 import struct
+import socket
 import subprocess
 import sys
 import tempfile
 from AllSearchIntegrationTest import C, connect_daemon, free_port, tag
 
 
-def run(binary):
+def local_peer():
+    # Bind to an address owned by this machine; never send to external fixture IPs.
+    try:
+        addresses = socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET, socket.SOCK_DGRAM)
+    except OSError:
+        return None
+    for address in addresses:
+        ip = address[4][0]
+        octets = tuple(map(int, ip.split('.')))
+        if octets[0] in (10, 127) or octets[:2] == (192, 168) or (octets[0] == 172 and 16 <= octets[1] <= 31):
+            continue
+        peer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            peer.bind((ip, 0))
+            return peer
+        except OSError:
+            peer.close()
+    return None
+
+
+def run(binary, populated=False):
+    peer = local_peer() if populated else None
+    if populated and peer is None:
+        print('No owned non-loopback IPv4 address available')
+        return 77
     with tempfile.TemporaryDirectory(prefix='amule-kad-diagnostics-') as directory:
         root = Path(directory)
         port = free_port()
+        if peer:
+            ip, udp = peer.getsockname()
+            contact = struct.pack('<4IIHHB2IB', 0xA0000000, 0, 0, 1,
+                                  int.from_bytes(socket.inet_aton(ip), 'big'), udp, udp, 8, 0, 0, 1)
+            (root / 'nodes.dat').write_bytes(struct.pack('<III', 0, 2, 1) + contact)
         (root / 'amule.conf').write_text(f"""[eMule]
 Nick=regression
 Port={free_port()}
@@ -26,6 +56,7 @@ Autoconnect=0
 ConnectToED2K=0
 FilterLanIPs=0
 NewVersionCheck=0
+GeoIPEnabled=0
 Reconnect=0
 Serverlist=0
 Ed2kServersUrl=
@@ -57,15 +88,25 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                 reply = ec.call(C['EC_OP_KAD_START'])
                 assert reply[0] == C['EC_OP_NOOP'], reply
                 bins, verified, subnets = distribution()
-                assert sum(bins) == 0, bins
-                assert sum(verified) == 0, verified
-                assert subnets == 0, subnets
+                expected = 1 if peer else 0
+                assert sum(bins) == expected, bins
+                assert sum(verified) == expected, verified
+                assert subnets == expected, subnets
+                if peer:
+                    assert bins[40] == 1 and verified[40] == 1, (bins, verified)
+                # A fresh authenticated client must receive the same requested snapshot.
+                ec.sock.close()
+                ec = connect_daemon(proc, port)
+                assert distribution() == (bins, verified, subnets)
+                assert C['EC_TAG_STATS_KAD_DISTRIBUTION'] not in ec.call(C['EC_OP_STAT_REQ'])[1]
                 assert ec.call(C['EC_OP_KAD_STOP'])[0] == C['EC_OP_NOOP']
                 assert sum(distribution()[0]) == 0
                 ec.sock.close()
             except BaseException:
                 log.flush()
                 print((root / 'stdout.log').read_text(), file=sys.stderr)
+                if (root / 'logfile').exists():
+                    print((root / 'logfile').read_text(), file=sys.stderr)
                 raise
             finally:
                 if proc.poll() is None:
@@ -75,7 +116,9 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                 except subprocess.TimeoutExpired:
                     proc.kill()
                     proc.wait()
+                if peer:
+                    peer.close()
 
 
 if __name__ == '__main__':
-    run(str(Path(sys.argv[1]).resolve()))
+    sys.exit(run(str(Path(sys.argv[1]).resolve()), '--populated' in sys.argv) or 0)

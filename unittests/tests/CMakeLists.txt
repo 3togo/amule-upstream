@@ -2171,6 +2171,8 @@ if (TARGET amuled)
  if (Python3_Interpreter_FOUND)
   add_test(NAME KadDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled>)
   set_tests_properties(KadDistributionECTest PROPERTIES TIMEOUT 180)
+  add_test(NAME KadPopulatedDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled> --populated)
+  set_tests_properties(KadPopulatedDistributionECTest PROPERTIES TIMEOUT 180 SKIP_RETURN_CODE 77)
  endif()
 endif()
 
