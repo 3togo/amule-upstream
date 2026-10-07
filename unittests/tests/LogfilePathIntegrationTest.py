@@ -87,26 +87,40 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
             proc = subprocess.Popen(args, stdout=console, stderr=console, env=env)
             ec = None
             daemon_pid = None
+            daemon_reaped = False
             try:
                 if full_daemon and not failure:
-                    assert proc.wait(timeout=15) == 0
+                    assert proc.wait() == 0
                 if failure:
-                    assert proc.wait(timeout=15) != 0
+                    assert proc.wait() != 0
                     error = (root / 'console.log').read_text()
                     assert 'ERROR:' in error and 'log file' in error, error
                     if expected != root / 'logfile':
                         assert not (root / 'logfile').exists(), 'silently used default path'
                     return
-                deadline = time.monotonic() + 30
+                # Password hashing can be slow on some architectures. Like
+                # connect_daemon(), wait while the daemon lives; ctest/the caller
+                # owns the overall deadline. A forked launcher's success is not
+                # evidence that its daemon child is still alive.
                 while ec is None:
-                    if full_daemon and pidfile.exists():
-                        daemon_pid = int(pidfile.read_text())
-                    if (not full_daemon and proc.poll() is not None) or time.monotonic() > deadline:
+                    if full_daemon:
+                        if pidfile.exists():
+                            pid = pidfile.read_text().strip()
+                            if pid:
+                                daemon_pid = int(pid)
+                        try:
+                            ended, _ = os.waitpid(daemon_pid or -1, os.WNOHANG)
+                        except ChildProcessError:
+                            ended = True
+                        if ended:
+                            daemon_reaped = True
+                            raise AssertionError((root / 'console.log').read_text())
+                    elif proc.poll() is not None:
                         raise AssertionError((root / 'console.log').read_text())
                     try:
                         ec = EC(port)
                     except ConnectionRefusedError:
-                        time.sleep(0.05)
+                        time.sleep(0.1)
                 if full_daemon:
                     assert daemon_pid is not None and daemon_pid != proc.pid
                 assert expected.is_file(), expected
@@ -147,7 +161,7 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
             finally:
                 if ec:
                     ec.sock.close()
-                if full_daemon:
+                if full_daemon and not daemon_reaped:
                     if daemon_pid is None and pidfile.exists():
                         daemon_pid = int(pidfile.read_text())
                     if daemon_pid is not None:
