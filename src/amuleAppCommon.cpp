@@ -917,9 +917,9 @@ bool CamuleAppCommon::InitCommon(int argc, wxChar **argv)
 	}
 	wxFileName logFile(logPath);
 	if (logPath.IsEmpty() || logFile.GetFullName().IsEmpty() ||
-	    !logFile.MakeAbsolute(thePrefs::GetConfigDir()) ||
-	    wxDirExists(logFile.GetFullPath())) {
-		fprintf(stderr, "ERROR: invalid log file path '%s': expected a filename\n",
+		!logFile.MakeAbsolute(thePrefs::GetConfigDir()) || wxDirExists(logFile.GetFullPath())) {
+		fprintf(stderr,
+			"ERROR: invalid log file path '%s': expected a filename\n",
 			(const char *)logPath.utf8_str());
 		return false;
 	}
@@ -927,7 +927,8 @@ bool CamuleAppCommon::InitCommon(int argc, wxChar **argv)
 	// Opening the stream truncates the previous log. Never do that if its backup
 	// failed (for example, a full log filesystem or an unwritable .bak file).
 	if (logfileName.FileExists() && !CPath::BackupFile(logfileName, ".bak")) {
-		fprintf(stderr, "ERROR: unable to back up log file '%s' to '%s.bak'; "
+		fprintf(stderr,
+			"ERROR: unable to back up log file '%s' to '%s.bak'; "
 			"the existing log has been preserved\n",
 			(const char *)logfileName.GetRaw().utf8_str(),
 			(const char *)logfileName.GetRaw().utf8_str());
@@ -935,8 +936,10 @@ bool CamuleAppCommon::InitCommon(int argc, wxChar **argv)
 	}
 
 	if (!theLogger.OpenLogfile(logfileName.GetRaw())) {
-		fprintf(stderr, "ERROR: unable to open log file '%s': ensure its parent directory exists "
-			"and is writable\n", (const char *)logfileName.GetRaw().utf8_str());
+		fprintf(stderr,
+			"ERROR: unable to open log file '%s': ensure its parent directory exists "
+			"and is writable\n",
+			(const char *)logfileName.GetRaw().utf8_str());
 		return false;
 	}
 
