@@ -2071,6 +2071,18 @@ if (UNIX AND NOT APPLE)
 	target_link_libraries (AutostartManagerTest muleunit mulecommon)
 endif()
 
+# Log selection and EC read/reset, using offline daemon instances and temporary configs.
+if (BUILD_DAEMON AND UNIX AND NOT APPLE)
+	find_package (Python3 QUIET COMPONENTS Interpreter)
+	if (Python3_Interpreter_FOUND)
+		add_test (NAME LogfilePathIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/LogfilePathIntegrationTest.py $<TARGET_FILE:amuled>
+		)
+		set_tests_properties (LogfilePathIntegrationTest PROPERTIES TIMEOUT 180)
+	endif ()
+endif ()
+
 # EC and eD2k loopback integration: isolated config, no public servers or Kad peers.
 # Opt in for CI/development; daemon timing assumptions must not affect package builds.
 option (ENABLE_ALL_SEARCH_INTEGRATION_TEST "Register daemon loopback AllSearch integration test" OFF)

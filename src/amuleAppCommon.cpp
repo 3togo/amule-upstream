@@ -446,6 +446,7 @@ bool CamuleAppCommon::InitCommon(int argc, wxChar **argv)
 	cmdline.AddSwitch("v", "version", "Displays the current version number.");
 	cmdline.AddSwitch("h", "help", "Displays this information.");
 	cmdline.AddOption("c", "config-dir", "read config from <dir> instead of home");
+	cmdline.AddOption("", "logfile-path", "Write logs to <file> instead of the default log file.");
 	// One-shot autostart toggle, called by the Windows installer's Components page and by the
 	// Preferences UI. Lives in AutostartManager so the OS-specific store stays hidden from
 	// callers.
@@ -903,13 +904,39 @@ bool CamuleAppCommon::InitCommon(int argc, wxChar **argv)
 	}
 	RestrictToOwner(CPath(thePrefs::GetConfigDir() + m_configFile + ".bak"));
 
-	CPath logfileName = CPath(thePrefs::GetConfigDir() + m_logFile);
-	if (logfileName.FileExists()) {
-		CPath::BackupFile(logfileName, ".bak");
+	// Logging starts before the general preferences are loaded. Keep this startup-only
+	// setting in the local config, including remote.conf for amulegui. A CLI override
+	// applies to this run only and must not replace the saved value.
+	wxString configuredLogPath;
+	wxConfigBase::Get()->Read("/eMule/LogFilePath", &configuredLogPath, wxEmptyString);
+	wxConfigBase::Get()->Write("/eMule/LogFilePath", configuredLogPath);
+	wxString logPath = configuredLogPath;
+	const bool logPathOverride = cmdline.Found("logfile-path", &logPath);
+	if (!logPathOverride && logPath.IsEmpty()) {
+		logPath = m_logFile;
+	}
+	wxFileName logFile(logPath);
+	if (logPath.IsEmpty() || logFile.GetFullName().IsEmpty() ||
+	    !logFile.MakeAbsolute(thePrefs::GetConfigDir()) ||
+	    wxDirExists(logFile.GetFullPath())) {
+		fprintf(stderr, "ERROR: invalid log file path '%s': expected a filename\n",
+			(const char *)logPath.utf8_str());
+		return false;
+	}
+	CPath logfileName(logFile.GetFullPath());
+	// Opening the stream truncates the previous log. Never do that if its backup
+	// failed (for example, a full log filesystem or an unwritable .bak file).
+	if (logfileName.FileExists() && !CPath::BackupFile(logfileName, ".bak")) {
+		fprintf(stderr, "ERROR: unable to back up log file '%s' to '%s.bak'; "
+			"the existing log has been preserved\n",
+			(const char *)logfileName.GetRaw().utf8_str(),
+			(const char *)logfileName.GetRaw().utf8_str());
+		return false;
 	}
 
 	if (!theLogger.OpenLogfile(logfileName.GetRaw())) {
-		fputs("ERROR: unable to open log file\n", stderr);
+		fprintf(stderr, "ERROR: unable to open log file '%s': ensure its parent directory exists "
+			"and is writable\n", (const char *)logfileName.GetRaw().utf8_str());
 		return false;
 	}
 
