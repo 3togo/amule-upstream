@@ -203,7 +203,10 @@ void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 									}
 									uint32_t tagList = k_file.ReadUInt8();
 									while (tagList) {
-										CTag *tag = k_file.ReadTag();
+										auto ownedTag = std::unique_ptr<
+											CTag>(
+											k_file.ReadTag());
+										CTag *tag = ownedTag.get();
 										if (tag) {
 											if (!tag->GetName().Cmp(
 												    TAG_FILENAME)) {
@@ -212,7 +215,6 @@ void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 													toAdd->SetFileName(
 														tag->GetStr());
 												}
-												delete tag;
 											} else if (
 												!tag->GetName()
 													 .Cmp(TAG_FILESIZE)) {
@@ -241,7 +243,6 @@ void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 													toAdd->m_uSize =
 														tag->GetInt();
 												}
-												delete tag;
 											} else if (
 												!tag->GetName()
 													 .Cmp(TAG_SOURCEIP)) {
@@ -250,6 +251,7 @@ void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 												toAdd->AddTag(
 													tag,
 													0);
+												ownedTag.release();
 											} else if (
 												!tag->GetName()
 													 .Cmp(TAG_SOURCEPORT)) {
@@ -258,6 +260,7 @@ void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 												toAdd->AddTag(
 													tag,
 													0);
+												ownedTag.release();
 											} else if (
 												!tag->GetName()
 													 .Cmp(TAG_SOURCEUPORT)) {
@@ -266,10 +269,12 @@ void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 												toAdd->AddTag(
 													tag,
 													0);
+												ownedTag.release();
 											} else {
 												toAdd->AddTag(
 													tag,
 													0);
+												ownedTag.release();
 											}
 										}
 										tagList--;
@@ -326,27 +331,33 @@ void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 								toAdd->m_tLifeTime = s_file.ReadUInt32();
 								uint32_t tagList = s_file.ReadUInt8();
 								while (tagList) {
-									CTag *tag = s_file.ReadTag();
+									auto ownedTag = std::unique_ptr<CTag>(
+										s_file.ReadTag());
+									CTag *tag = ownedTag.get();
 									if (tag) {
 										if (!tag->GetName().Cmp(
 											    TAG_SOURCEIP)) {
 											toAdd->m_uIP =
 												tag->GetInt();
 											toAdd->AddTag(tag, 0);
+											ownedTag.release();
 										} else if (
 											!tag->GetName().Cmp(
 												TAG_SOURCEPORT)) {
 											toAdd->m_uTCPport =
 												tag->GetInt();
 											toAdd->AddTag(tag, 0);
+											ownedTag.release();
 										} else if (
 											!tag->GetName().Cmp(
 												TAG_SOURCEUPORT)) {
 											toAdd->m_uUDPport =
 												tag->GetInt();
 											toAdd->AddTag(tag, 0);
+											ownedTag.release();
 										} else {
 											toAdd->AddTag(tag, 0);
+											ownedTag.release();
 										}
 									}
 									tagList--;

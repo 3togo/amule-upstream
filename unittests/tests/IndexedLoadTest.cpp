@@ -231,3 +231,31 @@ TEST(IndexedLoad, PartiallyDecodedKeywordIsDiscarded)
 	CFile file(temp.path + "key_index.dat");
 	ASSERT_EQUALS(truncatedSize, file.GetLength());
 }
+
+TEST(IndexedLoad, WrongTypeSourceTagIsDiscarded)
+{
+	TempIndex temp;
+	uint64_t originalSize;
+	{
+		CFile file(temp.path + "src_index.dat", CFile::write);
+		file.WriteUInt32(2);
+		file.WriteUInt32(time(nullptr) + 3600);
+		file.WriteUInt32(1);
+		file.WriteUInt128(CUInt128(2u));
+		file.WriteUInt32(1);
+		file.WriteUInt128(CUInt128(3u));
+		file.WriteUInt32(1);
+		file.WriteUInt32(time(nullptr) + 3600);
+		file.WriteUInt8(1);
+		file.WriteTag(CTagString(TAG_SOURCEIP, "invalid integer"));
+		originalSize = file.GetLength();
+	}
+	{
+		CIndexed index(temp.path, CUInt128(1u));
+		ASSERT_FALSE(WaitForLoad(index));
+		ASSERT_TRUE(index.GetLoadState() == CIndexed::LoadState::Failed);
+		ASSERT_EQUALS(0u, index.m_totalIndexSource);
+	}
+	CFile file(temp.path + "src_index.dat");
+	ASSERT_EQUALS(originalSize, file.GetLength());
+}
