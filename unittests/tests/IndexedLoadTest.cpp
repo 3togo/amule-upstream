@@ -10,6 +10,9 @@
 #include <thread>
 #include <chrono>
 #include <tags/FileTags.h>
+#ifdef __linux__
+#include <unistd.h>
+#endif
 
 using namespace muleunit;
 using namespace Kademlia;
@@ -357,4 +360,101 @@ TEST(IndexedLoad, CancellationStopsInsidePublisherListAndReleasesTracking)
 		ASSERT_EQUALS(size_t(1), tracking->size());
 	}
 	ASSERT_TRUE(tracking->empty());
+}
+
+TEST(IndexedLoad, FailedSavePreservesPreviousLoadIndex)
+{
+	TempIndex temp;
+	{
+		CFile file(temp.path + "load_index.dat", CFile::write);
+		file.WriteUInt32(1);
+		file.WriteUInt32(123);
+		file.WriteUInt32(0);
+	}
+	{
+		CIndexed index(temp.path, CUInt128(1u));
+		ASSERT_TRUE(WaitForLoad(index));
+		ASSERT_TRUE(index.AddLoad(CUInt128(2u), time(nullptr) + 3600));
+		// Prevent creation of the staging file without touching the original.
+		ASSERT_TRUE(wxMkdir(temp.path + "load_index.dat.new"));
+	}
+	CFile original(temp.path + "load_index.dat");
+	ASSERT_EQUALS(uint64_t(12), original.GetLength());
+	ASSERT_EQUALS(1u, original.ReadUInt32());
+	ASSERT_EQUALS(123u, original.ReadUInt32());
+	ASSERT_EQUALS(0u, original.ReadUInt32());
+}
+
+#ifdef __linux__
+TEST(IndexedLoad, DiskFullDuringSavePreservesPreviousLoadIndex)
+{
+	TempIndex temp;
+	{
+		CFile file(temp.path + "load_index.dat", CFile::write);
+		file.WriteUInt32(1);
+		file.WriteUInt32(123);
+		file.WriteUInt32(0);
+	}
+	{
+		CIndexed index(temp.path, CUInt128(1u));
+		ASSERT_TRUE(WaitForLoad(index));
+		ASSERT_TRUE(index.AddLoad(CUInt128(2u), time(nullptr) + 3600));
+		ASSERT_EQUALS(0, symlink("/dev/full", (temp.path + "load_index.dat.new").fn_str()));
+	}
+	CFile original(temp.path + "load_index.dat");
+	ASSERT_EQUALS(uint64_t(12), original.GetLength());
+	ASSERT_EQUALS(1u, original.ReadUInt32());
+	ASSERT_EQUALS(123u, original.ReadUInt32());
+	ASSERT_EQUALS(0u, original.ReadUInt32());
+}
+#endif
+
+TEST(IndexedLoad, LargeKeywordAndSourceIndexesRoundTrip)
+{
+	TempIndex temp;
+	constexpr uint32_t count = 10000;
+	{
+		CFile keys(temp.path + "key_index.dat", CFile::write);
+		keys.WriteUInt32(4);
+		keys.WriteUInt32(time(nullptr) + 3600);
+		keys.WriteUInt128(CUInt128(1u));
+		keys.WriteUInt32(count);
+		CFile sources(temp.path + "src_index.dat", CFile::write);
+		sources.WriteUInt32(2);
+		sources.WriteUInt32(time(nullptr) + 3600);
+		sources.WriteUInt32(count);
+		DiskEntry entry;
+		for (uint32_t i = 1; i <= count; ++i) {
+			keys.WriteUInt128(CUInt128(i));
+			keys.WriteUInt32(1);
+			keys.WriteUInt128(CUInt128(i + count));
+			keys.WriteUInt32(1);
+			keys.WriteUInt32(time(nullptr) + 3600);
+			entry.WritePublishTrackingDataToFile(&keys, true);
+			entry.WriteTagList(&keys);
+			sources.WriteUInt128(CUInt128(i));
+			sources.WriteUInt32(1);
+			sources.WriteUInt128(CUInt128(i + count));
+			sources.WriteUInt32(1);
+			sources.WriteUInt32(time(nullptr) + 3600);
+			sources.WriteUInt8(3);
+			sources.WriteTag(CTagVarInt(TAG_SOURCEIP, 0x01020304));
+			sources.WriteTag(CTagVarInt(TAG_SOURCEPORT, 4662));
+			sources.WriteTag(CTagVarInt(TAG_SOURCEUPORT, 4672));
+		}
+	}
+	for (int cycle = 0; cycle < 2; ++cycle) {
+		CIndexed index(temp.path, CUInt128(1u));
+		// Until adoption, even a completed worker must not accept new publications.
+		ASSERT_FALSE(index.AddLoad(CUInt128(count + 1), time(nullptr) + 3600));
+		uint8_t load = 0;
+		auto entry = std::unique_ptr<CKeyEntry>(index.CreateKeyEntry());
+		ASSERT_FALSE(index.AddKeyword(CUInt128(count + 1), CUInt128(2u), entry.get(), load));
+		ASSERT_EQUALS(0u, index.m_totalIndexKeyword);
+		ASSERT_EQUALS(0u, index.m_totalIndexSource);
+		ASSERT_TRUE(WaitForLoad(index));
+		ASSERT_EQUALS(count, index.m_totalIndexKeyword);
+		ASSERT_EQUALS(count, index.m_totalIndexSource);
+		ASSERT_EQUALS(size_t(count), index.GetFileKeyCount());
+	}
 }

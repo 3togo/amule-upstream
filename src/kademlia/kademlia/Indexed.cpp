@@ -414,13 +414,19 @@ CIndexed::~CIndexed()
 void CIndexed::WriteFile()
 {
 	try {
+		auto openForSave = [](CFile &file, const wxString &path) {
+			if (!file.Open(path, CFile::write_safe)) {
+				throw CIOFailureException("Cannot open saved Kad index staging file");
+			}
+			return true;
+		};
 		time_t now = time(NULL);
 		uint32_t s_total = 0;
 		uint32_t k_total = 0;
 		uint32_t l_total = 0;
 
 		CFile load_file;
-		if (load_file.Open(m_loadfilename, CFile::write)) {
+		if (openForSave(load_file, m_loadfilename)) {
 			load_file.WriteUInt32(1); // version
 			load_file.WriteUInt32(now);
 			wxASSERT(m_Load_map.size() < 0xFFFFFFFF);
@@ -434,11 +440,13 @@ void CIndexed::WriteFile()
 					l_total++;
 				}
 			}
-			load_file.Close();
+			if (!load_file.Flush() || !load_file.Close()) {
+				throw CIOFailureException("Cannot commit saved Kad index");
+			}
 		}
 
 		CFile s_file;
-		if (s_file.Open(m_sfilename, CFile::write)) {
+		if (openForSave(s_file, m_sfilename)) {
 			s_file.WriteUInt32(2); // version
 			s_file.WriteUInt32(now + KADEMLIAREPUBLISHTIMES);
 			wxASSERT(m_Sources_map.size() < 0xFFFFFFFF);
@@ -473,11 +481,13 @@ void CIndexed::WriteFile()
 					}
 				}
 			}
-			s_file.Close();
+			if (!s_file.Flush() || !s_file.Close()) {
+				throw CIOFailureException("Cannot commit saved Kad index");
+			}
 		}
 
 		CFile k_file;
-		if (k_file.Open(m_kfilename, CFile::write)) {
+		if (openForSave(k_file, m_kfilename)) {
 			// Version 4 carries the AICH block and the per-publisher hash index; gated
 			// with the writer in CKeyEntry::WritePublishTrackingDataToFile, so with
 			// KadProtocol10 off we write the version-3 file upstream writes. Reading
@@ -528,14 +538,17 @@ void CIndexed::WriteFile()
 					}
 				}
 			}
-			k_file.Close();
+			if (!k_file.Flush() || !k_file.Close()) {
+				throw CIOFailureException("Cannot commit saved Kad index");
+			}
 		}
 		AddDebugLogLineN(logKadIndex,
 			CFormat("Wrote %u source, %u keyword, and %u load entries") % s_total % k_total %
 				l_total);
 
 	} catch (const CSafeIOException &err) {
-		AddDebugLogLineC(logKadIndex, "CSafeIOException in CIndexed::~CIndexed: " + err.what());
+		AddLogLineC(_("Kad could not save an index. The previous copy of that file was preserved."));
+		AddDebugLogLineC(logKadIndex, "CSafeIOException in CIndexed::WriteFile: " + err.what());
 	} catch (const CInvalidPacket &err) {
 		AddDebugLogLineC(
 			logKadIndex, "CInvalidPacket Exception in CIndexed::~CIndexed: " + err.what());
