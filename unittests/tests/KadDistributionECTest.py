@@ -9,7 +9,7 @@ import struct
 import subprocess
 import sys
 import tempfile
-from AllSearchIntegrationTest import C, connect_daemon, free_port
+from AllSearchIntegrationTest import C, connect_daemon, free_port, tag
 
 
 def run(binary):
@@ -44,8 +44,10 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
             try:
                 ec = connect_daemon(proc, port)
 
+                assert C['EC_TAG_STATS_KAD_DISTRIBUTION'] not in ec.call(C['EC_OP_STAT_REQ'])[1]
+
                 def distribution():
-                    op, tags = ec.call(C['EC_OP_STAT_REQ'])
+                    op, tags = ec.call(C['EC_OP_STAT_REQ'], [tag(C['EC_TAG_STATS_KAD_DISTRIBUTION'])])
                     assert op == C['EC_OP_STATS'], op
                     wire = tags[C['EC_TAG_STATS_KAD_DISTRIBUTION']][0]
                     assert len(wire) == 517 and wire[0] == 1

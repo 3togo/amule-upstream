@@ -363,6 +363,9 @@ void CamuleRemoteGuiApp::OnPollTimer(wxTimerEvent &)
 	switch (request_step) {
 	case 0: {
 		CECPacket stats_req(EC_OP_STAT_REQ, EC_DETAIL_INC_UPDATE);
+		if (amuledlg->m_kademliawnd->IsShownOnScreen()) {
+			stats_req.AddTag(CECEmptyTag(EC_TAG_STATS_KAD_DISTRIBUTION));
+		}
 		m_connect->SendRequest(&m_stats_updater, &stats_req);
 		request_step++;
 		break;

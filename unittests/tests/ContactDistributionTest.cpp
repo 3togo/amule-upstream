@@ -86,3 +86,26 @@ TEST(ContactDistribution, RejectMalformedWithoutOverwritingSnapshot)
 	ASSERT_TRUE(ContactDistribution::Decode(wire.data(), wire.size(), out));
 	ASSERT_EQUALS(0u, out.Total());
 }
+
+TEST(ContactDistribution, LargeSnapshotAndOverflowPayload)
+{
+	ContactDistributionBuilder builder;
+	for (uint32_t i = 0; i < 100000; ++i) {
+		builder.Add((i % 64) << 26, 0x01000000 + i, i % 2 == 0);
+	}
+	const auto snapshot = builder.Get();
+	ASSERT_EQUALS(100000u, snapshot.Total());
+	ASSERT_EQUALS(50000u, snapshot.Verified());
+	ASSERT_EQUALS(391u, snapshot.subnets);
+	const auto wire = snapshot.Encode();
+	ContactDistribution decoded;
+	ASSERT_TRUE(ContactDistribution::Decode(wire.data(), wire.size(), decoded));
+	ASSERT_TRUE(snapshot.contacts == decoded.contacts);
+	ASSERT_TRUE(snapshot.verified == decoded.verified);
+	ContactDistribution overflow;
+	overflow.contacts[0] = UINT32_MAX;
+	overflow.contacts[1] = 1;
+	const auto invalid = overflow.Encode();
+	ASSERT_FALSE(ContactDistribution::Decode(invalid.data(), invalid.size(), decoded));
+	ASSERT_EQUALS(100000u, decoded.Total());
+}

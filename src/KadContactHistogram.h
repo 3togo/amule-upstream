@@ -38,21 +38,30 @@ public:
 	explicit CKadContactHistogram(wxWindow *parent)
 	: wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(-1, 150))
 	{
-		SetMinSize(wxSize(200, 150));
+		SetMinSize(FromDIP(wxSize(200, 150)));
 		SetBackgroundStyle(wxBG_STYLE_PAINT);
 		SetName("kadContactDistribution");
 		SetToolTip(_("Contacts grouped by the first six bits of their KadID. Blue: all contacts; "
 			     "green: verified addresses. Clustering near your own KadID is expected."));
 		Bind(wxEVT_PAINT, &CKadContactHistogram::Paint, this);
+		Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
+			Refresh(false);
+			event.Skip();
+		});
 	}
 	void SetDistribution(const Kademlia::ContactDistribution &data, bool available)
 	{
+		if (m_available == available && m_data.contacts == data.contacts &&
+			m_data.verified == data.verified && m_data.subnets == data.subnets) {
+			return;
+		}
 		m_data = data;
 		m_available = available;
 		Refresh(false);
 	}
 
 private:
+	friend struct KadHistogramTestAccess;
 	class SummaryWrapper : public wxTextWrapper
 	{
 	public:
@@ -64,6 +73,10 @@ private:
 	void Paint(wxPaintEvent &)
 	{
 		wxAutoBufferedPaintDC dc(this);
+		Draw(dc, GetClientSize());
+	}
+	void Draw(wxDC &dc, const wxSize &size)
+	{
 		dc.SetBackground(wxBrush(GetBackgroundColour()));
 		dc.Clear();
 		dc.SetTextForeground(GetForegroundColour());
@@ -72,7 +85,7 @@ private:
 			SummaryWrapper wrapped;
 			wrapped.Wrap(this,
 				_("Contact distribution is unavailable from this core."),
-				std::max(1, GetClientSize().x - 16));
+				std::max(1, size.x - FromDIP(16)));
 			int y = 8;
 			for (const auto &line : wrapped.lines) {
 				dc.DrawText(line, 8, y);
@@ -80,7 +93,6 @@ private:
 			}
 			return;
 		}
-		const auto size = GetClientSize();
 		// Summary wraps at narrow widths and with longer translations.
 		wxString summary = wxString::Format(
 			_("KadID distribution: %u contacts, %u verified, %u distinct /24 subnets"),
@@ -95,17 +107,19 @@ private:
 			y += dc.GetCharHeight();
 		}
 		const int top = y + 7;
-		const int left = 36, bottom = size.y - dc.GetCharHeight() - 6;
+		const uint32_t peak =
+			std::max(1u, *std::max_element(m_data.contacts.begin(), m_data.contacts.end()));
+		const wxString peakLabel = wxString::Format("%u", peak);
+		const int left = std::max(FromDIP(36), dc.GetTextExtent(peakLabel).x + FromDIP(6));
+		const int bottom = size.y - dc.GetCharHeight() - FromDIP(6);
 		const int width = size.x - left - 8, height = bottom - top;
 		if (width <= 0 || height <= 0) {
 			return;
 		}
-		const uint32_t peak =
-			std::max(1u, *std::max_element(m_data.contacts.begin(), m_data.contacts.end()));
 		dc.SetPen(wxPen(GetForegroundColour()));
 		dc.DrawLine(left, top, left, bottom);
 		dc.DrawLine(left, bottom, left + width, bottom);
-		dc.DrawText(wxString::Format("%u", peak), 2, top);
+		dc.DrawText(peakLabel, 2, top);
 		for (size_t i = 0; i < m_data.BinCount; ++i) {
 			const int x = left + static_cast<int>(i * width / m_data.BinCount);
 			const int next = left + static_cast<int>((i + 1) * width / m_data.BinCount);
