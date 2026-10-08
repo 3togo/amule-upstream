@@ -1,9 +1,9 @@
 # Fully static aMule daemon (musl/Alpine)
 
 Produces `amuled`, `amulecmd` and `amuleapi` as **fully static** binaries —
-one self-contained file each, with no runtime shared-library dependencies.
-`scp` them to any Linux host of the right architecture and run; nothing to
-install.
+with no runtime shared-library dependencies. Copy the extracted tarball,
+including its shared artwork and WebUI data, to a Linux host of the right
+architecture and run; no package installation is needed.
 
 ```sh
 packaging/linux/build.sh static            # host arch → tarball in dist/
@@ -57,3 +57,7 @@ Neither affects the static property:
 - **HTTPS needs a CA bundle** present on the host (`/etc/ssl/certs`) for
   certificate verification — that's data, not a library.
 - These are **daemon binaries only**; there is no GUI.
+
+Country artwork is shared data in `artwork/flags/` beside the binaries, with
+license notices in `artwork/THIRDPARTY.md`. Keep that directory when relocating
+the tarball; static linking does not embed the flag assets.

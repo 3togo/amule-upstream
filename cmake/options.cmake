@@ -57,6 +57,7 @@ endif()
 include (GNUInstallDirs)
 
 set (PKGDATADIR "${CMAKE_INSTALL_DATADIR}/${PACKAGE}")
+set (AMULE_FLAG_DIR "${CMAKE_INSTALL_FULL_DATADIR}/${PACKAGE}/artwork/flags")
 
 if (BUILD_EVERYTHING)
 	set (BUILD_ALC ON CACHE BOOL "compile aLinkCreator GUI version" FORCE)

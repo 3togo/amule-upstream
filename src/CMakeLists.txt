@@ -52,7 +52,7 @@ add_compile_options (
 	$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Werror=inconsistent-missing-override>
 )
 
-# Embed every PNG under src/icons/ (plus each icon's optional
+# Embed top-level PNGs under src/icons/ (plus each icon's optional
 # same-name SVG twin) as a static byte-array table in a generated
 # C TU (see src/icons/embed_icons.py for the format).
 # CamuleArtProvider then exposes the entries to wxArtProvider at
@@ -68,7 +68,7 @@ add_compile_options (
 # was taken.
 find_package (Python3 COMPONENTS Interpreter)
 if (Python3_FOUND)
-	file (GLOB_RECURSE AMULE_ICON_FILES CONFIGURE_DEPENDS
+	file (GLOB AMULE_ICON_FILES CONFIGURE_DEPENDS
 		${CMAKE_CURRENT_SOURCE_DIR}/icons/*.png
 		${CMAKE_CURRENT_SOURCE_DIR}/icons/*.svg)
 	add_custom_command (
@@ -88,6 +88,24 @@ if (Python3_FOUND)
 else()
 	set (AMULE_ICON_DATA_C ${CMAKE_CURRENT_SOURCE_DIR}/icons/icon_data.c)
 	message (STATUS "Icon data: Python3 not found — using checked-in fallback ${AMULE_ICON_DATA_C}")
+endif()
+
+# Country artwork is shared data, never part of icon_data.c.
+if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI OR BUILD_AMULEAPI)
+	add_library (countryflagresources STATIC CountryFlagResources.cpp)
+	target_include_directories (countryflagresources PUBLIC ${SRC_DIR} PRIVATE ${CMAKE_BINARY_DIR})
+	target_link_libraries (countryflagresources PUBLIC wxWidgets::BASE)
+	install (DIRECTORY ${SRC_DIR}/icons/flags/
+		DESTINATION ${PKGDATADIR}/artwork/flags
+		COMPONENT artwork
+		FILES_MATCHING PATTERN "*.png" PATTERN "*.svg")
+	install (FILES ${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md
+		DESTINATION ${PKGDATADIR}/artwork COMPONENT artwork)
+	# Mirror the install layout for uninstalled development builds and native tests.
+	add_custom_target (countryflagdata ALL
+		COMMAND ${CMAKE_COMMAND} -E copy_directory
+			${SRC_DIR}/icons/flags ${CMAKE_BINARY_DIR}/share/amule/artwork/flags)
+	add_dependencies (countryflagresources countryflagdata)
 endif()
 
 add_custom_command (
@@ -147,8 +165,7 @@ endif()
 # project headers as `"Logger.h"` etc., so it needs the src dir
 # (and matching binary dir, for generated config.h) on its include
 # search path. The flag-XPM include path that used to live here
-# (-I.../pixmaps/flags_xpm) is gone — flag icons are loaded via
-# CamuleArtProvider's embedded PNG table now.
+# (-I.../pixmaps/flags_xpm) is gone — flag icons are loaded from shared artwork files now.
 if (ENABLE_IP2COUNTRY)
 	set_source_files_properties (${IP2COUNTRY}
 		PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_CURRENT_SOURCE_DIR}"
@@ -1019,9 +1036,7 @@ if (NEED_LIB_MULEAPPGUI)
 	)
 
 	target_link_libraries (muleappgui
-		# amule/amulegui also compile GUI_SOURCES, including icon_data.c.
-		# Propagate zlib's headers as well as its library on Windows.
-		PUBLIC ZLIB::ZLIB
+		PUBLIC countryflagresources
 		PRIVATE wxWidgets::CORE
 	)
 
@@ -1129,9 +1144,9 @@ if (WIN32 AND MINGW AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
 	find_file (MINGW_CA_BUNDLE
 		NAMES cert.pem ca-bundle.crt
 		PATHS "${MINGW_BIN_DIR}/../etc/ssl/certs"
-		      "${MINGW_BIN_DIR}/../etc/ssl"
-		      "${MINGW_BIN_DIR}/../ssl/certs"
-		      "${MINGW_BIN_DIR}/../ssl"
+			  "${MINGW_BIN_DIR}/../etc/ssl"
+			  "${MINGW_BIN_DIR}/../ssl/certs"
+			  "${MINGW_BIN_DIR}/../ssl"
 		NO_DEFAULT_PATH)
 	if (MINGW_CA_BUNDLE)
 		install (FILES "${MINGW_CA_BUNDLE}"
@@ -1165,6 +1180,17 @@ if (ENABLE_NLS AND TARGET pofiles)
 	foreach (_bin amule amuled amulecmd amulegui amuleweb ed2k alc alcc cas wxcas fileview)
 		if (TARGET ${_bin})
 			add_dependencies (${_bin} pofiles)
+		endif()
+	endforeach()
+endif()
+
+if (APPLE)
+	foreach (_gui IN ITEMS amule amulegui)
+		if (TARGET ${_gui})
+			add_custom_command (TARGET ${_gui} POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_directory
+				    ${SRC_DIR}/icons/flags
+				    "$<TARGET_BUNDLE_CONTENT_DIR:${_gui}>/Resources/artwork/flags")
 		endif()
 	endforeach()
 endif()

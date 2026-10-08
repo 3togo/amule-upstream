@@ -140,7 +140,10 @@ RUN export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
  && for b in amuled amulecmd amuleapi; do \
         cp "$(find build-static -type f -name "$b" | head -1)" /out/; \
     done \
- && strip /out/amuled /out/amulecmd /out/amuleapi
+ && strip /out/amuled /out/amulecmd /out/amuleapi \
+ && mkdir -p /out/artwork/flags \
+ && cp src/icons/flags/*.png src/icons/flags/*.svg /out/artwork/flags/ \
+ && cp docs/THIRDPARTY.md /out/artwork/
 
 # Sanity gate: fail the build unless each binary is a static executable.
 RUN for b in amuled amulecmd amuleapi; do \

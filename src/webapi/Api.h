@@ -198,9 +198,9 @@ private:
 	CHttpServer::Response ServeStaticFile(const CHttpServer::Request &, const std::string &url_path);
 	// Country-flag artwork for `country_code`. `url_path` must be "/flags/<cc>.png" or ".svg" with two
 	// lowercase ASCII letters, or "/flags/unknown.png" for the "??" placeholder; SVG is absent for legacy
-	// raster-only flags. The bytes come from the embedded icon table's "flag_<cc>" entry, so nothing
-	// touches the file system. 404 for any other shape and for codes the bundled set has no artwork for.
-	// Never requires auth -- the artwork is public either way.
+	// raster-only flags. The bytes come from installed shared artwork.
+	// Filenames are restricted to validated country codes. 404 for any other shape and for codes the
+	// bundled set has no artwork for. Never requires auth -- the artwork is public either way.
 	CHttpServer::Response ServeCountryFlag(const CHttpServer::Request &, const std::string &url_path);
 	// Rescan shared directories -- amuled re-walks the configured share roots.
 	// Parameterless EC op (EC_OP_SHAREDFILES_RELOAD).

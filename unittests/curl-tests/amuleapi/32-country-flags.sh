@@ -4,9 +4,8 @@
 #
 # The peer / server `country_code` on /clients and /servers is only half
 # the story; this route is where a frontend gets the matching artwork.
-# The bytes come from the icon table compiled into the binary (the same
-# flag artwork the desktop GUI draws), so the assertions here are about
-# the route's shape rather than any file on disk:
+# The bytes come from installed shared artwork (the same files the desktop
+# GUI draws). These assertions cover the public route and caching contract:
 #
 #   * a known code returns a PNG with the right Content-Type,
 #   * the response is cacheable — ETag + Cache-Control — and honours
@@ -20,8 +19,8 @@
 #     .png is a 404, including uppercase, wrong length, traversal
 #     attempts and a well-formed code the set has no artwork for,
 #   * non-safe methods are 405,
-#   * it works with `[Server]/StaticRoot` unset — nothing here reads
-#     the file system.
+#   * it works with `[Server]/StaticRoot` unset — artwork has its own
+#     installed resource directory.
 #
 # Usage:
 #   amuleapi --config-dir=/tmp/amuleapi-regtest &

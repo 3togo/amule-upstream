@@ -3,8 +3,44 @@ name: Icons CI
 on:
   push:
     branches: [ "**" ]
+    paths:
+      - 'src/icons/**'
+      - 'src/CountryFlag*'
+      - 'src/CamuleArtProvider.*'
+      - 'src/MenuIcons*'
+      - 'src/webapi/static/**'
+      - 'src/webapi/Api.*'
+      - '**/CMakeLists.txt'
+      - 'cmake/**'
+      - 'config.h.cm'
+      - 'packaging/**'
+      - 'docs/THIRDPARTY.md'
+      - 'unittests/tests/IconArtworkTest*'
+      - 'unittests/tests/CountryFlagResourcesTest*'
+      - 'unittests/curl-tests/amuleapi/32-country-flags.sh'
+      - 'unittests/browser-tests/country-flags.cjs'
+      - '.github/workflows/icons.yml'
+      - '.github/workflows/ccpp.yml'
   pull_request:
     branches: [ "**" ]
+    paths:
+      - 'src/icons/**'
+      - 'src/CountryFlag*'
+      - 'src/CamuleArtProvider.*'
+      - 'src/MenuIcons*'
+      - 'src/webapi/static/**'
+      - 'src/webapi/Api.*'
+      - '**/CMakeLists.txt'
+      - 'cmake/**'
+      - 'config.h.cm'
+      - 'packaging/**'
+      - 'docs/THIRDPARTY.md'
+      - 'unittests/tests/IconArtworkTest*'
+      - 'unittests/tests/CountryFlagResourcesTest*'
+      - 'unittests/curl-tests/amuleapi/32-country-flags.sh'
+      - 'unittests/browser-tests/country-flags.cjs'
+      - '.github/workflows/icons.yml'
+      - '.github/workflows/ccpp.yml'
 
 permissions:
   contents: read
@@ -45,7 +81,7 @@ jobs:
           fi
 
   browser-country-flags:
-    name: WebUI country flags at 1x and 2x
+    name: WebUI country flags at 1x, 2x and 3x
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7

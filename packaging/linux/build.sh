@@ -325,6 +325,9 @@ build_static() {
     mkdir -p "${outdir}/${stem}"
     cp "${outdir}/amuled" "${outdir}/amulecmd" "${outdir}/amuleapi" "${outdir}/${stem}/"
 
+    # Shared country artwork and its redistribution notices.
+    cp -R "${outdir}/artwork" "${outdir}/${stem}/"
+
     # The WebUI ships inside this bundle. amuleapi serves no assets of its
     # own, so a static-binary operator who fetched this tarball had a daemon
     # that answered /api/v1 and nothing on /, and had to find a separate

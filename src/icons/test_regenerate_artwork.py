@@ -11,7 +11,7 @@ import struct
 from lxml import etree
 from picosvg.svg_types import SVGPath
 
-from embed_icons import count_packed_arc_flags
+from embed_icons import collect_icons, emit, count_packed_arc_flags
 from regenerate_artwork import ROOT, normalize_svg
 
 
@@ -79,6 +79,16 @@ class ArtworkConversionTest(unittest.TestCase):
                 data = path.read_bytes()
                 self.assertEqual(data[:8], b'\x89PNG\r\n\x1a\n')
                 self.assertEqual(struct.unpack('>II', data[16:24]), (16, 12))
+
+    def test_flags_are_shared_and_embedding_is_deterministic(self):
+        entries = collect_icons(ROOT)
+        self.assertTrue(entries)
+        self.assertFalse(any(name.startswith('flag_') for name, *_ in entries))
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / 'icon_data.c'
+            emit(output, entries)
+            self.assertEqual(output.read_bytes(), (ROOT / 'icon_data.c').read_bytes())
+            self.assertNotIn(b'zlib', output.read_bytes())
 
     def test_all_flags_remain_vector_with_bounded_payload(self):
         originals = sorted((ROOT / 'vendor/flag-icons').glob('*.svg'))

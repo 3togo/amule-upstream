@@ -57,7 +57,7 @@
 #include "OtherFunctions.h"        // GetFiletypeByName for the shared file_type token
 #include <common/MediaCodecName.h> // Needed for MediaCodecLabel
 #include <common/Path.h>           // CPath
-#include <icon_data.h>             // amule_find_icon -- country flags for GET /flags/{code}.png
+#include "CountryFlagResources.h"
 
 #include <ec/cpp/ECPacket.h>
 #include <ec/cpp/ECCodes.h>
@@ -1743,8 +1743,8 @@ CHttpServer::Response CApiDispatcher::ServeCountryFlag(
 	// literal name the set ships alongside them: "unknown", the "??" placeholder
 	// CCountryFlags falls back to, offered so a frontend can match the desktop.
 	//
-	// The art id is built by concatenation, so this whitelist is what stops a crafted
-	// code naming a non-flag entry in the shared icon table. LooksMalicious rejects
+	// The filename is built by concatenation, so this whitelist prevents a crafted
+	// code from escaping the shared artwork directory. LooksMalicious rejects
 	// those upstream, but the lookup must not depend on it.
 	const bool is_alpha2 =
 		code.size() == 2 && code[0] >= 'a' && code[0] <= 'z' && code[1] >= 'a' && code[1] <= 'z';
@@ -1754,13 +1754,8 @@ CHttpServer::Response CApiDispatcher::ServeCountryFlag(
 
 	// A future GeoIP database can return a code absent from the bundled artwork.
 	// A well-formed miss is a 404.
-	const struct AMuleIconEntry *icon = amule_find_icon(("flag_" + code).c_str());
-	if (!icon) {
-		return ErrorResponse(404, "not_found", "no such flag");
-	}
-	const auto *data = svg ? icon->svg_data : icon->png_data;
-	const auto length = svg ? icon->svg_len : icon->png_len;
-	if (!data || !length) {
+	std::string bytes;
+	if (!CountryFlagResources::Default().Read(wxString::FromUTF8(code.c_str()), svg, bytes)) {
 		return ErrorResponse(404, "not_found", "no such flag");
 	}
 
@@ -1769,18 +1764,8 @@ CHttpServer::Response CApiDispatcher::ServeCountryFlag(
 	r.content_type = svg ? "image/svg+xml" : "image/png";
 	// Dispatch() applies the ETag and 304 swap to every 200 GET/HEAD, and the
 	// transport writes a HEAD as headers only, so this handler just produces bytes.
-	if (svg) {
-		r.body.resize(icon->svg_raw_len);
-		if (!amule_decode_icon_svg(
-			    icon, reinterpret_cast<unsigned char *>(r.body.data()), icon->svg_raw_len)) {
-			return ErrorResponse(500, "internal_error", "could not decode flag");
-		}
-	} else {
-		r.body.assign(reinterpret_cast<const char *>(data), length);
-	}
-	// The artwork is compiled in and can only change with a new build, while a peer
-	// list is a page full of <img> tags pointing here. A day of freshness turns those
-	// into cache hits, while bounding how long an upgraded daemon serves stale art.
+	r.body = std::move(bytes);
+	// ETags are based on response bytes, so replacing installed artwork also changes validators.
 	r.headers["Cache-Control"] = "public, max-age=86400";
 	return r;
 }

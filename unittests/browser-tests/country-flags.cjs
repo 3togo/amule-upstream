@@ -1,5 +1,5 @@
 // Run with Node and Playwright installed: node unittests/browser-tests/country-flags.cjs
-// Set AMULE_BROWSER_OUTPUT to retain 1x/2x screenshots for visual inspection.
+// Set AMULE_BROWSER_OUTPUT to retain 1x/2x/3x screenshots for visual inspection.
 // Set AMULE_BROWSER_EXECUTABLE to use an existing Chromium installation.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -34,6 +34,9 @@ const server = http.createServer((req, res) => {
   }
   const isFlag = url.pathname.startsWith('/flags/');
   const base = isFlag ? flagsRoot : staticRoot;
+  if (isFlag && url.pathname.endsWith('.svg') && req.headers.cookie === 'legacy=1') {
+    res.writeHead(404); res.end(); return;
+  }
   const file = path.resolve(base, '.' + (isFlag ? url.pathname.slice(6) : url.pathname));
   if (!file.startsWith(base + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
     res.writeHead(404); res.end(); return;
@@ -46,40 +49,43 @@ const server = http.createServer((req, res) => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const browser = await chromium.launch({ executablePath: process.env.AMULE_BROWSER_EXECUTABLE || undefined });
   try {
-    for (const scale of [1, 2]) {
-      const context = await browser.newContext({ viewport: { width: 1200, height: 850 }, deviceScaleFactor: scale });
-      const page = await context.newPage();
-      const errors = [];
-      page.on('pageerror', error => errors.push(error.message));
-      await page.goto(`http://127.0.0.1:${server.address().port}/`);
-      await page.waitForFunction(() => window.flagsReady);
-      await page.waitForFunction(() => [...document.querySelectorAll('img.flag')].every(image => image.complete));
-      const images = await page.locator('[data-code]').evaluateAll(cells => cells.map(cell => {
-        const image = cell.querySelector('img');
-        const rect = image.getBoundingClientRect();
-        return { code: cell.dataset.code, src: image.src, loaded: image.naturalWidth > 0,
-          width: rect.width, height: rect.height, hidden: image.style.visibility === 'hidden' };
-      }));
-      assert.equal(await page.evaluate(() => devicePixelRatio), scale);
-      assert.deepEqual(errors, []);
-      assert.equal(images.length, codes.length + 1);
-      for (const image of images) {
-        assert.equal(image.width, 16, image.code);
-        assert.equal(image.height, 12, image.code);
-        if (image.code === 'zz') {
-          assert.equal(image.hidden, true);
-        } else {
-          assert.equal(image.loaded, true, image.code);
-          assert.equal(image.hidden, false, image.code);
-          assert.ok(image.src.endsWith(image.code === 'an' ? '.png' : '.svg'), image.code);
+    for (const legacy of [false, true]) {
+      for (const scale of [1, 2, 3]) {
+        const context = await browser.newContext({ viewport: { width: 1200, height: 850 }, deviceScaleFactor: scale });
+        if (legacy) await context.addCookies([{ name: 'legacy', value: '1', url: `http://127.0.0.1:${server.address().port}` }]);
+        const page = await context.newPage();
+        const errors = [];
+        page.on('pageerror', error => errors.push(error.message));
+        await page.goto(`http://127.0.0.1:${server.address().port}/`);
+        await page.waitForFunction(() => window.flagsReady);
+        await page.waitForFunction(() => [...document.querySelectorAll('img.flag')].every(image => image.complete));
+        const images = await page.locator('[data-code]').evaluateAll(cells => cells.map(cell => {
+          const image = cell.querySelector('img');
+          const rect = image.getBoundingClientRect();
+          return { code: cell.dataset.code, src: image.src, loaded: image.naturalWidth > 0,
+            width: rect.width, height: rect.height, hidden: image.style.visibility === 'hidden' };
+        }));
+        assert.equal(await page.evaluate(() => devicePixelRatio), scale);
+        assert.deepEqual(errors, []);
+        assert.equal(images.length, codes.length + 1);
+        for (const image of images) {
+          assert.equal(image.width, 16, image.code);
+          assert.equal(image.height, 12, image.code);
+          if (image.code === 'zz') {
+            assert.equal(image.hidden, true);
+          } else {
+            assert.equal(image.loaded, true, image.code);
+            assert.equal(image.hidden, false, image.code);
+            assert.ok(image.src.endsWith(legacy || image.code === 'an' ? '.png' : '.svg'), image.code);
+          }
         }
+        if (process.env.AMULE_BROWSER_OUTPUT) {
+          fs.mkdirSync(process.env.AMULE_BROWSER_OUTPUT, { recursive: true });
+          await page.screenshot({ path: path.join(process.env.AMULE_BROWSER_OUTPUT, `flags-${legacy ? "legacy-" : ""}${scale}x.png`), fullPage: true });
+        }
+        console.log(`PASS: ${codes.length} WebUI flags (${legacy ? "PNG-only API" : "SVG API"}) at ${scale}x, SVG preference, PNG fallback and missing flag`);
+        await context.close();
       }
-      if (process.env.AMULE_BROWSER_OUTPUT) {
-        fs.mkdirSync(process.env.AMULE_BROWSER_OUTPUT, { recursive: true });
-        await page.screenshot({ path: path.join(process.env.AMULE_BROWSER_OUTPUT, `flags-${scale}x.png`), fullPage: true });
-      }
-      console.log(`PASS: ${codes.length} WebUI flags at ${scale}x, SVG preference, PNG fallback and missing flag`);
-      await context.close();
     }
   } finally {
     await browser.close();

@@ -6,7 +6,7 @@
 // generated from src/icons/ by src/icons/embed_icons.py).
 // CamuleArtProvider just glues that lookup table to the wx art-id
 // system: art ids of the form "amule:<name>" map to the entry of the
-// same name.  Examples: "amule:amule", "amule:sort_dn", "amule:flag_us".
+// same name.  Examples: "amule:amule", "amule:sort_dn", "amule:menu_pause_fill".
 // An icon with an SVG twin is rendered from it on every path; the PNG is
 // the fallback for icons without one.
 //

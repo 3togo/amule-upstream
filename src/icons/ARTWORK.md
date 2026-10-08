@@ -58,7 +58,7 @@ stars and fine detail when updating the source set or converter.
 Do not run every flag through full path conversion: expanding strokes and
 transforms inflated the flag SVG payload from about 1.65 MB of original artwork
 to 7.83 MB. Selective conversion and compact serialization keep all 251 flags
-as vectors within a 3.5 MB maintenance-test budget before compression.
+as vectors within a 3.5 MB maintenance-test budget as shared files.
 This budget concerns normalized SVG bytes, not the generated C file's hexadecimal
 notation or compressed distribution size. Keep vendored originals and license
 notices unchanged. When changing conversion, compare native wxWidgets renders
@@ -75,16 +75,16 @@ colours. Native menus retain responsibility for disabled states,
 keyboard navigation, checkmarks and platform image preferences. Country flags
 retain their original colours. The GUI caches vector bundles and a bounded set of completed bitmaps for each
 logical size/backing scale. Missing codes share the unknown bitmap without
-rescanning the embedded table. Windows icon/text cells draw HICON directly;
+rescanning the artwork directory. Windows icon/text cells draw HICON directly;
 GTK and macOS continue using logical bitmap sizes.
-The WebUI requests the embedded SVG through `/flags/{code}.svg`, with a PNG
+The WebUI requests the installed SVG through `/flags/{code}.svg`, with a PNG
 fallback for legacy artwork and older daemons. Both routes are local and cached.
 
 ## Visual checks
 
 With testing and a GUI enabled, build `IconArtworkTest` and run
 `ctest --test-dir build -R IconArtworkTest --output-on-failure`. It checks all
-bundled flags and menu symbols at 1×, 1.5× and 2×, simulated scale transitions,
+bundled flags and menu symbols at 1×, 1.5×, 2×, 3× and 4×, simulated scale transitions,
 unknown codes, repeated bitmap reuse, transparent legacy padding, menu command
 IDs/mnemonics, disabled/check states, and repeated black/white theme-colour
 changes in both SVG and forced PNG rendering. On Cocoa it also checks that the
@@ -103,31 +103,44 @@ and priority checkmarks. Moving a list between monitors should resize flags
 without blurring or shifting text. GTK may hide menu images according to the
 desktop setting; the text and command behavior must remain complete.
 
-## Embedded SVG compression
+## Shared country artwork
 
-`embed_icons.py` stores each normalized SVG as a zlib stream (level 9), along
-with its compressed and decoded lengths. PNGs remain unchanged. The shared C
-helper `amule_decode_icon_svg` decodes into a caller-owned buffer and rejects
-missing artwork, incorrect buffer lengths and damaged streams. It uses the
-existing zlib dependency; Python's standard library performs build-time
-compression. Builds without Python use the checked-in compressed table.
+Country flags are excluded from `embed_icons.py` and installed once under
+`share/amule/artwork/flags/`. The `artwork` CMake install component also carries
+`THIRDPARTY.md`; Debian packaging can put that component in the existing
+architecture-independent `amule-common` package and make consumers depend on
+its matching version. This repository does not maintain Debian control files.
+Application and menu SVGs remain embedded as ordinary, uncompressed bytes.
+No artwork decompressor or compressed generated C data remains.
 
-The GUI decodes on demand before NanoSVG parsing and menu colour replacement;
-a decode failure follows the PNG fallback. Country flags retain their cached
-vector bundles, avoiding repeated decompression while drawing list rows.
-The API decodes before constructing its response, preserving ordinary SVG
-bodies, content types, ETags and HEAD behavior. Internal storage compression
-does not imply HTTP `Content-Encoding`.
+`CountryFlagResources` is a wxBase-only file loader shared by the GUI and API.
+It accepts only lowercase two-letter codes and `unknown`, enumerates available
+PNG entries once, limits reads to 4 MiB, and reads only SVG/PNG files under the
+selected artwork directory. It does not search the current working directory.
+Resources are resolved relative to the executable first (macOS bundle Resources,
+portable `artwork/flags`, then `../share/amule` or `../../share/amule`), followed
+by the configured installation path. The build stages the same shared layout.
+Windows portable installs, AppImage and Flatpak use the normal CMake install;
+the static Linux tarball carries `artwork/flags` beside its binaries. Standalone
+macOS GUI apps each contain their own resources, while the API inside aMule.app
+shares that app's copy. Independent app bundles still duplicate artwork.
 
-For this artwork set, SVG payload decreases from 3,189,897 to 929,668 bytes
-(70.9%), and generated C decreases from 20,363,109 to about 6,663,000 bytes.
-These are source/storage measurements, not executable-size measurements.
-`IconCompressionTest` verifies every decoded SVG byte against its source and
-checks damaged streams and invalid buffer lengths without requiring a display.
+The GUI reads flags on first use, retaining vector bundles and a bounded cache
+of bitmaps. PNG-only flags, SVG parse failures and builds without SVG support
+use the original PNG with explicit `wxIMAGE_QUALITY_HIGH` scaling at every
+requested size, including fractional scales. Missing SVGs fall back to PNG;
+missing both formats yields no desktop image. Missing API files return 404.
+Restart GUI applications after replacing artwork, because their cache retains
+already-rendered files. API reads reflect replacement bytes and new ETags.
+
+Shared storage removes duplication, but does not reduce the artwork itself.
+One uncompressed directory can occupy more installed bytes than three compressed
+embedded tables. Compare installed and compressed package sizes separately;
+a single-consumer installation still receives the whole flag set.
 
 The WebUI's actual `CountryCell` component has a Playwright check at device
-pixel ratios 1 and 2, including all 252 ISO-code PNG entries (251 SVG twins),
-legacy PNG fallback and hiding unavailable flags. Run
+pixel ratios 1, 2 and 3, including all 252 ISO-code PNG entries (251 SVG twins),
+legacy PNG fallback, an older PNG-only API and hiding unavailable flags. Run
 `node unittests/browser-tests/country-flags.cjs` with Playwright installed.
 Set `AMULE_BROWSER_OUTPUT` to export screenshots. This fixture verifies the
 component and source assets; live API bytes are verified separately by the

@@ -22,7 +22,7 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
-// GUI rendering regression test. Requires a display; otherwise CTest skips it.
+// GUI rendering regression test. CI requires a display; local headless runs may skip.
 
 #include <wx/app.h>
 #include <wx/frame.h>
@@ -33,6 +33,8 @@
 #include <wx/filename.h>
 #include "CamuleArtProvider.h"
 #include "CountryFlags.h"
+#include "CountryFlagResources.h"
+#include <vector>
 #include "MenuIcons.h"
 #include "icons/icon_data.h"
 #include <iostream>
@@ -66,6 +68,7 @@ int main(int argc, char **argv)
 	wxArtProvider::Push(new CamuleArtProvider);
 	int count = 0, flags = 0, menus = 0;
 	const auto entries = amule_get_all_icons(&count);
+	const auto &resources = CountryFlagResources::Default();
 	const char *output = std::getenv("AMULE_ICON_TEST_OUTPUT");
 	if (output)
 		wxFileName::Mkdir(wxString::FromUTF8(output), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
@@ -89,8 +92,10 @@ int main(int argc, char **argv)
 		}
 
 		for (const char *code : { "an", "unknown" }) {
-			const auto *entry = amule_find_icon((std::string("flag_") + code).c_str());
-			wxMemoryInputStream stream(entry->png_data, entry->png_len);
+			std::string bytes;
+			require(resources.Read(wxString::FromUTF8(code), false, bytes),
+				"legacy flag missing");
+			wxMemoryInputStream stream(bytes.data(), bytes.size());
 			wxImage image(stream, wxBITMAP_TYPE_PNG);
 			require(image.IsOk() && image.GetSize() == wxSize(16, 12), "legacy flag not padded");
 			require(image.HasAlpha(), "legacy flag padding lacks transparency");
@@ -100,8 +105,16 @@ int main(int argc, char **argv)
 		}
 
 		CCountryFlags cache;
+		std::vector<std::string> names;
+		for (const auto &code : resources.Codes()) {
+			names.push_back("flag_" + std::string(code.utf8_str()));
+		}
 		for (int i = 0; i < count; ++i) {
-			const auto &entry = entries[i];
+			require(std::strncmp(entries[i].name, "flag_", 5) != 0, "flag still embedded");
+			names.push_back(entries[i].name);
+		}
+		for (const auto &name : names) {
+			const AMuleIconEntry entry = { name.c_str(), nullptr, 0, nullptr, 0 };
 			bool flag = std::strncmp(entry.name, "flag_", 5) == 0;
 			bool menu = std::strncmp(entry.name, "menu_", 5) == 0;
 			if (!flag && !menu)
@@ -110,7 +123,7 @@ int main(int argc, char **argv)
 				++flags;
 			else
 				++menus;
-			for (double scale : { 1.0, 1.5, 2.0 }) {
+			for (double scale : { 1.0, 1.5, 2.0, 3.0, 4.0 }) {
 				wxBitmap b;
 				// wxMSW scales DIP into drawing coordinates before GetFlag;
 				// its logical bitmap dimensions are physical pixels. GTK/macOS
@@ -147,6 +160,29 @@ int main(int argc, char **argv)
 						"PNG export failed");
 			}
 		}
+		require(flags == 253, "shared flag inventory incomplete");
+		// Force raster fallback and compare to wxImage's explicit high-quality result.
+		CCountryFlags pngCache(CountryFlagResources::ResolveRoot(), false);
+		std::string png;
+		require(resources.Read("us", false, png), "PNG fallback missing");
+		wxMemoryInputStream pngStream(png.data(), png.size());
+		wxImage source(pngStream, wxBITMAP_TYPE_PNG);
+		if (!source.HasAlpha())
+			source.InitAlpha();
+		for (double scale : { 1.0, 1.5, 2.0, 3.0, 4.0 }) {
+			const auto actual = pngCache.GetFlag("us", wxSize(16, 12), scale).ConvertToImage();
+			const wxSize pixels(wxRound(16 * scale), wxRound(12 * scale));
+			const auto expected =
+				source.GetSize() == pixels
+					? source
+					: source.Scale(pixels.x, pixels.y, wxIMAGE_QUALITY_HIGH);
+			require(actual.GetSize() == pixels && std::memcmp(actual.GetData(),
+								      expected.GetData(),
+								      pixels.x * pixels.y * 3) == 0,
+				"PNG fallback resampling differs from high quality");
+		}
+		CCountryFlags missingCache("/nonexistent-amule-artwork");
+		require(!missingCache.GetFlag("us", wxSize(16, 12), 1).IsOk(), "missing install accepted");
 		const auto cached = cache.GetFlag("us", wxSize(16, 12), 2);
 		const auto cachedAgain = cache.GetFlag("us", wxSize(16, 12), 2);
 		require(cached.GetRefData() == cachedAgain.GetRefData(),
@@ -197,7 +233,7 @@ int main(int argc, char **argv)
 	wxEntryCleanup();
 	if (!status)
 		std::cout << "PASS: " << flags << " flags and " << menus
-			  << " menu icons at 1x/1.5x/2x; fallback, bitmap cache, DPI transition, menu "
+			  << " menu icons at 1x/1.5x/2x/3x/4x; fallback, bitmap cache, DPI transition, menu "
 			     "semantics and live theme "
 			     "colour\n";
 	return status;

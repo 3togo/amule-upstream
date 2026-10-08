@@ -20,21 +20,15 @@
 
 // Country-code resolution stays in the core; this cache is shared by both GUIs.
 #include "CountryFlags.h"
-#include "icons/icon_data.h"
+#include "CountryFlagResources.h"
 
-#include <wx/artprov.h>
+#include <wx/mstream.h>
 #include <cmath>
 
-CCountryFlags::CCountryFlags()
+CCountryFlags::CCountryFlags(const wxString &root, bool preferSvg)
+: m_resources(root)
+, m_preferSvg(preferSvg)
 {
-	int count = 0;
-	const auto *entries = amule_get_all_icons(&count);
-	for (int i = 0; i < count; ++i) {
-		const wxString name = wxString::FromUTF8(entries[i].name);
-		if (name.StartsWith("flag_")) {
-			m_codes.insert(name.Mid(5));
-		}
-	}
 }
 
 wxBitmap CCountryFlags::GetFlag(const wxString &code, const wxSize &logicalSize, double contentScale)
@@ -43,17 +37,28 @@ wxBitmap CCountryFlags::GetFlag(const wxString &code, const wxSize &logicalSize,
 		return wxNullBitmap;
 	}
 	// Normalize missing codes once through a fixed set, without rescanning the
-	// embedded table or retaining arbitrary unknown strings from the network.
-	const wxString key = m_codes.count(code) ? code : wxString("unknown");
+	// artwork directory or retaining arbitrary unknown strings from the network.
+	const wxString key = m_resources.Codes().count(code) ? code : wxString("unknown");
 	auto it = m_flags.find(key);
 	if (it == m_flags.end()) {
 		FlagArtwork artwork;
-		artwork.bundle =
-			wxArtProvider::GetBitmapBundle("amule:flag_" + key, wxART_OTHER, wxSize(16, 12));
+		std::string bytes;
+#ifdef wxHAS_SVG
+		if (m_preferSvg && m_resources.Read(key, true, bytes)) {
+			artwork.bundle = wxBitmapBundle::FromSVG(bytes.c_str(), wxSize(16, 12));
+		}
+#endif
+		if (!artwork.bundle.IsOk() && m_resources.Read(key, false, bytes)) {
+			wxMemoryInputStream stream(bytes.data(), bytes.size());
+			artwork.fallback.LoadFile(stream, wxBITMAP_TYPE_PNG);
+			if (artwork.fallback.IsOk() && !artwork.fallback.HasAlpha()) {
+				artwork.fallback.InitAlpha();
+			}
+		}
 		it = m_flags.emplace(key, artwork).first;
 	}
 	auto &artwork = it->second;
-	if (!artwork.bundle.IsOk()) {
+	if (!artwork.bundle.IsOk() && !artwork.fallback.IsOk()) {
 		return wxNullBitmap;
 	}
 	const auto sizeKey = std::make_tuple(logicalSize.x, logicalSize.y, contentScale);
@@ -62,7 +67,19 @@ wxBitmap CCountryFlags::GetFlag(const wxString &code, const wxSize &logicalSize,
 		return cached->second;
 	}
 	const wxSize pixels(wxRound(logicalSize.x * contentScale), wxRound(logicalSize.y * contentScale));
-	wxBitmap bitmap = artwork.bundle.GetBitmap(pixels);
+	if (pixels.x <= 0 || pixels.y <= 0) {
+		return wxNullBitmap;
+	}
+	wxBitmap bitmap;
+	if (artwork.bundle.IsOk()) {
+		bitmap = artwork.bundle.GetBitmap(pixels);
+	} else {
+		const wxImage image =
+			artwork.fallback.GetSize() == pixels
+				? artwork.fallback
+				: artwork.fallback.Scale(pixels.x, pixels.y, wxIMAGE_QUALITY_HIGH);
+		bitmap = wxBitmap(image);
+	}
 	if (bitmap.IsOk()) {
 		// SetScaleFactor may copy pixel data. Do it only for a new scale, then
 		// share the completed bitmap on subsequent list-cell draws.
