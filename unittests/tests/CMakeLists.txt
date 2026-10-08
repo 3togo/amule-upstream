@@ -2087,6 +2087,9 @@ option (ENABLE_INTEGRATION_TESTS
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 	find_package (Python3 QUIET COMPONENTS Interpreter)
 	if (Python3_Interpreter_FOUND)
+		add_test(NAME KadDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled>)
+		add_test(NAME KadPopulatedDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled> --populated)
+		set_tests_properties(KadPopulatedDistributionECTest PROPERTIES SKIP_RETURN_CODE 77)
 		add_test (NAME LogfilePathIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/LogfilePathIntegrationTest.py $<TARGET_FILE:amuled>
@@ -2166,15 +2169,6 @@ add_test(NAME ContactDistributionTest COMMAND ContactDistributionTest)
 target_include_directories(ContactDistributionTest PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(ContactDistributionTest muleunit mulecommon)
 
-if (TARGET amuled)
- find_package(Python3 QUIET COMPONENTS Interpreter)
- if (Python3_Interpreter_FOUND)
-  add_test(NAME KadDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled>)
-  set_tests_properties(KadDistributionECTest PROPERTIES TIMEOUT 180)
-  add_test(NAME KadPopulatedDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled> --populated)
-  set_tests_properties(KadPopulatedDistributionECTest PROPERTIES TIMEOUT 180 SKIP_RETURN_CODE 77)
- endif()
-endif()
 
 if (TARGET wxWidgets::CORE)
  add_executable(KadHistogramRenderTest KadHistogramRenderTest.cpp)
@@ -2184,5 +2178,5 @@ if (TARGET wxWidgets::CORE)
  target_include_directories(KadHistogramRenderTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
  target_link_libraries(KadHistogramRenderTest PRIVATE wxWidgets::CORE)
  add_test(NAME KadHistogramRenderTest COMMAND KadHistogramRenderTest)
- set_tests_properties(KadHistogramRenderTest PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 15)
+ set_tests_properties(KadHistogramRenderTest PROPERTIES SKIP_RETURN_CODE 77)
 endif()

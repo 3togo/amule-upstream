@@ -1115,9 +1115,8 @@ ContactDistribution CRoutingZone::GetContactDistribution() const
 	GetAllEntries(&contacts);
 	ContactDistributionBuilder builder;
 	for (const auto *contact : contacts) {
-		builder.Add(contact->GetClientID().Get32BitChunk(0),
-			contact->GetIPAddress(),
-			contact->IsIPVerified());
+		builder.Add(contact->GetClientID().Get32BitChunk(0), contact->IsIPVerified());
 	}
-	return builder.Get();
+	return builder.Get(
+		CRoutingBin::GetGlobalSubnetCount(), CKademlia::GetPrefs()->GetKadID().Get32BitChunk(0));
 }

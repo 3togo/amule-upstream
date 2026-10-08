@@ -1236,8 +1236,7 @@ CStatistics::CStatistics(CRemoteConnect &conn)
 , m_graphRunningAvgUp(thePrefs::GetStatsAverageMinutes() * 60 * 1000, true)
 , m_graphRunningAvgKad(thePrefs::GetStatsAverageMinutes() * 60 * 1000, true)
 {
-	s_kadDistribution = {};
-	s_kadDistributionAvailable = false;
+	s_kadDistribution.Reset();
 	s_start_time = GetTickCount64();
 	average_minutes = thePrefs::GetStatsAverageMinutes();
 
@@ -1284,7 +1283,7 @@ void CStatistics::AddHistoryRecord(const HR &hr, double minSpacing)
 	}
 }
 
-void CStatistics::UpdateStats(const CECPacket *stats)
+void CStatistics::UpdateStats(const CECPacket *stats, bool distributionRequested)
 {
 	s_statData[sdUpload] = stats->GetTagByNameSafe(EC_TAG_STATS_UL_SPEED)->GetInt();
 	s_statData[sdUpOverhead] = stats->GetTagByNameSafe(EC_TAG_STATS_UP_OVERHEAD)->GetInt();
@@ -1304,12 +1303,11 @@ void CStatistics::UpdateStats(const CECPacket *stats)
 	s_statData[sdKadIndexedLoad] = stats->GetTagByNameSafe(EC_TAG_STATS_KAD_INDEXED_LOAD)->GetInt();
 	s_statData[sdKadIPAddress] = stats->GetTagByNameSafe(EC_TAG_STATS_KAD_IP_ADDRESS)->GetInt();
 	s_statData[sdKadNodes] = stats->GetTagByNameSafe(EC_TAG_STATS_KAD_NODES)->GetInt();
-	s_kadDistribution = {};
 	const auto *distributionTag = stats->GetTagByName(EC_TAG_STATS_KAD_DISTRIBUTION);
-	s_kadDistributionAvailable =
-		distributionTag && distributionTag->IsCustom() &&
-		Kademlia::ContactDistribution::Decode(
-			distributionTag->GetTagData(), distributionTag->GetTagDataLen(), s_kadDistribution);
+	const bool customDistribution = distributionTag && distributionTag->IsCustom();
+	s_kadDistribution.Update(distributionRequested,
+		customDistribution ? distributionTag->GetTagData() : nullptr,
+		customDistribution ? distributionTag->GetTagDataLen() : 0);
 	s_statData[sdBuddyStatus] = stats->GetTagByNameSafe(EC_TAG_STATS_BUDDY_STATUS)->GetInt();
 	s_statData[sdBuddyIP] = stats->GetTagByNameSafe(EC_TAG_STATS_BUDDY_IP)->GetInt();
 	s_statData[sdBuddyPort] = stats->GetTagByNameSafe(EC_TAG_STATS_BUDDY_PORT)->GetInt();
@@ -1362,19 +1360,24 @@ uint64 CStatistics::GetUptimeSeconds()
 
 // File_checked_for_headers
 
-bool CStatistics::GetKadContactDistribution(Kademlia::ContactDistribution &distribution)
+Kademlia::ContactDistributionState CStatistics::GetKadContactDistribution(
+	Kademlia::ContactDistribution &distribution)
 {
 #ifdef CLIENT_GUI
-	distribution = s_kadDistribution;
-	return s_kadDistributionAvailable;
+	return s_kadDistribution.Get(distribution);
 #else
 	distribution = {};
 	if (Kademlia::CKademlia::IsRunning()) {
 		distribution = Kademlia::CKademlia::GetRoutingZone()->GetContactDistribution();
 	}
-	return true;
+	return Kademlia::ContactDistributionState::Available;
 #endif
 }
 
-Kademlia::ContactDistribution CStatistics::s_kadDistribution;
-bool CStatistics::s_kadDistributionAvailable = false;
+#ifdef CLIENT_GUI
+Kademlia::ContactDistributionCache CStatistics::s_kadDistribution;
+void CStatistics::ResetKadContactDistribution()
+{
+	s_kadDistribution.Reset();
+}
+#endif

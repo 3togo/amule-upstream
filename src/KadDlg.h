@@ -52,6 +52,8 @@ public:
 	// current state. Called from CamuleDlg::ShowConnectionState() alongside the ED2K
 	// equivalent, and once from Init() for the initial paint.
 	void UpdateConnectButton();
+	void UpdateContactDistribution();
+	void ShowContactDistribution();
 
 private:
 	COScopeCtrl *m_kad_scope;

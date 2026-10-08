@@ -28,15 +28,23 @@
 #include <cstdint>
 #include <cstddef>
 #include <limits>
-#include <set>
+#include <vector>
 namespace Kademlia
 {
+enum class ContactDistributionState
+{
+	Loading,
+	Available,
+	Unsupported
+};
 struct ContactDistribution
 {
-	static constexpr size_t BinCount = 64; // six most significant KadID bits
+	static constexpr size_t BinCount = 4096; // twelve most significant KadID bits
 	std::array<uint32_t, BinCount> contacts{};
 	std::array<uint32_t, BinCount> verified{};
 	uint32_t subnets = 0;
+	uint32_t localID = 0; // most significant word of the local KadID
+	bool hasLocalID = false;
 	uint32_t Total() const
 	{
 		uint32_t sum = 0;
@@ -53,54 +61,74 @@ struct ContactDistribution
 		}
 		return sum;
 	}
-	// EC payload v1: version byte, 64 (contacts, verified) big-endian uint32
-	// pairs, then number of distinct /24s. No native struct layout on the wire.
-	using Wire = std::array<uint8_t, 1 + BinCount * 8 + 4>;
+	// EC v2: flags, local ID word, subnet count, entry count, then sparse
+	// (uint16 bin, uint32 contacts, uint32 verified) entries, all big endian.
+	using Wire = std::vector<uint8_t>;
 	Wire Encode() const
 	{
-		Wire wire{};
-		wire[0] = 1;
-		size_t offset = 1;
-		auto put = [&](uint32_t n) {
-			for (int shift = 24; shift >= 0; shift -= 8) {
-				wire[offset++] = static_cast<uint8_t>(n >> shift);
+		Wire wire{ 2, static_cast<uint8_t>(hasLocalID) };
+		auto put = [&](uint32_t n, int bytes) {
+			for (int shift = (bytes - 1) * 8; shift >= 0; shift -= 8) {
+				wire.push_back(static_cast<uint8_t>(n >> shift));
 			}
 		};
+		put(localID, 4);
+		put(subnets, 4);
+		size_t entries = 0;
 		for (size_t i = 0; i < BinCount; ++i) {
-			put(contacts[i]);
-			put(verified[i]);
+			if (contacts[i] || verified[i]) {
+				++entries;
+			}
 		}
-		put(subnets);
+		wire.reserve(12 + entries * 10);
+		put(entries, 2);
+		for (size_t i = 0; i < BinCount; ++i) {
+			if (contacts[i] || verified[i]) {
+				put(i, 2);
+				put(contacts[i], 4);
+				put(verified[i], 4);
+			}
+		}
 		return wire;
 	}
 	static bool Decode(const void *data, size_t size, ContactDistribution &out)
 	{
-		if (!data || size != Wire{}.size()) {
+		if (!data || size < 12) {
 			return false;
 		}
 		const auto *wire = static_cast<const uint8_t *>(data);
-		if (wire[0] != 1) {
+		if (wire[0] != 2 || wire[1] > 1) {
 			return false;
 		}
 		ContactDistribution decoded;
-		size_t offset = 1;
-		uint64_t total = 0;
-		auto get = [&]() {
+		decoded.hasLocalID = wire[1] != 0;
+		size_t offset = 2;
+		auto get = [&](int bytes) {
 			uint32_t n = 0;
-			for (int i = 0; i < 4; ++i) {
+			for (int i = 0; i < bytes; ++i) {
 				n = (n << 8) | wire[offset++];
 			}
 			return n;
 		};
-		for (size_t i = 0; i < BinCount; ++i) {
-			decoded.contacts[i] = get();
-			decoded.verified[i] = get();
-			if (decoded.verified[i] > decoded.contacts[i]) {
+		decoded.localID = get(4);
+		decoded.subnets = get(4);
+		const size_t entries = get(2);
+		if (entries > BinCount || size != 12 + entries * 10) {
+			return false;
+		}
+		uint64_t total = 0;
+		size_t previous = 0;
+		for (size_t i = 0; i < entries; ++i) {
+			const size_t bin = get(2);
+			const uint32_t contacts = get(4), verified = get(4);
+			if (bin >= BinCount || (i && bin <= previous) || !contacts || verified > contacts) {
 				return false;
 			}
-			total += decoded.contacts[i];
+			previous = bin;
+			decoded.contacts[bin] = contacts;
+			decoded.verified[bin] = verified;
+			total += contacts;
 		}
-		decoded.subnets = get();
 		if (total > std::numeric_limits<uint32_t>::max() || decoded.subnets > total) {
 			return false;
 		}
@@ -108,30 +136,58 @@ struct ContactDistribution
 		return true;
 	}
 };
+// Remote snapshot state follows the request, not the mere absence of a reply tag.
+class ContactDistributionCache
+{
+public:
+	void Update(bool requested, const void *data, size_t size)
+	{
+		if (!requested) {
+			return;
+		}
+		m_data = {};
+		m_state = ContactDistribution::Decode(data, size, m_data)
+				  ? ContactDistributionState::Available
+				  : ContactDistributionState::Unsupported;
+	}
+	void Reset()
+	{
+		m_data = {};
+		m_state = ContactDistributionState::Loading;
+	}
+	ContactDistributionState Get(ContactDistribution &out) const
+	{
+		out = m_data;
+		return m_state;
+	}
+
+private:
+	ContactDistribution m_data;
+	ContactDistributionState m_state = ContactDistributionState::Loading;
+};
+
 class ContactDistributionBuilder
 {
 public:
-	void Add(uint32_t mostSignificantIDWord, uint32_t kadIP, bool verified)
+	void Add(uint32_t mostSignificantIDWord, bool verified)
 	{
-		const size_t bin = mostSignificantIDWord >> 26;
+		const size_t bin = mostSignificantIDWord >> 20;
 		++m_data.contacts[bin];
 		if (verified) {
 			++m_data.verified[bin];
 		}
-		// Kad addresses are host order: mask the last octet, independent of the
-		// host's memory byte order. Each IP prefix contributes one distinct /24.
-		m_subnets.insert(kadIP & 0xffffff00);
 	}
-	ContactDistribution Get() const
+	ContactDistribution Get(uint32_t subnets, uint32_t localID) const
 	{
 		auto data = m_data;
-		data.subnets = m_subnets.size();
+		data.subnets = subnets;
+		data.localID = localID;
+		data.hasLocalID = true;
 		return data;
 	}
 
 private:
 	ContactDistribution m_data;
-	std::set<uint32_t> m_subnets;
 };
 } // namespace Kademlia
 #endif

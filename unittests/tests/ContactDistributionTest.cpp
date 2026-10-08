@@ -23,80 +23,99 @@
 //
 
 #include <muleunit/test.h>
+#include <utility>
 #include <kademlia/utils/ContactDistribution.h>
 using namespace muleunit;
 using Kademlia::ContactDistribution;
 using Kademlia::ContactDistributionBuilder;
 DECLARE_SIMPLE(ContactDistribution)
-TEST(ContactDistribution, PrefixBoundariesAndSubnetDeduplication)
+TEST(ContactDistribution, PrefixBoundariesAndLocalMarker)
 {
 	ContactDistributionBuilder builder;
-	builder.Add(0, 0x01020304, false);
-	builder.Add(0x03ffffff, 0x010203ff, true);
-	builder.Add(0x04000000, 0x01020401, true);
-	builder.Add(0xffffffff, 0x09080706, false);
-	auto data = builder.Get();
+	builder.Add(0, false);
+	builder.Add(0x000fffff, true);
+	builder.Add(0x00100000, true);
+	builder.Add(0xffffffff, false);
+	auto data = builder.Get(3, 0x12345678);
 	ASSERT_EQUALS(2u, data.contacts[0]);
 	ASSERT_EQUALS(1u, data.contacts[1]);
-	ASSERT_EQUALS(1u, data.contacts[63]);
+	ASSERT_EQUALS(1u, data.contacts[4095]);
 	ASSERT_EQUALS(4u, data.Total());
 	ASSERT_EQUALS(2u, data.Verified());
 	ASSERT_EQUALS(3u, data.subnets);
+	ASSERT_TRUE(data.hasLocalID);
+	ASSERT_EQUALS(0x12345678u, data.localID);
 }
-TEST(ContactDistribution, PortableWireAndSnapshot)
+TEST(ContactDistribution, PortableSparseWireAndSnapshot)
 {
 	ContactDistributionBuilder builder;
-	builder.Add(0, 0x01020304, true);
-	auto data = builder.Get();
+	builder.Add(0, true);
+	builder.Add(0xffffffff, false);
+	auto data = builder.Get(2, 0x12345678);
 	const auto wire = data.Encode();
-	ASSERT_EQUALS(size_t(517), wire.size());
-	ASSERT_EQUALS(uint8_t(1), wire[0]);
-	ASSERT_EQUALS(uint8_t(0), wire[1]);
-	ASSERT_EQUALS(uint8_t(1), wire[4]);
-	ASSERT_EQUALS(uint8_t(1), wire[8]);
-	ASSERT_EQUALS(uint8_t(1), wire[516]);
+	ASSERT_EQUALS(size_t(32), wire.size());
+	ASSERT_EQUALS(uint8_t(2), wire[0]);
+	ASSERT_EQUALS(uint8_t(1), wire[1]);
+	ASSERT_EQUALS(uint8_t(0x12), wire[2]);
+	ASSERT_EQUALS(uint8_t(0x78), wire[5]);
+	ASSERT_EQUALS(uint8_t(2), wire[9]);
+	ASSERT_EQUALS(uint8_t(2), wire[11]);
+	ASSERT_EQUALS(uint8_t(1), wire[17]);
+	ASSERT_EQUALS(uint8_t(1), wire[21]);
+	ASSERT_EQUALS(uint8_t(0x0f), wire[22]);
+	ASSERT_EQUALS(uint8_t(0xff), wire[23]);
 	ContactDistribution decoded;
 	ASSERT_TRUE(ContactDistribution::Decode(wire.data(), wire.size(), decoded));
-	ASSERT_EQUALS(1u, decoded.Total());
-	builder.Add(0xffffffff, 0x01020401, false);
-	ASSERT_EQUALS(1u, data.Total());
-	ASSERT_EQUALS(2u, builder.Get().Total());
+	ASSERT_TRUE(data.contacts == decoded.contacts);
+	ASSERT_TRUE(data.verified == decoded.verified);
+	ASSERT_EQUALS(data.localID, decoded.localID);
+	ASSERT_TRUE(decoded.hasLocalID);
+	builder.Add(0xffffffff, false);
+	ASSERT_EQUALS(2u, data.Total());
+	ASSERT_EQUALS(3u, builder.Get(2, 0).Total());
 }
 TEST(ContactDistribution, RejectMalformedWithoutOverwritingSnapshot)
 {
 	ContactDistribution data;
 	data.contacts[0] = 1;
 	data.verified[0] = 1;
+	data.contacts[4095] = 1;
 	data.subnets = 1;
-	auto wire = data.Encode();
+	auto original = data.Encode();
 	ContactDistribution out = data;
-	ASSERT_FALSE(ContactDistribution::Decode(nullptr, wire.size(), out));
-	ASSERT_FALSE(ContactDistribution::Decode(wire.data(), 516, out));
-	wire[0] = 2;
-	ASSERT_FALSE(ContactDistribution::Decode(wire.data(), wire.size(), out));
-	wire[0] = 1;
-	wire[8] = 2;
-	ASSERT_FALSE(ContactDistribution::Decode(wire.data(), wire.size(), out));
-	wire = data.Encode();
-	wire[516] = 2;
-	ASSERT_FALSE(ContactDistribution::Decode(wire.data(), wire.size(), out));
-	ASSERT_EQUALS(1u, out.Total());
+	ASSERT_FALSE(ContactDistribution::Decode(nullptr, original.size(), out));
+	ASSERT_FALSE(ContactDistribution::Decode(original.data(), original.size() - 1, out));
+	for (const auto change : { std::pair<size_t, uint8_t>{ 0, 3 },
+		     { 1, 2 },
+		     { 9, 3 },
+		     { 11, 3 },
+		     { 12, 0x10 },
+		     { 21, 2 },
+		     { 17, 0 } }) {
+		auto wire = original;
+		wire[change.first] = change.second;
+		ASSERT_FALSE(ContactDistribution::Decode(wire.data(), wire.size(), out));
+	}
+	auto duplicate = original;
+	duplicate[22] = duplicate[23] = 0;
+	ASSERT_FALSE(ContactDistribution::Decode(duplicate.data(), duplicate.size(), out));
+	ASSERT_EQUALS(2u, out.Total());
 	ContactDistribution empty;
-	wire = empty.Encode();
+	auto wire = empty.Encode();
+	ASSERT_EQUALS(size_t(12), wire.size());
 	ASSERT_TRUE(ContactDistribution::Decode(wire.data(), wire.size(), out));
 	ASSERT_EQUALS(0u, out.Total());
+	ASSERT_FALSE(out.hasLocalID);
 }
-
 TEST(ContactDistribution, LargeSnapshotAndOverflowPayload)
 {
 	ContactDistributionBuilder builder;
 	for (uint32_t i = 0; i < 100000; ++i) {
-		builder.Add((i % 64) << 26, 0x01000000 + i, i % 2 == 0);
+		builder.Add((i % 4096) << 20, i % 2 == 0);
 	}
-	const auto snapshot = builder.Get();
+	const auto snapshot = builder.Get(391, 0);
 	ASSERT_EQUALS(100000u, snapshot.Total());
 	ASSERT_EQUALS(50000u, snapshot.Verified());
-	ASSERT_EQUALS(391u, snapshot.subnets);
 	const auto wire = snapshot.Encode();
 	ContactDistribution decoded;
 	ASSERT_TRUE(ContactDistribution::Decode(wire.data(), wire.size(), decoded));
@@ -108,4 +127,37 @@ TEST(ContactDistribution, LargeSnapshotAndOverflowPayload)
 	const auto invalid = overflow.Encode();
 	ASSERT_FALSE(ContactDistribution::Decode(invalid.data(), invalid.size(), decoded));
 	ASSERT_EQUALS(100000u, decoded.Total());
+	// A crowded single bin retains full 32-bit counts, without 16-bit truncation.
+	ContactDistribution crowded;
+	crowded.contacts[2048] = 100000;
+	const auto crowdedWire = crowded.Encode();
+	ASSERT_TRUE(ContactDistribution::Decode(crowdedWire.data(), crowdedWire.size(), decoded));
+	ASSERT_EQUALS(100000u, decoded.contacts[2048]);
+}
+
+TEST(ContactDistribution, RemoteLoadingAndRequestedReplies)
+{
+	Kademlia::ContactDistributionCache cache;
+	ContactDistribution snapshot;
+	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Loading);
+	cache.Update(false, nullptr, 0); // a hidden-panel stats reply, without a tag
+	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Loading);
+	cache.Update(true, nullptr, 0); // older core answered an opted-in request
+	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Unsupported);
+	ContactDistribution data;
+	data.contacts[123] = 12;
+	auto wire = data.Encode();
+	cache.Update(true, wire.data(), wire.size());
+	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Available);
+	ASSERT_EQUALS(12u, snapshot.contacts[123]);
+	cache.Update(false, nullptr, 0); // hiding does not clear the snapshot
+	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Available);
+	ASSERT_EQUALS(12u, snapshot.Total());
+	cache.Reset(); // reconnect to a different core
+	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Loading);
+	ASSERT_EQUALS(0u, snapshot.Total());
+	wire[0] = 99;
+	cache.Update(true, wire.data(), wire.size());
+	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Unsupported);
+	ASSERT_EQUALS(0u, snapshot.Total());
 }

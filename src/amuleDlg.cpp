@@ -415,6 +415,10 @@ CamuleDlg::CamuleDlg(wxWindow *pParent, const wxString &title, wxPoint where, wx
 	wxNotebook *logs_notebook = CastChild(ID_SRVLOG_NOTEBOOK, wxNotebook);
 	wxNotebook *networks_notebook = CastChild(ID_NETNOTEBOOK, wxNotebook);
 
+	networks_notebook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED, [this](wxBookCtrlEvent &event) {
+		event.Skip();
+		m_kademliawnd->CallAfter(&CKadDlg::ShowContactDistribution);
+	});
 	wxASSERT(networks_notebook->GetPageCount() == 2);
 
 	// Capture the network-conditional log tabs by the control each hosts, not by index --
@@ -504,6 +508,7 @@ void CamuleDlg::SetActiveDialog(DialogType type, wxWindow *dlg)
 	// show its previous figure -- from whenever it was last on screen, which can be a long
 	// time -- until the next tick.
 	UpdateFreeSpaceLabels();
+	m_kademliawnd->ShowContactDistribution();
 }
 
 void CamuleDlg::ShowSearchWindow()

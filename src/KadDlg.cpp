@@ -69,8 +69,7 @@ void CKadDlg::Init()
 	SetGraphColors();
 
 	UpdateConnectButton();
-	m_contactHistogram = new CKadContactHistogram(this);
-	GetSizer()->Insert(2, m_contactHistogram, 0, wxEXPAND | wxALL, 5);
+	m_contactHistogram = CastChild("kadContactDistribution", CKadContactHistogram);
 	m_distributionTimer.SetOwner(this);
 	Bind(
 		wxEVT_TIMER,
@@ -78,13 +77,39 @@ void CKadDlg::Init()
 			if (!IsShownOnScreen()) {
 				return;
 			}
-			Kademlia::ContactDistribution distribution;
-			const bool available = CStatistics::GetKadContactDistribution(distribution);
-			m_contactHistogram->SetDistribution(distribution, available);
+			UpdateContactDistribution();
 		},
 		m_distributionTimer.GetId());
+	Bind(wxEVT_SHOW, [this](wxShowEvent &event) {
+		event.Skip();
+		if (event.IsShown()) {
+			CallAfter(&CKadDlg::ShowContactDistribution);
+		}
+	});
+	UpdateContactDistribution();
 	m_distributionTimer.Start(1000);
 	Layout();
+}
+
+void CKadDlg::ShowContactDistribution()
+{
+	if (!IsShownOnScreen()) {
+		return;
+	}
+	UpdateContactDistribution();
+#ifdef CLIENT_GUI
+	theApp->RequestKadContactDistribution();
+#endif
+}
+
+void CKadDlg::UpdateContactDistribution()
+{
+	if (!m_contactHistogram) {
+		return;
+	}
+	Kademlia::ContactDistribution distribution;
+	const auto state = CStatistics::GetKadContactDistribution(distribution);
+	m_contactHistogram->SetDistribution(distribution, state);
 }
 
 void CKadDlg::UpdateConnectButton()

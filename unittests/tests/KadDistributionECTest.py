@@ -77,27 +77,33 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
 
                 assert C['EC_TAG_STATS_KAD_DISTRIBUTION'] not in ec.call(C['EC_OP_STAT_REQ'])[1]
 
-                def distribution():
+                def distribution(running=False):
                     op, tags = ec.call(C['EC_OP_STAT_REQ'], [tag(C['EC_TAG_STATS_KAD_DISTRIBUTION'])])
                     assert op == C['EC_OP_STATS'], op
                     wire = tags[C['EC_TAG_STATS_KAD_DISTRIBUTION']][0]
-                    assert len(wire) == 517 and wire[0] == 1
-                    values = struct.unpack('!129I', wire[1:])
-                    return values[0:128:2], values[1:128:2], values[128]
+                    assert len(wire) >= 12 and wire[0] == 2
+                    flags, local_id, subnets, entries = struct.unpack('!BIIH', wire[1:12])
+                    assert flags == int(running) and len(wire) == 12 + entries * 10
+                    bins, verified = [0] * 4096, [0] * 4096
+                    for offset in range(12, len(wire), 10):
+                        index, count, checked = struct.unpack('!HII', wire[offset:offset + 10])
+                        assert index < 4096 and count and checked <= count
+                        bins[index], verified[index] = count, checked
+                    return bins, verified, subnets
                 assert sum(distribution()[0]) == 0
                 reply = ec.call(C['EC_OP_KAD_START'])
                 assert reply[0] == C['EC_OP_NOOP'], reply
-                bins, verified, subnets = distribution()
+                bins, verified, subnets = distribution(True)
                 expected = 1 if peer else 0
                 assert sum(bins) == expected, bins
                 assert sum(verified) == expected, verified
                 assert subnets == expected, subnets
                 if peer:
-                    assert bins[40] == 1 and verified[40] == 1, (bins, verified)
+                    assert bins[2560] == 1 and verified[2560] == 1, (bins, verified)
                 # A fresh authenticated client must receive the same requested snapshot.
                 ec.sock.close()
                 ec = connect_daemon(proc, port)
-                assert distribution() == (bins, verified, subnets)
+                assert distribution(True) == (bins, verified, subnets)
                 assert C['EC_TAG_STATS_KAD_DISTRIBUTION'] not in ec.call(C['EC_OP_STAT_REQ'])[1]
                 assert ec.call(C['EC_OP_KAD_STOP'])[0] == C['EC_OP_NOOP']
                 assert sum(distribution()[0]) == 0

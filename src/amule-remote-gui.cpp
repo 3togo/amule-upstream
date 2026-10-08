@@ -366,7 +366,9 @@ void CamuleRemoteGuiApp::OnPollTimer(wxTimerEvent &)
 		if (amuledlg->m_kademliawnd->IsShownOnScreen()) {
 			stats_req.AddTag(CECEmptyTag(EC_TAG_STATS_KAD_DISTRIBUTION));
 		}
-		m_connect->SendRequest(&m_stats_updater, &stats_req);
+		m_connect->SendRequest(amuledlg->m_kademliawnd->IsShownOnScreen() ? &m_kadDistributionUpdater
+										  : &m_stats_updater,
+			&stats_req);
 		request_step++;
 		break;
 	}
@@ -698,6 +700,17 @@ bool CamuleRemoteGuiApp::ShowConnectionDialog()
 	}
 }
 
+void CamuleRemoteGuiApp::RequestKadContactDistribution()
+{
+	if (!m_connect || !poll_timer || !poll_timer->IsRunning() || !amuledlg ||
+		!amuledlg->m_kademliawnd->IsShownOnScreen() || m_connect->RequestFifoFull()) {
+		return;
+	}
+	CECPacket request(EC_OP_STAT_REQ, EC_DETAIL_INC_UPDATE);
+	request.AddTag(CECEmptyTag(EC_TAG_STATS_KAD_DISTRIBUTION));
+	m_connect->SendRequest(&m_kadDistributionUpdater, &request);
+}
+
 void CamuleRemoteGuiApp::ResetEcConnect()
 {
 	// Tear down the busted EC client and recreate a fresh one: the CRemoteConnect's
@@ -723,6 +736,10 @@ void CamuleRemoteGuiApp::ResetEcConnect()
 
 void CamuleRemoteGuiApp::OnECConnection(wxEvent &event)
 {
+	CStatistics::ResetKadContactDistribution();
+	if (amuledlg) {
+		amuledlg->m_kademliawnd->UpdateContactDistribution();
+	}
 	// Connect attempt resolved one way or the other -- kill the watchdog.
 	if (connect_timeout_timer) {
 		connect_timeout_timer->Stop();
@@ -4261,9 +4278,12 @@ void CSearchListRem::RemoveResults(wxUIntPtr nSearchID)
 
 void CStatsUpdaterRem::HandlePacket(const CECPacket *packet)
 {
-	theStats::UpdateStats(packet);
+	theStats::UpdateStats(packet, m_distributionRequested);
 	if (theApp->amuledlg) {
 		theApp->amuledlg->ShowTransferRate();
+		if (m_distributionRequested) {
+			theApp->amuledlg->m_kademliawnd->UpdateContactDistribution();
+		}
 	}
 	theApp->ShowUserCount(); // maybe there should be a check if a usercount changed ?
 	// handle the connstate tag which is included in the stats packet
