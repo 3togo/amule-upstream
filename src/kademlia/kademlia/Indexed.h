@@ -39,11 +39,15 @@ there client on the eMule forum..
 #ifndef INDEXED_H
 #define INDEXED_H
 
+#include <functional>
+#include <vector>
+
 #include "SearchManager.h"
 #include "Entry.h"
 #include "../utils/BackgroundLoad.h"
 
 class wxArrayString;
+class CFile;
 
 typedef std::list<Kademlia::CEntry *> CKadEntryPtrList;
 
@@ -166,6 +170,20 @@ private:
 	LoadState m_loadState;
 	bool m_worker;
 	CUInt128 m_kadID;
+	enum class IndexPart
+	{
+		Load,
+		Keyword,
+		Source
+	};
+	std::vector<wxString> m_failedFiles;
+	std::vector<wxString> m_preservedFiles;
+	const wxString &PathOf(IndexPart part) const;
+	void ClearPart(IndexPart part);
+	void ReadLoadFile(const std::atomic<bool> &cancel);
+	void ReadKeywordFile(const std::atomic<bool> &cancel);
+	void ReadSourceFile(const std::atomic<bool> &cancel);
+	void SaveIndexFile(const wxString &path, const std::function<void(CFile &)> &write);
 	void Clear();
 	void WriteFile();
 	time_t m_lastClean;

@@ -139,7 +139,7 @@ TEST(IndexedLoad, SourcesAndLoadEntriesAreAdopted)
 	ASSERT_EQUALS(1u, index.m_totalIndexSource);
 	ASSERT_EQUALS(1u, index.m_totalIndexLoad);
 }
-TEST(IndexedLoad, TruncatedIndexIsPreservedAfterFailure)
+TEST(IndexedLoad, TruncatedIndexIsQuarantinedAndReplaced)
 {
 	TempIndex temp;
 	{
@@ -148,14 +148,18 @@ TEST(IndexedLoad, TruncatedIndexIsPreservedAfterFailure)
 	}
 	{
 		CIndexed index(temp.path, CUInt128(1u));
-		ASSERT_FALSE(WaitForLoad(index));
-		ASSERT_TRUE(index.GetLoadState() == CIndexed::LoadState::Failed);
-		ASSERT_FALSE(index.AddLoad(CUInt128(2u), time(nullptr) + 3600));
+		ASSERT_TRUE(WaitForLoad(index));
+		ASSERT_TRUE(index.IsReady());
+		ASSERT_TRUE(index.AddLoad(CUInt128(2u), time(nullptr) + 3600));
 		ASSERT_EQUALS(0u, index.m_totalIndexKeyword);
 	}
-	CFile file(temp.path + "key_index.dat");
+	CFile file(temp.path + "key_index.dat.bad");
 	ASSERT_EQUALS(uint64_t(4), file.GetLength());
 	ASSERT_EQUALS(4u, file.ReadUInt32());
+	CIndexed reloaded(temp.path, CUInt128(1u));
+	ASSERT_TRUE(WaitForLoad(reloaded));
+	ASSERT_EQUALS(1u, reloaded.m_totalIndexLoad);
+	ASSERT_EQUALS(0u, reloaded.m_totalIndexKeyword);
 }
 TEST(IndexedLoad, StopBeforeAdoptionDoesNotRewriteFiles)
 {
@@ -189,7 +193,7 @@ TEST(IndexedLoad, WrongIdentitySkipsKeywordIndex)
 	ASSERT_EQUALS(0u, index.m_totalIndexKeyword);
 }
 
-TEST(IndexedLoad, UnsupportedVersionIsPreserved)
+TEST(IndexedLoad, UnsupportedVersionIsQuarantined)
 {
 	TempIndex temp;
 	{
@@ -198,10 +202,10 @@ TEST(IndexedLoad, UnsupportedVersionIsPreserved)
 	}
 	{
 		CIndexed index(temp.path, CUInt128(1u));
-		ASSERT_FALSE(WaitForLoad(index));
-		ASSERT_TRUE(index.GetLoadState() == CIndexed::LoadState::Failed);
+		ASSERT_TRUE(WaitForLoad(index));
+		ASSERT_TRUE(index.IsReady());
 	}
-	CFile file(temp.path + "src_index.dat");
+	CFile file(temp.path + "src_index.dat.bad");
 	ASSERT_EQUALS(uint64_t(4), file.GetLength());
 	ASSERT_EQUALS(99u, file.ReadUInt32());
 }
@@ -228,10 +232,10 @@ TEST(IndexedLoad, PartiallyDecodedKeywordIsDiscarded)
 	}
 	{
 		CIndexed index(temp.path, CUInt128(1u));
-		ASSERT_FALSE(WaitForLoad(index));
+		ASSERT_TRUE(WaitForLoad(index));
 		ASSERT_EQUALS(0u, index.m_totalIndexKeyword);
 	}
-	CFile file(temp.path + "key_index.dat");
+	CFile file(temp.path + "key_index.dat.bad");
 	ASSERT_EQUALS(truncatedSize, file.GetLength());
 }
 
@@ -255,11 +259,11 @@ TEST(IndexedLoad, WrongTypeSourceTagIsDiscarded)
 	}
 	{
 		CIndexed index(temp.path, CUInt128(1u));
-		ASSERT_FALSE(WaitForLoad(index));
-		ASSERT_TRUE(index.GetLoadState() == CIndexed::LoadState::Failed);
+		ASSERT_TRUE(WaitForLoad(index));
+		ASSERT_TRUE(index.IsReady());
 		ASSERT_EQUALS(0u, index.m_totalIndexSource);
 	}
-	CFile file(temp.path + "src_index.dat");
+	CFile file(temp.path + "src_index.dat.bad");
 	ASSERT_EQUALS(originalSize, file.GetLength());
 }
 
@@ -378,6 +382,8 @@ TEST(IndexedLoad, FailedSavePreservesPreviousLoadIndex)
 		// Prevent creation of the staging file without touching the original.
 		ASSERT_TRUE(wxMkdir(temp.path + "load_index.dat.new"));
 	}
+	ASSERT_TRUE(wxFileExists(temp.path + "key_index.dat"));
+	ASSERT_TRUE(wxFileExists(temp.path + "src_index.dat"));
 	CFile original(temp.path + "load_index.dat");
 	ASSERT_EQUALS(uint64_t(12), original.GetLength());
 	ASSERT_EQUALS(1u, original.ReadUInt32());
@@ -401,6 +407,9 @@ TEST(IndexedLoad, DiskFullDuringSavePreservesPreviousLoadIndex)
 		ASSERT_TRUE(index.AddLoad(CUInt128(2u), time(nullptr) + 3600));
 		ASSERT_EQUALS(0, symlink("/dev/full", (temp.path + "load_index.dat.new").fn_str()));
 	}
+	ASSERT_FALSE(wxFileExists(temp.path + "load_index.dat.new"));
+	ASSERT_TRUE(wxFileExists(temp.path + "key_index.dat"));
+	ASSERT_TRUE(wxFileExists(temp.path + "src_index.dat"));
 	CFile original(temp.path + "load_index.dat");
 	ASSERT_EQUALS(uint64_t(12), original.GetLength());
 	ASSERT_EQUALS(1u, original.ReadUInt32());
@@ -445,7 +454,8 @@ TEST(IndexedLoad, LargeKeywordAndSourceIndexesRoundTrip)
 	}
 	for (int cycle = 0; cycle < 2; ++cycle) {
 		CIndexed index(temp.path, CUInt128(1u));
-		// Until adoption, even a completed worker must not accept new publications.
+		// Outgoing keyword publishing continues; incoming publications wait for adoption.
+		ASSERT_TRUE(index.SendStoreRequest(CUInt128(1u)));
 		ASSERT_FALSE(index.AddLoad(CUInt128(count + 1), time(nullptr) + 3600));
 		uint8_t load = 0;
 		auto entry = std::unique_ptr<CKeyEntry>(index.CreateKeyEntry());
@@ -457,4 +467,119 @@ TEST(IndexedLoad, LargeKeywordAndSourceIndexesRoundTrip)
 		ASSERT_EQUALS(count, index.m_totalIndexSource);
 		ASSERT_EQUALS(size_t(count), index.GetFileKeyCount());
 	}
+}
+
+TEST(IndexedLoad, CorruptPartDoesNotDiscardHealthyParts)
+{
+	for (bool truncated : { false, true }) {
+		for (const wxString bad : { wxString("load_index.dat"),
+			     wxString("key_index.dat"),
+			     wxString("src_index.dat") }) {
+			TempIndex temp;
+			{
+				CIndexed seed(temp.path, CUInt128(1u));
+				ASSERT_TRUE(WaitForLoad(seed));
+				ASSERT_TRUE(seed.AddLoad(CUInt128(2u), time(nullptr) + 3600));
+				uint8_t load = 0;
+				auto key = std::unique_ptr<CKeyEntry>(seed.CreateKeyEntry());
+				key->m_tLifeTime = time(nullptr) + 3600;
+				key->m_uSize = 123;
+				key->m_uIP = 0x01020304;
+				key->SetFileName("healthy.bin");
+				key->AddTag(new CTagString(TAG_FILETYPE, "Program"), 0);
+				ASSERT_TRUE(seed.AddKeyword(CUInt128(2u), CUInt128(3u), key.get(), load));
+				key.release();
+				auto source = std::make_unique<CEntry>();
+				source->m_tLifeTime = time(nullptr) + 3600;
+				source->m_bSource = true;
+				source->m_uIP = 0x01020304;
+				source->m_uTCPport = 4662;
+				source->m_uUDPport = 4672;
+				source->AddTag(new CTagVarInt(TAG_SOURCEIP, source->m_uIP), 0);
+				source->AddTag(new CTagVarInt(TAG_SOURCEPORT, source->m_uTCPport), 0);
+				source->AddTag(new CTagVarInt(TAG_SOURCEUPORT, source->m_uUDPport), 0);
+				ASSERT_TRUE(seed.AddSources(CUInt128(2u), CUInt128(3u), source.get(), load));
+				source.release();
+			}
+			{
+				CFile file(temp.path + bad, truncated ? CFile::read_write : CFile::write);
+				if (truncated) {
+					// Announce a second key after the first complete entry: the loader
+					// must clear the inserted entry and its publisher counts on EOF.
+					file.Seek(bad == "key_index.dat" ? 24 : 8);
+					file.WriteUInt32(2);
+				} else {
+					file.WriteUInt32(99);
+				}
+			}
+			{
+				CIndexed index(temp.path, CUInt128(1u));
+				ASSERT_TRUE(WaitForLoad(index));
+				ASSERT_EQUALS(bad == "key_index.dat" ? 0u : 1u, index.m_totalIndexKeyword);
+				ASSERT_EQUALS(bad == "src_index.dat" ? 0u : 1u, index.m_totalIndexSource);
+				ASSERT_EQUALS(bad == "load_index.dat" ? 0u : 1u, index.m_totalIndexLoad);
+				ASSERT_TRUE(wxFileExists(temp.path + bad + ".bad"));
+				ASSERT_TRUE(index.AddLoad(CUInt128(4u), time(nullptr) + 3600));
+				ASSERT_TRUE(index.SendStoreRequest(CUInt128(5u)));
+			}
+			CIndexed reloaded(temp.path, CUInt128(1u));
+			ASSERT_TRUE(WaitForLoad(reloaded));
+			ASSERT_EQUALS(bad == "load_index.dat" ? 1u : 2u, reloaded.m_totalIndexLoad);
+		}
+	}
+}
+
+TEST(IndexedLoad, PartialLoadMapIsClearedOnError)
+{
+	TempIndex temp;
+	{
+		CFile file(temp.path + "load_index.dat", CFile::write);
+		file.WriteUInt32(1);
+		file.WriteUInt32(time(nullptr));
+		file.WriteUInt32(2);
+		file.WriteUInt128(CUInt128(2u));
+		file.WriteUInt32(time(nullptr) + 3600);
+		// Truncated after a complete entry was inserted into the worker map.
+	}
+	CIndexed index(temp.path, CUInt128(1u));
+	ASSERT_TRUE(WaitForLoad(index));
+	ASSERT_EQUALS(0u, index.m_totalIndexLoad);
+	ASSERT_TRUE(index.SendStoreRequest(CUInt128(2u)));
+}
+
+TEST(IndexedLoad, FailedQuarantinePreservesOriginalButAllowsNewEntries)
+{
+	TempIndex temp;
+	{
+		CFile file(temp.path + "key_index.dat", CFile::write);
+		file.WriteUInt32(99);
+	}
+	// An existing directory prevents renaming to .bad.
+	ASSERT_TRUE(wxMkdir(temp.path + "key_index.dat.bad"));
+	{
+		CIndexed index(temp.path, CUInt128(1u));
+		ASSERT_TRUE(WaitForLoad(index));
+		ASSERT_TRUE(index.AddLoad(CUInt128(2u), time(nullptr) + 3600));
+	}
+	CFile original(temp.path + "key_index.dat");
+	ASSERT_EQUALS(uint64_t(4), original.GetLength());
+	ASSERT_EQUALS(99u, original.ReadUInt32());
+	ASSERT_TRUE(wxFileExists(temp.path + "load_index.dat"));
+}
+
+TEST(IndexedLoad, StopBeforeAdoptionDoesNotQuarantineCorruption)
+{
+	TempIndex temp;
+	{
+		CFile file(temp.path + "key_index.dat", CFile::write);
+		file.WriteUInt32(99);
+	}
+	{
+		CIndexed index(temp.path, CUInt128(1u));
+		// Even if the worker finishes first, only adoption can touch disk.
+	}
+	ASSERT_FALSE(wxFileExists(temp.path + "key_index.dat.bad"));
+	CFile original(temp.path + "key_index.dat");
+	ASSERT_EQUALS(uint64_t(4), original.GetLength());
+	ASSERT_EQUALS(99u, original.ReadUInt32());
 }

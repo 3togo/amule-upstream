@@ -60,15 +60,24 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
             assert (root / 'key_index.dat').exists(), 'empty index was not adopted and saved'
             corrupt = struct.pack('<I', 4)
             (root / 'key_index.dat').write_bytes(corrupt)
+            # Adoption quarantines the damaged keyword file while retaining the
+            # healthy 50,000-entry load map. EC remains responsive across restarts.
             for i in range(10):
                 assert ec.call(C['EC_OP_KAD_START'])[0] == C['EC_OP_NOOP']
-                time.sleep(0.02 if i < 9 else 2)
+                deadline = time.monotonic() + 15
+                while True:
+                    _, tags = ec.call(C['EC_OP_STAT_REQ'])
+                    if tags[C['EC_TAG_STATS_KAD_INDEXED_LOAD']][0] == count:
+                        break
+                    assert time.monotonic() < deadline, 'recovery adoption timed out'
+                    time.sleep(0.05)
+                assert (root / 'key_index.dat.bad').read_bytes() == corrupt
                 assert ec.call(C['EC_OP_KAD_STOP'])[0] == C['EC_OP_NOOP']
-                assert (root / 'key_index.dat').read_bytes() == corrupt
+                assert (root / 'key_index.dat').read_bytes() != corrupt
                 assert ec.call(C['EC_OP_STAT_REQ'])[0] == C['EC_OP_STATS']
                 assert proc.poll() is None
             ec.sock.close()
-            print('Real daemon: 50000-entry adoption/save and 10 corrupt-index start/stop cycles passed; files preserved and EC responsive.')
+            print('Real daemon: 50000-entry adoption/save and corrupt-index recovery and 10 restart cycles passed; damaged file quarantined and EC responsive.')
         except BaseException:
             log.flush()
             print((root / 'stdout.log').read_text(), file=sys.stderr)

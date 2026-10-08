@@ -38,6 +38,7 @@ there client on the eMule forum..
 
 #include "Indexed.h"
 #include <stdexcept>
+#include <algorithm>
 
 #include <protocol/Protocols.h>
 #include <protocol/ed2k/Constants.h>
@@ -95,6 +96,21 @@ void CIndexed::ProcessIndexLoad()
 	}
 	std::unique_ptr<CIndexed> loaded;
 	if (m_loader->Take(loaded)) {
+		for (const auto &path : loaded->m_failedFiles) {
+			if (!CPath::FileExists(path)) {
+				continue;
+			}
+			if (CPath::RenameFile(CPath(path), CPath(path + ".bad"), true)) {
+				AddLogLineC(CFormat(_("Kad could not read %s. It was renamed to %s.bad, and "
+						      "a new index will be saved at shutdown.")) %
+					    path % path);
+			} else {
+				m_preservedFiles.push_back(path);
+				AddLogLineC(CFormat(_("Kad could not preserve the unreadable index %s as "
+						      "%s.bad. Its original file will not be overwritten.")) %
+					    path % path);
+			}
+		}
 		m_Keyword_map.swap(loaded->m_Keyword_map);
 		m_Sources_map.swap(loaded->m_Sources_map);
 		m_Load_map.swap(loaded->m_Load_map);
@@ -105,7 +121,8 @@ void CIndexed::ProcessIndexLoad()
 		m_loadState = LoadState::Ready;
 		AddDebugLogLineN(logKadIndex, "Kad indexes ready");
 	} else if (m_loader->GetState() == LoadState::Failed) {
-		m_loadState = LoadState::Failed;
+		m_loadState = LoadState::Ready;
+		m_preservedFiles = { m_loadfilename, m_kfilename, m_sfilename };
 		AddLogLineC(_("Kad could not load its saved index. Existing index files were preserved."));
 		AddDebugLogLineC(logKadIndex,
 			"Kad index load failed; persisted files will be preserved: " +
@@ -116,228 +133,176 @@ void CIndexed::ProcessIndexLoad()
 	}
 }
 
+namespace
+{
+bool OpenIndex(CFile &file, const wxString &path)
+{
+	if (!CPath::FileExists(path)) {
+		return false;
+	}
+	if (!file.Open(path, CFile::read)) {
+		throw CIOFailureException("Cannot open persisted Kad index");
+	}
+	return true;
+}
+} // namespace
+
 void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 {
 	try {
-		uint32_t totalLoad = 0;
-		uint32_t totalSource = 0;
-		uint32_t totalKeyword = 0;
-		auto openIndex = [](CFile &file, const wxString &path) {
-			if (!CPath::FileExists(path)) {
-				return false;
+		for (const auto part : { IndexPart::Load, IndexPart::Keyword, IndexPart::Source }) {
+			if (cancel.load()) {
+				return;
 			}
-			if (!file.Open(path, CFile::read)) {
-				throw std::runtime_error("cannot open persisted Kad index");
-			}
-			return true;
-		};
-
-		CFile load_file;
-		if (openIndex(load_file, m_loadfilename)) {
-			uint32_t version = load_file.ReadUInt32();
-			if (version >= 2) {
-				throw std::runtime_error("unsupported persisted Kad index version");
-			}
-			if (version < 2) {
-				/*time_t savetime =*/load_file.ReadUInt32(); //  Savetime is unused now
-
-				uint32_t numLoad = load_file.ReadUInt32();
-				while (numLoad) {
-					if (cancel.load()) {
-						return;
-					}
-					CUInt128 keyID = load_file.ReadUInt128();
-					if (AddLoad(keyID, load_file.ReadUInt32())) {
-						totalLoad++;
-					}
-					numLoad--;
+			try {
+				switch (part) {
+				case IndexPart::Load:
+					ReadLoadFile(cancel);
+					break;
+				case IndexPart::Keyword:
+					ReadKeywordFile(cancel);
+					break;
+				case IndexPart::Source:
+					ReadSourceFile(cancel);
+					break;
 				}
+				continue;
+			} catch (const CSafeIOException &) {
+			} catch (const CInvalidPacket &) {
+			} catch (const std::runtime_error &) {
+			} catch (const wxString &) {
 			}
-			load_file.Close();
+			// The publisher decoder also throws when cancellation is requested.
+			if (cancel.load()) {
+				return;
+			}
+			ClearPart(part);
+			m_failedFiles.push_back(PathOf(part));
 		}
+	} catch (...) {
+		if (cancel.load()) {
+			return;
+		}
+		// Unexpected errors discard all partial data, but must not disable Kad.
+		Clear();
+		m_failedFiles = { m_loadfilename, m_kfilename, m_sfilename };
+	}
+}
 
-		CFile k_file;
-		if (openIndex(k_file, m_kfilename)) {
-			uint32_t version = k_file.ReadUInt32();
-			if (version >= 5) {
-				throw std::runtime_error("unsupported persisted Kad index version");
-			}
-			// Version 4 added the AICH hash block and the per-publisher hash index that
-			// Kad protocol version 0x09 keyword storage needs; version 3 files still
-			// load, just without any AICH hash.
-			if (version < 5) {
-				time_t savetime = k_file.ReadUInt32();
-				if (savetime > time(NULL)) {
-					CUInt128 id = k_file.ReadUInt128();
-					if (m_kadID == id) {
-						uint32_t numKeys = k_file.ReadUInt32();
-						while (numKeys) {
-							if (cancel.load()) {
-								return;
-							}
-							CUInt128 keyID = k_file.ReadUInt128();
-							uint32_t numSource = k_file.ReadUInt32();
-							while (numSource) {
-								if (cancel.load()) {
-									return;
-								}
-								CUInt128 sourceID = k_file.ReadUInt128();
-								uint32_t numName = k_file.ReadUInt32();
-								while (numName) {
-									if (cancel.load()) {
-										return;
-									}
-									auto ownedEntry =
-										std::unique_ptr<CKeyEntry>(
-											CreateKeyEntry());
-									CKeyEntry *toAdd = ownedEntry.get();
-									toAdd->m_uKeyID = keyID;
-									toAdd->m_uSourceID = sourceID;
-									toAdd->m_bSource = false;
-									toAdd->m_tLifeTime =
-										k_file.ReadUInt32();
-									if (version >= 3) {
-										toAdd->ReadPublishTrackingDataFromFile(
-											&k_file,
-											version >= 4,
-											&cancel);
-									}
-									uint32_t tagList = k_file.ReadUInt8();
-									while (tagList) {
-										auto ownedTag = std::unique_ptr<
-											CTag>(
-											k_file.ReadTag());
-										CTag *tag = ownedTag.get();
-										if (tag) {
-											if (!tag->GetName().Cmp(
-												    TAG_FILENAME)) {
-												if (toAdd->GetCommonFileName()
-														.IsEmpty()) {
-													toAdd->SetFileName(
-														tag->GetStr());
-												}
-											} else if (
-												!tag->GetName()
-													 .Cmp(TAG_FILESIZE)) {
-												if (tag->IsBsob() &&
-													(tag->GetBsobSize() ==
-														8)) {
-													// Older
-													// builds
-													// wrongly
-													// saved
-													// BSOB
-													// uint64s
-													// to
-													// key_index.dat,
-													// so
-													// those
-													// have
-													// to
-													// be
-													// handled
-													// here
-													// too.
-													toAdd->m_uSize = PeekUInt64(
-														tag->GetBsob());
-												} else {
-													toAdd->m_uSize =
-														tag->GetInt();
-												}
-											} else if (
-												!tag->GetName()
-													 .Cmp(TAG_SOURCEIP)) {
-												toAdd->m_uIP =
-													tag->GetInt();
-												toAdd->AddTag(
-													tag,
-													0);
-												ownedTag.release();
-											} else if (
-												!tag->GetName()
-													 .Cmp(TAG_SOURCEPORT)) {
-												toAdd->m_uTCPport =
-													tag->GetInt();
-												toAdd->AddTag(
-													tag,
-													0);
-												ownedTag.release();
-											} else if (
-												!tag->GetName()
-													 .Cmp(TAG_SOURCEUPORT)) {
-												toAdd->m_uUDPport =
-													tag->GetInt();
-												toAdd->AddTag(
-													tag,
-													0);
-												ownedTag.release();
-											} else {
-												toAdd->AddTag(
-													tag,
-													0);
-												ownedTag.release();
-											}
-										}
-										tagList--;
-									}
-									uint8_t load;
-									if (AddKeyword(keyID,
-										    sourceID,
-										    toAdd,
-										    load)) {
-										totalKeyword++;
-										ownedEntry.release();
-									}
-									numName--;
-								}
-								numSource--;
-							}
-							numKeys--;
-						}
-					}
+void CIndexed::ReadLoadFile(const std::atomic<bool> &cancel)
+{
+	CFile load_file;
+	if (OpenIndex(load_file, m_loadfilename)) {
+		uint32_t version = load_file.ReadUInt32();
+		if (version >= 2) {
+			throw std::runtime_error("unsupported persisted Kad index version");
+		}
+		if (version < 2) {
+			/*time_t savetime =*/load_file.ReadUInt32(); //  Savetime is unused now
+
+			uint32_t numLoad = load_file.ReadUInt32();
+			while (numLoad) {
+				if (cancel.load()) {
+					return;
 				}
+				CUInt128 keyID = load_file.ReadUInt128();
+				AddLoad(keyID, load_file.ReadUInt32());
+				numLoad--;
 			}
-			k_file.Close();
 		}
-
-		CFile s_file;
-		if (openIndex(s_file, m_sfilename)) {
-			uint32_t version = s_file.ReadUInt32();
-			if (version >= 3) {
-				throw std::runtime_error("unsupported persisted Kad index version");
-			}
-			if (version < 3) {
-				time_t savetime = s_file.ReadUInt32();
-				if (savetime > time(NULL)) {
-					uint32_t numKeys = s_file.ReadUInt32();
+		load_file.Close();
+	}
+}
+void CIndexed::ReadKeywordFile(const std::atomic<bool> &cancel)
+{
+	CFile k_file;
+	if (OpenIndex(k_file, m_kfilename)) {
+		uint32_t version = k_file.ReadUInt32();
+		if (version >= 5) {
+			throw std::runtime_error("unsupported persisted Kad index version");
+		}
+		// Version 4 added the AICH hash block and the per-publisher hash index that
+		// Kad protocol version 0x09 keyword storage needs; version 3 files still
+		// load, just without any AICH hash.
+		if (version < 5) {
+			time_t savetime = k_file.ReadUInt32();
+			if (savetime > time(NULL)) {
+				CUInt128 id = k_file.ReadUInt128();
+				if (m_kadID == id) {
+					uint32_t numKeys = k_file.ReadUInt32();
 					while (numKeys) {
 						if (cancel.load()) {
 							return;
 						}
-						CUInt128 keyID = s_file.ReadUInt128();
-						uint32_t numSource = s_file.ReadUInt32();
+						CUInt128 keyID = k_file.ReadUInt128();
+						uint32_t numSource = k_file.ReadUInt32();
 						while (numSource) {
 							if (cancel.load()) {
 								return;
 							}
-							CUInt128 sourceID = s_file.ReadUInt128();
-							uint32_t numName = s_file.ReadUInt32();
+							CUInt128 sourceID = k_file.ReadUInt128();
+							uint32_t numName = k_file.ReadUInt32();
 							while (numName) {
 								if (cancel.load()) {
 									return;
 								}
-								auto ownedEntry = std::make_unique<CEntry>();
-								CEntry *toAdd = ownedEntry.get();
-								toAdd->m_bSource = true;
-								toAdd->m_tLifeTime = s_file.ReadUInt32();
-								uint32_t tagList = s_file.ReadUInt8();
+								auto ownedEntry = std::unique_ptr<CKeyEntry>(
+									CreateKeyEntry());
+								CKeyEntry *toAdd = ownedEntry.get();
+								toAdd->m_uKeyID = keyID;
+								toAdd->m_uSourceID = sourceID;
+								toAdd->m_bSource = false;
+								toAdd->m_tLifeTime = k_file.ReadUInt32();
+								if (version >= 3) {
+									toAdd->ReadPublishTrackingDataFromFile(
+										&k_file,
+										version >= 4,
+										&cancel);
+								}
+								uint32_t tagList = k_file.ReadUInt8();
 								while (tagList) {
 									auto ownedTag = std::unique_ptr<CTag>(
-										s_file.ReadTag());
+										k_file.ReadTag());
 									CTag *tag = ownedTag.get();
 									if (tag) {
 										if (!tag->GetName().Cmp(
-											    TAG_SOURCEIP)) {
+											    TAG_FILENAME)) {
+											if (toAdd->GetCommonFileName()
+													.IsEmpty()) {
+												toAdd->SetFileName(
+													tag->GetStr());
+											}
+										} else if (
+											!tag->GetName().Cmp(
+												TAG_FILESIZE)) {
+											if (tag->IsBsob() &&
+												(tag->GetBsobSize() ==
+													8)) {
+												// Older
+												// builds
+												// wrongly
+												// saved
+												// BSOB
+												// uint64s
+												// to
+												// key_index.dat,
+												// so
+												// those
+												// have
+												// to
+												// be
+												// handled
+												// here
+												// too.
+												toAdd->m_uSize = PeekUInt64(
+													tag->GetBsob());
+											} else {
+												toAdd->m_uSize =
+													tag->GetInt();
+											}
+										} else if (
+											!tag->GetName().Cmp(
+												TAG_SOURCEIP)) {
 											toAdd->m_uIP =
 												tag->GetInt();
 											toAdd->AddTag(tag, 0);
@@ -363,12 +328,9 @@ void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 									}
 									tagList--;
 								}
-								toAdd->m_uKeyID = keyID;
-								toAdd->m_uSourceID = sourceID;
 								uint8_t load;
-								if (AddSources(
+								if (AddKeyword(
 									    keyID, sourceID, toAdd, load)) {
-									totalSource++;
 									ownedEntry.release();
 								}
 								numName--;
@@ -379,25 +341,87 @@ void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 					}
 				}
 			}
-			s_file.Close();
 		}
-
-		m_totalIndexSource = totalSource;
-		m_totalIndexKeyword = totalKeyword;
-		m_totalIndexLoad = totalLoad;
-		AddDebugLogLineN(logKadIndex,
-			CFormat("Read %u source, %u keyword, and %u load entries") % totalSource %
-				totalKeyword % totalLoad);
-	} catch (const CSafeIOException &err) {
-		AddDebugLogLineC(logKadIndex, "CSafeIOException in CIndexed::readFile: " + err.what());
-		throw;
-	} catch (const CInvalidPacket &err) {
-		AddDebugLogLineC(
-			logKadIndex, "CInvalidPacket Exception in CIndexed::readFile: " + err.what());
-		throw;
-	} catch (const wxString &e) {
-		AddDebugLogLineC(logKadIndex, "Exception in CIndexed::readFile: " + e);
-		throw;
+		k_file.Close();
+	}
+}
+void CIndexed::ReadSourceFile(const std::atomic<bool> &cancel)
+{
+	CFile s_file;
+	if (OpenIndex(s_file, m_sfilename)) {
+		uint32_t version = s_file.ReadUInt32();
+		if (version >= 3) {
+			throw std::runtime_error("unsupported persisted Kad index version");
+		}
+		if (version < 3) {
+			time_t savetime = s_file.ReadUInt32();
+			if (savetime > time(NULL)) {
+				uint32_t numKeys = s_file.ReadUInt32();
+				while (numKeys) {
+					if (cancel.load()) {
+						return;
+					}
+					CUInt128 keyID = s_file.ReadUInt128();
+					uint32_t numSource = s_file.ReadUInt32();
+					while (numSource) {
+						if (cancel.load()) {
+							return;
+						}
+						CUInt128 sourceID = s_file.ReadUInt128();
+						uint32_t numName = s_file.ReadUInt32();
+						while (numName) {
+							if (cancel.load()) {
+								return;
+							}
+							auto ownedEntry = std::make_unique<CEntry>();
+							CEntry *toAdd = ownedEntry.get();
+							toAdd->m_bSource = true;
+							toAdd->m_tLifeTime = s_file.ReadUInt32();
+							uint32_t tagList = s_file.ReadUInt8();
+							while (tagList) {
+								auto ownedTag = std::unique_ptr<CTag>(
+									s_file.ReadTag());
+								CTag *tag = ownedTag.get();
+								if (tag) {
+									if (!tag->GetName().Cmp(
+										    TAG_SOURCEIP)) {
+										toAdd->m_uIP = tag->GetInt();
+										toAdd->AddTag(tag, 0);
+										ownedTag.release();
+									} else if (!tag->GetName().Cmp(
+											   TAG_SOURCEPORT)) {
+										toAdd->m_uTCPport =
+											tag->GetInt();
+										toAdd->AddTag(tag, 0);
+										ownedTag.release();
+									} else if (!tag->GetName().Cmp(
+											   TAG_SOURCEUPORT)) {
+										toAdd->m_uUDPport =
+											tag->GetInt();
+										toAdd->AddTag(tag, 0);
+										ownedTag.release();
+									} else {
+										toAdd->AddTag(tag, 0);
+										ownedTag.release();
+									}
+								}
+								tagList--;
+							}
+							toAdd->m_uKeyID = keyID;
+							toAdd->m_uSourceID = sourceID;
+							uint8_t load;
+							if (AddSources(keyID, sourceID, toAdd, load)) {
+								ownedEntry.release();
+							}
+							numName--;
+						}
+						numSource--;
+					}
+					numKeys--;
+				}
+			}
+		}
+		s_file.Close();
 	}
 }
 
@@ -411,166 +435,178 @@ CIndexed::~CIndexed()
 	Clear();
 }
 
-void CIndexed::WriteFile()
+void CIndexed::SaveIndexFile(const wxString &path, const std::function<void(CFile &)> &write)
 {
-	try {
-		auto openForSave = [](CFile &file, const wxString &path) {
-			if (!file.Open(path, CFile::write_safe)) {
-				throw CIOFailureException("Cannot open saved Kad index staging file");
-			}
-			return true;
-		};
-		time_t now = time(NULL);
-		uint32_t s_total = 0;
-		uint32_t k_total = 0;
-		uint32_t l_total = 0;
-
-		CFile load_file;
-		if (openForSave(load_file, m_loadfilename)) {
-			load_file.WriteUInt32(1); // version
-			load_file.WriteUInt32(now);
-			wxASSERT(m_Load_map.size() < 0xFFFFFFFF);
-			load_file.WriteUInt32((uint32_t)m_Load_map.size());
-			for (LoadMap::iterator it = m_Load_map.begin(); it != m_Load_map.end(); ++it) {
-				Load *load = it->second;
-				wxASSERT(load);
-				if (load) {
-					load_file.WriteUInt128(load->keyID);
-					load_file.WriteUInt32(load->time);
-					l_total++;
-				}
-			}
-			if (!load_file.Flush() || !load_file.Close()) {
-				throw CIOFailureException("Cannot commit saved Kad index");
-			}
-		}
-
-		CFile s_file;
-		if (openForSave(s_file, m_sfilename)) {
-			s_file.WriteUInt32(2); // version
-			s_file.WriteUInt32(now + KADEMLIAREPUBLISHTIMES);
-			wxASSERT(m_Sources_map.size() < 0xFFFFFFFF);
-			s_file.WriteUInt32((uint32_t)m_Sources_map.size());
-			for (SrcHashMap::iterator itSrcHash = m_Sources_map.begin();
-				itSrcHash != m_Sources_map.end();
-				++itSrcHash) {
-				SrcHash *currSrcHash = itSrcHash->second;
-				s_file.WriteUInt128(currSrcHash->keyID);
-
-				CKadSourcePtrList &KeyHashSrcMap = currSrcHash->m_Source_map;
-				wxASSERT(KeyHashSrcMap.size() < 0xFFFFFFFF);
-				s_file.WriteUInt32((uint32_t)KeyHashSrcMap.size());
-
-				for (CKadSourcePtrList::iterator itSource = KeyHashSrcMap.begin();
-					itSource != KeyHashSrcMap.end();
-					++itSource) {
-					Source *currSource = *itSource;
-					s_file.WriteUInt128(currSource->sourceID);
-
-					CKadEntryPtrList &SrcEntryList = currSource->entryList;
-					wxASSERT(SrcEntryList.size() < 0xFFFFFFFF);
-					s_file.WriteUInt32((uint32_t)SrcEntryList.size());
-					for (CKadEntryPtrList::iterator itEntry = SrcEntryList.begin();
-						itEntry != SrcEntryList.end();
-						++itEntry) {
-						Kademlia::CEntry *currName = *itEntry;
-						s_file.WriteUInt32(currName->m_tLifeTime);
-						currName->WriteTagList(&s_file);
-
-						s_total++;
-					}
-				}
-			}
-			if (!s_file.Flush() || !s_file.Close()) {
-				throw CIOFailureException("Cannot commit saved Kad index");
-			}
-		}
-
-		CFile k_file;
-		if (openForSave(k_file, m_kfilename)) {
-			// Version 4 carries the AICH block and the per-publisher hash index; gated
-			// with the writer in CKeyEntry::WritePublishTrackingDataToFile, so with
-			// KadProtocol10 off we write the version-3 file upstream writes. Reading
-			// both is unconditional, so toggling the preference never invalidates an
-			// existing keyword index.
-			// Saving with the preference off discards accumulated AICH data;
-			// re-enabling it starts collecting that data again from empty.
-			const bool includesAICH = thePrefs::GetKadProtocol10();
-			k_file.WriteUInt32(includesAICH ? 4 : 3);
-			k_file.WriteUInt32(now + KADEMLIAREPUBLISHTIMEK);
-			k_file.WriteUInt128(m_kadID);
-
-			wxASSERT(m_Keyword_map.size() < 0xFFFFFFFF);
-			k_file.WriteUInt32((uint32_t)m_Keyword_map.size());
-
-			for (KeyHashMap::iterator itKeyHash = m_Keyword_map.begin();
-				itKeyHash != m_Keyword_map.end();
-				++itKeyHash) {
-				KeyHash *currKeyHash = itKeyHash->second;
-				k_file.WriteUInt128(currKeyHash->keyID);
-
-				CSourceKeyMap &KeyHashSrcMap = currKeyHash->m_Source_map;
-				wxASSERT(KeyHashSrcMap.size() < 0xFFFFFFFF);
-				k_file.WriteUInt32((uint32_t)KeyHashSrcMap.size());
-
-				for (CSourceKeyMap::iterator itSource = KeyHashSrcMap.begin();
-					itSource != KeyHashSrcMap.end();
-					++itSource) {
-					Source *currSource = itSource->second;
-					k_file.WriteUInt128(currSource->sourceID);
-
-					CKadEntryPtrList &SrcEntryList = currSource->entryList;
-					wxASSERT(SrcEntryList.size() < 0xFFFFFFFF);
-					k_file.WriteUInt32((uint32_t)SrcEntryList.size());
-
-					for (CKadEntryPtrList::iterator itEntry = SrcEntryList.begin();
-						itEntry != SrcEntryList.end();
-						++itEntry) {
-						Kademlia::CKeyEntry *currName =
-							static_cast<Kademlia::CKeyEntry *>(*itEntry);
-						wxASSERT(currName->IsKeyEntry());
-						k_file.WriteUInt32(currName->m_tLifeTime);
-						currName->WritePublishTrackingDataToFile(
-							&k_file, includesAICH);
-						currName->WriteTagList(&k_file);
-
-						k_total++;
-					}
-				}
-			}
-			if (!k_file.Flush() || !k_file.Close()) {
-				throw CIOFailureException("Cannot commit saved Kad index");
-			}
-		}
-		AddDebugLogLineN(logKadIndex,
-			CFormat("Wrote %u source, %u keyword, and %u load entries") % s_total % k_total %
-				l_total);
-
-	} catch (const CSafeIOException &err) {
-		AddLogLineC(_("Kad could not save an index. The previous copy of that file was preserved."));
-		AddDebugLogLineC(logKadIndex, "CSafeIOException in CIndexed::WriteFile: " + err.what());
-	} catch (const CInvalidPacket &err) {
-		AddDebugLogLineC(
-			logKadIndex, "CInvalidPacket Exception in CIndexed::~CIndexed: " + err.what());
-	} catch (const wxString &e) {
-		AddDebugLogLineC(logKadIndex, "Exception in CIndexed::~CIndexed: " + e);
+	if (std::find(m_preservedFiles.begin(), m_preservedFiles.end(), path) != m_preservedFiles.end()) {
+		return;
 	}
+	try {
+		CFile file;
+		if (!file.Open(path, CFile::write_safe)) {
+			throw CIOFailureException("Cannot open saved Kad index staging file");
+		}
+		write(file);
+		if (!file.Flush() || !file.Close()) {
+			throw CIOFailureException("Cannot commit saved Kad index");
+		}
+		return;
+	} catch (const CSafeIOException &err) {
+		AddDebugLogLineC(logKadIndex, "CIndexed::SaveIndexFile: " + err.what());
+	} catch (const CInvalidPacket &err) {
+		AddDebugLogLineC(logKadIndex, "CIndexed::SaveIndexFile: " + err.what());
+	} catch (const wxString &err) {
+		AddDebugLogLineC(logKadIndex, "CIndexed::SaveIndexFile: " + err);
+	}
+	// The file destructor has closed the staging file without replacing the original.
+	if (CPath::FileExists(path + ".new")) {
+		CPath::RemoveFile(CPath(path + ".new"));
+	}
+	AddLogLineC(_("Kad could not save an index. The previous copy of that file was preserved."));
 }
 
-void CIndexed::Clear()
+void CIndexed::WriteFile()
 {
-	for (auto &keyword : m_Keyword_map) {
-		for (auto &source : keyword.second->m_Source_map) {
-			for (auto *entry : source.second->entryList) {
-				delete entry;
+	time_t now = time(NULL);
+	uint32_t s_total = 0;
+	uint32_t k_total = 0;
+	uint32_t l_total = 0;
+	SaveIndexFile(m_loadfilename, [&](CFile &load_file) {
+		load_file.WriteUInt32(1); // version
+		load_file.WriteUInt32(now);
+		wxASSERT(m_Load_map.size() < 0xFFFFFFFF);
+		load_file.WriteUInt32((uint32_t)m_Load_map.size());
+		for (LoadMap::iterator it = m_Load_map.begin(); it != m_Load_map.end(); ++it) {
+			Load *load = it->second;
+			wxASSERT(load);
+			if (load) {
+				load_file.WriteUInt128(load->keyID);
+				load_file.WriteUInt32(load->time);
+				l_total++;
 			}
-			delete source.second;
 		}
-		delete keyword.second;
+	});
+
+	SaveIndexFile(m_sfilename, [&](CFile &s_file) {
+		s_file.WriteUInt32(2); // version
+		s_file.WriteUInt32(now + KADEMLIAREPUBLISHTIMES);
+		wxASSERT(m_Sources_map.size() < 0xFFFFFFFF);
+		s_file.WriteUInt32((uint32_t)m_Sources_map.size());
+		for (SrcHashMap::iterator itSrcHash = m_Sources_map.begin(); itSrcHash != m_Sources_map.end();
+			++itSrcHash) {
+			SrcHash *currSrcHash = itSrcHash->second;
+			s_file.WriteUInt128(currSrcHash->keyID);
+
+			CKadSourcePtrList &KeyHashSrcMap = currSrcHash->m_Source_map;
+			wxASSERT(KeyHashSrcMap.size() < 0xFFFFFFFF);
+			s_file.WriteUInt32((uint32_t)KeyHashSrcMap.size());
+
+			for (CKadSourcePtrList::iterator itSource = KeyHashSrcMap.begin();
+				itSource != KeyHashSrcMap.end();
+				++itSource) {
+				Source *currSource = *itSource;
+				s_file.WriteUInt128(currSource->sourceID);
+
+				CKadEntryPtrList &SrcEntryList = currSource->entryList;
+				wxASSERT(SrcEntryList.size() < 0xFFFFFFFF);
+				s_file.WriteUInt32((uint32_t)SrcEntryList.size());
+				for (CKadEntryPtrList::iterator itEntry = SrcEntryList.begin();
+					itEntry != SrcEntryList.end();
+					++itEntry) {
+					Kademlia::CEntry *currName = *itEntry;
+					s_file.WriteUInt32(currName->m_tLifeTime);
+					currName->WriteTagList(&s_file);
+
+					s_total++;
+				}
+			}
+		}
+	});
+
+	SaveIndexFile(m_kfilename, [&](CFile &k_file) {
+		// Version 4 carries the AICH block and the per-publisher hash index; gated
+		// with the writer in CKeyEntry::WritePublishTrackingDataToFile, so with
+		// KadProtocol10 off we write the version-3 file upstream writes. Reading
+		// both is unconditional, so toggling the preference never invalidates an
+		// existing keyword index.
+		// Saving with the preference off discards accumulated AICH data;
+		// re-enabling it starts collecting that data again from empty.
+		const bool includesAICH = thePrefs::GetKadProtocol10();
+		k_file.WriteUInt32(includesAICH ? 4 : 3);
+		k_file.WriteUInt32(now + KADEMLIAREPUBLISHTIMEK);
+		k_file.WriteUInt128(m_kadID);
+
+		wxASSERT(m_Keyword_map.size() < 0xFFFFFFFF);
+		k_file.WriteUInt32((uint32_t)m_Keyword_map.size());
+
+		for (KeyHashMap::iterator itKeyHash = m_Keyword_map.begin(); itKeyHash != m_Keyword_map.end();
+			++itKeyHash) {
+			KeyHash *currKeyHash = itKeyHash->second;
+			k_file.WriteUInt128(currKeyHash->keyID);
+
+			CSourceKeyMap &KeyHashSrcMap = currKeyHash->m_Source_map;
+			wxASSERT(KeyHashSrcMap.size() < 0xFFFFFFFF);
+			k_file.WriteUInt32((uint32_t)KeyHashSrcMap.size());
+
+			for (CSourceKeyMap::iterator itSource = KeyHashSrcMap.begin();
+				itSource != KeyHashSrcMap.end();
+				++itSource) {
+				Source *currSource = itSource->second;
+				k_file.WriteUInt128(currSource->sourceID);
+
+				CKadEntryPtrList &SrcEntryList = currSource->entryList;
+				wxASSERT(SrcEntryList.size() < 0xFFFFFFFF);
+				k_file.WriteUInt32((uint32_t)SrcEntryList.size());
+
+				for (CKadEntryPtrList::iterator itEntry = SrcEntryList.begin();
+					itEntry != SrcEntryList.end();
+					++itEntry) {
+					Kademlia::CKeyEntry *currName =
+						static_cast<Kademlia::CKeyEntry *>(*itEntry);
+					wxASSERT(currName->IsKeyEntry());
+					k_file.WriteUInt32(currName->m_tLifeTime);
+					currName->WritePublishTrackingDataToFile(&k_file, includesAICH);
+					currName->WriteTagList(&k_file);
+
+					k_total++;
+				}
+			}
+		}
+	});
+	AddDebugLogLineN(logKadIndex,
+		CFormat("Wrote %u source, %u keyword, and %u load entries") % s_total % k_total % l_total);
+}
+
+const wxString &CIndexed::PathOf(IndexPart part) const
+{
+	switch (part) {
+	case IndexPart::Load:
+		return m_loadfilename;
+	case IndexPart::Keyword:
+		return m_kfilename;
+	case IndexPart::Source:
+		return m_sfilename;
 	}
-	m_Keyword_map.clear();
-	for (auto *map : { &m_Sources_map, &m_Notes_map }) {
-		for (auto &hash : *map) {
+	throw std::logic_error("Invalid Kad index part");
+}
+
+void CIndexed::ClearPart(IndexPart part)
+{
+	if (part == IndexPart::Keyword) {
+		for (auto &keyword : m_Keyword_map) {
+			for (auto &source : keyword.second->m_Source_map) {
+				for (auto *entry : source.second->entryList) {
+					static_cast<CKeyEntry *>(entry)->DirtyDeletePublishData();
+					delete entry;
+				}
+				delete source.second;
+			}
+			delete keyword.second;
+		}
+		m_Keyword_map.clear();
+		m_publishTracking->clear();
+		m_totalIndexKeyword = 0;
+	} else if (part == IndexPart::Source) {
+		for (auto &hash : m_Sources_map) {
 			for (auto *source : hash.second->m_Source_map) {
 				for (auto *entry : source->entryList) {
 					delete entry;
@@ -579,12 +615,33 @@ void CIndexed::Clear()
 			}
 			delete hash.second;
 		}
-		map->clear();
+		m_Sources_map.clear();
+		m_totalIndexSource = 0;
+	} else {
+		for (auto &load : m_Load_map) {
+			delete load.second;
+		}
+		m_Load_map.clear();
+		m_totalIndexLoad = 0;
 	}
-	for (auto &load : m_Load_map) {
-		delete load.second;
+}
+
+void CIndexed::Clear()
+{
+	for (const auto part : { IndexPart::Load, IndexPart::Keyword, IndexPart::Source }) {
+		ClearPart(part);
 	}
-	m_Load_map.clear();
+	for (auto &hash : m_Notes_map) {
+		for (auto *source : hash.second->m_Source_map) {
+			for (auto *entry : source->entryList) {
+				delete entry;
+			}
+			delete source;
+		}
+		delete hash.second;
+	}
+	m_Notes_map.clear();
+	m_totalIndexNotes = 0;
 }
 
 void CIndexed::Clean()
@@ -1217,8 +1274,9 @@ void CIndexed::SendValidNoteResult(
 
 bool CIndexed::SendStoreRequest(const CUInt128 &keyID)
 {
+	// The load map only throttles outgoing publishing.
 	if (!IsReady()) {
-		return false;
+		return true;
 	}
 	Load *load = NULL;
 	LoadMap::iterator it = m_Load_map.find(keyID);
