@@ -218,7 +218,7 @@ jobs:
       # run-all.sh discovers binaries through.
       - name: pack amuled + amuleapi for the curl smoke
         if: matrix.build_type == 'Release'
-        run: tar -cf curl-smoke-binaries.tar build/src/amuled build/src/webapi/amuleapi build/share/amule/artwork
+        run: tar -cf curl-smoke-binaries.tar build/src/amuled build/src/webapi/amuleapi
       - uses: actions/upload-artifact@v7
         if: matrix.build_type == 'Release'
         with:

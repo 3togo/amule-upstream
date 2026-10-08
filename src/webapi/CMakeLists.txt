@@ -2,6 +2,13 @@
 # connects to amuled via the existing EC protocol (same wire as
 # amulecmd / amuleweb) and serves /api/v1/* over HTTP via Boost.Beast.
 
+if (Python3_FOUND)
+	# Before CMake 3.20, GENERATED is scoped to each directory. Mark the
+	# parent's generated icon table here too so configure does not require
+	# the file to exist before generate_icon_data runs.
+	set_source_files_properties (${AMULE_ICON_DATA_C} PROPERTIES GENERATED TRUE)
+endif()
+
 add_executable (amuleapi
 	${CMAKE_SOURCE_DIR}/src/ExternalConnector.cpp
 	# CUInt128 backs the EC_TAG_KAD_ID tag Refresher.cpp reads for
