@@ -281,6 +281,20 @@ TEST(IndexedLoad, LargeLoadIndexAdoptsAndRoundTripsAsOneResult)
 			file.WriteUInt32(time(nullptr) + 3600);
 		}
 	}
+	// Repeated stops before adoption cancel/join the production worker. A new
+	// worker must still load the full original index, without quarantine or saves.
+	for (int cycle = 0; cycle < 10; ++cycle) {
+		CIndexed stopped(temp.path, CUInt128(1u));
+	}
+	ASSERT_FALSE(wxFileExists(temp.path + "load_index.dat.bad"));
+	ASSERT_FALSE(wxFileExists(temp.path + "key_index.dat"));
+	{
+		CFile original(temp.path + "load_index.dat");
+		ASSERT_EQUALS(1u, original.ReadUInt32());
+		original.ReadUInt32();
+		ASSERT_EQUALS(count, original.ReadUInt32());
+		ASSERT_EQUALS(uint64_t(12 + count * 20), original.GetLength());
+	}
 	{
 		CIndexed index(temp.path, CUInt128(1u));
 		ASSERT_EQUALS(0u, index.m_totalIndexLoad);

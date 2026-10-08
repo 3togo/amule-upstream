@@ -12,4 +12,6 @@ The behavior was informed by eMule's asynchronous index loading in reference che
 
 Additional regression coverage exercises 10,000 keywords and 10,000 sources through adoption and a save/reload cycle, rejects publications before adoption, and preserves an existing load index when staging-file creation fails or a Linux `/dev/full` write fails.
 
-Recovery regression coverage checks each damaged part with healthy sibling indexes, clears entries inserted before a truncated read, verifies `.bad` preservation and fresh-index reload, and keeps originals when quarantine fails. The daemon lifecycle test is opt-in through `ENABLE_INTEGRATION_TESTS`; it checks large-index adoption and ten restart cycles following corrupt-index recovery.
+Recovery regression coverage checks each damaged part with healthy sibling indexes, clears entries inserted before a truncated read, verifies `.bad` preservation and fresh-index reload, and keeps originals when quarantine fails. The daemon lifecycle test is opt-in through `ENABLE_INTEGRATION_TESTS`; it measures large-index adoption, publishes and searches a keyword through the real UDP listener after corrupt-index recovery, and serves the saved keyword through ten restart cycles. CI runs it with the integration-test budget rather than the fast-unit-test budget.
+
+The large-load fixture also stops ten production workers before adoption, checks that the original 50,000-entry file remains intact without quarantine or new saves, and then successfully starts a fresh worker.
