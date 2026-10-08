@@ -226,7 +226,7 @@ void CIndexed::ReadKeywordFile(const std::atomic<bool> &cancel)
 		// load, just without any AICH hash.
 		if (version < 5) {
 			time_t savetime = k_file.ReadUInt32();
-			if (savetime > time(NULL)) {
+			if (savetime > time(nullptr)) {
 				CUInt128 id = k_file.ReadUInt128();
 				if (m_kadID == id) {
 					uint32_t numKeys = k_file.ReadUInt32();
@@ -355,7 +355,7 @@ void CIndexed::ReadSourceFile(const std::atomic<bool> &cancel)
 		}
 		if (version < 3) {
 			time_t savetime = s_file.ReadUInt32();
-			if (savetime > time(NULL)) {
+			if (savetime > time(nullptr)) {
 				uint32_t numKeys = s_file.ReadUInt32();
 				while (numKeys) {
 					if (cancel.load()) {
@@ -466,7 +466,7 @@ void CIndexed::SaveIndexFile(const wxString &path, const std::function<void(CFil
 
 void CIndexed::WriteFile()
 {
-	time_t now = time(NULL);
+	time_t now = time(nullptr);
 	uint32_t s_total = 0;
 	uint32_t k_total = 0;
 	uint32_t l_total = 0;
@@ -475,8 +475,8 @@ void CIndexed::WriteFile()
 		load_file.WriteUInt32(now);
 		wxASSERT(m_Load_map.size() < 0xFFFFFFFF);
 		load_file.WriteUInt32((uint32_t)m_Load_map.size());
-		for (LoadMap::iterator it = m_Load_map.begin(); it != m_Load_map.end(); ++it) {
-			Load *load = it->second;
+		for (const auto &item : m_Load_map) {
+			Load *load = item.second;
 			wxASSERT(load);
 			if (load) {
 				load_file.WriteUInt128(load->keyID);
@@ -491,28 +491,21 @@ void CIndexed::WriteFile()
 		s_file.WriteUInt32(now + KADEMLIAREPUBLISHTIMES);
 		wxASSERT(m_Sources_map.size() < 0xFFFFFFFF);
 		s_file.WriteUInt32((uint32_t)m_Sources_map.size());
-		for (SrcHashMap::iterator itSrcHash = m_Sources_map.begin(); itSrcHash != m_Sources_map.end();
-			++itSrcHash) {
-			SrcHash *currSrcHash = itSrcHash->second;
+		for (const auto &item : m_Sources_map) {
+			SrcHash *currSrcHash = item.second;
 			s_file.WriteUInt128(currSrcHash->keyID);
 
 			CKadSourcePtrList &KeyHashSrcMap = currSrcHash->m_Source_map;
 			wxASSERT(KeyHashSrcMap.size() < 0xFFFFFFFF);
 			s_file.WriteUInt32((uint32_t)KeyHashSrcMap.size());
 
-			for (CKadSourcePtrList::iterator itSource = KeyHashSrcMap.begin();
-				itSource != KeyHashSrcMap.end();
-				++itSource) {
-				Source *currSource = *itSource;
+			for (Source *currSource : KeyHashSrcMap) {
 				s_file.WriteUInt128(currSource->sourceID);
 
 				CKadEntryPtrList &SrcEntryList = currSource->entryList;
 				wxASSERT(SrcEntryList.size() < 0xFFFFFFFF);
 				s_file.WriteUInt32((uint32_t)SrcEntryList.size());
-				for (CKadEntryPtrList::iterator itEntry = SrcEntryList.begin();
-					itEntry != SrcEntryList.end();
-					++itEntry) {
-					Kademlia::CEntry *currName = *itEntry;
+				for (Kademlia::CEntry *currName : SrcEntryList) {
 					s_file.WriteUInt32(currName->m_tLifeTime);
 					currName->WriteTagList(&s_file);
 
@@ -538,30 +531,25 @@ void CIndexed::WriteFile()
 		wxASSERT(m_Keyword_map.size() < 0xFFFFFFFF);
 		k_file.WriteUInt32((uint32_t)m_Keyword_map.size());
 
-		for (KeyHashMap::iterator itKeyHash = m_Keyword_map.begin(); itKeyHash != m_Keyword_map.end();
-			++itKeyHash) {
-			KeyHash *currKeyHash = itKeyHash->second;
+		for (const auto &item : m_Keyword_map) {
+			KeyHash *currKeyHash = item.second;
 			k_file.WriteUInt128(currKeyHash->keyID);
 
 			CSourceKeyMap &KeyHashSrcMap = currKeyHash->m_Source_map;
 			wxASSERT(KeyHashSrcMap.size() < 0xFFFFFFFF);
 			k_file.WriteUInt32((uint32_t)KeyHashSrcMap.size());
 
-			for (CSourceKeyMap::iterator itSource = KeyHashSrcMap.begin();
-				itSource != KeyHashSrcMap.end();
-				++itSource) {
-				Source *currSource = itSource->second;
+			for (const auto &source : KeyHashSrcMap) {
+				Source *currSource = source.second;
 				k_file.WriteUInt128(currSource->sourceID);
 
 				CKadEntryPtrList &SrcEntryList = currSource->entryList;
 				wxASSERT(SrcEntryList.size() < 0xFFFFFFFF);
 				k_file.WriteUInt32((uint32_t)SrcEntryList.size());
 
-				for (CKadEntryPtrList::iterator itEntry = SrcEntryList.begin();
-					itEntry != SrcEntryList.end();
-					++itEntry) {
+				for (Kademlia::CEntry *entry : SrcEntryList) {
 					Kademlia::CKeyEntry *currName =
-						static_cast<Kademlia::CKeyEntry *>(*itEntry);
+						static_cast<Kademlia::CKeyEntry *>(entry);
 					wxASSERT(currName->IsKeyEntry());
 					k_file.WriteUInt32(currName->m_tLifeTime);
 					currName->WritePublishTrackingDataToFile(&k_file, includesAICH);
