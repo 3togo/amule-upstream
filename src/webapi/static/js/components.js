@@ -80,17 +80,17 @@ const REGIONS = (() => {
   try { return new Intl.DisplayNames([getLang()], { type: "region" }); } catch (_) { return null; }
 })();
 
-// Prefer SVG for sharp flags at any display scale. Legacy artwork and older
-// daemons can fall back to PNG. Empty/unresolved country codes still have no flag.
+// Choose an embedded PNG density; older APIs fall back to the base image.
 export function CountryCell({ code }) {
   const cc = (code || "").toLowerCase();
   if (!cc) return "—";
   const CC = cc.toUpperCase();
   return html`<span class="country-cell" title=${(REGIONS && REGIONS.of(CC)) || CC}
-    ><img key=${cc} class="flag" src=${FLAG_BASE + cc + ".svg"} alt="" width="16" height="12"
+    ><img key=${cc} class="flag" src=${FLAG_BASE + cc + ".png"}
+          srcset=${`${FLAG_BASE}${cc}@2x.png 2x, ${FLAG_BASE}${cc}@3x.png 3x`} alt="" width="16" height="12"
           onError=${(e) => {
             const img = e.currentTarget;
-            if (img.getAttribute("src").endsWith(".svg")) img.src = FLAG_BASE + cc + ".png";
+            if (img.hasAttribute("srcset")) img.removeAttribute("srcset");
             else img.style.visibility = "hidden";
           }} />${CC}</span>`;
 }

@@ -2,7 +2,7 @@
 
 Prefer SVG for new artwork and use icons wherever they help users recognize an
 action. Keep text labels, reuse the same symbol for the same action, and respect
-native menu behavior. PNGs are compatibility fallbacks.
+native menu behavior. Country flags use embedded PNGs at 1x/2x/3x.
 
 Menu artwork is from [Bootstrap Icons](https://github.com/twbs/icons), version
 1.13.1, commit `ce0e49dd063243118a115f17ad1fe1fe7576d552` (MIT).
@@ -26,124 +26,85 @@ not imported. This is an artwork lookup, not a source of geolocation or country
 names. An IP's estimated location does not identify a person's nationality.
 
 `flags/an.png` and `flags/unknown.png` retain the existing FamFamFam public-domain
-artwork by Mark James. They have no upstream SVG equivalent and remain raster
-fallbacks. Other existing aMule icons are unchanged by this import.
+artwork by Mark James. They have no upstream SVG equivalent and remain raster artwork. Other existing aMule icons are unchanged by this import.
 
 ## Regeneration
 
-Normal builds use the checked-in assets; no downloads or SVG conversion tools
-are needed. For artwork maintenance, install `picosvg==0.23.0` in a Python
-virtual environment and install `rsvg-convert` (librsvg), then run:
+Normal builds use checked-in artwork and require no downloads or conversion
+tools. For maintenance, install `picosvg==0.23.0` in a Python virtual environment
+and install `rsvg-convert` (librsvg), then run:
 
 ```sh
 python src/icons/regenerate_artwork.py
-python src/icons/test_regenerate_artwork.py
 python src/icons/embed_icons.py src/icons src/icons/icon_data.c
+python src/icons/test_regenerate_artwork.py
 ```
 
-Conversion expands SVG use references but preserves supported shapes, strokes,
-transforms and fill rules. Flags needing clipping and menu artwork use the full
-picosvg compatibility pass; unsupported elements are passed to that converter
-for validation rather than silently discarded. Converted flag paths use compact
-relative coordinates when shorter, retaining the full pass's three-decimal
-precision. Arc flags always have explicit separators for wx 3.2's NanoSVG.
-The US/UM star markers are expanded
-explicitly, with checks that reject changes to the expected marker layout.
-The generated menu SVGs are 16×16;
-flag SVGs and PNG fallbacks are 16×12. The rectangular 4:3 artwork is preserved,
-not stretched to the former 16×11 flag size. PNG fallbacks are rendered from
-the same normalized SVGs. Review representative flags with emblems, clipping,
-stars and fine detail when updating the source set or converter.
+Menu icons use the picosvg compatibility pass and retain a normalized 16×16 SVG
+plus PNG fallback. Flag PNGs are rendered directly from the vendored 4:3 SVGs by
+librsvg at 16×12, 32×24 and 48×36. The generated `flags/` directory contains
+`<cc>.png`, `<cc>@2x.png` and `<cc>@3x.png`; it contains no SVGs. Vendored SVG
+originals and license notices remain unchanged and accompany source distributions.
+Legacy `an` and `unknown` have no vector original; their padded public-domain
+16×12 PNGs are retained and used to render the larger densities.
 
-Do not run every flag through full path conversion: expanding strokes and
-transforms inflated the flag SVG payload from about 1.65 MB of original artwork
-to 7.83 MB. Selective conversion and compact serialization keep all 251 flags
-as vectors within a 3.5 MB maintenance-test budget as shared files.
-This budget concerns normalized SVG bytes, not the generated C file's hexadecimal
-notation or compressed distribution size. Keep vendored originals and license
-notices unchanged. When changing conversion, compare native wxWidgets renders
-against the originals rendered with librsvg, including detailed flags and
-transparent edges at 1x, 1.5x, 2x, 3x and 4x.
+Regeneration losslessly recompresses PNG image data without altering pixels or
+ancillary chunks. Embedding copies checked-in bytes verbatim, including optional
+2x and 3x data fields, so a normal build never recompresses artwork or depends on
+which zlib implementation Python uses. All SVG bytes remain uncompressed; there
+is no artwork decompressor. A maintenance test limits the complete flag PNG
+payload to 500 KB and checks every density, provenance and table regeneration.
 
-Menu SVGs use `#212529` as a replacement token. At popup creation,
-`GetMenuBitmapBundle` substitutes the current system menu text colour outside
-wxArtProvider's global cache and recolours PNG fallbacks while preserving alpha.
-Previously cached neutral artwork cannot retain an old theme colour. On Cocoa,
-menu images use a black alpha mask and are marked as AppKit templates after
-insertion, letting the native menu supply appearance, selection and disabled
-colours. Native menus retain responsibility for disabled states,
-keyboard navigation, checkmarks and platform image preferences. Country flags
-retain their original colours. The GUI caches vector bundles and a bounded set of completed bitmaps for each
-logical size/backing scale. Missing codes share the unknown bitmap without
-rescanning the artwork directory. Windows icon/text cells draw HICON directly;
-GTK and macOS continue using logical bitmap sizes.
-The WebUI requests the installed SVG through `/flags/{code}.svg`, with a PNG
-fallback for legacy artwork and older daemons. Both routes are local and cached.
+## Rendering
 
-## Visual checks
+Country flags are embedded in `amule`, `amulegui` and `amuleapi`. No resource
+search, separate artwork install component, or runtime artwork files are needed.
+For a requested desktop pixel size, `CCountryFlags` chooses the smallest PNG
+covering both dimensions, or the largest available PNG above 3x. Exact sizes
+are used directly; other sizes use `wxIMAGE_QUALITY_HIGH`, including fractional
+scales (1.5x shrinks the 2x source). Flags bypass wxBitmapBundle's nearest-neighbour
+resampling. Decoded images and a bounded cache of completed bitmaps retain each
+logical size/backing scale; missing codes share the unknown bitmap. Windows
+icon/text cells draw HICON directly; GTK and macOS use logical bitmap sizes.
 
-With testing and a GUI enabled, build `IconArtworkTest` and run
-`ctest --test-dir build -R IconArtworkTest --output-on-failure`. It checks all
-bundled flags and menu symbols at 1×, 1.5×, 2×, 3× and 4×, simulated scale transitions,
-unknown codes, repeated bitmap reuse, transparent legacy padding, menu command
-IDs/mnemonics, disabled/check states, and repeated black/white theme-colour
-changes in both SVG and forced PNG rendering. On Cocoa it also checks that the
-native menu image is a template.
-It skips when no GUI display is available, unless `AMULE_ICON_TEST_REQUIRE_GUI`
-is set; CI sets it so missing native rendering is a failure. Linux GUI CI already
-uses Xvfb, and now includes separate dark and high-contrast artwork tests.
-The conversion/provenance/PNG-dimension/3.5 MB source-budget tests run in Icons CI. Set `AMULE_ICON_TEST_OUTPUT` to a
-directory to export the native renders for inspection. On GTK, run all three theme checks with
-`ctest --test-dir build -R 'IconArtwork.*Test' --output-on-failure` under Xvfb.
+Menu SVGs use `#212529` as a replacement token. At popup construction,
+`GetMenuBitmapBundle` substitutes the current menu text colour outside the global
+wxArtProvider cache and recolours PNG fallbacks while preserving alpha. On Cocoa,
+menu images use black alpha masks and AppKit templates so native menus provide
+highlighted and disabled appearance. Text, shortcuts, checkmarks and native
+platform image preferences remain unchanged.
 
-Check Downloads and category menus, shared-file actions, search actions and
-server link copying at 100%, 150% and 200% display scaling. Check light, dark and
-high-contrast themes, disabled commands, long translated labels, keyboard access
-and priority checkmarks. Moving a list between monitors should resize flags
-without blurring or shifting text. GTK may hide menu images according to the
-desktop setting; the text and command behavior must remain complete.
+The API serves embedded PNGs at `/flags/{code}.png`, `/flags/{code}@2x.png` and
+`/flags/{code}@3x.png`, with public GET/HEAD, ETags and conditional requests. SVG
+flag routes return 404. The WebUI uses `srcset` at 2x/3x and removes it on a missing
+density so older APIs fall back to the base PNG. A missing base image is hidden.
 
-## Shared country artwork
+## Checks
 
-Country flags are excluded from `embed_icons.py` and installed once under
-`share/amule/artwork/flags/`. The `artwork` CMake install component also carries
-`THIRDPARTY.md`; Debian packaging can put that component in the existing
-architecture-independent `amule-common` package and make consumers depend on
-its matching version. This repository does not maintain Debian control files.
-Application and menu SVGs remain embedded as ordinary, uncompressed bytes.
-No artwork decompressor or compressed generated C data remains.
+Build `IconArtworkTest` with testing and a GUI enabled. Under a native display
+(or Xvfb on Linux), run:
 
-`CountryFlagResources` is a wxBase-only file loader shared by the GUI and API.
-It accepts only lowercase two-letter codes and `unknown`, enumerates available
-PNG entries once, limits reads to 4 MiB, and reads only SVG/PNG files under the
-selected artwork directory. It does not search the current working directory.
-Resources are resolved relative to the executable first (macOS bundle Resources,
-portable `artwork/flags`, then `../share/amule` or `../../share/amule`), followed
-by the configured installation path. The build stages the same shared layout.
-Windows portable installs, AppImage and Flatpak use the normal CMake install;
-the static Linux tarball carries `artwork/flags` beside its binaries. Standalone
-macOS GUI apps each contain their own resources, while the API inside aMule.app
-shares that app's copy. Independent app bundles still duplicate artwork.
+```sh
+ctest --test-dir build -R 'IconArtwork.*Test' --output-on-failure
+node unittests/browser-tests/country-flags.cjs
+```
 
-The GUI reads flags on first use, retaining vector bundles and a bounded cache
-of bitmaps. PNG-only flags, SVG parse failures and builds without SVG support
-use the original PNG with explicit `wxIMAGE_QUALITY_HIGH` scaling at every
-requested size, including fractional scales. Missing SVGs fall back to PNG;
-missing both formats yields no desktop image. Missing API files return 404.
-Restart GUI applications after replacing artwork, because their cache retains
-already-rendered files. API reads reflect replacement bytes and new ETags.
+The native test renders all 253 flags and menu icons at 1x/1.5x/2x/3x/4x,
+checks 1.5x high-quality shrinking from 2x, exact source selection, transparent
+legacy padding, bitmap reuse, unknown fallback, simulated scale transitions,
+menu commands/checks/disabled states, and repeated black/white colour changes.
+On Cocoa it verifies the AppKit template flag. Headless runs skip unless
+`AMULE_ICON_TEST_REQUIRE_GUI` is set; CI sets it. Linux also runs dark and
+high-contrast themes. `AMULE_ICON_TEST_OUTPUT` exports native renders.
 
-Shared storage removes duplication, but does not reduce the artwork itself.
-One uncompressed directory can occupy more installed bytes than three compressed
-embedded tables. Compare installed and compressed package sizes separately;
-a single-consumer installation still receives the whole flag set.
+The Playwright test exercises the actual CountryCell at device pixel ratios
+1, 2 and 3, all country flags including legacy artwork, density selection,
+1x-only API fallback and unavailable images. `AMULE_BROWSER_OUTPUT` exports
+screenshots. The HTTP script separately verifies the real API's density routes,
+validation, caching and HEAD behavior.
 
-The WebUI's actual `CountryCell` component has a Playwright check at device
-pixel ratios 1, 2 and 3, including all 252 ISO-code PNG entries (251 SVG twins),
-legacy PNG fallback, an older PNG-only API and hiding unavailable flags. Run
-`node unittests/browser-tests/country-flags.cjs` with Playwright installed.
-Set `AMULE_BROWSER_OUTPUT` to export screenshots. This fixture verifies the
-component and source assets; live API bytes are verified separately by the
-country-flag HTTP checks. Actual monitor changes, live OS appearance changes
-and highlighted menu rows still require a Windows/macOS desktop session; do
-not substitute simulated image sizes for those release checks.
+Before merge, visually inspect Windows menus/flags at 100%, 150% and 200%,
+highlighted/disabled rows and high contrast, and physical mixed-DPI transitions.
+Inspect macOS menus in light/dark mode and flags on Retina/non-Retina displays.
+Check live OS appearance changes while the application runs. Simulated sizes
+and Linux tests do not replace those native desktop sessions.

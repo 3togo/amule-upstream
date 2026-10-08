@@ -57,7 +57,7 @@
 #include "OtherFunctions.h"        // GetFiletypeByName for the shared file_type token
 #include <common/MediaCodecName.h> // Needed for MediaCodecLabel
 #include <common/Path.h>           // CPath
-#include "CountryFlagResources.h"
+#include "icons/icon_data.h"
 
 #include <ec/cpp/ECPacket.h>
 #include <ec/cpp/ECCodes.h>
@@ -1601,7 +1601,7 @@ CHttpServer::Response CApiDispatcher::DispatchToHandler(const CHttpServer::Reque
 	// image an <img src> points at, carrying no per-installation data.
 	if (path.compare(0, 7, "/flags/") == 0) {
 		if (req.method != "GET" && req.method != "HEAD") {
-			return MethodNotAllowed("GET, HEAD", "only GET / HEAD on /flags/{code}.{png,svg}");
+			return MethodNotAllowed("GET, HEAD", "only GET / HEAD on /flags/{code}[@2x,@3x].png");
 		}
 		return ServeCountryFlag(req, path);
 	}
@@ -1727,45 +1727,46 @@ CHttpServer::Response CApiDispatcher::ServeStaticFile(
 CHttpServer::Response CApiDispatcher::ServeCountryFlag(
 	const CHttpServer::Request &, const std::string &url_path)
 {
-	// Exact shape only: "/flags/" + name + ".png" or ".svg".
 	static const std::string kPrefix = "/flags/";
-	const bool svg = url_path.size() >= 4 && url_path.compare(url_path.size() - 4, 4, ".svg") == 0;
-	const std::string kSuffix = svg ? ".svg" : ".png";
+	static const std::string kSuffix = ".png";
 	if (url_path.size() <= kPrefix.size() + kSuffix.size() ||
 		url_path.compare(0, kPrefix.size(), kPrefix) != 0 ||
 		url_path.compare(url_path.size() - kSuffix.size(), kSuffix.size(), kSuffix) != 0) {
 		return ErrorResponse(404, "not_found", "no such flag");
 	}
-	const std::string code =
-		url_path.substr(kPrefix.size(), url_path.size() - kPrefix.size() - kSuffix.size());
-
-	// Two lowercase ASCII letters, the shape `country_code` arrives in, plus the one
-	// literal name the set ships alongside them: "unknown", the "??" placeholder
-	// CCountryFlags falls back to, offered so a frontend can match the desktop.
-	//
-	// The filename is built by concatenation, so this whitelist prevents a crafted
-	// code from escaping the shared artwork directory. LooksMalicious rejects
-	// those upstream, but the lookup must not depend on it.
+	std::string code = url_path.substr(kPrefix.size(), url_path.size() - kPrefix.size() - kSuffix.size());
+	int scale = 1;
+	if (code.size() > 3 && (code.compare(code.size() - 3, 3, "@2x") == 0 ||
+				       code.compare(code.size() - 3, 3, "@3x") == 0)) {
+		scale = code[code.size() - 2] - '0';
+		code.resize(code.size() - 3);
+	}
 	const bool is_alpha2 =
 		code.size() == 2 && code[0] >= 'a' && code[0] <= 'z' && code[1] >= 'a' && code[1] <= 'z';
 	if (!is_alpha2 && code != "unknown") {
 		return ErrorResponse(404, "not_found", "no such flag");
 	}
-
-	// A future GeoIP database can return a code absent from the bundled artwork.
-	// A well-formed miss is a 404.
-	std::string bytes;
-	if (!CountryFlagResources::Default().Read(wxString::FromUTF8(code.c_str()), svg, bytes)) {
+	const auto entry = amule_find_icon(("flag_" + code).c_str());
+	if (!entry) {
+		return ErrorResponse(404, "not_found", "no such flag");
+	}
+	const unsigned char *data = scale == 3   ? entry->png3x_data
+				    : scale == 2 ? entry->png2x_data
+						 : entry->png_data;
+	const unsigned int length = scale == 3   ? entry->png3x_len
+				    : scale == 2 ? entry->png2x_len
+						 : entry->png_len;
+	if (!data || !length) {
 		return ErrorResponse(404, "not_found", "no such flag");
 	}
 
 	CHttpServer::Response r;
 	r.status = 200;
-	r.content_type = svg ? "image/svg+xml" : "image/png";
+	r.content_type = "image/png";
 	// Dispatch() applies the ETag and 304 swap to every 200 GET/HEAD, and the
 	// transport writes a HEAD as headers only, so this handler just produces bytes.
-	r.body = std::move(bytes);
-	// ETags are based on response bytes, so replacing installed artwork also changes validators.
+	r.body.assign(reinterpret_cast<const char *>(data), length);
+	// Dispatch derives ETags from the embedded response bytes.
 	r.headers["Cache-Control"] = "public, max-age=86400";
 	return r;
 }

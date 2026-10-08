@@ -25,7 +25,7 @@ matching public declarations):
     const struct AMuleIconEntry *amule_get_all_icons(int *count);
 
 Icons in <icons_dir>/<name>.png get the art-id "<name>".
-Country flags are installed as shared files and are never embedded.
+Country flags have flag_<code> IDs and optional @2x/@3x PNG siblings.
 
 A <name>.svg next to <name>.png is embedded as the icon's vector twin;
 CamuleArtProvider renders every request for the icon from it on wx
@@ -55,22 +55,29 @@ def collect_icons(icons_dir: Path):
     Yield (art_id, c_ident, png_path, svg_path-or-None) for each top-level PNG.
 
     Files directly under icons_dir use their stem as the art id
-    ("foo.png" -> art_id "foo"). Country flags are installed as shared data.
+    ("foo.png" -> art_id "foo"). Country flags use flag_<code> art IDs.
     """
     entries = []
 
     # Top-level icons (everything except the flags/ subdir).
     for path in sorted(icons_dir.glob("*.png")):
         stem = path.stem
+        if stem.endswith(("@2x", "@3x")):
+            continue
         entries.append((stem, sanitise(stem), path, svg_twin(path)))
 
+    for path in sorted((icons_dir / "flags").glob("*.png")):
+        if path.stem.endswith(("@2x", "@3x")):
+            continue
+        stem = "flag_" + path.stem
+        entries.append((stem, sanitise(stem), path, None))
     return entries
 
 
 def find_orphan_svgs(icons_dir: Path, entries):
     """List .svg files that have no .png twin (the PNG is mandatory)."""
     known = {svg for _art_id, _c_ident, _png, svg in entries if svg is not None}
-    search_dirs = [icons_dir]
+    search_dirs = [icons_dir, icons_dir / "flags"]
 
     orphans = []
     for directory in search_dirs:
@@ -150,20 +157,22 @@ def emit(out_path: Path, entries):
     # Per-icon byte arrays.
     for _art_id, c_ident, png_path, svg_path in entries:
         emit_byte_array(chunks, f"icon_{c_ident}_png", png_path.read_bytes())
+        for scale in (2, 3):
+            density = png_path.with_name(png_path.stem + f"@{scale}x.png")
+            if density.is_file():
+                emit_byte_array(chunks, f"icon_{c_ident}_png{scale}x", density.read_bytes())
         if svg_path is not None:
             emit_byte_array(chunks, f"icon_{c_ident}_svg", svg_path.read_bytes())
 
     # Lookup table.
     chunks.append("static const struct AMuleIconEntry icons[] = {\n")
-    for art_id, c_ident, _png_path, svg_path in entries:
-        if svg_path is not None:
-            chunks.append(f'\t{{ "{art_id}", icon_{c_ident}_png,\n')
-            chunks.append(f"\t\tsizeof icon_{c_ident}_png, icon_{c_ident}_svg,\n")
-            chunks.append(f"\t\tsizeof icon_{c_ident}_svg }},\n")
-        else:
-            chunks.append(
-                f'\t{{ "{art_id}", icon_{c_ident}_png, sizeof icon_{c_ident}_png, 0, 0 }},\n'
-            )
+    for art_id, c_ident, png_path, svg_path in entries:
+        fields = [f'"{art_id}"', f"icon_{c_ident}_png", f"sizeof icon_{c_ident}_png"]
+        fields += [f"icon_{c_ident}_svg", f"sizeof icon_{c_ident}_svg"] if svg_path else ["0", "0"]
+        for scale in (2, 3):
+            density = png_path.with_name(png_path.stem + f"@{scale}x.png")
+            fields += [f"icon_{c_ident}_png{scale}x", f"sizeof icon_{c_ident}_png{scale}x"] if density.is_file() else ["0", "0"]
+        chunks.append("\t{ " + ", ".join(fields) + " },\n")
     chunks.append("};\n")
     chunks.append("\n")
     chunks.append(
@@ -215,6 +224,13 @@ def main(argv):
     if not icons_dir.is_dir():
         print(f"error: {icons_dir} is not a directory", file=sys.stderr)
         return 1
+
+    for directory in (icons_dir, icons_dir / "flags"):
+        for density in directory.glob("*@?x.png"):
+            base = density.with_name(re.sub(r"@[23]x(?=\.png$)", "", density.name))
+            if base == density or not base.is_file():
+                print(f"error: {density} has no supported base PNG", file=sys.stderr)
+                return 1
 
     entries = collect_icons(icons_dir)
     if not entries:

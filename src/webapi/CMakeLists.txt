@@ -28,6 +28,7 @@ add_executable (amuleapi
 	SearchJson.cpp
 	SharedContent.cpp
 	StaticFs.cpp
+	${AMULE_ICON_DATA_C}
 	State.cpp
 )
 
@@ -46,12 +47,12 @@ target_include_directories (amuleapi
 	PRIVATE ${CMAKE_BINARY_DIR}
 	PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 	PRIVATE ${SRC_DIR}
+	PRIVATE ${SRC_DIR}/icons
 	PRIVATE ${Boost_INCLUDE_DIR}
 )
 
 target_link_libraries (amuleapi
 	PRIVATE ec
-	PRIVATE countryflagresources
 	PRIVATE mulecommon
 	PRIVATE mulesocket
 	PRIVATE webcommon
@@ -123,3 +124,7 @@ install (TARGETS amuleapi
 install (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/static/
 	DESTINATION ${CMAKE_INSTALL_DATADIR}/amule/amuleapi-static
 )
+
+if (Python3_FOUND)
+	add_dependencies (amuleapi generate_icon_data)
+endif()

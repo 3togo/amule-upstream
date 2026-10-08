@@ -4,7 +4,7 @@
 #
 # The peer / server `country_code` on /clients and /servers is only half
 # the story; this route is where a frontend gets the matching artwork.
-# The bytes come from installed shared artwork (the same files the desktop
+# The bytes come from the embedded icon table (the same PNGs the desktop
 # GUI draws). These assertions cover the public route and caching contract:
 #
 #   * a known code returns a PNG with the right Content-Type,
@@ -16,11 +16,11 @@
 #   * the "unknown" placeholder (the "??" flag the desktop falls back
 #     to for an unresolved code) is reachable under the same route,
 #   * anything else that is not exactly two lowercase ASCII letters +
-#     .png is a 404, including uppercase, wrong length, traversal
+#     an optional @2x / @3x suffix and .png is a 404, including uppercase, wrong length, traversal
 #     attempts and a well-formed code the set has no artwork for,
 #   * non-safe methods are 405,
 #   * it works with `[Server]/StaticRoot` unset — artwork has its own
-#     installed resource directory.
+#     embedded artwork; it never reads files.
 #
 # Usage:
 #   amuleapi --config-dir=/tmp/amuleapi-regtest &
@@ -223,38 +223,35 @@ done
 _curl -H "Authorization: Bearer not-a-real-token" "$HOST/flags/fr.png"
 _assert_status 200 "GET /flags/fr.png with a bogus bearer is still served"
 
-# --- 10. SVG flags preserve the same HTTP contract. ---------------
-_curl "$HOST/flags/us.svg"
-_assert_status 200 "GET /flags/us.svg"
-case "$(_header content-type)" in
-	image/svg+xml*) _pass "SVG Content-Type" ;;
-	*) _fail "SVG Content-Type" ;;
-esac
-if head -c 200 "$CURL_BODY_FILE" | grep -q '<svg'; then
-	_pass "SVG body contains the vector artwork"
-else
-	_fail "SVG body missing"
-fi
-SVG_ETAG=$(_header etag)
-if [ -n "$SVG_ETAG" ]; then
-	_curl -H "If-None-Match: $SVG_ETAG" "$HOST/flags/us.svg"
-	_assert_status 304 "SVG matching ETag → 304"
-else
-	_fail "SVG ETag missing"
-fi
-_curl -I "$HOST/flags/us.svg"
-_assert_status 200 "HEAD /flags/us.svg"
-if [ "$CURL_SIZE" = "0" ]; then _pass "SVG HEAD carries no body"; else _fail "SVG HEAD body"; fi
-for target in unknown an zz DE d1; do
-	_curl "$HOST/flags/$target.svg"
-	_assert_status 404 "absent or malformed SVG ($target)"
+# --- 10. Density variants preserve validation and caching. --------
+for scale in 2 3; do
+    for code in us an unknown; do
+        _curl "$HOST/flags/$code@${scale}x.png"
+        _assert_status 200 "GET $code @${scale}x"
+        case "$(_header content-type)" in
+            image/png*) _pass "@${scale}x PNG Content-Type" ;;
+            *) _fail "@${scale}x Content-Type" ;;
+        esac
+        DIMS=$(od -An -tu1 -j16 -N8 "$CURL_BODY_FILE" | xargs)
+        EXPECTED="0 0 0 $((16*scale)) 0 0 0 $((12*scale))"
+        if [ "$DIMS" = "$EXPECTED" ]; then _pass "@${scale}x dimensions"; else _fail "@${scale}x dimensions" "$DIMS"; fi
+        DENSITY_ETAG=$(_header etag)
+        if [ -n "$DENSITY_ETAG" ]; then
+            _curl -H "If-None-Match: $DENSITY_ETAG" "$HOST/flags/$code@${scale}x.png"
+            _assert_status 304 "@${scale}x matching ETag"
+            if [ "$CURL_SIZE" = 0 ]; then _pass "density 304 empty"; else _fail "density 304 body"; fi
+        else _fail "density ETag missing"; fi
+        _curl -I "$HOST/flags/$code@${scale}x.png"
+        _assert_status 200 "HEAD @${scale}x"
+        if [ "$CURL_SIZE" = 0 ]; then _pass "density HEAD empty"; else _fail "density HEAD body"; fi
+    done
+    _curl -X POST "$HOST/flags/us@${scale}x.png"
+    _assert_status 405 "POST density refused"
 done
-_curl "$HOST/flags/an.png"
-_assert_status 200 "legacy PNG fallback remains available"
-_curl "$HOST/flags/us.SVG"
-_assert_status 404 "uppercase SVG extension refused"
-_curl -X POST "$HOST/flags/us.svg"
-_assert_status 405 "POST SVG refused"
+for target in us.svg us@1x.png us@4x.png us@2X.png us@2x@3x.png DE@2x.png zz@3x.png unknown@4x.png; do
+    _curl "$HOST/flags/$target"
+    _assert_status 404 "unsupported flag name $target"
+done
 
 # --- Summary. -----------------------------------------------------
 echo

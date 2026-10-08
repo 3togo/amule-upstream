@@ -20,47 +20,65 @@
 
 // Country-code resolution stays in the core; this cache is shared by both GUIs.
 #include "CountryFlags.h"
-#include "CountryFlagResources.h"
+#include "icons/icon_data.h"
 
 #include <wx/mstream.h>
 #include <cmath>
+#include <cstring>
 
-CCountryFlags::CCountryFlags(const wxString &root, bool preferSvg)
-: m_resources(root)
-, m_preferSvg(preferSvg)
+namespace
 {
+const AMuleIconEntry *FindFlag(const wxString &code)
+{
+	// Index the fixed embedded inventory once; unknown network codes never grow it.
+	static const auto entries = [] {
+		std::map<wxString, const AMuleIconEntry *> result;
+		int count = 0;
+		const auto icons = amule_get_all_icons(&count);
+		for (int i = 0; i < count; ++i) {
+			if (std::strncmp(icons[i].name, "flag_", 5) == 0) {
+				result.emplace(wxString::FromUTF8(icons[i].name + 5), &icons[i]);
+			}
+		}
+		return result;
+	}();
+	const auto found = entries.find(code);
+	const auto fallback = entries.find("unknown");
+	return found != entries.end()      ? found->second
+	       : fallback != entries.end() ? fallback->second
+					   : nullptr;
 }
+} // namespace
 
 wxBitmap CCountryFlags::GetFlag(const wxString &code, const wxSize &logicalSize, double contentScale)
 {
 	if (logicalSize.x <= 0 || logicalSize.y <= 0 || !std::isfinite(contentScale) || contentScale <= 0) {
 		return wxNullBitmap;
 	}
-	// Normalize missing codes once through a fixed set, without rescanning the
-	// artwork directory or retaining arbitrary unknown strings from the network.
-	const wxString key = m_resources.Codes().count(code) ? code : wxString("unknown");
+	const auto entry = FindFlag(code);
+	if (!entry) {
+		return wxNullBitmap;
+	}
+	const wxString key = wxString::FromUTF8(entry->name);
 	auto it = m_flags.find(key);
 	if (it == m_flags.end()) {
 		FlagArtwork artwork;
-		std::string bytes;
-#ifdef wxHAS_SVG
-		if (m_preferSvg && m_resources.Read(key, true, bytes)) {
-			artwork.bundle = wxBitmapBundle::FromSVG(bytes.c_str(), wxSize(16, 12));
-		}
-#endif
-		if (!artwork.bundle.IsOk() && m_resources.Read(key, false, bytes)) {
-			wxMemoryInputStream stream(bytes.data(), bytes.size());
-			artwork.fallback.LoadFile(stream, wxBITMAP_TYPE_PNG);
-			if (artwork.fallback.IsOk() && !artwork.fallback.HasAlpha()) {
-				artwork.fallback.InitAlpha();
+		const unsigned char *data[] = { entry->png_data, entry->png2x_data, entry->png3x_data };
+		const unsigned int lengths[] = { entry->png_len, entry->png2x_len, entry->png3x_len };
+		for (size_t i = 0; i < artwork.images.size(); ++i) {
+			if (!data[i] || !lengths[i]) {
+				continue;
+			}
+			wxMemoryInputStream stream(data[i], lengths[i]);
+			auto &image = artwork.images[i];
+			image.LoadFile(stream, wxBITMAP_TYPE_PNG);
+			if (image.IsOk() && !image.HasAlpha()) {
+				image.InitAlpha();
 			}
 		}
 		it = m_flags.emplace(key, artwork).first;
 	}
 	auto &artwork = it->second;
-	if (!artwork.bundle.IsOk() && !artwork.fallback.IsOk()) {
-		return wxNullBitmap;
-	}
 	const auto sizeKey = std::make_tuple(logicalSize.x, logicalSize.y, contentScale);
 	const auto cached = artwork.bitmaps.find(sizeKey);
 	if (cached != artwork.bitmaps.end()) {
@@ -70,16 +88,23 @@ wxBitmap CCountryFlags::GetFlag(const wxString &code, const wxSize &logicalSize,
 	if (pixels.x <= 0 || pixels.y <= 0) {
 		return wxNullBitmap;
 	}
-	wxBitmap bitmap;
-	if (artwork.bundle.IsOk()) {
-		bitmap = artwork.bundle.GetBitmap(pixels);
-	} else {
-		const wxImage image =
-			artwork.fallback.GetSize() == pixels
-				? artwork.fallback
-				: artwork.fallback.Scale(pixels.x, pixels.y, wxIMAGE_QUALITY_HIGH);
-		bitmap = wxBitmap(image);
+	const wxImage *source = nullptr;
+	for (const auto &image : artwork.images) {
+		if (!image.IsOk()) {
+			continue;
+		}
+		source = &image;
+		if (image.GetWidth() >= pixels.x && image.GetHeight() >= pixels.y) {
+			break;
+		}
 	}
+	if (!source) {
+		return wxNullBitmap;
+	}
+	const wxImage image = source->GetSize() == pixels
+				      ? *source
+				      : source->Scale(pixels.x, pixels.y, wxIMAGE_QUALITY_HIGH);
+	wxBitmap bitmap(image);
 	if (bitmap.IsOk()) {
 		// SetScaleFactor may copy pixel data. Do it only for a new scale, then
 		// share the completed bitmap on subsequent list-cell draws.

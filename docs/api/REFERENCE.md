@@ -3165,17 +3165,25 @@ Trigger an on-demand Kad notes lookup for a search result you have not downloade
 
 The country-flag image for a `country_code`. `/clients`, `/servers` and their SSE diffs carry the ISO 3166-1 alpha-2 code (see [`GET /api/v1/clients`](#get-apiv1clients)); this is where the matching artwork comes from, so a frontend does not have to ship its own flag set.
 
-Note the path is deliberately **outside** `/api/v1/` — it is an image an `<img src>` points at, not a JSON resource, and it is versioned with the installed artwork rather than by the API contract.
+Note the path is deliberately **outside** `/api/v1/` — it is an image an `<img src>` points at, not a JSON resource, and it is versioned with the binary artwork rather than by the API contract.
 
-SVG artwork is also available at `GET /flags/{code}.svg` (`image/svg+xml`), with
-identical country-code validation, GET/HEAD and cache behavior. The WebUI prefers
-SVG and falls back to PNG. Raster-only legacy flags (`an`, `unknown`) have no SVG
-and return 404 for that extension; the existing PNG endpoint remains available.
+The three embedded PNG densities are available at `/flags/{code}.png` (16×12),
+`/flags/{code}@2x.png` (32×24), and `/flags/{code}@3x.png` (48×36). All variants
+have identical country-code validation, GET/HEAD and caching behavior. SVG flag
+routes are not supported. The WebUI uses `srcset` and falls back to the 1x image
+when an older API does not provide higher densities.
 
-`{code}` must be exactly two **lowercase** ASCII letters, or the literal `unknown` for the "??" placeholder the desktop GUI falls back to when a code is empty or unrecognised. The bytes are the flag-icons PNG fallbacks (16×12, with legacy `an` and `unknown` artwork) loaded from the installed shared artwork directory — the same files the desktop draws. This directory is independent of `[Server]/StaticRoot`. Missing artwork returns 404; ETags reflect the served bytes, including updates to installed files.
+`{code}` must be exactly two **lowercase** ASCII letters, or the literal `unknown`
+for the "??" placeholder the desktop GUI uses for an empty or unrecognised code.
+The flag-icons PNGs and legacy `an`/`unknown` artwork are compiled into the binary,
+using the same images as the desktop. This route never reads the filesystem and
+works independently of `[Server]/StaticRoot`. Missing artwork returns 404;
+ETags are derived from the embedded response bytes.
 
 ```sh
 curl -s http://$HOST/flags/de.png -o de.png
+curl -s http://$HOST/flags/de@2x.png -o de@2x.png
+curl -s http://$HOST/flags/de@3x.png -o de@3x.png
 curl -s http://$HOST/flags/unknown.png -o unknown.png
 ```
 

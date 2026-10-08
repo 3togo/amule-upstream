@@ -34,7 +34,7 @@ const server = http.createServer((req, res) => {
   }
   const isFlag = url.pathname.startsWith('/flags/');
   const base = isFlag ? flagsRoot : staticRoot;
-  if (isFlag && url.pathname.endsWith('.svg') && req.headers.cookie === 'legacy=1') {
+  if (isFlag && /@[23]x\.png$/.test(url.pathname) && req.headers.cookie === 'legacy=1') {
     res.writeHead(404); res.end(); return;
   }
   const file = path.resolve(base, '.' + (isFlag ? url.pathname.slice(6) : url.pathname));
@@ -59,10 +59,17 @@ const server = http.createServer((req, res) => {
         await page.goto(`http://127.0.0.1:${server.address().port}/`);
         await page.waitForFunction(() => window.flagsReady);
         await page.waitForFunction(() => [...document.querySelectorAll('img.flag')].every(image => image.complete));
+        await page.waitForFunction(({ legacy, scale }) => [...document.querySelectorAll('[data-code]')].every(cell => {
+          const image = cell.querySelector('img');
+          if (cell.dataset.code === 'zz') return image.style.visibility === 'hidden';
+          const density = legacy ? 1 : scale;
+          return image.complete && image.naturalWidth > 0 && image.currentSrc.endsWith(
+            `${cell.dataset.code}${density === 1 ? '' : '@' + density + 'x'}.png`);
+        }), { legacy, scale });
         const images = await page.locator('[data-code]').evaluateAll(cells => cells.map(cell => {
           const image = cell.querySelector('img');
           const rect = image.getBoundingClientRect();
-          return { code: cell.dataset.code, src: image.src, loaded: image.naturalWidth > 0,
+          return { code: cell.dataset.code, src: image.currentSrc, naturalWidth: image.naturalWidth, loaded: image.naturalWidth > 0,
             width: rect.width, height: rect.height, hidden: image.style.visibility === 'hidden' };
         }));
         assert.equal(await page.evaluate(() => devicePixelRatio), scale);
@@ -76,14 +83,15 @@ const server = http.createServer((req, res) => {
           } else {
             assert.equal(image.loaded, true, image.code);
             assert.equal(image.hidden, false, image.code);
-            assert.ok(image.src.endsWith(legacy || image.code === 'an' ? '.png' : '.svg'), image.code);
+            const density = legacy ? 1 : scale;
+            assert.ok(image.src.endsWith(`${image.code}${density === 1 ? '' : '@' + density + 'x'}.png`), image.code);
           }
         }
         if (process.env.AMULE_BROWSER_OUTPUT) {
           fs.mkdirSync(process.env.AMULE_BROWSER_OUTPUT, { recursive: true });
           await page.screenshot({ path: path.join(process.env.AMULE_BROWSER_OUTPUT, `flags-${legacy ? "legacy-" : ""}${scale}x.png`), fullPage: true });
         }
-        console.log(`PASS: ${codes.length} WebUI flags (${legacy ? "PNG-only API" : "SVG API"}) at ${scale}x, SVG preference, PNG fallback and missing flag`);
+        console.log(`PASS: ${codes.length} WebUI flags (${legacy ? "1x-only API" : "density-aware API"}) at ${scale}x, srcset selection, 1x fallback and missing flag`);
         await context.close();
       }
     }

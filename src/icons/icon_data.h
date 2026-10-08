@@ -11,7 +11,7 @@
  * CamuleArtProvider, which wraps amule_find_icon() in a wxArtProvider
  * subclass and decodes the embedded PNG bytes via wxImage.  The
  * direct-table API (amule_get_all_icons) enumerates embedded application icons.
- * Country flags are loaded separately from installed shared data.
+ * Country flags use embedded 1x, 2x and 3x PNGs.
  *
  * Compiled as C: the byte arrays are pure data with no string
  * literals, so the choice of TU language is mostly stylistic, but
@@ -38,6 +38,11 @@ struct AMuleIconEntry
 	 */
 	const unsigned char *svg_data;
 	unsigned int svg_len;
+	/* Optional lossless raster densities, NULL/0 when absent. */
+	const unsigned char *png2x_data;
+	unsigned int png2x_len;
+	const unsigned char *png3x_data;
+	unsigned int png3x_len;
 };
 
 /*

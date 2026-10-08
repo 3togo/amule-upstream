@@ -33,7 +33,6 @@
 #include <wx/filename.h>
 #include "CamuleArtProvider.h"
 #include "CountryFlags.h"
-#include "CountryFlagResources.h"
 #include <vector>
 #include "MenuIcons.h"
 #include "icons/icon_data.h"
@@ -68,7 +67,6 @@ int main(int argc, char **argv)
 	wxArtProvider::Push(new CamuleArtProvider);
 	int count = 0, flags = 0, menus = 0;
 	const auto entries = amule_get_all_icons(&count);
-	const auto &resources = CountryFlagResources::Default();
 	const char *output = std::getenv("AMULE_ICON_TEST_OUTPUT");
 	if (output)
 		wxFileName::Mkdir(wxString::FromUTF8(output), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
@@ -92,29 +90,32 @@ int main(int argc, char **argv)
 		}
 
 		for (const char *code : { "an", "unknown" }) {
-			std::string bytes;
-			require(resources.Read(wxString::FromUTF8(code), false, bytes),
-				"legacy flag missing");
-			wxMemoryInputStream stream(bytes.data(), bytes.size());
-			wxImage image(stream, wxBITMAP_TYPE_PNG);
-			require(image.IsOk() && image.GetSize() == wxSize(16, 12), "legacy flag not padded");
-			require(image.HasAlpha(), "legacy flag padding lacks transparency");
-			for (int x = 0; x < 16; ++x) {
-				require(image.GetAlpha(x, 11) == 0, "legacy flag bottom row not transparent");
+			for (int scale : { 1, 2, 3 }) {
+				const auto entry = amule_find_icon((std::string("flag_") + code).c_str());
+				require(entry != nullptr, "legacy flag missing");
+				const auto data = scale == 3   ? entry->png3x_data
+						  : scale == 2 ? entry->png2x_data
+							       : entry->png_data;
+				const auto length = scale == 3   ? entry->png3x_len
+						    : scale == 2 ? entry->png2x_len
+								 : entry->png_len;
+				wxMemoryInputStream stream(data, length);
+				wxImage image(stream, wxBITMAP_TYPE_PNG);
+				require(image.IsOk() && image.GetSize() == wxSize(16 * scale, 12 * scale),
+					"legacy flag wrong dimensions");
+				require(image.HasAlpha(), "legacy flag padding lacks transparency");
+				// The 1x original is padded; filtering of enlarged raster-only
+				// artwork can blend the boundary, so require its last row only.
+				for (int x = 0; x < 16 * scale; ++x) {
+					require(image.GetAlpha(x, 12 * scale - 1) == 0,
+						"legacy bottom row not transparent");
+				}
 			}
 		}
 
 		CCountryFlags cache;
-		std::vector<std::string> names;
-		for (const auto &code : resources.Codes()) {
-			names.push_back("flag_" + std::string(code.utf8_str()));
-		}
 		for (int i = 0; i < count; ++i) {
-			require(std::strncmp(entries[i].name, "flag_", 5) != 0, "flag still embedded");
-			names.push_back(entries[i].name);
-		}
-		for (const auto &name : names) {
-			const AMuleIconEntry entry = { name.c_str(), nullptr, 0, nullptr, 0 };
+			const auto &entry = entries[i];
 			bool flag = std::strncmp(entry.name, "flag_", 5) == 0;
 			bool menu = std::strncmp(entry.name, "menu_", 5) == 0;
 			if (!flag && !menu)
@@ -160,19 +161,26 @@ int main(int argc, char **argv)
 						"PNG export failed");
 			}
 		}
-		require(flags == 253, "shared flag inventory incomplete");
-		// Force raster fallback and compare to wxImage's explicit high-quality result
-		// after the same native bitmap round trip. MSW/Cocoa premultiply alpha,
-		// which can round RGB values and discard RGB in transparent pixels.
-		CCountryFlags pngCache(CountryFlagResources::ResolveRoot(), false);
-		std::string png;
-		require(resources.Read("us", false, png), "PNG fallback missing");
-		wxMemoryInputStream pngStream(png.data(), png.size());
-		wxImage source(pngStream, wxBITMAP_TYPE_PNG);
-		if (!source.HasAlpha())
-			source.InitAlpha();
+		require(flags == 253, "embedded flag inventory incomplete");
+		// Check source selection independently at each density. Compare after
+		// native bitmap conversion to allow platform alpha premultiplication.
+		CCountryFlags pngCache;
+		const auto raster = amule_find_icon("flag_us");
+		require(raster && raster->png2x_data && raster->png3x_data && !raster->svg_data,
+			"PNG density table incomplete");
 		for (double scale : { 1.0, 1.5, 2.0, 3.0, 4.0 }) {
-			const auto actual = pngCache.GetFlag("us", wxSize(16, 12), scale).ConvertToImage();
+			const unsigned char *data = scale > 2   ? raster->png3x_data
+						    : scale > 1 ? raster->png2x_data
+								: raster->png_data;
+			const unsigned int length = scale > 2   ? raster->png3x_len
+						    : scale > 1 ? raster->png2x_len
+								: raster->png_len;
+			wxMemoryInputStream stream(data, length);
+			wxImage source(stream, wxBITMAP_TYPE_PNG);
+			require(source.IsOk(), "density PNG decode failed");
+			if (!source.HasAlpha()) {
+				source.InitAlpha();
+			}
 			const wxSize pixels(wxRound(16 * scale), wxRound(12 * scale));
 			const auto scaled = source.GetSize() == pixels
 						    ? source
@@ -180,6 +188,9 @@ int main(int argc, char **argv)
 			wxBitmap expectedBitmap(scaled);
 			expectedBitmap.SetScaleFactor(scale);
 			const auto expected = expectedBitmap.ConvertToImage();
+			const auto actual = pngCache.GetFlag("us", wxSize(16, 12), scale).ConvertToImage();
+			require(actual.IsOk() && expected.IsOk() && actual.GetSize() == pixels,
+				"density rendering failed");
 			if (scale == 1.5) {
 				const auto nearest =
 					wxBitmap(source.Scale(pixels.x, pixels.y, wxIMAGE_QUALITY_NEAREST))
@@ -187,21 +198,17 @@ int main(int argc, char **argv)
 				require(std::memcmp(nearest.GetData(),
 						expected.GetData(),
 						pixels.x * pixels.y * 3) != 0,
-					"PNG fixture cannot distinguish high quality from nearest neighbour");
+					"fixture cannot distinguish box filter from nearest neighbour");
 			}
-			require(actual.IsOk() && expected.IsOk(), "PNG fallback conversion failed");
-			require(actual.GetSize() == pixels && std::memcmp(actual.GetData(),
-								      expected.GetData(),
-								      pixels.x * pixels.y * 3) == 0,
-				"PNG fallback resampling differs from high quality");
+			require(std::memcmp(actual.GetData(), expected.GetData(), pixels.x * pixels.y * 3) ==
+					0,
+				"wrong source density or PNG resampling");
 			require(actual.HasAlpha() == expected.HasAlpha() &&
 					(!expected.HasAlpha() || std::memcmp(actual.GetAlpha(),
 									 expected.GetAlpha(),
 									 pixels.x * pixels.y) == 0),
-				"PNG fallback resampling changed alpha");
+				"resampling changed alpha");
 		}
-		CCountryFlags missingCache("/nonexistent-amule-artwork");
-		require(!missingCache.GetFlag("us", wxSize(16, 12), 1).IsOk(), "missing install accepted");
 		const auto cached = cache.GetFlag("us", wxSize(16, 12), 2);
 		const auto cachedAgain = cache.GetFlag("us", wxSize(16, 12), 2);
 		require(cached.GetRefData() == cachedAgain.GetRefData(),

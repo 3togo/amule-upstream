@@ -73,32 +73,36 @@ class ArtworkConversionTest(unittest.TestCase):
             path.write_text(result)
             self.assertEqual(count_packed_arc_flags(path), 0)
 
-    def test_png_flag_dimensions(self):
-        for path in sorted((ROOT / 'flags').glob('*.png')):
-            with self.subTest(flag=path.name):
-                data = path.read_bytes()
-                self.assertEqual(data[:8], b'\x89PNG\r\n\x1a\n')
-                self.assertEqual(struct.unpack('>II', data[16:24]), (16, 12))
+    def test_png_flag_dimensions_and_inventory(self):
+        codes = [p.stem for p in (ROOT / 'vendor/flag-icons').glob('*.svg')] + ['an', 'unknown']
+        self.assertEqual(len(list((ROOT / 'flags').glob('*.png'))), len(codes) * 3)
+        for code in codes:
+            for scale in (1, 2, 3):
+                suffix = '' if scale == 1 else f'@{scale}x'
+                path = ROOT / 'flags' / f'{code}{suffix}.png'
+                with self.subTest(flag=path.name):
+                    data = path.read_bytes()
+                    self.assertEqual(data[:8], b'\x89PNG\r\n\x1a\n')
+                    self.assertEqual(struct.unpack('>II', data[16:24]), (16 * scale, 12 * scale))
 
-    def test_flags_are_shared_and_embedding_is_deterministic(self):
+    def test_flags_are_embedded_and_embedding_is_deterministic(self):
         entries = collect_icons(ROOT)
-        self.assertTrue(entries)
-        self.assertFalse(any(name.startswith('flag_') for name, *_ in entries))
+        flags = [e for e in entries if e[0].startswith('flag_')]
+        self.assertEqual(len(flags), 253)
+        self.assertTrue(all(e[3] is None for e in flags))
+        self.assertFalse(any('@' in e[0] for e in entries))
         with TemporaryDirectory() as directory:
             output = Path(directory) / 'icon_data.c'
             emit(output, entries)
             self.assertEqual(output.read_bytes(), (ROOT / 'icon_data.c').read_bytes())
             self.assertNotIn(b'zlib', output.read_bytes())
+            self.assertIn(b'icon_flag_us_png2x', output.read_bytes())
+            self.assertIn(b'icon_flag_us_png3x', output.read_bytes())
 
-    def test_all_flags_remain_vector_with_bounded_payload(self):
-        originals = sorted((ROOT / 'vendor/flag-icons').glob('*.svg'))
-        generated = sorted((ROOT / 'flags').glob('*.svg'))
-        self.assertEqual([p.name for p in originals], [p.name for p in generated])
-        # Catch accidental reintroduction of the 7.8 MB blanket conversion.
-        self.assertLess(sum(p.stat().st_size for p in generated), 3_500_000)
-        for path in generated:
-            with self.subTest(flag=path.name):
-                self.assertEqual(count_packed_arc_flags(path), 0)
+    def test_flag_raster_payload_and_originals(self):
+        self.assertFalse(list((ROOT / 'flags').glob('*.svg')))
+        self.assertEqual(len(list((ROOT / 'vendor/flag-icons').glob('*.svg'))), 251)
+        self.assertLess(sum(p.stat().st_size for p in (ROOT / 'flags').glob('*.png')), 500_000)
 
 
 if __name__ == '__main__':

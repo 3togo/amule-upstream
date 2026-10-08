@@ -9,6 +9,8 @@ from pathlib import Path
 from copy import deepcopy
 import re
 import subprocess
+import struct
+import zlib
 
 from picosvg.svg import SVG
 from picosvg.svg_types import SVGPath
@@ -108,11 +110,56 @@ def generate(source, destination, width, height, menu=False):
                     "--output", str(destination.with_suffix(".png")), str(destination)], check=True)
 
 
+def optimize_png(path):
+    """Recompress PNG image data without changing pixels or ancillary chunks."""
+    data = path.read_bytes()
+    chunks, offset = [], 8
+    while offset < len(data):
+        length = struct.unpack_from(">I", data, offset)[0]
+        kind = data[offset + 4:offset + 8]
+        chunks.append((kind, data[offset + 8:offset + 8 + length]))
+        offset += length + 12
+    compressed = zlib.compress(zlib.decompress(b"".join(payload for kind, payload in chunks if kind == b"IDAT")), 9)
+    output, written = bytearray(data[:8]), False
+    for kind, payload in chunks:
+        if kind == b"IDAT":
+            if written:
+                continue
+            payload, written = compressed, True
+        output += struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload))
+    path.write_bytes(output)
+
+
+def generate_flag(source, code):
+    for scale in (1, 2, 3):
+        suffix = "" if scale == 1 else f"@{scale}x"
+        destination = ROOT / "flags" / f"{code}{suffix}.png"
+        subprocess.run(["rsvg-convert", "--width", str(16 * scale), "--height", str(12 * scale),
+                        "--output", str(destination), str(source)], check=True)
+        optimize_png(destination)
+
+
 def main():
     for source in sorted((ROOT / "vendor/bootstrap-icons").glob("*.svg")):
         generate(source, ROOT / ("menu_" + source.stem.replace("-", "_") + ".svg"), 16, 16, True)
     for source in sorted((ROOT / "vendor/flag-icons").glob("*.svg")):
-        generate(source, ROOT / "flags" / source.name, 16, 12)
+        generate_flag(source, source.stem)
+    # The public-domain legacy flags have no vector original. Use the padded
+    # 16x12 PNG as source, preserving transparent padding at every density.
+    import base64
+    from tempfile import TemporaryDirectory
+    for code in ("an", "unknown"):
+        source = ROOT / "flags" / f"{code}.png"
+        with TemporaryDirectory() as directory:
+            wrapper = Path(directory) / "legacy.svg"
+            encoded = base64.b64encode(source.read_bytes()).decode("ascii")
+            wrapper.write_text(f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="16" height="12" viewBox="0 0 16 12"><image width="16" height="12" xlink:href="data:image/png;base64,{encoded}"/></svg>')
+            # Preserve the existing 1x bytes; only generate density siblings.
+            original = source.read_bytes()
+            generate_flag(wrapper, code)
+            source.write_bytes(original)
+    for obsolete in (ROOT / "flags").glob("*.svg"):
+        obsolete.unlink()
 
 
 if __name__ == "__main__":

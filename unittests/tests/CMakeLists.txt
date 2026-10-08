@@ -1,9 +1,3 @@
-if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI OR BUILD_AMULEAPI)
-	add_executable (CountryFlagResourcesTest CountryFlagResourcesTest.cpp)
-	target_link_libraries (CountryFlagResourcesTest PRIVATE countryflagresources)
-	add_test (NAME CountryFlagResourcesTest COMMAND CountryFlagResourcesTest)
-endif()
-
 add_test (NAME QuicCMakeConfigTest
 	COMMAND ${CMAKE_COMMAND}
 		-DAMULE_SOURCE_DIR=${CMAKE_SOURCE_DIR}
@@ -21,7 +15,7 @@ if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 		${CMAKE_SOURCE_DIR}/src/icons/icon_data.c
 	)
 	target_include_directories (IconArtworkTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
-	target_link_libraries (IconArtworkTest PRIVATE wxWidgets::CORE countryflagresources)
+	target_link_libraries (IconArtworkTest PRIVATE wxWidgets::CORE)
 	if (WIN32)
 		# wx core imports Common Controls v6 entry points. Match the GUI's
 		# activation context and DPI awareness before the DLL loader runs.

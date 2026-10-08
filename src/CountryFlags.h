@@ -28,10 +28,10 @@
 #include <map>
 #include <tuple>
 
-#include <wx/bmpbndl.h>
+#include <wx/bitmap.h>
+#include <array>
 #include <wx/string.h>
 #include <wx/image.h>
-#include "CountryFlagResources.h"
 
 // GUI-only country flag cache: maps an ISO 3166-1 alpha-2 code (lowercase) to its flag bitmap.
 // Split out of CIP2Country so the resolver stays headless and usable in amuled (see IP2Country.h)
@@ -40,8 +40,7 @@
 class CCountryFlags
 {
 public:
-	explicit CCountryFlags(
-		const wxString &root = CountryFlagResources::ResolveRoot(), bool preferSvg = true);
+	CCountryFlags() = default;
 
 	// Flag image for an ISO code (lowercase). Returns the "unknown" (??)
 	// flag when the code is empty or has no bundled image.
@@ -50,16 +49,12 @@ public:
 	wxBitmap GetFlag(const wxString &code, const wxSize &logicalSize, double contentScale);
 
 private:
-	// Load only flags actually displayed from the installed shared directory.
-	// Retain vector bundles rather than one raster size, so moving between monitors works.
+	// Decode displayed embedded flags once; cache finished bitmaps by size and scale.
 	struct FlagArtwork
 	{
-		wxBitmapBundle bundle;
-		wxImage fallback;
+		std::array<wxImage, 3> images;
 		std::map<std::tuple<int, int, double>, wxBitmap> bitmaps;
 	};
-	CountryFlagResources m_resources;
-	bool m_preferSvg;
 	std::map<wxString, FlagArtwork> m_flags;
 };
 

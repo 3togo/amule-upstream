@@ -213,6 +213,3 @@
 
 /* Define if ENABLE_NLS is set. */
 #cmakedefine YYENABLE_NLS 1
-
-/* Installed shared country artwork; portable layouts are resolved at runtime. */
-#define AMULE_FLAG_DIR "${AMULE_FLAG_DIR}"
