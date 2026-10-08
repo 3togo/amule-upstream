@@ -161,7 +161,9 @@ int main(int argc, char **argv)
 			}
 		}
 		require(flags == 253, "shared flag inventory incomplete");
-		// Force raster fallback and compare to wxImage's explicit high-quality result.
+		// Force raster fallback and compare to wxImage's explicit high-quality result
+		// after the same native bitmap round trip. MSW/Cocoa premultiply alpha,
+		// which can round RGB values and discard RGB in transparent pixels.
 		CCountryFlags pngCache(CountryFlagResources::ResolveRoot(), false);
 		std::string png;
 		require(resources.Read("us", false, png), "PNG fallback missing");
@@ -172,14 +174,31 @@ int main(int argc, char **argv)
 		for (double scale : { 1.0, 1.5, 2.0, 3.0, 4.0 }) {
 			const auto actual = pngCache.GetFlag("us", wxSize(16, 12), scale).ConvertToImage();
 			const wxSize pixels(wxRound(16 * scale), wxRound(12 * scale));
-			const auto expected =
-				source.GetSize() == pixels
-					? source
-					: source.Scale(pixels.x, pixels.y, wxIMAGE_QUALITY_HIGH);
+			const auto scaled = source.GetSize() == pixels
+						    ? source
+						    : source.Scale(pixels.x, pixels.y, wxIMAGE_QUALITY_HIGH);
+			wxBitmap expectedBitmap(scaled);
+			expectedBitmap.SetScaleFactor(scale);
+			const auto expected = expectedBitmap.ConvertToImage();
+			if (scale == 1.5) {
+				const auto nearest =
+					wxBitmap(source.Scale(pixels.x, pixels.y, wxIMAGE_QUALITY_NEAREST))
+						.ConvertToImage();
+				require(std::memcmp(nearest.GetData(),
+						expected.GetData(),
+						pixels.x * pixels.y * 3) != 0,
+					"PNG fixture cannot distinguish high quality from nearest neighbour");
+			}
+			require(actual.IsOk() && expected.IsOk(), "PNG fallback conversion failed");
 			require(actual.GetSize() == pixels && std::memcmp(actual.GetData(),
 								      expected.GetData(),
 								      pixels.x * pixels.y * 3) == 0,
 				"PNG fallback resampling differs from high quality");
+			require(actual.HasAlpha() == expected.HasAlpha() &&
+					(!expected.HasAlpha() || std::memcmp(actual.GetAlpha(),
+									 expected.GetAlpha(),
+									 pixels.x * pixels.y) == 0),
+				"PNG fallback resampling changed alpha");
 		}
 		CCountryFlags missingCache("/nonexistent-amule-artwork");
 		require(!missingCache.GetFlag("us", wxSize(16, 12), 1).IsOk(), "missing install accepted");
