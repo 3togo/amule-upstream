@@ -1670,6 +1670,9 @@ void CamuleDlg::OnShow(wxShowEvent &evt)
 	// minimize-to-tray cycle.
 	if (evt.IsShown()) {
 		m_iconized_logical = false;
+		if (m_kademliawnd) {
+			m_kademliawnd->CallAfter(&CKadDlg::ShowContactDistribution);
+		}
 #ifdef CLIENT_GUI
 		// Restored from the tray (tray click/menu, or an un-hide after HideOnClose), which
 		// never fires wxIconizeEvent -- see OnMinimize for the other half of issue #806.
@@ -1694,6 +1697,9 @@ void CamuleDlg::OnMinimize(wxIconizeEvent &evt)
 	// unreliable on wxGTK during the minimize-button transition, so consumers that need to know
 	// read IsTrayLogicallyIconized() instead.
 	m_iconized_logical = evt.IsIconized();
+	if (!evt.IsIconized() && m_kademliawnd) {
+		m_kademliawnd->CallAfter(&CKadDlg::ShowContactDistribution);
+	}
 
 #ifdef CLIENT_GUI
 	// Coming back from the taskbar/Dock with a reconnect running quietly behind the window:

@@ -15,10 +15,51 @@ wxIMPLEMENT_APP_NO_MAIN(HistogramTestApp);
 
 struct KadHistogramTestAccess
 {
+	static void CheckLongWord(CKadContactHistogram &panel, const wxString &text)
+	{
+		CKadContactHistogram::SummaryWrapper wrapped;
+		const int width = panel.FromDIP(120);
+		wrapped.Wrap(&panel, text, width);
+		wxClientDC dc(&panel);
+		dc.SetFont(panel.GetFont());
+		wxString restored;
+		for (const auto &line : wrapped.lines) {
+			if (dc.GetTextExtent(line).x > width) {
+				throw std::runtime_error("Long word clips horizontally");
+			}
+			restored += line;
+		}
+		if (wrapped.lines.size() < 2 || restored != text) {
+			throw std::runtime_error("Word wrapping loses Unicode characters");
+		}
+	}
+	static void CheckSummaryFits(CKadContactHistogram &panel)
+	{
+		CKadContactHistogram::SummaryWrapper wrapped;
+		const int width = panel.GetClientSize().x - panel.FromDIP(16);
+		wrapped.Wrap(&panel, panel.SummaryText(), width);
+		wxClientDC dc(&panel);
+		dc.SetFont(panel.GetFont());
+		for (const auto &line : wrapped.lines) {
+			if (dc.GetTextExtent(line).x > width) {
+				throw std::runtime_error("Summary text clips horizontally");
+			}
+		}
+		const int numericMargin = std::max(panel.FromDIP(36),
+			dc.GetTextExtent(wxString::Format("%u", panel.m_data.Total())).x + panel.FromDIP(6));
+		const int plotWidth = panel.GetClientSize().x - numericMargin - panel.FromDIP(8);
+		if (plotWidth < dc.GetTextExtent("000").x + dc.GetTextExtent("fff").x) {
+			throw std::runtime_error("KadID axis endpoint labels overlap");
+		}
+	}
 	static wxImage Render(CKadContactHistogram &panel, const wxSize &size)
 	{
 		// Test sizes describe DIP layouts, while this bitmap/DC uses pixels.
 		const wxSize pixels = panel.FromDIP(size);
+		return RenderPixels(panel, pixels);
+	}
+	static wxImage RenderPixels(CKadContactHistogram &panel, const wxSize &pixels)
+	{
 		wxBitmap bitmap(pixels.x, pixels.y, 24);
 		wxMemoryDC dc(bitmap);
 		panel.Draw(dc, pixels);
@@ -123,15 +164,42 @@ static void VerifyRendering()
 		"Local KadID marker is missing or has insufficient contrast");
 	SaveRender(markedImage, "clustered-dark.png");
 	panel.SetDistribution(populated, Kademlia::ContactDistributionState::Available);
-	wxFont font = panel.GetFont();
+	const wxFont originalFont = panel.GetFont();
+	wxFont font = originalFont;
 	font.SetPointSize(24);
 	panel.SetFont(font);
+	KadHistogramTestAccess::CheckLongWord(panel, "KadContactDistributionABCDEFGHIJKLMN0123456789");
+	KadHistogramTestAccess::CheckLongWord(panel, wxString::FromUTF8("非常长的联系人分布图说明"));
 	// Allocate space relative to the enlarged font, including GTK font-DPI
 	// scaling which does not necessarily change FromDIP() on this backend.
 	const wxSize largeSize(panel.GetCharWidth() * 70, panel.GetCharHeight() * 8);
 	const auto largeFont = KadHistogramTestAccess::Render(panel, largeSize);
 	SaveRender(largeFont, "large-font.png");
 	Check(Pixels(largeFont, wxColour(35, 160, 90)) > 0, "Large fonts hide the chart");
+	// Exercise the real fixed-proportion Kad layout, not an oversized bitmap.
+	auto *layout = new wxBoxSizer(wxVERTICAL);
+	layout->Add(&panel, 0, wxEXPAND);
+	frame.SetSizer(layout);
+	frame.SetClientSize(wxSize(std::max(panel.FromDIP(260), panel.GetMinSize().x), panel.FromDIP(1200)));
+	frame.Layout();
+	panel.SetDistribution(populated, Kademlia::ContactDistributionState::Available);
+	wxTheApp->ProcessPendingEvents();
+	frame.Layout();
+	KadHistogramTestAccess::CheckSummaryFits(panel);
+	Check(panel.GetSize().x <= frame.GetClientSize().x && panel.GetSize().y <= frame.GetClientSize().y,
+		"Actual chart extends beyond its layout viewport");
+	const auto actualLayout = KadHistogramTestAccess::RenderPixels(panel, panel.GetClientSize());
+	SaveRender(actualLayout, "large-font-layout.png");
+	Check(Pixels(actualLayout, wxColour(35, 160, 90)) > 0,
+		"Actual Kad sizer height hides the chart with large fonts at narrow widths");
+	const int expandedHeight = panel.GetMinSize().y;
+	panel.SetFont(originalFont);
+	wxTheApp->ProcessPendingEvents();
+	frame.Layout();
+	Check(panel.GetMinSize().y < expandedHeight, "Chart keeps stale large-font height");
+	Check(Pixels(KadHistogramTestAccess::RenderPixels(panel, panel.GetClientSize()),
+		      wxColour(35, 160, 90)) > 0,
+		"Restoring the font hides the chart");
 	// Degenerate widths and heights must clip safely rather than divide by zero.
 	KadHistogramTestAccess::Render(panel, wxSize(20, 20));
 	panel.SetDistribution(populated, Kademlia::ContactDistributionState::Unsupported);

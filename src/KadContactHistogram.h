@@ -26,10 +26,12 @@
 #define AMULE_KADCONTACTHISTOGRAM_H
 #include <wx/panel.h>
 #include <wx/dcbuffer.h>
+#include <wx/dcclient.h>
 #include <wx/intl.h>
 #include <wx/textwrapper.h>
 #include <vector>
 #include <algorithm>
+#include <utility>
 #include "kademlia/utils/ContactDistribution.h"
 // Snapshot view; drawing never traverses live contacts or changes routing.
 class CKadContactHistogram final : public wxPanel
@@ -46,9 +48,23 @@ public:
 			     "is expected."));
 		Bind(wxEVT_PAINT, &CKadContactHistogram::Paint, this);
 		Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
+			UpdateMinimumSize();
 			Refresh(false);
 			event.Skip();
 		});
+		Bind(wxEVT_DPI_CHANGED, [this](wxDPIChangedEvent &event) {
+			event.Skip();
+			CallAfter(&CKadContactHistogram::UpdateMinimumSize);
+		});
+	}
+	bool SetFont(const wxFont &font) override
+	{
+		if (!wxPanel::SetFont(font)) {
+			return false;
+		}
+		UpdateMinimumSize();
+		Refresh(false);
+		return true;
 	}
 	void SetDistribution(
 		const Kademlia::ContactDistribution &data, Kademlia::ContactDistributionState state)
@@ -60,6 +76,7 @@ public:
 		}
 		m_data = data;
 		m_state = state;
+		UpdateMinimumSize();
 		Refresh(false);
 	}
 
@@ -69,10 +86,80 @@ private:
 	{
 	public:
 		std::vector<wxString> lines;
+		void Wrap(wxWindow *window, const wxString &text, int width)
+		{
+			lines.clear();
+			wxTextWrapper::Wrap(window, text, width);
+			// wxTextWrapper leaves words wider than the panel unbroken. Split
+			// those lines at Unicode characters so long translations/counts fit.
+			wxClientDC dc(window);
+			dc.SetFont(window->GetFont());
+			std::vector<wxString> fitted;
+			for (const auto &line : lines) {
+				if (dc.GetTextExtent(line).x <= width) {
+					fitted.push_back(line);
+					continue;
+				}
+				wxString part;
+				for (const wxUniChar character : line) {
+					if (!part.empty() && dc.GetTextExtent(part + character).x > width) {
+						fitted.push_back(part);
+						part.clear();
+					}
+					part += character;
+				}
+				fitted.push_back(part);
+			}
+			lines = std::move(fitted);
+		}
 
 	protected:
 		void OnOutputLine(const wxString &line) override { lines.push_back(line); }
 	};
+	wxString SummaryText() const
+	{
+		if (m_state == Kademlia::ContactDistributionState::Loading) {
+			return _("Loading contact distribution...");
+		}
+		if (m_state == Kademlia::ContactDistributionState::Unsupported) {
+			return _("Contact distribution is unsupported by this core or its data is invalid.");
+		}
+		return wxString::Format(
+			_("KadID distribution: %u contacts, %u verified, %u distinct /24 subnets"),
+			m_data.Total(),
+			m_data.Verified(),
+			m_data.subnets);
+	}
+	void UpdateMinimumSize()
+	{
+		wxClientDC dc(this);
+		dc.SetFont(GetFont());
+		int minimumWidth = FromDIP(200);
+		if (m_state == Kademlia::ContactDistributionState::Available) {
+			const int left = std::max(FromDIP(36),
+				dc.GetTextExtent(wxString::Format("%u", m_data.Total())).x + FromDIP(6));
+			const int plotWidth = std::max(FromDIP(64),
+				dc.GetTextExtent("000").x + dc.GetTextExtent("fff").x + FromDIP(8));
+			minimumWidth = std::max(minimumWidth, left + plotWidth + FromDIP(8));
+		}
+		SummaryWrapper wrapped;
+		wrapped.Wrap(this,
+			SummaryText(),
+			std::max(1, std::max(minimumWidth, GetClientSize().x) - FromDIP(16)));
+		int height = FromDIP(16) + static_cast<int>(wrapped.lines.size()) * dc.GetCharHeight();
+		if (m_state == Kademlia::ContactDistributionState::Available) {
+			height += FromDIP(64 + 7 + 6) + dc.GetCharHeight();
+		}
+		const wxSize minimum(minimumWidth, std::max(FromDIP(150), height));
+		if (minimum != GetMinSize()) {
+			SetMinSize(minimum);
+			// Re-layout once the current resize/DPI event finishes. A changed height
+			// must not recursively resize the parent during its own sizer pass.
+			if (GetParent()) {
+				GetParent()->CallAfter([parent = GetParent()] { parent->Layout(); });
+			}
+		}
+	}
 	void Paint(wxPaintEvent &)
 	{
 		wxAutoBufferedPaintDC dc(this);
@@ -86,12 +173,7 @@ private:
 		dc.SetFont(GetFont());
 		if (m_state != Kademlia::ContactDistributionState::Available) {
 			SummaryWrapper wrapped;
-			wrapped.Wrap(this,
-				m_state == Kademlia::ContactDistributionState::Loading
-					? _("Loading contact distribution...")
-					: _("Contact distribution is unsupported by this core or its data is "
-					    "invalid."),
-				std::max(1, size.x - FromDIP(16)));
+			wrapped.Wrap(this, SummaryText(), std::max(1, size.x - FromDIP(16)));
 			int y = FromDIP(8);
 			for (const auto &line : wrapped.lines) {
 				dc.DrawText(line, FromDIP(8), y);
@@ -100,13 +182,8 @@ private:
 			return;
 		}
 		// Summary wraps at narrow widths and with longer translations.
-		wxString summary = wxString::Format(
-			_("KadID distribution: %u contacts, %u verified, %u distinct /24 subnets"),
-			m_data.Total(),
-			m_data.Verified(),
-			m_data.subnets);
 		SummaryWrapper wrapped;
-		wrapped.Wrap(this, summary, std::max(1, size.x - FromDIP(16)));
+		wrapped.Wrap(this, SummaryText(), std::max(1, size.x - FromDIP(16)));
 		int y = FromDIP(5);
 		for (const auto &line : wrapped.lines) {
 			dc.DrawText(line, FromDIP(8), y);

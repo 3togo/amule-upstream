@@ -990,6 +990,7 @@ void CamuleRemoteGuiApp::FinishReconnect(int result)
 		ResetStatsTreePoll();
 		if (poll_timer) {
 			poll_timer->Start(EC_POLL_INTERVAL_MS);
+			RequestKadContactDistribution();
 		}
 		if (amuledlg) {
 			amuledlg->StartGuiTimer();
@@ -1184,6 +1185,7 @@ void CamuleRemoteGuiApp::Startup()
 	// Start the Poll Timer
 	ResetStatsTreePoll();
 	poll_timer->Start(EC_POLL_INTERVAL_MS);
+	RequestKadContactDistribution();
 	amuledlg->StartGuiTimer();
 
 	// Drain any pre-connect URL queued by ProtocolHandler_QueueSchemeLink (cold launch:
