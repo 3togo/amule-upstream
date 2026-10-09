@@ -133,6 +133,26 @@ TEST(KadUDPVerificationExpiry, PollingCannotCountOneRoundTwice)
 	ASSERT_FALSE(expiry.ShouldExpire(kUDPNextRound + kUDPTimeout));
 }
 
+TEST(KadUDPVerificationExpiry, OneFailedHourlyRecheckAllowsNextRoundToFinish)
+{
+	CUDPVerificationExpiry expiry;
+	const uint64_t interval = 60 * 60 * 1000;
+	const uint64_t initialResult = kUDPStart + 60 * 1000;
+	const uint64_t secondRecheck = kUDPStart + 2 * interval;
+	expiry.Start(kUDPStart);
+	expiry.RecordResult(initialResult);
+	expiry.Start(kUDPStart + interval);
+	ASSERT_FALSE(expiry.ShouldExpire(kUDPStart + interval + kUDPTimeout));
+	ASSERT_FALSE(expiry.ShouldExpire(secondRecheck));
+	expiry.Start(secondRecheck);
+	// The old two-hour age limit expired here, while this round could still answer.
+	ASSERT_FALSE(expiry.ShouldExpire(secondRecheck + 90 * 1000));
+	const uint64_t result = secondRecheck + CUDPVerificationExpiry::kRoundTimeoutMs;
+	ASSERT_FALSE(expiry.ShouldExpire(result));
+	expiry.RecordResult(result);
+	ASSERT_FALSE(expiry.ShouldExpire(result + kUDPTimeout));
+}
+
 TEST(KadUDPVerificationExpiry, TimeoutBoundary)
 {
 	CUDPVerificationExpiry expiry;

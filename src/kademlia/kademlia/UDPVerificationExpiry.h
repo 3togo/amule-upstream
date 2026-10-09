@@ -37,7 +37,10 @@ class CUDPVerificationExpiry
 public:
 	static constexpr uint64_t kRoundTimeoutMs = 6 * 60 * 1000;
 	static constexpr unsigned kFailedRoundsToExpire = 2;
-	static constexpr uint64_t kMaxVerificationAgeMs = 2 * 60 * 60 * 1000;
+	// CKademlia schedules hourly rechecks. Allow the last round its full timeout.
+	static constexpr uint64_t kRecheckIntervalMs = 60 * 60 * 1000;
+	static constexpr uint64_t kMaxVerificationAgeMs =
+		kFailedRoundsToExpire * kRecheckIntervalMs + kRoundTimeoutMs;
 
 	void Start(uint64_t now)
 	{
