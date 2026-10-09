@@ -21,5 +21,4 @@ po/** text=auto eol=lf
 src/icons/**/*.svg text eol=lf
 src/icons/icon_data.c linguist-generated=true
 src/icons/menu_*.svg linguist-generated=true
-src/icons/flags/*.svg linguist-generated=true
 src/icons/vendor/** linguist-vendored=true
