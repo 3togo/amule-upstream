@@ -1775,11 +1775,6 @@ msgstr[1] "%u kommentaar(i)"
 msgid "Banned client %s for sending %s corrupt data of %s total for the file '%s'"
 msgstr "Klient %s bänniti %s riknenud info saatmise eest (kokku %s faili '%s' kohta)"
 
-#: src/CountryFlags.cpp
-#, c-format
-msgid "Failed to load country data for '%s'."
-msgstr "'%s' riigiinfo laadimine ebaõnnestus."
-
 #: src/DataToText.cpp
 msgid "Auto [Lo]"
 msgstr "Auto [Madal]"
@@ -9737,6 +9732,10 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#, c-format
+#~ msgid "Failed to load country data for '%s'."
+#~ msgstr "'%s' riigiinfo laadimine ebaõnnestus."
 
 #, fuzzy
 #~ msgid "Kad protocol version"
