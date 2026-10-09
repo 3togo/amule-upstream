@@ -6822,7 +6822,8 @@ msgstr "GUI কমান্ড:"
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
 "Core commands must be configured in the daemon's amule.conf.\n"
-"Only the chat event supports GUI commands with a remote core."
+"Chat and observed download completions support GUI commands with a remote core.\n"
+"Already completed downloads do not run commands at first sync or reconnect."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -8947,7 +8948,8 @@ msgid "Download completed"
 msgstr "ডাউনলোড সম্পন্ন হয়েছে"
 
 #: src/UserEvents.h
-msgid "The full path to the file."
+#, fuzzy
+msgid "The full path to the file (empty in remote GUI mode)."
 msgstr "ফাইলের সম্পূর্ণ পাথ।"
 
 #: src/UserEvents.h
@@ -8985,6 +8987,10 @@ msgstr "ডিস্ক পার্টিশন।"
 #: src/UserEvents.h
 msgid "Error on completion"
 msgstr "সমাপ্তিতে ত্রুটি"
+
+#: src/UserEvents.h
+msgid "The full path to the file."
+msgstr "ফাইলের সম্পূর্ণ পাথ।"
 
 #: src/utils/aLinkCreator/src/alcc.cpp
 #, c-format

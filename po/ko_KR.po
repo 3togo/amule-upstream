@@ -6868,7 +6868,8 @@ msgstr "GUI 명령어:"
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
 "Core commands must be configured in the daemon's amule.conf.\n"
-"Only the chat event supports GUI commands with a remote core."
+"Chat and observed download completions support GUI commands with a remote core.\n"
+"Already completed downloads do not run commands at first sync or reconnect."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -9007,7 +9008,8 @@ msgid "Download completed"
 msgstr "내려받기 완료"
 
 #: src/UserEvents.h
-msgid "The full path to the file."
+#, fuzzy
+msgid "The full path to the file (empty in remote GUI mode)."
 msgstr "파일의 전체 경로입니다."
 
 #: src/UserEvents.h
@@ -9045,6 +9047,10 @@ msgstr "디스크 파티션입니다."
 #: src/UserEvents.h
 msgid "Error on completion"
 msgstr "완료 시 오류"
+
+#: src/UserEvents.h
+msgid "The full path to the file."
+msgstr "파일의 전체 경로입니다."
 
 #: src/utils/aLinkCreator/src/alcc.cpp
 #, c-format

@@ -6865,7 +6865,8 @@ msgstr "أمر واجهة المستخدم الرسومية:"
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
 "Core commands must be configured in the daemon's amule.conf.\n"
-"Only the chat event supports GUI commands with a remote core."
+"Chat and observed download completions support GUI commands with a remote core.\n"
+"Already completed downloads do not run commands at first sync or reconnect."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -9000,7 +9001,8 @@ msgid "Download completed"
 msgstr "اكتمل التحميل"
 
 #: src/UserEvents.h
-msgid "The full path to the file."
+#, fuzzy
+msgid "The full path to the file (empty in remote GUI mode)."
 msgstr "المسار الكامل للملف."
 
 #: src/UserEvents.h
@@ -9038,6 +9040,10 @@ msgstr "قسم القرص."
 #: src/UserEvents.h
 msgid "Error on completion"
 msgstr "خطأ عند الاكتمال"
+
+#: src/UserEvents.h
+msgid "The full path to the file."
+msgstr "المسار الكامل للملف."
 
 #: src/utils/aLinkCreator/src/alcc.cpp
 #, c-format
