@@ -63,6 +63,12 @@ target_include_directories (KadFirewallRecheckTest PRIVATE
 )
 target_link_libraries (KadFirewallRecheckTest muleunit mulecommon)
 
+# Tagged protocol identity is pure value semantics and does not require live clients.
+add_executable (ProtocolPeerIdentityTest ProtocolPeerIdentityTest.cpp)
+add_test (NAME ProtocolPeerIdentityTest COMMAND ProtocolPeerIdentityTest)
+target_include_directories (ProtocolPeerIdentityTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (ProtocolPeerIdentityTest muleunit mulecommon)
+
 # Credit identity and wait ownership run without the application. The test supplies
 # a deterministic GetTickCount64; do not link the production clock into this target.
 add_executable (ClientCreditsTest
@@ -2212,4 +2218,23 @@ if (TARGET wxWidgets::CORE)
  target_link_libraries(KadHistogramRenderTest PRIVATE wxWidgets::CORE)
  add_test(NAME KadHistogramRenderTest COMMAND KadHistogramRenderTest)
  set_tests_properties(KadHistogramRenderTest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
+# Event values are untrusted: verify they cannot become additional arguments or
+# shell syntax when passed as positional parameters to a configured shell.
+add_executable (UserEventCommandTest
+	UserEventCommandTest.cpp
+	${CMAKE_SOURCE_DIR}/src/ExternalCommand.cpp
+	${CMAKE_SOURCE_DIR}/src/AppImageEnv.cpp
+	${CMAKE_SOURCE_DIR}/src/TerminationProcess.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+)
+add_test (NAME UserEventCommandTest COMMAND UserEventCommandTest)
+target_include_directories (UserEventCommandTest PRIVATE
+	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+)
+target_link_libraries (UserEventCommandTest muleunit mulecommon wxWidgets::BASE)
+
+if (WIN32)
+	target_link_libraries (UserEventCommandTest shell32)
 endif()
