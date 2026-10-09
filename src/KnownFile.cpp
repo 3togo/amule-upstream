@@ -25,7 +25,6 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
-#include "KadCallbackPolicy.h"
 #include <algorithm>   // std::remove_if
 #include "KnownFile.h" // Do_not_auto_remove
 
@@ -67,8 +66,7 @@
 #include <common/Format.h>
 
 #ifndef CLIENT_GUI
-#include "kademlia/kademlia/Kademlia.h" // Needed for CKademlia (Kad state)
-#include "kademlia/kademlia/UDPFirewallTester.h"
+#include "kademlia/kademlia/Kademlia.h"      // Needed for CKademlia (Kad state)
 #include "kademlia/kademlia/Search.h"        // Needed for CSearch::NOTES
 #include "kademlia/kademlia/SearchManager.h" // Needed for CSearchManager::PrepareLookup
 #include "kademlia/kademlia/Entry.h"         // Needed for Kademlia::CEntry (Kad notes)
@@ -77,6 +75,9 @@
 #include "NetworkFunctions.h"                // Needed for Uint32toStringIP (Kad note author)
 #include <tags/FileTags.h>                   // Needed for TAG_FILERATING / TAG_DESCRIPTION
 #include "ThreadTasks.h"                     // Needed for CThreadScheduler and CVerifyLocalDataTask
+
+#include "kademlia/kademlia/UDPFirewallTester.h" // Needed for CUDPFirewallTester (PublishSrc)
+#include "KadCallbackPolicy.h"                   // Needed for NeedsBuddy / CanPublishSource
 #endif
 
 CFileStatistic::CFileStatistic(CKnownFile *parent)
