@@ -104,6 +104,27 @@ bool IsWindowsCommandShell(const wxString &program, Platform platform)
 	       (name == "cmd" || lower.EndsWith(".bat") || lower.EndsWith(".cmd"));
 }
 
+bool IsWindowsBuiltin(const wxString &program)
+{
+	const wxString builtins =
+		"|echo|echo.|break|cd|chdir|cls|color|copy|date|del|dir|erase|exit|assoc|ftype|md|mkdir|"
+		"mklink|move|path|pause|popd|prompt|pushd|rd|ren|rename|rmdir|set|setlocal|endlocal|"
+		"shift|time|title|type|ver|verify|vol|";
+	return builtins.Contains("|" + program.Lower() + "|");
+}
+
+bool HasExplicitWindowsProgramExtension(const wxString &program)
+{
+	// Inspect the written token, not a PATH-resolved .exe. cmd also searches
+	// PATHEXT and could select a batch file requiring different argument quoting.
+	wxString name = program.Lower();
+	while (name.EndsWith(".") || name.EndsWith(" ")) {
+		name.RemoveLast();
+	}
+	return name.EndsWith(".exe") || name.EndsWith(".com") || name.EndsWith(".bat") ||
+	       name.EndsWith(".cmd");
+}
+
 // Keep cmd's switches and first command token fixed. Support /c or /k, with
 // common switches preceding it; the data arguments come after the fixed token.
 size_t CmdCommandIndex(const wxArrayString &args)
@@ -198,7 +219,8 @@ wxString DescribeRejection(RejectionReason reason)
 		return _("A command-shell argument contains a double quote, percent sign, exclamation mark, "
 			 "or line break.");
 	case RejectionReason::UnsupportedWindowsCommand:
-		return _("cmd.exe requires a fixed command token followed by separate data arguments.");
+		return _("cmd.exe requires a fixed builtin or an explicit .exe, .com, .bat, or .cmd target "
+			 "followed by separate data arguments.");
 	}
 	return {};
 }
@@ -287,11 +309,14 @@ wxArrayString Build(const wxString &command,
 	}
 	if ((didSubstitute || appendFallback) && commandShell && ProgramName(args[0], platform) == "cmd") {
 		const size_t index = CmdCommandIndex(args);
-		// Compound script text and literal embedded quotes need a different
-		// quoting grammar. Refuse them rather than interpolate data into code.
+		// A quoted fixed executable path may contain spaces and parentheses.
+		// Require an explicit extension for external targets so PATHEXT cannot
+		// silently select a batch file while we serialize arguments for the CRT.
 		if (index >= args.size() || args[index].empty() || args[index].StartsWith("/") ||
 			args[index].StartsWith("-") ||
-			args[index].find_first_of(" \t\"%!\r\n&|<>^()") != wxString::npos) {
+			(!IsWindowsBuiltin(args[index]) &&
+				!HasExplicitWindowsProgramExtension(args[index])) ||
+			args[index].find_first_of("\"%!\r\n&|<>^") != wxString::npos) {
 			return reject(RejectionReason::UnsupportedWindowsCommand);
 		}
 	}
@@ -341,8 +366,11 @@ static wxString QuoteCrtArguments(const wxArrayString &args)
 
 // cmd strips its outermost quotes. Give it a sacrificial outer pair so each
 // argument's quotes survive, and use /s to make that stripping deterministic.
-wxString BuildWindowsCommandLine(const wxArrayString &args)
+wxString BuildWindowsCommandLine(const wxArrayString &args, const wxString *unchangedTemplate)
 {
+	if (unchangedTemplate != nullptr) {
+		return unchangedTemplate->find(wxChar(0)) == wxString::npos ? *unchangedTemplate : wxString{};
+	}
 	if (args.IsEmpty() || !IsWindowsCommandShell(args[0], Platform::Windows)) {
 		return QuoteCrtArguments(args);
 	}
@@ -372,12 +400,7 @@ wxString BuildWindowsCommandLine(const wxArrayString &args)
 #endif
 		shell += " /d /s /c";
 	}
-	const wxString target = args[first].Lower();
-	const wxString builtins =
-		"|echo|echo.|break|cd|chdir|cls|color|copy|date|del|dir|erase|exit|assoc|ftype|md|mkdir|"
-		"mklink|move|path|pause|popd|prompt|pushd|rd|ren|rename|rmdir|set|setlocal|endlocal|"
-		"shift|time|title|type|ver|verify|vol|";
-	const bool builtin = builtins.Contains("|" + target + "|");
+	const bool builtin = IsWindowsBuiltin(args[first]);
 	const bool rawQuotes = IsWindowsCommandShell(args[first], Platform::Windows) || builtin;
 	shell += " \"";
 	for (size_t i = first; i < args.size(); ++i) {
@@ -398,9 +421,10 @@ wxString BuildWindowsCommandLine(const wxArrayString &args)
 }
 
 // Preserve non-ASCII arguments and use host libraries when running inside an AppImage.
-bool RunDetached(const wxString &description, const wxArrayString &args)
+bool RunDetached(const wxString &description, const wxArrayString &args, const wxString *unchangedTemplate)
 {
-	if (args.IsEmpty() || args[0].empty()) {
+	if (args.IsEmpty() || args[0].empty() ||
+		(unchangedTemplate != nullptr && unchangedTemplate->find(wxChar(0)) != wxString::npos)) {
 		return false;
 	}
 	// Embedded NULs would silently truncate argv entries or the Windows command
@@ -428,8 +452,10 @@ bool RunDetached(const wxString &description, const wxArrayString &args)
 	long ret = 0;
 	try {
 #ifdef __WINDOWS__
-		ret = wxExecute(
-			BuildWindowsCommandLine(args), wxEXEC_ASYNC, process, sanitized ? &execEnv : nullptr);
+		ret = wxExecute(BuildWindowsCommandLine(args, unchangedTemplate),
+			wxEXEC_ASYNC,
+			process,
+			sanitized ? &execEnv : nullptr);
 #else
 		ret = wxExecute(argv.data(), wxEXEC_ASYNC, process, sanitized ? &execEnv : nullptr);
 #endif

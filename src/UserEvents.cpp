@@ -140,14 +140,15 @@ static void ExecuteCommand(enum CUserEvents::EventType event, const void *object
 		       break; */
 	}
 	ExternalCommand::RejectionReason rejection;
+	bool substituted = false;
 	const wxArrayString args = ExternalCommand::Build(
-		cmd, values, nullptr, ExternalCommand::NativePlatform, nullptr, &rejection);
+		cmd, values, &substituted, ExternalCommand::NativePlatform, nullptr, &rejection);
 	if (!cmd.empty() && rejection != ExternalCommand::RejectionReason::None) {
 		AddLogLineC(CFormat(_("Command '%s' was not run on '%s' event: %s")) % cmd %
 			    s_EventList[event].name % ExternalCommand::DescribeRejection(rejection));
 		return;
 	}
-	if (!cmd.empty() && !ExternalCommand::RunDetached(cmd, args)) {
+	if (!cmd.empty() && !ExternalCommand::RunDetached(cmd, args, substituted ? nullptr : &cmd)) {
 		AddLogLineC(CFormat(_("Failed to execute command '%s' on '%s' event.")) % cmd %
 			    s_EventList[event].name);
 	}

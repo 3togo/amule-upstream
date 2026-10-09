@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-10-09 11:02+0000\n"
+"POT-Creation-Date: 2026-10-09 12:39+0000\n"
 "PO-Revision-Date: 2026-10-07 16:27+0000\n"
 "Last-Translator: Hyunju Kang <rexington@gmail.com>\n"
 "Language-Team: Korean <hoenny@daum.net>\n"
@@ -2792,7 +2792,7 @@ msgid "A command-shell argument contains a double quote, percent sign, exclamati
 msgstr ""
 
 #: src/ExternalCommand.cpp
-msgid "cmd.exe requires a fixed command token followed by separate data arguments."
+msgid "cmd.exe requires a fixed builtin or an explicit .exe, .com, .bat, or .cmd target followed by separate data arguments."
 msgstr ""
 
 #: src/FileLaunch.cpp
