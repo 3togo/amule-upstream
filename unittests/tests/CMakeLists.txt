@@ -69,6 +69,28 @@ target_include_directories (KadFirewallRecheckTest PRIVATE
 )
 target_link_libraries (KadFirewallRecheckTest muleunit mulecommon)
 
+# Production UDP verification and hello advertisement with a deterministic clock.
+add_executable (KadUDPFirewallIntegrationTest
+	KadUDPFirewallIntegrationTest.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/UDPFirewallTester.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/routing/Contact.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+)
+target_compile_definitions (KadUDPFirewallIntegrationTest PRIVATE AMULE_DAEMON)
+target_include_directories (KadUDPFirewallIntegrationTest PRIVATE
+	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+	${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs
+	${CMAKE_BINARY_DIR}/src/libs/ec/cpp
+)
+if (ENABLE_UPNP)
+	# The genuine application fixture owns a vector of UPnP mappings.
+	target_include_directories (KadUDPFirewallIntegrationTest PRIVATE
+		$<TARGET_PROPERTY:UPNP::Shared,INTERFACE_INCLUDE_DIRECTORIES>)
+endif()
+target_link_libraries (KadUDPFirewallIntegrationTest muleunit mulecommon wxWidgets::BASE CRYPTOPP::CRYPTOPP)
+add_test (NAME KadUDPFirewallIntegrationTest COMMAND KadUDPFirewallIntegrationTest)
+
 # Tagged protocol identity is pure value semantics and does not require live clients.
 add_executable (ProtocolPeerIdentityTest ProtocolPeerIdentityTest.cpp)
 add_test (NAME ProtocolPeerIdentityTest COMMAND ProtocolPeerIdentityTest)

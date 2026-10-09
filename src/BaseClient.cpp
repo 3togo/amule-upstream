@@ -1187,20 +1187,11 @@ void CUpDownClient::SendHelloTypePacket(CMemFile *data)
 	tagversion.WriteTagToFile(data);
 	// eMule UDP Ports
 
-	uint32 kadUDPPort = 0;
+	const auto kadHello = Kademlia::CUDPFirewallTester::GetHelloState();
 
-	if (Kademlia::CKademlia::IsConnected()) {
-		if (Kademlia::CKademlia::GetPrefs()->GetExternalKadPort() != 0 &&
-			Kademlia::CKademlia::GetPrefs()->GetUseExternKadPort() &&
-			Kademlia::CUDPFirewallTester::IsVerified()) {
-			kadUDPPort = Kademlia::CKademlia::GetPrefs()->GetExternalKadPort();
-		} else {
-			kadUDPPort = Kademlia::CKademlia::GetPrefs()->GetInternKadPort();
-		}
-	}
-
-	CTagVarInt tagUdpPorts(
-		CT_EMULE_UDPPORTS, (kadUDPPort << 16) | ((uint32)thePrefs::GetEffectiveUDPPort()), 32);
+	CTagVarInt tagUdpPorts(CT_EMULE_UDPPORTS,
+		(static_cast<uint32>(kadHello.port) << 16) | ((uint32)thePrefs::GetEffectiveUDPPort()),
+		32);
 	tagUdpPorts.WriteTagToFile(data);
 
 	if (theApp->clientlist->GetBuddy() && theApp->IsFirewalled()) {
@@ -1266,14 +1257,7 @@ void CUpDownClient::SendHelloTypePacket(CMemFile *data)
 #endif
 	// direct callback is only possible if connected to kad, tcp firewalled and verified UDP open (for
 	// example on a full cone NAT)
-	const bool udpFirewalled = Kademlia::CUDPFirewallTester::IsFirewalledUDP(true);
-	const uint32 uDirectUDPCallback =
-		(Kademlia::CKademlia::IsRunning() &&
-			Kademlia::DirectCallbackAvailable(Kademlia::CKademlia::IsFirewalled(),
-				udpFirewalled,
-				Kademlia::CUDPFirewallTester::IsVerified()))
-			? 1
-			: 0;
+	const uint32 uDirectUDPCallback = kadHello.directCallback ? 1 : 0;
 
 	CTagVarInt tagMisOptions2(CT_EMULE_MISCOPTIONS2,
 		//				(RESERVED				     )

@@ -34,6 +34,7 @@
 #include "../../Logger.h"
 #include "../../amule.h"
 #include "../../ClientList.h"
+#include "../../KadCallbackPolicy.h"
 #include "../../GetTickCount.h"
 #include "../../NetworkFunctions.h"
 
@@ -52,6 +53,22 @@ uint64_t CUDPFirewallTester::m_testStart = 0;
 uint64_t CUDPFirewallTester::m_lastSucceededTime = 0;
 CUDPFirewallTester::PossibleClientList CUDPFirewallTester::m_possibleTestClients;
 CUDPFirewallTester::UsedClientList CUDPFirewallTester::m_usedTestClients;
+
+CUDPFirewallTester::HelloState CUDPFirewallTester::GetHelloState()
+{
+	const bool firewalled = IsFirewalledUDP(true);
+	const bool verified = IsVerified();
+	uint16_t port = 0;
+	if (CKademlia::IsConnected()) {
+		const auto *prefs = CKademlia::GetPrefs();
+		port = verified && prefs->GetUseExternKadPort() && prefs->GetExternalKadPort() != 0
+			       ? prefs->GetExternalKadPort()
+			       : prefs->GetInternKadPort();
+	}
+	return { port,
+		CKademlia::IsRunning() &&
+			DirectCallbackAvailable(CKademlia::IsFirewalled(), firewalled, verified) };
+}
 
 void CUDPFirewallTester::CheckVerificationExpiry(uint64_t now)
 {

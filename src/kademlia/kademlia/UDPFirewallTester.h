@@ -50,6 +50,13 @@ struct UsedClient_Struct
 class CUDPFirewallTester
 {
 public:
+	struct HelloState
+	{
+		uint16_t port;
+		bool directCallback;
+	};
+	// Both hello fields must use the same refreshed verification state.
+	static HelloState GetHelloState();
 	static bool IsFirewalledUDP(bool lastStateIfTesting); // Are we UDP firewalled - if unknown open is
 							      // assumed unless onlyVerified == true
 	static void SetUDPFWCheckResult(
@@ -85,6 +92,7 @@ public:
 	static void QueryNextClient(); // try the next available client for the firewallcheck
 
 private:
+	friend class CUDPFirewallTesterFixture;
 	static void CheckVerificationExpiry(uint64_t now);
 	static CUDPVerificationExpiry m_verificationExpiry;
 	// are we in search for testclients
