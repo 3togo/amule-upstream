@@ -111,7 +111,7 @@ namespace
 {
 using Kademlia::CUDPVerificationExpiry;
 constexpr uint64_t kUDPStart = 1000000;
-constexpr uint64_t kUDPNextRound = kUDPStart + 60 * 60 * 1000;
+constexpr uint64_t kUDPNextRound = kUDPStart + CUDPVerificationExpiry::kRecheckIntervalMs;
 constexpr uint64_t kUDPTimeout = CUDPVerificationExpiry::kRoundTimeoutMs + 1;
 } // namespace
 
@@ -136,7 +136,7 @@ TEST(KadUDPVerificationExpiry, PollingCannotCountOneRoundTwice)
 TEST(KadUDPVerificationExpiry, OneFailedHourlyRecheckAllowsNextRoundToFinish)
 {
 	CUDPVerificationExpiry expiry;
-	const uint64_t interval = 60 * 60 * 1000;
+	const uint64_t interval = CUDPVerificationExpiry::kRecheckIntervalMs;
 	const uint64_t initialResult = kUDPStart + 60 * 1000;
 	const uint64_t secondRecheck = kUDPStart + 2 * interval;
 	expiry.Start(kUDPStart);

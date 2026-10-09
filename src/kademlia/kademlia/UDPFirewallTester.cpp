@@ -105,12 +105,14 @@ void CUDPFirewallTester::SetUDPFWCheckResult(
 		return;
 	}
 
+	const uint64_t now = ::GetTickCount64();
+
 	// check if we actually requested a firewallcheck from this client
 	bool requested = false;
 	for (UsedClientList::iterator it = m_usedTestClients.begin(); it != m_usedTestClients.end(); ++it) {
 		if (it->contact.GetIPAddress() == fromIP) {
 			if (!IsFWCheckUDPRunning() && !m_firewalledUDP && m_isFWVerifiedUDP &&
-				m_lastSucceededTime + SEC2MS(10) > ::GetTickCount64() &&
+				m_lastSucceededTime + SEC2MS(10) > now &&
 				incomingPort == CKademlia::GetPrefs()->GetInternKadPort() &&
 				CKademlia::GetPrefs()->GetUseExternKadPort()) {
 				// Our test already finished in the last 10 seconds as open, but
@@ -166,11 +168,11 @@ void CUDPFirewallTester::SetUDPFWCheckResult(
 	if (!testCancelled) {
 		m_fwChecksFinishedUDP++;
 		if (succeeded) { // one positive result is enough
-			m_lastSucceededTime = ::GetTickCount64();
+			m_lastSucceededTime = now;
 			m_testStart = 0;
 			m_firewalledUDP = false;
 			m_isFWVerifiedUDP = true;
-			m_verificationExpiry.RecordResult(::GetTickCount64());
+			m_verificationExpiry.RecordResult(now);
 			m_timedOut = false;
 			m_fwChecksFinishedUDP = UDP_FIREWALLTEST_CLIENTSTOASK; // don't do any more tests
 			m_fwChecksRunningUDP = 0;      // all other tests are cancelled
@@ -197,7 +199,7 @@ void CUDPFirewallTester::SetUDPFWCheckResult(
 			AddDebugLogLineN(logKadUdpFwTester, "New KAD Firewallstate (UDP): Firewalled");
 			m_firewalledUDP = true;
 			m_isFWVerifiedUDP = true;
-			m_verificationExpiry.RecordResult(::GetTickCount64());
+			m_verificationExpiry.RecordResult(now);
 			m_timedOut = false;
 			theApp->ShowConnectionState();
 			m_possibleTestClients.clear(); // clear list, keep used clients list though
