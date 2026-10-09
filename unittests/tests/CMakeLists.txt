@@ -1,3 +1,13 @@
+# Shared application anchors for headless tests that link production core code.
+function (add_application_test_stubs target)
+	target_sources (${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationTestStubs.cpp)
+	if (ENABLE_UPNP)
+		# CamuleApp's destructor needs the complete UPnP mapping type.
+		target_include_directories (${target} PRIVATE
+			$<TARGET_PROPERTY:UPNP::Shared,INTERFACE_INCLUDE_DIRECTORIES>)
+	endif()
+endfunction()
+
 add_test (NAME QuicCMakeConfigTest
 	COMMAND ${CMAKE_COMMAND}
 		-DAMULE_SOURCE_DIR=${CMAKE_SOURCE_DIR}
@@ -69,7 +79,7 @@ target_include_directories (KadFirewallRecheckTest PRIVATE
 )
 target_link_libraries (KadFirewallRecheckTest muleunit mulecommon)
 
-# Production UDP verification and hello advertisement with a deterministic clock.
+# Production UDP verification queries with a deterministic clock.
 add_executable (KadUDPFirewallIntegrationTest
 	KadUDPFirewallIntegrationTest.cpp
 	${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/UDPFirewallTester.cpp
@@ -83,11 +93,7 @@ target_include_directories (KadUDPFirewallIntegrationTest PRIVATE
 	${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs
 	${CMAKE_BINARY_DIR}/src/libs/ec/cpp
 )
-if (ENABLE_UPNP)
-	# The genuine application fixture owns a vector of UPnP mappings.
-	target_include_directories (KadUDPFirewallIntegrationTest PRIVATE
-		$<TARGET_PROPERTY:UPNP::Shared,INTERFACE_INCLUDE_DIRECTORIES>)
-endif()
+add_application_test_stubs (KadUDPFirewallIntegrationTest)
 target_link_libraries (KadUDPFirewallIntegrationTest muleunit mulecommon wxWidgets::BASE CRYPTOPP::CRYPTOPP)
 add_test (NAME KadUDPFirewallIntegrationTest COMMAND KadUDPFirewallIntegrationTest)
 
@@ -2217,14 +2223,7 @@ target_include_directories (AICHSearchResultTest PRIVATE
 	${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs
 	${CMAKE_BINARY_DIR}/src/libs/ec/cpp
 )
-if (ENABLE_UPNP)
-	# AICHSearchResultStubs.cpp defines CamuleApp::~CamuleApp(), whose
-	# m_upnpMappings member (std::vector<CUPnPPortMapping>) needs the complete
-	# UPnPBase.h, which in turn includes <upnp.h> from libupnp. The test links
-	# mulecommon (not muleappcommon), so it does not inherit that include path.
-	target_include_directories (AICHSearchResultTest PRIVATE
-		$<TARGET_PROPERTY:UPNP::Shared,INTERFACE_INCLUDE_DIRECTORIES>)
-endif()
+add_application_test_stubs (AICHSearchResultTest)
 target_link_libraries (AICHSearchResultTest muleunit mulecommon wxWidgets::BASE CRYPTOPP::CRYPTOPP)
 add_test (NAME AICHSearchResultTest COMMAND AICHSearchResultTest)
 

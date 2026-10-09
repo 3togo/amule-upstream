@@ -13,9 +13,6 @@
 #include <kademlia/kademlia/SearchManager.h>
 #include <kademlia/routing/RoutingZone.h>
 #include <KadCallbackPolicy.h>
-#ifdef ENABLE_UPNP
-#include <UPnPBase.h>
-#endif
 
 using namespace muleunit;
 using namespace Kademlia;
@@ -25,6 +22,8 @@ namespace
 uint64_t now = 1000000;
 unsigned notifications = 0;
 unsigned clockReads = 0;
+bool queryDuringNotification = false;
+bool verifiedDuringNotification = true;
 bool lanMode = false;
 constexpr uint16_t internalPort = 4665;
 constexpr uint16_t externalPort = 5678;
@@ -32,57 +31,19 @@ constexpr uint32_t peer = 0x01020304;
 } // namespace
 
 // Only the application/network boundary is stubbed. The tester, expiry logic and
-// hello-state selection are production code, driven through their normal entry points.
+// verification queries are production code, driven through their normal entry points.
 uint64 GetTickCount64()
 {
 	++clockReads;
 	return now;
 }
 CamuleDaemonApp *theApp = nullptr;
-CamuleAppCommon::CamuleAppCommon() = default;
-CamuleAppCommon::~CamuleAppCommon() = default;
-CamuleApp::CamuleApp() = default;
-CamuleApp::~CamuleApp() = default;
 void CamuleApp::ShowConnectionState(bool)
 {
 	++notifications;
-}
-uint32 CamuleApp::GetPublicIP(bool) const
-{
-	return 0;
-}
-bool CamuleApp::OnInit()
-{
-	FAIL_M("Unexpected application startup");
-	return false;
-}
-int CamuleApp::OnExit()
-{
-	FAIL_M("Unexpected application shutdown");
-	return 0;
-}
-#if wxUSE_ON_FATAL_EXCEPTION
-void CamuleApp::OnFatalException()
-{
-	FAIL_M("Unexpected fatal exception");
-}
-#endif
-void CamuleApp::OnUnhandledException()
-{
-	FAIL_M("Unexpected exception");
-}
-void CamuleApp::OnAssertFailure(const wxChar *, int, const wxChar *, const wxChar *, const wxChar *)
-{
-	FAIL_M("Unexpected assertion");
-}
-void CamuleApp::EnableIP2Country(bool, bool)
-{
-	FAIL_M("Unexpected GeoIP access");
-}
-int CamuleApp::InitGui(bool, wxString &)
-{
-	FAIL_M("Unexpected GUI access");
-	return 0;
+	if (queryDuringNotification) {
+		verifiedDuringNotification = CUDPFirewallTester::IsVerified();
+	}
 }
 bool CamuleDaemonApp::OnInit()
 {
@@ -181,6 +142,7 @@ public:
 		now = 1000000;
 		notifications = 0;
 		lanMode = false;
+		queryDuringNotification = false;
 		wxAppConsole::SetInstance(appGuard.original);
 		theApp = &app;
 		CKademlia::Start(new CPrefs);
@@ -195,7 +157,7 @@ public:
 	void Request(uint32_t ip = peer)
 	{
 		CContact contact(CUInt128(false), ip, 1, 1, 6, CKadUDPKey(), true, CUInt128(false));
-		CUDPFirewallTester::m_usedTestClients.push_front({ contact, false });
+		CUDPFirewallTester::m_usedTestClients.push_front({ contact, false, true });
 		++CUDPFirewallTester::m_fwChecksRunningUDP;
 	}
 	void Open()
@@ -221,25 +183,20 @@ private:
 
 DECLARE_SIMPLE(KadUDPFirewallIntegration)
 
-TEST(KadUDPFirewallIntegration, HelloExpiresBeforeSelectingBothFields)
+TEST(KadUDPFirewallIntegration, VerificationQueryExpiresWithoutFirewallQuery)
 {
 	CUDPFirewallTesterFixture fixture;
 	fixture.Open();
-	auto hello = CUDPFirewallTester::GetHelloState();
-	ASSERT_EQUALS(externalPort, hello.port);
-	ASSERT_TRUE(hello.directCallback);
 	now += CUDPVerificationExpiry::kMaxVerificationAgeMs - 1;
-	ASSERT_TRUE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_TRUE(CUDPFirewallTester::IsVerified());
 	++now;
-	hello = CUDPFirewallTester::GetHelloState();
-	ASSERT_EQUALS(internalPort, hello.port);
-	ASSERT_FALSE(hello.directCallback);
+	// No IsFirewalledUDP call may refresh the flag before this assertion.
 	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
-	ASSERT_TRUE(NeedsBuddy(
-		true, CUDPFirewallTester::IsFirewalledUDP(true), CUDPFirewallTester::IsVerified()));
+	ASSERT_FALSE(CUDPFirewallTester::IsFirewalledUDP(true)); // stored open result is preserved
+	ASSERT_TRUE(NeedsBuddy(true, false, CUDPFirewallTester::IsVerified()));
 	ASSERT_FALSE(CanPublishSource(true, 0, 0, 0, 1));
 	ASSERT_EQUALS(2u, notifications); // successful result, then one expiry
-	CUDPFirewallTester::GetHelloState();
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
 	ASSERT_EQUALS(2u, notifications);
 }
 
@@ -265,12 +222,12 @@ TEST(KadUDPFirewallIntegration, LateSuccessRenewsExpiredVerification)
 	CUDPFirewallTester::ReCheckFirewallUDP(false);
 	fixture.Request(peer + 1);
 	now += CUDPVerificationExpiry::kMaxVerificationAgeMs;
-	ASSERT_FALSE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
 	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer + 1, externalPort);
-	ASSERT_TRUE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_TRUE(CUDPFirewallTester::IsVerified());
 	ASSERT_EQUALS(now, fixture.LastSuccess());
 	now += CUDPVerificationExpiry::kMaxVerificationAgeMs - 1;
-	ASSERT_TRUE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_TRUE(CUDPFirewallTester::IsVerified());
 }
 
 TEST(KadUDPFirewallIntegration, CancellationDoesNotRenewVerification)
@@ -282,7 +239,7 @@ TEST(KadUDPFirewallIntegration, CancellationDoesNotRenewVerification)
 	fixture.Request(peer + 1);
 	CUDPFirewallTester::SetUDPFWCheckResult(false, true, peer + 1, 0);
 	now = 1000000 + CUDPVerificationExpiry::kMaxVerificationAgeMs;
-	ASSERT_FALSE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
 }
 
 TEST(KadUDPFirewallIntegration, FirewalledResultRenewsVerification)
@@ -297,9 +254,7 @@ TEST(KadUDPFirewallIntegration, FirewalledResultRenewsVerification)
 	CUDPFirewallTester::SetUDPFWCheckResult(false, false, peer + 2, 0);
 	ASSERT_TRUE(CUDPFirewallTester::IsVerified());
 	ASSERT_TRUE(CUDPFirewallTester::IsFirewalledUDP(true));
-	ASSERT_FALSE(CUDPFirewallTester::GetHelloState().directCallback);
 	now += CUDPVerificationExpiry::kMaxVerificationAgeMs - 1;
-	CUDPFirewallTester::GetHelloState();
 	ASSERT_TRUE(CUDPFirewallTester::IsVerified());
 }
 
@@ -309,7 +264,7 @@ TEST(KadUDPFirewallIntegration, InternalPortCorrectionUsesSuccessTimestamp)
 	fixture.Open();
 	now += 9999;
 	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer, internalPort);
-	ASSERT_EQUALS(internalPort, CUDPFirewallTester::GetHelloState().port);
+	ASSERT_FALSE(CKademlia::GetPrefs()->GetUseExternKadPort());
 }
 
 TEST(KadUDPFirewallIntegration, ResetAndLANMode)
@@ -317,12 +272,14 @@ TEST(KadUDPFirewallIntegration, ResetAndLANMode)
 	CUDPFirewallTesterFixture fixture;
 	fixture.Open();
 	CUDPFirewallTester::Reset();
-	ASSERT_FALSE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
 	now += CUDPVerificationExpiry::kMaxVerificationAgeMs;
 	lanMode = true;
+	clockReads = 0;
 	ASSERT_TRUE(CUDPFirewallTester::IsVerified());
-	ASSERT_EQUALS(internalPort, CUDPFirewallTester::GetHelloState().port);
-	ASSERT_FALSE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_EQUALS(0u, clockReads); // LAN bypass precedes clock/expiry work
+	ASSERT_FALSE(CUDPFirewallTester::IsFirewalledUDP(true));
+	ASSERT_FALSE(CKademlia::GetPrefs()->GetUseExternKadPort());
 	lanMode = false;
 	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
 }
@@ -344,7 +301,7 @@ TEST(KadUDPFirewallIntegration, UnrequestedResultCannotRenewExpiredState)
 	fixture.Open();
 	now += CUDPVerificationExpiry::kMaxVerificationAgeMs;
 	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer + 1, externalPort);
-	ASSERT_FALSE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
 }
 
 TEST(KadUDPFirewallIntegration, InternalPortCorrectionEndsAtTenSeconds)
@@ -353,7 +310,7 @@ TEST(KadUDPFirewallIntegration, InternalPortCorrectionEndsAtTenSeconds)
 	fixture.Open();
 	now += 10000;
 	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer, internalPort);
-	ASSERT_EQUALS(externalPort, CUDPFirewallTester::GetHelloState().port);
+	ASSERT_TRUE(CKademlia::GetPrefs()->GetUseExternKadPort());
 }
 
 TEST(KadUDPFirewallIntegration, StopStartDropsPreviousVerification)
@@ -361,16 +318,16 @@ TEST(KadUDPFirewallIntegration, StopStartDropsPreviousVerification)
 	CUDPFirewallTesterFixture fixture;
 	fixture.Open();
 	CKademlia::Stop();
-	ASSERT_EQUALS(0u, CUDPFirewallTester::GetHelloState().port);
-	ASSERT_FALSE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_FALSE(CKademlia::IsRunning());
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
 	CKademlia::Start(new CPrefs);
 	CUDPFirewallTester::Connected();
 	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
 	now += CUDPVerificationExpiry::kRoundTimeoutMs + 1;
-	ASSERT_FALSE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
 }
 
-TEST(KadUDPFirewallIntegration, FrequentRestartsCannotRetainHelloCallbacks)
+TEST(KadUDPFirewallIntegration, FrequentRestartsCannotRetainVerification)
 {
 	CUDPFirewallTesterFixture fixture;
 	fixture.Open();
@@ -379,10 +336,10 @@ TEST(KadUDPFirewallIntegration, FrequentRestartsCannotRetainHelloCallbacks)
 		elapsed += 300000) {
 		now = start + elapsed;
 		CUDPFirewallTester::ReCheckFirewallUDP(false);
-		ASSERT_TRUE(CUDPFirewallTester::GetHelloState().directCallback);
+		ASSERT_TRUE(CUDPFirewallTester::IsVerified());
 	}
 	now = start + CUDPVerificationExpiry::kMaxVerificationAgeMs;
-	ASSERT_FALSE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
 }
 
 TEST(KadUDPFirewallIntegration, FullSecondRecheckWindowCanRecover)
@@ -399,10 +356,10 @@ TEST(KadUDPFirewallIntegration, FullSecondRecheckWindowCanRecover)
 	CUDPFirewallTester::ReCheckFirewallUDP(false);
 	fixture.Request(peer + 1);
 	now += CUDPVerificationExpiry::kRoundTimeoutMs;
-	ASSERT_TRUE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_TRUE(CUDPFirewallTester::IsVerified());
 	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer + 1, externalPort);
 	now += CUDPVerificationExpiry::kRoundTimeoutMs + 1;
-	ASSERT_TRUE(CUDPFirewallTester::GetHelloState().directCallback);
+	ASSERT_TRUE(CUDPFirewallTester::IsVerified());
 }
 
 TEST(KadUDPFirewallIntegration, PreviousSessionResultCannotVerify)
@@ -415,5 +372,101 @@ TEST(KadUDPFirewallIntegration, PreviousSessionResultCannotVerify)
 	CUDPFirewallTester::Connected();
 	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer, externalPort);
 	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
-	ASSERT_FALSE(CUDPFirewallTester::GetHelloState().directCallback);
+}
+
+TEST(KadUDPFirewallIntegration, GetterOrderDoesNotChangeExpiredState)
+{
+	for (bool verifiedFirst : { false, true }) {
+		CUDPFirewallTesterFixture fixture;
+		fixture.Open();
+		now += CUDPVerificationExpiry::kMaxVerificationAgeMs;
+		bool verified;
+		bool firewalled;
+		if (verifiedFirst) {
+			verified = CUDPFirewallTester::IsVerified();
+			firewalled = CUDPFirewallTester::IsFirewalledUDP(true);
+		} else {
+			firewalled = CUDPFirewallTester::IsFirewalledUDP(true);
+			verified = CUDPFirewallTester::IsVerified();
+		}
+		ASSERT_FALSE(verified);
+		ASSERT_FALSE(firewalled);
+		ASSERT_FALSE(DirectCallbackAvailable(true, firewalled, verified));
+		ASSERT_TRUE(NeedsBuddy(true, firewalled, verified));
+		ASSERT_EQUALS(2u, notifications);
+	}
+}
+
+TEST(KadUDPFirewallIntegration, LANBypassesExpiryUntilPublicMode)
+{
+	CUDPFirewallTesterFixture fixture;
+	fixture.Open();
+	now += CUDPVerificationExpiry::kMaxVerificationAgeMs;
+	lanMode = true;
+	clockReads = 0;
+	ASSERT_TRUE(CUDPFirewallTester::IsVerified());
+	ASSERT_EQUALS(0u, clockReads);
+	ASSERT_EQUALS(1u, notifications);
+	lanMode = false;
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
+	ASSERT_EQUALS(2u, notifications);
+}
+
+TEST(KadUDPFirewallIntegration, ExpiryNotificationCanReenterVerificationQuery)
+{
+	CUDPFirewallTesterFixture fixture;
+	fixture.Open();
+	now += CUDPVerificationExpiry::kMaxVerificationAgeMs;
+	queryDuringNotification = true;
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
+	ASSERT_FALSE(verifiedDuringNotification);
+	ASSERT_EQUALS(2u, notifications);
+}
+
+TEST(KadUDPFirewallIntegration, PreviousSessionFailuresCannotFinishCurrentRound)
+{
+	CUDPFirewallTesterFixture fixture;
+	CUDPFirewallTester::ReCheckFirewallUDP(false);
+	fixture.Request();
+	fixture.Request(peer + 1);
+	CKademlia::Stop();
+	CKademlia::Start(new CPrefs);
+	CUDPFirewallTester::Connected();
+	fixture.Request(peer + 2);
+	fixture.Request(peer + 3);
+	CUDPFirewallTester::SetUDPFWCheckResult(false, false, peer, 0);
+	CUDPFirewallTester::SetUDPFWCheckResult(false, false, peer + 1, 0);
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
+	CUDPFirewallTester::SetUDPFWCheckResult(false, false, peer + 2, 0);
+	CUDPFirewallTester::SetUDPFWCheckResult(false, false, peer + 3, 0);
+	ASSERT_TRUE(CUDPFirewallTester::IsVerified());
+	ASSERT_TRUE(CUDPFirewallTester::IsFirewalledUDP(true));
+}
+
+TEST(KadUDPFirewallIntegration, PreviousRoundSuccessCannotVerifyCurrentRound)
+{
+	CUDPFirewallTesterFixture fixture;
+	CUDPFirewallTester::ReCheckFirewallUDP(false);
+	fixture.Request();
+	CUDPFirewallTester::ReCheckFirewallUDP(false);
+	fixture.Request(peer + 1);
+	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer, externalPort);
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
+	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer + 1, externalPort);
+	ASSERT_TRUE(CUDPFirewallTester::IsVerified());
+}
+
+TEST(KadUDPFirewallIntegration, PortCorrectionMustBelongToCurrentRound)
+{
+	CUDPFirewallTesterFixture fixture;
+	fixture.Open();
+	++now;
+	CUDPFirewallTester::ReCheckFirewallUDP(false);
+	fixture.Request(peer + 1);
+	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer + 1, externalPort);
+	++now;
+	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer, internalPort);
+	ASSERT_TRUE(CKademlia::GetPrefs()->GetUseExternKadPort());
+	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer + 1, internalPort);
+	ASSERT_FALSE(CKademlia::GetPrefs()->GetUseExternKadPort());
 }

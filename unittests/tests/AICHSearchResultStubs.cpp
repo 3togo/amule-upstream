@@ -33,9 +33,7 @@
 #include <PartFile.h>
 #include <updownclient.h>
 #include <SearchList.h>
-#ifdef ENABLE_UPNP
-#include "UPnPBase.h" // Needed for CUPnPPortMapping (CamuleApp::m_upnpMappings)
-#endif
+#include <Packet.h> // Complete the packet owned by CSearchList for its virtual anchor.
 
 using namespace muleunit;
 
@@ -149,10 +147,14 @@ namespace
 }
 } // namespace
 
-CamuleApp::~CamuleApp()
+// SearchFile's live-search branch also needs genuine RTTI under UBSan.
+CSearchList::~CSearchList()
 {
-	UnexpectedApplicationCall("CamuleApp::~CamuleApp");
+	UnexpectedApplicationCall("CSearchList::~CSearchList");
 }
+wxBEGIN_EVENT_TABLE(CSearchList, wxEvtHandler)
+wxEND_EVENT_TABLE()
+
 CDownloadQueue::~CDownloadQueue()
 {
 	UnexpectedApplicationCall("CDownloadQueue::~CDownloadQueue");
@@ -166,36 +168,6 @@ CPartFile::~CPartFile()
 	UnexpectedApplicationCall("CPartFile::~CPartFile");
 }
 
-bool CamuleApp::OnInit()
-{
-	UnexpectedApplicationCall("CamuleApp::OnInit");
-}
-int CamuleApp::OnExit()
-{
-	UnexpectedApplicationCall("CamuleApp::OnExit");
-}
-#if wxUSE_ON_FATAL_EXCEPTION
-void CamuleApp::OnFatalException()
-{
-	UnexpectedApplicationCall("CamuleApp::OnFatalException");
-}
-#endif
-void CamuleApp::OnUnhandledException()
-{
-	UnexpectedApplicationCall("CamuleApp::OnUnhandledException");
-}
-void CamuleApp::OnAssertFailure(const wxChar *, int, const wxChar *, const wxChar *, const wxChar *)
-{
-	UnexpectedApplicationCall("CamuleApp::OnAssertFailure");
-}
-void CamuleApp::EnableIP2Country(bool, bool)
-{
-	UnexpectedApplicationCall("CamuleApp::EnableIP2Country");
-}
-int CamuleApp::InitGui(bool, wxString &)
-{
-	UnexpectedApplicationCall("CamuleApp::InitGui");
-}
 void CDownloadQueue::ObserverAdded(ObserverType *)
 {
 	UnexpectedApplicationCall("CDownloadQueue::ObserverAdded");
