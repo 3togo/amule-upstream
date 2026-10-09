@@ -26,7 +26,6 @@
 //
 
 #include "KadCallbackPolicy.h"
-#include "kademlia/kademlia/UDPFirewallTester.h"
 #include <algorithm>   // std::remove_if
 #include "KnownFile.h" // Do_not_auto_remove
 
@@ -68,7 +67,8 @@
 #include <common/Format.h>
 
 #ifndef CLIENT_GUI
-#include "kademlia/kademlia/Kademlia.h"      // Needed for CKademlia (Kad state)
+#include "kademlia/kademlia/Kademlia.h" // Needed for CKademlia (Kad state)
+#include "kademlia/kademlia/UDPFirewallTester.h"
 #include "kademlia/kademlia/Search.h"        // Needed for CSearch::NOTES
 #include "kademlia/kademlia/SearchManager.h" // Needed for CSearchManager::PrepareLookup
 #include "kademlia/kademlia/Entry.h"         // Needed for Kademlia::CEntry (Kad notes)

@@ -23,8 +23,8 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
-#include "KadCallbackPolicy.h"
 #include "ClientList.h" // Interface declarations.
+#include "KadCallbackPolicy.h"
 
 #include "BrowseManager.h"
 
