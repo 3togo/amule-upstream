@@ -224,6 +224,15 @@ argument's quotes. Backslashes are kept literal for batch files and builtins;
 native children retain CRT quoting.
 
 Use a fixed command token with separate values, for example `cmd /d /c echo %SENDER`.
+External targets after `cmd /c` or `/k` must include `.exe`, `.com`, `.bat`, or
+`.cmd`; extensionless names are refused when inserting data because `PATHEXT`
+can select a batch file with different argument quoting. Quote fixed paths
+containing spaces, for example:
+
+```bat
+cmd /d /c "C:\Program Files\hooks\on-chat.cmd" %SENDER
+```
+
 Do not put a placeholder inside a combined command string such as
 `cmd /c "echo %SENDER"`; it is code, and aMule refuses it. Compound command
 strings, user-specified `/s`, dispatch builtins (`call`, `start`, `for`, `if`),

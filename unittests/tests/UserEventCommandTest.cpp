@@ -222,6 +222,54 @@ TEST(UserEventCommand, WindowsShellQuotingKeepsInnerQuotesAndLiteralBackslashes)
 		" /d /s /c \"\"fixed.cmd\" \"x|echo INJECTED\\\"\""));
 }
 
+TEST(UserEventCommand, CmdAllowsQuotedFixedPathsWithSpacesAndParentheses)
+{
+	for (const wxString &program : { wxString("C:\\Program Files (x86)\\hooks\\on-chat.cmd"),
+		     wxString("C:\\Program Files\\hooks\\on-chat.bat"),
+		     wxString("C:\\Program Files\\hooks\\notify.exe"),
+		     wxString("C:\\Program Files\\hooks\\notify.com") }) {
+		const wxString command = "cmd /c \"" + program + "\" %SENDER";
+		const auto args = ExternalCommand::Build(command,
+			{ { "%SENDER", "value with spaces & trailing\\" } },
+			nullptr,
+			ExternalCommand::Platform::Windows);
+		ASSERT_EQUALS(size_t(4), args.size());
+		ASSERT_EQUALS(program, args[2]);
+		const auto serialized = ExternalCommand::BuildWindowsCommandLine(args);
+		ASSERT_TRUE(serialized.Contains("\"" + program + "\""));
+		const bool batch = program.EndsWith(".cmd") || program.EndsWith(".bat");
+		ASSERT_TRUE(serialized.EndsWith(batch ? "trailing\\\"\"" : "trailing\\\\\"\""));
+	}
+}
+
+TEST(UserEventCommand, CmdRefusesAmbiguousExtensionlessTargetsWhenInsertingData)
+{
+	for (const wxString &command : { wxString("cmd /c on-chat %SENDER"),
+		     wxString("cmd /c C:\\hooks\\on-chat %SENDER"),
+		     wxString("cmd /k \"C:\\Program Files\\hooks\\on-chat\" %SENDER"),
+		     wxString("cmd /c \"echo fixed\" %SENDER") }) {
+		ExternalCommand::RejectionReason reason;
+		ASSERT_TRUE(ExternalCommand::Build(command,
+			{ { "%SENDER", "trailing\\" } },
+			nullptr,
+			ExternalCommand::Platform::Windows,
+			nullptr,
+			&reason)
+				    .IsEmpty());
+		ASSERT_TRUE(reason == ExternalCommand::RejectionReason::UnsupportedWindowsCommand);
+	}
+	const wxString filename = "trailing\\";
+	ASSERT_TRUE(ExternalCommand::Build(
+		"cmd /c on-chat", {}, nullptr, ExternalCommand::Platform::Windows, &filename)
+			    .IsEmpty());
+	const wxString fixed = "cmd /c on-chat fixed";
+	bool substituted = true;
+	const auto args = ExternalCommand::Build(fixed, {}, &substituted, ExternalCommand::Platform::Windows);
+	ASSERT_FALSE(args.IsEmpty());
+	ASSERT_FALSE(substituted);
+	ASSERT_EQUALS(fixed, ExternalCommand::BuildWindowsCommandLine(args, &fixed));
+}
+
 #ifdef __WINDOWS__
 TEST(UserEventCommand, WindowsNativeArgumentRoundTrip)
 {
@@ -513,7 +561,7 @@ TEST(UserEventCommand, NativeCmdAndBatchCannotExecuteASecondCommandFromData)
 	if (!wxGetEnv("COMSPEC", &cmd)) {
 		cmd = "cmd.exe";
 	}
-	const wxString temporary = wxFileName::CreateTempFileName("amule-event-batch-");
+	const wxString temporary = wxFileName::CreateTempFileName("amule event batch (test)-");
 	wxFileName batch(temporary);
 	batch.SetExt("cmd");
 	wxRemoveFile(temporary);
@@ -522,8 +570,9 @@ TEST(UserEventCommand, NativeCmdAndBatchCannotExecuteASecondCommandFromData)
 		ASSERT_TRUE(script.IsOpened());
 		ASSERT_TRUE(script.Write("@echo off\r\necho \"%~1\"\r\n"));
 	}
-	for (const wxString &command :
-		{ "\"" + cmd + "\" /d /c echo %SENDER", "\"" + batch.GetFullPath() + "\" %SENDER" }) {
+	for (const wxString &command : { "\"" + cmd + "\" /d /c echo %SENDER",
+		     "\"" + batch.GetFullPath() + "\" %SENDER",
+		     "\"" + cmd + "\" /d /c \"" + batch.GetFullPath() + "\" %SENDER" }) {
 		for (const wxString &value : { wxString("x&echo INJECTED"),
 			     wxString("x|echo INJECTED"),
 			     wxString("x>NUL"),
