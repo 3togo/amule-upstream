@@ -22,29 +22,36 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
-#ifndef ECID_H
-#define ECID_H
+#ifndef KAD_CALLBACK_POLICY_H
+#define KAD_CALLBACK_POLICY_H
 
-#include "../../../Types.h" // Needed for uint32
+#include <cstdint>
 
-#include <atomic>
-
-/**
- * Creates unique IDs for objects transmitted through EC: partfiles, knownfiles, clients.
- */
-class CECID
+namespace Kademlia
 {
-	// the id
-	uint32 m_ID;
-	// counter to calculate unique ids (defined in ECTag.cpp). Atomic: files are created on
-	// worker threads too, and a lost update would hand two live objects the same id.
-	static std::atomic<uint32> s_IDCounter;
 
-public:
-	CECID() { m_ID = ++s_IDCounter; }
-	CECID(uint32 id) { m_ID = id; }
-	uint32 ECID() const { return m_ID; }
-	void RenewECID() { m_ID = ++s_IDCounter; }
-};
+// UDP reachability must be verified before a TCP-firewalled node advertises callbacks.
+inline bool DirectCallbackAvailable(bool tcpFirewalled, bool udpFirewalled, bool udpVerified)
+{
+	return tcpFirewalled && !udpFirewalled && udpVerified;
+}
 
-#endif
+inline bool NeedsBuddy(bool tcpFirewalled, bool udpFirewalled, bool udpVerified)
+{
+	return tcpFirewalled && (udpFirewalled || !udpVerified);
+}
+
+// A changed callback route must replace its published address without waiting for the timer.
+inline bool CanPublishSource(
+	bool needsBuddy, uint32_t buddyIP, uint32_t lastBuddyIP, uint32_t nextPublishTime, uint32_t now)
+{
+	if (needsBuddy && buddyIP == 0) {
+		return false;
+	}
+	const uint32_t routeBuddyIP = needsBuddy ? buddyIP : 0;
+	return routeBuddyIP != lastBuddyIP || now >= nextPublishTime;
+}
+
+} // namespace Kademlia
+
+#endif // KAD_CALLBACK_POLICY_H
