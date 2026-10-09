@@ -68,11 +68,14 @@ wxArrayString Build(const wxString &command,
 	RejectionReason *rejection = nullptr);
 
 // Use CRT quoting for native programs, and explicit outer quoting for cmd/batch.
-wxString BuildWindowsCommandLine(const wxArrayString &args);
+// Supply unchangedTemplate only when Build inserted no values or fallback argument.
+// Such fixed Windows commands preserve their original quoting and shell syntax.
+wxString BuildWindowsCommandLine(const wxArrayString &args, const wxString *unchangedTemplate = nullptr);
 
 // Spawn asynchronously using the AppImage-safe environment. False means no child
 // was spawned; successful spawning does not establish successful child execution.
-bool RunDetached(const wxString &description, const wxArrayString &args);
+bool RunDetached(
+	const wxString &description, const wxArrayString &args, const wxString *unchangedTemplate = nullptr);
 } // namespace ExternalCommand
 
 #endif // EXTERNALCOMMAND_H

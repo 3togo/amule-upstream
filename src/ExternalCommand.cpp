@@ -341,8 +341,11 @@ static wxString QuoteCrtArguments(const wxArrayString &args)
 
 // cmd strips its outermost quotes. Give it a sacrificial outer pair so each
 // argument's quotes survive, and use /s to make that stripping deterministic.
-wxString BuildWindowsCommandLine(const wxArrayString &args)
+wxString BuildWindowsCommandLine(const wxArrayString &args, const wxString *unchangedTemplate)
 {
+	if (unchangedTemplate != nullptr) {
+		return unchangedTemplate->find(wxChar(0)) == wxString::npos ? *unchangedTemplate : wxString{};
+	}
 	if (args.IsEmpty() || !IsWindowsCommandShell(args[0], Platform::Windows)) {
 		return QuoteCrtArguments(args);
 	}
@@ -398,9 +401,10 @@ wxString BuildWindowsCommandLine(const wxArrayString &args)
 }
 
 // Preserve non-ASCII arguments and use host libraries when running inside an AppImage.
-bool RunDetached(const wxString &description, const wxArrayString &args)
+bool RunDetached(const wxString &description, const wxArrayString &args, const wxString *unchangedTemplate)
 {
-	if (args.IsEmpty() || args[0].empty()) {
+	if (args.IsEmpty() || args[0].empty() ||
+		(unchangedTemplate != nullptr && unchangedTemplate->find(wxChar(0)) != wxString::npos)) {
 		return false;
 	}
 	// Embedded NULs would silently truncate argv entries or the Windows command
@@ -428,8 +432,10 @@ bool RunDetached(const wxString &description, const wxArrayString &args)
 	long ret = 0;
 	try {
 #ifdef __WINDOWS__
-		ret = wxExecute(
-			BuildWindowsCommandLine(args), wxEXEC_ASYNC, process, sanitized ? &execEnv : nullptr);
+		ret = wxExecute(BuildWindowsCommandLine(args, unchangedTemplate),
+			wxEXEC_ASYNC,
+			process,
+			sanitized ? &execEnv : nullptr);
 #else
 		ret = wxExecute(argv.data(), wxEXEC_ASYNC, process, sanitized ? &execEnv : nullptr);
 #endif

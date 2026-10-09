@@ -244,6 +244,11 @@ native-tool.exe "%~1" "%~2" "%~3"
 Do not re-evaluate event values using `call`, another `cmd /c`, or an interpreter.
 [`cmd.exe`](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cmd)
 expands `%VAR%` and delayed `!VAR!` references, which is why those values are refused.
+
+Fixed event templates with no substituted values run unchanged on Windows,
+including redirection and compound commands. Media previews always insert a
+filename and therefore use the argument validation and quoting described above.
+
 Validation refusals log that the command was not run and give the reason;
 a missing executable or another spawn failure retains the launch-failure message.
 
@@ -251,6 +256,19 @@ These checks recognize common interpreters and wrappers; they cannot establish
 how an arbitrary executable, renamed interpreter, or custom script uses its
 arguments. Use programs and fixed scripts that treat event values as data.
 Never evaluate those values as code inside the receiving program.
+
+### Configuring event commands
+
+In the monolithic aMule application, Preferences → Events configures Core and
+GUI commands. With a remote `amulegui`, Core command controls are disabled:
+Core commands must be configured in the daemon's `amule.conf`. Restart `amuled`
+after editing its event command settings. Remote GUI preferences are not sent
+to the daemon.
+
+The "New chat session" event is raised locally by `amulegui`, so its GUI command
+and `%SENDER` variable remain available with a remote core. Both command controls
+are disabled for the three daemon-raised events: "Download completed", "Error on
+completion", and "Out of space". Their GUI commands require a local core.
 
 
 ## Troubleshooting

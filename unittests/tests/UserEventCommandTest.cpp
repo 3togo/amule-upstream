@@ -155,6 +155,37 @@ TEST(UserEventCommand, DetachedShellReceivesMultipleHostileValues)
 }
 #endif
 
+TEST(UserEventCommand, FixedWindowsTemplatesPreserveShellSyntax)
+{
+	for (const wxString &command : { wxString("cmd /c echo done>>C:\\log.txt"),
+		     wxString("cmd /c copy a b && del a"),
+		     wxString("cmd /c \"echo done\""),
+		     wxString("  notify.exe   \"fixed text\"  ") }) {
+		bool substituted = true;
+		const auto args = ExternalCommand::Build(command,
+			{ { "%SENDER", "unused" } },
+			&substituted,
+			ExternalCommand::Platform::Windows);
+		ASSERT_FALSE(args.IsEmpty());
+		ASSERT_FALSE(substituted);
+		ASSERT_EQUALS(command,
+			ExternalCommand::BuildWindowsCommandLine(args, substituted ? nullptr : &command));
+	}
+	const wxString command = "cmd /c echo %SENDER";
+	bool substituted = false;
+	const auto args = ExternalCommand::Build(command,
+		{ { "%SENDER", "x&echo INJECTED" } },
+		&substituted,
+		ExternalCommand::Platform::Windows);
+	ASSERT_TRUE(substituted);
+	ASSERT_EQUALS(ExternalCommand::BuildWindowsCommandLine(args),
+		ExternalCommand::BuildWindowsCommandLine(args, substituted ? nullptr : &command));
+	const wxString filename = "100% Hits!.mp3";
+	const auto preview = ExternalCommand::Build(
+		"player.exe", {}, nullptr, ExternalCommand::Platform::Windows, &filename);
+	ASSERT_EQUALS("\"player.exe\" \"100% Hits!.mp3\"", ExternalCommand::BuildWindowsCommandLine(preview));
+}
+
 TEST(UserEventCommand, WindowsEscapesTrailingBackslashes)
 {
 	wxArrayString args;
@@ -446,6 +477,34 @@ TEST(UserEventCommand, WindowsShortPathCannotHidePowerShell)
 			"\"" + shortPath + "\" -Command %SENDER", { { "%SENDER", "Write-Output INJECTED" } })
 				    .IsEmpty());
 	}
+}
+
+TEST(UserEventCommand, NativeFixedCmdTemplatesRedirectAndChainCommands)
+{
+	const wxString path = wxFileName::CreateTempFileName("amule-fixed-command-");
+	const wxString copy = path + ".copy";
+	wxRemoveFile(path);
+	for (const wxString &command : { "cmd /c echo done>>\"" + path + "\"",
+		     "cmd /c copy /y \"" + path + "\" \"" + copy + "\" >NUL && del \"" + path + "\"" }) {
+		bool substituted = true;
+		const auto args = ExternalCommand::Build(command, {}, &substituted);
+		ASSERT_FALSE(args.IsEmpty());
+		ASSERT_FALSE(substituted);
+		wxArrayString output, errors;
+		ASSERT_EQUALS(0L,
+			wxExecute(ExternalCommand::BuildWindowsCommandLine(args, &command),
+				output,
+				errors,
+				wxEXEC_SYNC));
+	}
+	ASSERT_FALSE(wxFileExists(path));
+	wxFFile file(copy, "rb");
+	wxString contents;
+	ASSERT_TRUE(file.IsOpened());
+	ASSERT_TRUE(file.ReadAll(&contents));
+	ASSERT_EQUALS("done\r\n", contents);
+	file.Close();
+	wxRemoveFile(copy);
 }
 
 TEST(UserEventCommand, NativeCmdAndBatchCannotExecuteASecondCommandFromData)
