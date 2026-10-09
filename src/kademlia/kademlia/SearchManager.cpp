@@ -202,8 +202,7 @@ CSearch *CSearchManager::PrepareFindKeywords(const wxString &keyword,
 		// Kad routes replies by target. Never preempt another client's search.
 		s->SetSearchTermData(searchTermsDataSize, searchTermsData);
 		if (m_searches.find(s->m_target) != m_searches.end()) {
-			throw wxString(_("Kademlia: Search keyword is already on search list: ")) +
-				wstrKeyword;
+			throw _("Kademlia: Search keyword is already on search list: ") + wstrKeyword;
 		}
 
 		// Inc our searchID
