@@ -1741,6 +1741,13 @@ CHttpServer::Response CApiDispatcher::ServeCountryFlag(
 		scale = code[code.size() - 2] - '0';
 		code.resize(code.size() - 3);
 	}
+	// Two lowercase ASCII letters, the shape `country_code` arrives in, plus the one
+	// literal name the set ships alongside them: "unknown", the "??" placeholder
+	// CCountryFlags falls back to, offered so a frontend can match the desktop.
+	//
+	// The art id is built by concatenation, so this whitelist is what stops a crafted
+	// code naming a non-flag entry in the shared icon table. LooksMalicious rejects
+	// those upstream, but the lookup must not depend on it.
 	const bool is_alpha2 =
 		code.size() == 2 && code[0] >= 'a' && code[0] <= 'z' && code[1] >= 'a' && code[1] <= 'z';
 	if (!is_alpha2 && code != "unknown") {
@@ -1766,7 +1773,9 @@ CHttpServer::Response CApiDispatcher::ServeCountryFlag(
 	// Dispatch() applies the ETag and 304 swap to every 200 GET/HEAD, and the
 	// transport writes a HEAD as headers only, so this handler just produces bytes.
 	r.body.assign(reinterpret_cast<const char *>(data), length);
-	// Dispatch derives ETags from the embedded response bytes.
+	// The artwork is compiled in and can only change with a new build, while a peer
+	// list is a page full of <img> tags pointing here. A day of freshness turns those
+	// into cache hits, while bounding how long an upgraded daemon serves stale art.
 	r.headers["Cache-Control"] = "public, max-age=86400";
 	return r;
 }

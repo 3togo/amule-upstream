@@ -429,7 +429,7 @@ A validator names one representation, not one URL. When a response is compressed
 
 There is no freshness lifetime on them because these filenames carry no content hash: `index.html`, `app.js` and `app.css` keep their names across a rebuild, so a `max-age` would let an upgraded daemon keep serving the old shell until the entry expired, and -- since each asset expires on its own clock -- pair a new shell with an old bundle. `must-revalidate` would not prevent that: it governs what a cache may do once an entry is *already* stale (RFC 9111 §5.2.2.2), not whether it may be used while fresh.
 
-The [country flags](#get-flagscodepng) take the opposite trade and keep `public, max-age=86400`. That artwork is installed as shared application data, and a client list is a page full of `<img>` tags: a day of freshness turns those into cache hits instead of one conditional request per distinct country per reload. The `max-age` is what bounds how long an upgraded daemon can keep serving the old art -- a day, not forever.
+The [country flags](#get-flagscodepng) take the opposite trade and keep `public, max-age=86400`. That artwork is compiled into the daemon, so it changes only with a new build, and a client list is a page full of `<img>` tags: a day of freshness turns those into cache hits instead of one conditional request per distinct country per reload. The `max-age` is what bounds how long an upgraded daemon can keep serving the old art -- a day, not forever.
 
 Mutations (`POST`/`PATCH`/`DELETE`) and error responses are never ETag-stamped; the body always ships.
 

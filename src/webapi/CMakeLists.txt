@@ -2,13 +2,6 @@
 # connects to amuled via the existing EC protocol (same wire as
 # amulecmd / amuleweb) and serves /api/v1/* over HTTP via Boost.Beast.
 
-if (Python3_FOUND)
-	# Before CMake 3.20, GENERATED is scoped to each directory. Mark the
-	# parent's generated icon table here too so configure does not require
-	# the file to exist before generate_icon_data runs.
-	set_source_files_properties (${AMULE_ICON_DATA_C} PROPERTIES GENERATED TRUE)
-endif()
-
 add_executable (amuleapi
 	${CMAKE_SOURCE_DIR}/src/ExternalConnector.cpp
 	# CUInt128 backs the EC_TAG_KAD_ID tag Refresher.cpp reads for
@@ -21,6 +14,16 @@ add_executable (amuleapi
 	${CMAKE_SOURCE_DIR}/src/RLE.cpp
 	${CMAKE_SOURCE_DIR}/src/NetworkFunctions.cpp
 	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+	# Same embedded icon table the desktop GUI links (build-generated
+	# by src/icons/embed_icons.py, or the checked-in fallback when the
+	# host has no Python3 — see src/CMakeLists.txt for the resolution).
+	# GET /flags/{code}.png serves the flag_<cc> entries straight out
+	# of .rodata, which is what keeps the country artwork a single
+	# committed copy instead of a duplicate under static/. Plain C byte
+	# arrays, so it compiles fine under wxUSE_GUI=0; the top-level
+	# icons amuleapi never asks for are pages that simply never fault
+	# in.
+	${AMULE_ICON_DATA_C}
 	AmuleApiConfig.cpp
 	Api.cpp
 	App.cpp
@@ -35,7 +38,6 @@ add_executable (amuleapi
 	SearchJson.cpp
 	SharedContent.cpp
 	StaticFs.cpp
-	${AMULE_ICON_DATA_C}
 	State.cpp
 )
 
@@ -54,9 +56,22 @@ target_include_directories (amuleapi
 	PRIVATE ${CMAKE_BINARY_DIR}
 	PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 	PRIVATE ${SRC_DIR}
+	# icon_data.c #includes "icon_data.h" unqualified, and Api.cpp does
+	# the same to reach amule_find_icon() — same reason muleappgui puts
+	# src/icons on its include path.
 	PRIVATE ${SRC_DIR}/icons
 	PRIVATE ${Boost_INCLUDE_DIR}
 )
+
+# ${AMULE_ICON_DATA_C} is generated into the build tree when Python3 was
+# found at configure time; without it the variable already points at the
+# checked-in source copy and no ordering dependency is needed. Mirrors
+# what muleappgui does in src/CMakeLists.txt.
+if (Python3_FOUND)
+	add_dependencies (amuleapi generate_icon_data)
+	# Before CMake 3.20 (CMP0118), GENERATED set in src/ does not reach this directory.
+	set_source_files_properties (${AMULE_ICON_DATA_C} PROPERTIES GENERATED TRUE)
+endif()
 
 target_link_libraries (amuleapi
 	PRIVATE ec
@@ -131,7 +146,3 @@ install (TARGETS amuleapi
 install (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/static/
 	DESTINATION ${CMAKE_INSTALL_DATADIR}/amule/amuleapi-static
 )
-
-if (Python3_FOUND)
-	add_dependencies (amuleapi generate_icon_data)
-endif()
