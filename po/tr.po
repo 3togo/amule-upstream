@@ -1767,11 +1767,6 @@ msgstr[1] "%u adet yorum"
 msgid "Banned client %s for sending %s corrupt data of %s total for the file '%s'"
 msgstr "%s istemcisi %s kadar veriyi %s toplamda '%s' dosyasında gönderdiği için yasaklandı."
 
-#: src/CountryFlags.cpp
-#, c-format
-msgid "Failed to load country data for '%s'."
-msgstr "'%s' için ülke verisi yüklenemedi."
-
 #: src/DataToText.cpp
 msgid "Auto [Lo]"
 msgstr "Oto (Düş)"
@@ -9761,6 +9756,10 @@ msgid ""
 "\n"
 "Diagnostic output truncated.\n"
 msgstr ""
+
+#, c-format
+#~ msgid "Failed to load country data for '%s'."
+#~ msgstr "'%s' için ülke verisi yüklenemedi."
 
 #, fuzzy
 #~ msgid "Kad protocol version"

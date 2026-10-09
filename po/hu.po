@@ -1763,11 +1763,6 @@ msgstr[0] "%u megjegyzés"
 msgid "Banned client %s for sending %s corrupt data of %s total for the file '%s'"
 msgstr "Kliens %s kitiltva az összesen %s adatból %s hibás adat küldése miatt a '%s' fájlt illetően."
 
-#: src/CountryFlags.cpp
-#, c-format
-msgid "Failed to load country data for '%s'."
-msgstr "'%s' ország adatainak betöltése sikertelen."
-
 #: src/DataToText.cpp
 msgid "Auto [Lo]"
 msgstr "Auto [Al]"
@@ -9747,6 +9742,10 @@ msgid ""
 "\n"
 "Diagnostic output truncated.\n"
 msgstr ""
+
+#, c-format
+#~ msgid "Failed to load country data for '%s'."
+#~ msgstr "'%s' ország adatainak betöltése sikertelen."
 
 #, fuzzy
 #~ msgid "Kad protocol version"

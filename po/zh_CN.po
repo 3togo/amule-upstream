@@ -1782,11 +1782,6 @@ msgstr[1] "%u 条评论"
 msgid "Banned client %s for sending %s corrupt data of %s total for the file '%s'"
 msgstr "封禁了客户端 %s，发送了 %s 受损的数据，共发送 %s （文件 “%s”）"
 
-#: src/CountryFlags.cpp
-#, c-format
-msgid "Failed to load country data for '%s'."
-msgstr "加载 \"%s\" 的地区数据失败。"
-
 #: src/DataToText.cpp
 msgid "Auto [Lo]"
 msgstr "自动 [低]"
@@ -9774,6 +9769,10 @@ msgid ""
 "\n"
 "Diagnostic output truncated.\n"
 msgstr ""
+
+#, c-format
+#~ msgid "Failed to load country data for '%s'."
+#~ msgstr "加载 \"%s\" 的地区数据失败。"
 
 #~ msgid "Kad protocol version"
 #~ msgstr "Kad 协议版本"
