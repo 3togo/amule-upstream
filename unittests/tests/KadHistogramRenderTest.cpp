@@ -74,6 +74,21 @@ struct KadHistogramTestAccess
 			throw std::runtime_error("KadID axis endpoint labels overlap");
 		}
 	}
+	static void CheckTextOnlyMinimum(CKadContactHistogram &panel)
+	{
+		CKadContactHistogram::SummaryWrapper wrapped;
+		wrapped.Wrap(&panel,
+			panel.SummaryText(),
+			std::max(1,
+				std::max(panel.FromDIP(200), panel.GetClientSize().x) - panel.FromDIP(16)));
+		wxClientDC dc(&panel);
+		dc.SetFont(panel.GetFont());
+		const int expected =
+			panel.FromDIP(16) + static_cast<int>(wrapped.lines.size()) * dc.GetCharHeight();
+		if (panel.GetMinSize().y != expected) {
+			throw std::runtime_error("Non-chart state reserves space beyond its wrapped text");
+		}
+	}
 	static wxImage Render(CKadContactHistogram &panel, const wxSize &size)
 	{
 		// Test sizes describe DIP layouts, while this bitmap/DC uses pixels.
@@ -242,8 +257,7 @@ static void VerifyRendering()
 	Check(layout->GetItem(&panel)->GetProportion() == 0,
 		"Unsupported chart still takes a proportional share of the Kad pane");
 	Check(panel.GetSize().y == panel.GetMinSize().y, "Unsupported chart uses more than its text height");
-	Check(panel.GetMinSize().y < panel.FromDIP(80),
-		"Unsupported state keeps an unnecessary plot minimum");
+	KadHistogramTestAccess::CheckTextOnlyMinimum(panel);
 	auto unavailable = KadHistogramTestAccess::Render(panel, wxSize(240, 240));
 	Check(Pixels(unavailable, wxColour(70, 130, 210)) == 0, "Unavailable data displays stale bars");
 	panel.SetDistribution(populated, Kademlia::ContactDistributionState::Invalid);

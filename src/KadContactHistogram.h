@@ -130,8 +130,7 @@ private:
 		if (m_state == Kademlia::ContactDistributionState::Invalid) {
 			return _("The core sent contact distribution data that could not be read.");
 		}
-		return wxString::Format(_("KadID distribution: %u routing-table contacts, %u verified, %u "
-					  "distinct /24 subnets"),
+		return wxString::Format(_("Routing-table contacts: %u; verified: %u; distinct /24s: %u"),
 			m_data.Total(),
 			m_data.Verified(),
 			m_data.subnets);
@@ -165,7 +164,7 @@ private:
 			std::max(1, std::max(minimumWidth, GetClientSize().x) - FromDIP(16)));
 		int height = FromDIP(16) + static_cast<int>(wrapped.lines.size()) * dc.GetCharHeight();
 		if (m_state == Kademlia::ContactDistributionState::Available) {
-			height += FromDIP(64 + 7 + 6) + dc.GetCharHeight();
+			height += FromDIP(40 + 7 + 6) + dc.GetCharHeight();
 		}
 		const wxSize minimum(minimumWidth, height);
 		if (minimum != GetMinSize()) {
