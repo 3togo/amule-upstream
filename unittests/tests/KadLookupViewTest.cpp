@@ -23,6 +23,7 @@
 //
 
 #include "KadLookupView.h"
+#include "kademlia/utils/LookupDiagnosticsEC.h"
 #include <stdexcept>
 #include <iostream>
 
@@ -55,25 +56,19 @@ static void VerifyLifecycle()
 	Check(button->IsEnabled(), "Unsupported core prevents retry");
 	Check(view->GetSnapshot().Contains("does not support"), "Unsupported core is not explained");
 	CECPacket valid(EC_OP_GET_KAD_LOOKUPS);
-	CECEmptyTag lookup(EC_TAG_KAD_LOOKUP);
-	lookup.AddTag(CECTag(EC_TAG_KAD_LOOKUP_TARGET, wxString("target")));
-	lookup.AddTag(CECTag(EC_TAG_KAD_LOOKUP_TYPE, uint32_t(3)));
-	lookup.AddTag(CECTag(EC_TAG_KAD_LOOKUP_ACTIVE, uint8_t(1)));
-	CECEmptyTag peer(EC_TAG_KAD_LOOKUP_PEER);
-	peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_IP, uint32_t(0x01020304)));
-	peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_PORT, uint16_t(4665)));
-	peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_VERSION, uint8_t(8)));
-	peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_PENDING, uint8_t(1)));
-	uint8_t distance[16] = {};
+	Kademlia::LookupSnapshot snapshot{ 3, "target", "example query", 100, 0, {} };
+	Kademlia::CLookupTrace::ID id{};
+	Kademlia::CLookupTrace::ID distance{};
 	distance[15] = 7;
-	peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_DISTANCE, 16, distance));
-	lookup.AddTag(peer);
-	valid.AddTag(lookup);
+	snapshot.trace.Query({ 0x01020304, 4665 }, id, 100, 8, distance);
+	snapshot.trace.Referral({ 0x02030405, 4665 }, { 0x01020304, 4665 }, 120, true, distance);
+	Kademlia::AddLookupDiagnosticsTags(valid, { snapshot }, {}, 4000);
 	(new CKadLookupReply(view, button))->HandlePacket(&valid);
 	Check(view->GetSnapshot().Contains("target") && view->GetSnapshot().Contains("Keyword") &&
 			view->GetSnapshot().Contains("1.2.3.4:4665") &&
 			view->GetSnapshot().Contains("Kad version 8") &&
-			view->GetSnapshot().Contains("00000000000000000000000000000007"),
+			view->GetSnapshot().Contains("00000000000000000000000000000007") &&
+			view->GetSnapshot().Contains("referred 2.3.4.5:4665"),
 		"Valid reply missing");
 	CECPacket malformed(EC_OP_GET_KAD_LOOKUPS);
 	malformed.AddTag(CECTag(EC_TAG_KAD_LOOKUP, uint32_t(42)));

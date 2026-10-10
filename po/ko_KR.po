@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-10-10 10:23-0400\n"
+"POT-Creation-Date: 2026-10-10 10:32-0400\n"
 "PO-Revision-Date: 2026-10-07 16:27+0000\n"
 "Last-Translator: Hyunju Kang <rexington@gmail.com>\n"
 "Language-Team: Korean <hoenny@daum.net>\n"
@@ -3420,9 +3420,7 @@ msgid "The core does not support Kad lookup diagnostics."
 msgstr ""
 
 #: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
-msgid ""
-"Overdue means a routing request unanswered for at least 3 seconds; late replies may still arrive. Result records are received records, not unique files. Only bounded recent history is retained.\n"
-"\n"
+msgid "Overdue means a routing request unanswered for at least 3 seconds; late replies may still arrive. Result records are received records, not unique files. Only bounded recent history is retained."
 msgstr ""
 
 #: src/KadLookupView.h
@@ -3431,7 +3429,7 @@ msgstr ""
 
 #: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
 #, c-format
-msgid "Lookup %s (%s, %s): %u peers, %u overdue routing requests, %u omitted peers, %u evicted referrals\n"
+msgid "Lookup %s (%s, %s): %u peers, %u overdue routing requests, %u omitted peers, %u evicted referrals"
 msgstr ""
 
 #: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
@@ -3445,13 +3443,13 @@ msgid "finished lookup"
 msgstr "필란드어"
 
 #: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
-#, c-format
-msgid "  Keyword: %s\n"
-msgstr ""
+#, fuzzy, c-format
+msgid "Keyword: %s"
+msgstr "차단됨: %s"
 
 #: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
 #, c-format
-msgid "  %s [%s], distance %s, Kad version %u (%s): %u routing requests, %u replies, last RTT %u ms, %u item requests, %u result packets, %u result records\n"
+msgid "%s [%s], distance %s, Kad version %u (%s): %u routing requests, %u replies, last RTT %u ms, %u item requests, %u result packets, %u result records"
 msgstr ""
 
 #: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
@@ -3465,7 +3463,7 @@ msgstr "받은게 없음"
 
 #: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
 #, c-format
-msgid "  +%u ms: %s referred %s (distance %s, %s)\n"
+msgid "+%u ms: %s referred %s (distance %s, %s)"
 msgstr ""
 
 #: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp

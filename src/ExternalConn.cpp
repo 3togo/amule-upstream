@@ -55,6 +55,7 @@
 #include "MuleVersion.h" // Needed for GetShortMuleVersion()
 #include "ClientList.h"
 #include "ChatSessionStore.h"
+#include "kademlia/utils/LookupDiagnosticsEC.h"
 #include "ClientCreditsList.h" // Needed for CClientCreditsList
 #include "ClientCredits.h"     // Needed for CClientCredits, ClientMetaStruct
 #ifdef ENABLE_IP2COUNTRY
@@ -3924,68 +3925,7 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		std::vector<Kademlia::LookupSnapshot> active;
 		std::deque<Kademlia::LookupSnapshot> recent;
 		Kademlia::CSearchManager::GetLookupSnapshots(active, recent);
-		const uint64_t now = ::GetTickCount64();
-		auto addLookup = [&](const Kademlia::LookupSnapshot &snapshot, bool isActive) {
-			CECEmptyTag lookup(EC_TAG_KAD_LOOKUP);
-			lookup.AddTag(CECTag(EC_TAG_KAD_LOOKUP_TARGET, snapshot.target));
-			lookup.AddTag(CECTag(EC_TAG_KAD_LOOKUP_TYPE, snapshot.type));
-			lookup.AddTag(CECTag(EC_TAG_KAD_LOOKUP_KEYWORD, snapshot.keyword));
-			lookup.AddTag(CECTag(EC_TAG_KAD_LOOKUP_ACTIVE, uint8_t(isActive)));
-			lookup.AddTag(CECTag(EC_TAG_KAD_LOOKUP_STARTED, snapshot.started));
-			lookup.AddTag(CECTag(EC_TAG_KAD_LOOKUP_OVERDUE,
-				uint32_t(snapshot.trace.Overdue(isActive ? now : snapshot.finished, 3000))));
-			lookup.AddTag(CECTag(EC_TAG_KAD_LOOKUP_OMITTED_PEERS, snapshot.trace.OmittedPeers()));
-			lookup.AddTag(CECTag(
-				EC_TAG_KAD_LOOKUP_EVICTED_REFERRALS, snapshot.trace.EvictedReferrals()));
-			for (const auto &item : snapshot.trace.Peers()) {
-				CECEmptyTag peer(EC_TAG_KAD_LOOKUP_PEER);
-				peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_IP, item.first.first));
-				peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_PORT, item.first.second));
-				peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_ID,
-					item.second.id.size(),
-					item.second.id.data()));
-				peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_DISTANCE,
-					item.second.distance.size(),
-					item.second.distance.data()));
-				peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_VERSION, item.second.kadVersion));
-				peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_REQUESTS, item.second.requests));
-				peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_REPLIES, item.second.replies));
-				peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_RTT, item.second.roundTrip));
-				peer.AddTag(CECTag(
-					EC_TAG_KAD_LOOKUP_PEER_ITEM_REQUESTS, item.second.itemRequests));
-				peer.AddTag(
-					CECTag(EC_TAG_KAD_LOOKUP_PEER_ITEM_REPLIES, item.second.itemReplies));
-				peer.AddTag(CECTag(EC_TAG_KAD_LOOKUP_PEER_RESULTS, item.second.results));
-				peer.AddTag(
-					CECTag(EC_TAG_KAD_LOOKUP_PEER_PENDING, uint8_t(item.second.pending)));
-				lookup.AddTag(peer);
-			}
-			for (const auto &event : snapshot.trace.Events()) {
-				CECEmptyTag referral(EC_TAG_KAD_LOOKUP_REFERRAL);
-				referral.AddTag(
-					CECTag(EC_TAG_KAD_LOOKUP_REFERRAL_SOURCE_IP, event.source.first));
-				referral.AddTag(
-					CECTag(EC_TAG_KAD_LOOKUP_REFERRAL_SOURCE_PORT, event.source.second));
-				referral.AddTag(CECTag(EC_TAG_KAD_LOOKUP_REFERRAL_PEER_IP, event.peer.first));
-				referral.AddTag(
-					CECTag(EC_TAG_KAD_LOOKUP_REFERRAL_PEER_PORT, event.peer.second));
-				referral.AddTag(CECTag(EC_TAG_KAD_LOOKUP_REFERRAL_ELAPSED,
-					event.tick >= snapshot.started ? event.tick - snapshot.started : 0));
-				referral.AddTag(CECTag(EC_TAG_KAD_LOOKUP_REFERRAL_DISTANCE,
-					event.distance.size(),
-					event.distance.data()));
-				referral.AddTag(
-					CECTag(EC_TAG_KAD_LOOKUP_REFERRAL_CLOSER, uint8_t(event.closer)));
-				lookup.AddTag(referral);
-			}
-			response->AddTag(lookup);
-		};
-		for (const auto &snapshot : active) {
-			addLookup(snapshot, true);
-		}
-		for (auto it = recent.rbegin(); it != recent.rend(); ++it) {
-			addLookup(*it, false);
-		}
+		Kademlia::AddLookupDiagnosticsTags(*response, active, recent, ::GetTickCount64());
 		break;
 	}
 

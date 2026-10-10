@@ -75,35 +75,42 @@ wxString DescribeLookup(const LookupSnapshot &snapshot, bool active, uint64_t no
 {
 	const auto &trace = snapshot.trace;
 	wxString text = CFormat(_("Lookup %s (%s, %s): %u peers, %u overdue routing requests, "
-				  "%u omitted peers, %u evicted referrals\n")) %
+				  "%u omitted peers, %u evicted referrals")) %
 			snapshot.target % SearchType(snapshot.type) %
 			(active ? _("active lookup") : _("finished lookup")) %
 			static_cast<unsigned>(trace.Peers().size()) %
 			static_cast<unsigned>(trace.Overdue(now, 3000)) % trace.OmittedPeers() %
 			trace.EvictedReferrals();
+	text += "\n";
 	if (!snapshot.keyword.empty()) {
-		text += CFormat(_("  Keyword: %s\n")) % snapshot.keyword;
+		text += "  ";
+		text += CFormat(_("Keyword: %s")) % snapshot.keyword;
+		text += "\n";
 	}
 	for (const auto &item : trace.Peers()) {
 		const auto &row = item.second;
-		text += CFormat(_("  %s [%s], distance %s, Kad version %u (%s): %u routing requests, "
+		text += "  ";
+		text += CFormat(_("%s [%s], distance %s, Kad version %u (%s): %u routing requests, "
 				  "%u replies, last RTT %u ms, %u item requests, %u result packets, "
-				  "%u result records\n")) %
+				  "%u result records")) %
 			KadIPPortToString(item.first.first, item.first.second) % HexID(row.id) %
 			HexID(row.distance) % static_cast<unsigned>(row.kadVersion) %
 			(row.pending ? _("awaiting reply") : _("reply received")) % row.requests %
 			row.replies % static_cast<unsigned>(row.roundTrip) % row.itemRequests %
 			row.itemReplies % row.results;
+		text += "\n";
 	}
 	for (const auto &event : trace.Events()) {
 		if (event.kind == Kademlia::CLookupTrace::Kind::Referral) {
-			text += CFormat(_("  +%u ms: %s referred %s (distance %s, %s)\n")) %
+			text += "  ";
+			text += CFormat(_("+%u ms: %s referred %s (distance %s, %s)")) %
 				static_cast<unsigned>(
 					event.tick >= snapshot.started ? event.tick - snapshot.started : 0) %
 				KadIPPortToString(event.source.first, event.source.second) %
 				KadIPPortToString(event.peer.first, event.peer.second) %
 				HexID(event.distance) %
 				(event.closer ? _("closer to target") : _("no closer to target"));
+			text += "\n";
 		}
 	}
 	return text + "\n";
@@ -114,7 +121,8 @@ wxString Kademlia::FormatLookupDiagnostics(
 {
 	wxString text = _("Overdue means a routing request unanswered for at least 3 seconds; late replies "
 			  "may still arrive. Result records are received records, not unique files. Only "
-			  "bounded recent history is retained.\n\n");
+			  "bounded recent history is retained.");
+	text += "\n\n";
 	for (const auto &snapshot : active) {
 		text += DescribeLookup(snapshot, true, now);
 	}

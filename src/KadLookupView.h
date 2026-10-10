@@ -65,6 +65,7 @@ public:
 #ifdef CLIENT_GUI
 #include "libs/ec/cpp/RemoteConnect.h"
 #include <common/Format.h>
+#include <initializer_list>
 
 namespace KadLookupRemote
 {
@@ -72,6 +73,23 @@ inline uint64_t Number(const CECTag &parent, ec_tagname_t name)
 {
 	const auto *tag = parent.GetTagByName(name);
 	return tag && tag->IsInt() ? tag->GetInt() : 0;
+}
+
+inline bool ValidInts(const CECTag &parent, std::initializer_list<ec_tagname_t> names)
+{
+	for (auto name : names) {
+		const auto *tag = parent.GetTagByName(name);
+		if (!tag || !tag->IsInt()) {
+			return false;
+		}
+	}
+	return true;
+}
+
+inline bool ValidID(const CECTag &parent, ec_tagname_t name)
+{
+	const auto *tag = parent.GetTagByName(name);
+	return tag && tag->IsCustom() && tag->GetTagDataLen() == 16;
 }
 
 inline wxString String(const CECTag &parent, ec_tagname_t name)
@@ -140,7 +158,8 @@ inline wxString FormatPacket(const CECPacket &packet)
 	}
 	wxString text = _("Overdue means a routing request unanswered for at least 3 seconds; late replies "
 			  "may still arrive. Result records are received records, not unique files. Only "
-			  "bounded recent history is retained.\n\n");
+			  "bounded recent history is retained.");
+	text += "\n\n";
 	bool any = false;
 	for (const auto &lookup : packet) {
 		if (lookup.GetTagName() != EC_TAG_KAD_LOOKUP) {
@@ -148,18 +167,51 @@ inline wxString FormatPacket(const CECPacket &packet)
 		}
 		const auto *target = lookup.GetTagByName(EC_TAG_KAD_LOOKUP_TARGET);
 		const auto *type = lookup.GetTagByName(EC_TAG_KAD_LOOKUP_TYPE);
-		if (!target || !target->IsString() || !type || !type->IsInt()) {
+		const auto *keywordTag = lookup.GetTagByName(EC_TAG_KAD_LOOKUP_KEYWORD);
+		if (!target || !target->IsString() || !keywordTag || !keywordTag->IsString() || !type ||
+			!type->IsInt() ||
+			!ValidInts(lookup,
+				{ EC_TAG_KAD_LOOKUP_ACTIVE,
+					EC_TAG_KAD_LOOKUP_STARTED,
+					EC_TAG_KAD_LOOKUP_OVERDUE,
+					EC_TAG_KAD_LOOKUP_OMITTED_PEERS,
+					EC_TAG_KAD_LOOKUP_EVICTED_REFERRALS })) {
 			return _("Invalid Kad lookup diagnostics reply.");
 		}
 		any = true;
 		unsigned peers = 0;
 		for (const auto &child : lookup) {
 			if (child.GetTagName() == EC_TAG_KAD_LOOKUP_PEER) {
+				if (!ValidInts(child,
+					    { EC_TAG_KAD_LOOKUP_PEER_IP,
+						    EC_TAG_KAD_LOOKUP_PEER_PORT,
+						    EC_TAG_KAD_LOOKUP_PEER_VERSION,
+						    EC_TAG_KAD_LOOKUP_PEER_REQUESTS,
+						    EC_TAG_KAD_LOOKUP_PEER_REPLIES,
+						    EC_TAG_KAD_LOOKUP_PEER_RTT,
+						    EC_TAG_KAD_LOOKUP_PEER_ITEM_REQUESTS,
+						    EC_TAG_KAD_LOOKUP_PEER_ITEM_REPLIES,
+						    EC_TAG_KAD_LOOKUP_PEER_RESULTS,
+						    EC_TAG_KAD_LOOKUP_PEER_PENDING }) ||
+					!ValidID(child, EC_TAG_KAD_LOOKUP_PEER_ID) ||
+					!ValidID(child, EC_TAG_KAD_LOOKUP_PEER_DISTANCE)) {
+					return _("Invalid Kad lookup diagnostics reply.");
+				}
 				++peers;
+			} else if (child.GetTagName() == EC_TAG_KAD_LOOKUP_REFERRAL &&
+				   (!ValidInts(child,
+					    { EC_TAG_KAD_LOOKUP_REFERRAL_SOURCE_IP,
+						    EC_TAG_KAD_LOOKUP_REFERRAL_SOURCE_PORT,
+						    EC_TAG_KAD_LOOKUP_REFERRAL_PEER_IP,
+						    EC_TAG_KAD_LOOKUP_REFERRAL_PEER_PORT,
+						    EC_TAG_KAD_LOOKUP_REFERRAL_ELAPSED,
+						    EC_TAG_KAD_LOOKUP_REFERRAL_CLOSER }) ||
+					   !ValidID(child, EC_TAG_KAD_LOOKUP_REFERRAL_DISTANCE))) {
+				return _("Invalid Kad lookup diagnostics reply.");
 			}
 		}
 		text += CFormat(_("Lookup %s (%s, %s): %u peers, %u overdue routing requests, "
-				  "%u omitted peers, %u evicted referrals\n")) %
+				  "%u omitted peers, %u evicted referrals")) %
 			String(lookup, EC_TAG_KAD_LOOKUP_TARGET) %
 			SearchType(Number(lookup, EC_TAG_KAD_LOOKUP_TYPE)) %
 			(Number(lookup, EC_TAG_KAD_LOOKUP_ACTIVE) ? _("active lookup")
@@ -167,17 +219,21 @@ inline wxString FormatPacket(const CECPacket &packet)
 			peers % Number(lookup, EC_TAG_KAD_LOOKUP_OVERDUE) %
 			Number(lookup, EC_TAG_KAD_LOOKUP_OMITTED_PEERS) %
 			Number(lookup, EC_TAG_KAD_LOOKUP_EVICTED_REFERRALS);
+		text += "\n";
 		const wxString keyword = String(lookup, EC_TAG_KAD_LOOKUP_KEYWORD);
 		if (!keyword.empty()) {
-			text += CFormat(_("  Keyword: %s\n")) % keyword;
+			text += "  ";
+			text += CFormat(_("Keyword: %s")) % keyword;
+			text += "\n";
 		}
 		for (const auto &child : lookup) {
 			if (child.GetTagName() == EC_TAG_KAD_LOOKUP_PEER) {
-				text += CFormat(_("  %s [%s], distance %s, Kad version %u (%s): %u routing "
+				text += "  ";
+				text += CFormat(_("%s [%s], distance %s, Kad version %u (%s): %u routing "
 						  "requests, "
 						  "%u replies, last RTT %u ms, %u item requests, %u result "
 						  "packets, "
-						  "%u result records\n")) %
+						  "%u result records")) %
 					Address(child,
 						EC_TAG_KAD_LOOKUP_PEER_IP,
 						EC_TAG_KAD_LOOKUP_PEER_PORT) %
@@ -193,8 +249,10 @@ inline wxString FormatPacket(const CECPacket &packet)
 					Number(child, EC_TAG_KAD_LOOKUP_PEER_ITEM_REQUESTS) %
 					Number(child, EC_TAG_KAD_LOOKUP_PEER_ITEM_REPLIES) %
 					Number(child, EC_TAG_KAD_LOOKUP_PEER_RESULTS);
+				text += "\n";
 			} else if (child.GetTagName() == EC_TAG_KAD_LOOKUP_REFERRAL) {
-				text += CFormat(_("  +%u ms: %s referred %s (distance %s, %s)\n")) %
+				text += "  ";
+				text += CFormat(_("+%u ms: %s referred %s (distance %s, %s)")) %
 					Number(child, EC_TAG_KAD_LOOKUP_REFERRAL_ELAPSED) %
 					Address(child,
 						EC_TAG_KAD_LOOKUP_REFERRAL_SOURCE_IP,
@@ -206,6 +264,7 @@ inline wxString FormatPacket(const CECPacket &packet)
 					(Number(child, EC_TAG_KAD_LOOKUP_REFERRAL_CLOSER)
 							? _("closer to target")
 							: _("no closer to target"));
+				text += "\n";
 			}
 		}
 		text += "\n";

@@ -2332,6 +2332,7 @@ target_link_libraries (LookupDiagnosticsTest muleunit muleappcommon mulecommon)
 if (TARGET wxWidgets::CORE)
 	add_executable (KadLookupViewTest
 		KadLookupViewTest.cpp
+		${CMAKE_SOURCE_DIR}/src/kademlia/utils/LookupDiagnosticsEC.cpp
 		# EC Debug logging needs the same standalone logger as the other EC tests.
 		${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
 	)
