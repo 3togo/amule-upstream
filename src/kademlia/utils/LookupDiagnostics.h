@@ -33,11 +33,13 @@ struct LookupSnapshot
 {
 	uint32_t type;
 	wxString target;
+	wxString keyword;
 	uint64_t started;
 	uint64_t finished;
 	CLookupTrace trace;
 };
-// Bounded UTF-8-safe text shared by the local GUI and user-triggered EC request.
+constexpr size_t MaxLookupHistory = 16;
+// Local GUI text; remote clients receive values and format in their own locale.
 wxString FormatLookupDiagnostics(
 	const std::vector<LookupSnapshot> &active, const std::deque<LookupSnapshot> &recent, uint64_t now);
 } // namespace Kademlia

@@ -105,7 +105,9 @@ TEST(LookupTrace, SustainedMixedTrafficStaysBounded)
 	}
 	ASSERT_EQUALS(size_t(128), trace.Peers().size());
 	ASSERT_EQUALS(size_t(256), trace.Events().size());
-	ASSERT_EQUALS(599744u, trace.Omitted());
+	ASSERT_EQUALS(99744u, trace.Omitted());
+	ASSERT_EQUALS(0u, trace.OmittedPeers());
+	ASSERT_EQUALS(99744u, trace.EvictedReferrals());
 	ASSERT_EQUALS(size_t(0), trace.Overdue(200000, 3000));
 	ASSERT_EQUALS(uint64_t(1), trace.Peers().begin()->second.roundTrip);
 	ASSERT_EQUALS(100005ull, static_cast<unsigned long long>(trace.Events().back().tick));

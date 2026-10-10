@@ -54,6 +54,8 @@ public:
 	struct Peer
 	{
 		ID id{};
+		ID distance{};
+		uint8_t kadVersion = 0;
 		uint64_t sent = 0;
 		uint32_t requests = 0;
 		uint32_t replies = 0;
@@ -70,20 +72,22 @@ public:
 		Address source;
 		uint64_t tick;
 		bool closer;
+		ID distance{};
 	};
-	void Query(Address peer, const ID &id, uint64_t tick)
+	void Query(Address peer, const ID &id, uint64_t tick, uint8_t kadVersion = 0, const ID &distance = {})
 	{
 		auto it = m_peers.find(peer);
 		if (it == m_peers.end() && m_peers.size() == MaxPeers) {
-			++m_omitted;
+			++m_omittedPeers;
 			return;
 		}
 		auto &row = m_peers[peer];
 		row.id = id;
+		row.distance = distance;
+		row.kadVersion = kadVersion;
 		row.sent = tick;
 		++row.requests;
 		row.pending = true;
-		Record({ Kind::Query, peer, {}, tick, false });
 	}
 	bool Reply(Address peer, uint64_t tick)
 	{
@@ -94,13 +98,12 @@ public:
 		++it->second.replies;
 		it->second.roundTrip = tick >= it->second.sent ? tick - it->second.sent : 0;
 		it->second.pending = false;
-		Record({ Kind::Reply, peer, {}, tick, false });
 		return true;
 	}
-	void Referral(Address peer, Address source, uint64_t tick, bool closer)
+	void Referral(Address peer, Address source, uint64_t tick, bool closer, const ID &distance = {})
 	{
 		if (m_peers.count(source)) {
-			Record({ Kind::Referral, peer, source, tick, closer });
+			Record({ Kind::Referral, peer, source, tick, closer, distance });
 		}
 	}
 	void ItemRequest(Address peer, uint64_t tick)
@@ -110,7 +113,6 @@ public:
 			return;
 		}
 		++it->second.itemRequests;
-		Record({ Kind::ItemQuery, peer, {}, tick, false });
 	}
 	void ItemReply(Address peer, uint64_t tick)
 	{
@@ -119,7 +121,6 @@ public:
 			return;
 		}
 		++it->second.itemReplies;
-		Record({ Kind::ItemReply, peer, {}, tick, false });
 	}
 	void Result(Address peer, uint64_t tick)
 	{
@@ -128,11 +129,12 @@ public:
 			return;
 		}
 		++it->second.results;
-		Record({ Kind::Result, peer, {}, tick, false });
 	}
 	const std::map<Address, Peer> &Peers() const { return m_peers; }
 	const std::deque<Event> &Events() const { return m_events; }
-	uint32_t Omitted() const { return m_omitted; }
+	uint32_t Omitted() const { return m_omittedPeers + m_evictedReferrals; }
+	uint32_t OmittedPeers() const { return m_omittedPeers; }
+	uint32_t EvictedReferrals() const { return m_evictedReferrals; }
 	// This is an observation at the supplied ceiling, not a change to scheduling.
 	size_t Overdue(uint64_t now, uint64_t ceiling) const
 	{
@@ -151,13 +153,14 @@ private:
 	{
 		if (m_events.size() == MaxEvents) {
 			m_events.pop_front();
-			++m_omitted;
+			++m_evictedReferrals;
 		}
 		m_events.push_back(event);
 	}
 	std::map<Address, Peer> m_peers;
 	std::deque<Event> m_events;
-	uint32_t m_omitted = 0;
+	uint32_t m_omittedPeers = 0;
+	uint32_t m_evictedReferrals = 0;
 };
 } // namespace Kademlia
 #endif

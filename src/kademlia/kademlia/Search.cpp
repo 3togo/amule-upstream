@@ -538,10 +538,13 @@ void CSearch::ProcessResponse(uint32_t fromIP, uint16_t fromPort, ContactList *r
 				receivedSubnets[c->GetIPAddress() & 0xFFFFFF00] = 1;
 			}
 
+			CLookupTrace::ID traceDistance{};
+			distance.ToByteArray(traceDistance.data());
 			m_lookupTrace.Referral({ c->GetIPAddress(), c->GetUDPPort() },
 				{ fromIP, fromPort },
 				::GetTickCount64(),
-				distance < fromDistance);
+				distance < fromDistance,
+				traceDistance);
 			m_possible[distance] = c;
 
 			if (distance < fromDistance) {
@@ -640,6 +643,7 @@ void CSearch::StorePacket()
 				NULL);
 		}
 		m_totalRequestAnswers++;
+		m_lookupTrace.ItemRequest({ from->GetIPAddress(), from->GetUDPPort() }, ::GetTickCount64());
 		break;
 	}
 	case KEYWORD: {
@@ -693,6 +697,7 @@ void CSearch::StorePacket()
 				NULL);
 		}
 		m_totalRequestAnswers++;
+		m_lookupTrace.ItemRequest({ from->GetIPAddress(), from->GetUDPPort() }, ::GetTickCount64());
 		break;
 	}
 	case NOTES: {
@@ -750,6 +755,7 @@ void CSearch::StorePacket()
 				NULL);
 		}
 		m_totalRequestAnswers++;
+		m_lookupTrace.ItemRequest({ from->GetIPAddress(), from->GetUDPPort() }, ::GetTickCount64());
 		break;
 	}
 	case STOREFILE: {
@@ -1065,9 +1071,6 @@ void CSearch::StorePacket()
 	default:
 		AddDebugLogLineN(logKadSearch, CFormat("Search result type: Unknown (%i)") % m_type);
 		break;
-	}
-	if (m_type == FILE || m_type == KEYWORD || m_type == NOTES) {
-		m_lookupTrace.ItemRequest({ from->GetIPAddress(), from->GetUDPPort() }, ::GetTickCount64());
 	}
 }
 
@@ -1463,9 +1466,13 @@ void CSearch::SendFindValue(CContact *contact, bool reaskMore)
 			}
 			CLookupTrace::ID traceID{};
 			contact->GetClientID().ToByteArray(traceID.data());
+			CLookupTrace::ID traceDistance{};
+			(contact->GetClientID() ^ m_target).ToByteArray(traceDistance.data());
 			m_lookupTrace.Query({ contact->GetIPAddress(), contact->GetUDPPort() },
 				traceID,
-				::GetTickCount64());
+				::GetTickCount64(),
+				contact->GetVersion(),
+				traceDistance);
 #ifdef __DEBUG__
 			switch (m_type) {
 			case NODE:

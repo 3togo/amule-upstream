@@ -40,6 +40,7 @@ there client on the eMule forum..
 
 #include "Search.h"
 #include "../utils/LookupDiagnostics.h"
+#include <algorithm>
 #include "../../GetTickCount.h"
 #include <common/Macros.h>
 
@@ -197,6 +198,7 @@ CSearch *CSearchManager::PrepareFindKeywords(const wxString &keyword,
 	try {
 		// Set search to a keyword type.
 		s->SetSearchTypes(CSearch::KEYWORD);
+		s->m_lookupKeyword = keyword;
 
 		// Make sure we have a keyword list
 		GetWords(keyword, &s->m_words, true);
@@ -635,31 +637,44 @@ void CSearchManager::RememberLookup(const CSearch &search)
 	if (search.GetLookupTrace().Peers().empty()) {
 		return;
 	}
-	if (s_recentLookups.size() == 16) {
+	if (s_recentLookups.size() == MaxLookupHistory) {
 		s_recentLookups.pop_front();
 	}
 	s_recentLookups.push_back({ search.GetSearchTypes(),
 		search.GetTarget().ToHexString(),
+		search.m_lookupKeyword,
 		search.GetLookupStarted(),
 		::GetTickCount64(),
 		search.GetLookupTrace() });
 }
 
-wxString CSearchManager::GetLookupDiagnostics()
+void CSearchManager::GetLookupSnapshots(
+	std::vector<LookupSnapshot> &active, std::deque<LookupSnapshot> &recent)
 {
-	std::vector<LookupSnapshot> active;
 	for (const auto &item : m_searches) {
-		if (active.size() == 17) {
-			break;
-		}
 		const auto &search = *item.second;
 		active.push_back({ search.GetSearchTypes(),
 			search.GetTarget().ToHexString(),
+			search.m_lookupKeyword,
 			search.GetLookupStarted(),
 			0,
 			search.GetLookupTrace() });
 	}
-	return FormatLookupDiagnostics(active, s_recentLookups, ::GetTickCount64());
+	std::sort(active.begin(), active.end(), [](const LookupSnapshot &a, const LookupSnapshot &b) {
+		return a.started > b.started;
+	});
+	if (active.size() > MaxLookupHistory) {
+		active.resize(MaxLookupHistory);
+	}
+	recent = s_recentLookups;
+}
+
+wxString CSearchManager::GetLookupDiagnostics()
+{
+	std::vector<LookupSnapshot> active;
+	std::deque<LookupSnapshot> recent;
+	GetLookupSnapshots(active, recent);
+	return FormatLookupDiagnostics(active, recent, ::GetTickCount64());
 }
 
 void CSearchManager::ProcessResultReply(const CUInt128 &target, uint32_t fromIP, uint16_t fromPort)

@@ -29,7 +29,7 @@ using namespace Kademlia;
 DECLARE_SIMPLE(LookupDiagnostics)
 TEST(LookupDiagnostics, ExplainsRoutingAndItemStages)
 {
-	LookupSnapshot lookup{ 3, "fixture", 100, 300, {} };
+	LookupSnapshot lookup{ 3, "fixture", "example", 100, 300, {} };
 	lookup.trace.Query({ 0x01020304, 4665 }, {}, 100);
 	lookup.trace.Reply({ 0x01020304, 4665 }, 125);
 	lookup.trace.ItemRequest({ 0x01020304, 4665 }, 130);
@@ -39,12 +39,13 @@ TEST(LookupDiagnostics, ExplainsRoutingAndItemStages)
 	ASSERT_TRUE(text.Contains("1 routing requests, 1 replies, last RTT 25 ms"));
 	ASSERT_TRUE(text.Contains("1 item requests, 1 result packets, 0 result records"));
 	ASSERT_TRUE(text.Contains("1.2.3.4:4665"));
+	ASSERT_TRUE(text.Contains("Keyword: example"));
 	ASSERT_TRUE(text.Contains("+50 ms"));
 	ASSERT_TRUE(text.Contains("closer to target"));
 }
-TEST(LookupDiagnostics, FitsECStringLimitWithUnicode)
+TEST(LookupDiagnostics, UncappedUnicodeOutput)
 {
-	LookupSnapshot lookup{ 3, wxString(200, wxUniChar(0x1f600)), 100, 300, {} };
+	LookupSnapshot lookup{ 3, wxString(200, wxUniChar(0x1f600)), "", 100, 300, {} };
 	for (uint32_t i = 1; i <= 128; ++i) {
 		lookup.trace.Query({ i, 1 }, {}, 100);
 	}
@@ -54,8 +55,8 @@ TEST(LookupDiagnostics, FitsECStringLimitWithUnicode)
 	std::vector<LookupSnapshot> active(16, lookup);
 	std::deque<LookupSnapshot> recent(16, lookup);
 	const auto text = FormatLookupDiagnostics(active, recent, 4000);
-	ASSERT_TRUE(text.Contains("Diagnostic output truncated"));
-	ASSERT_TRUE(text.utf8_str().length() < 65535);
+	ASSERT_FALSE(text.Contains("Diagnostic output truncated"));
+	ASSERT_TRUE(text.utf8_str().length() > 65535);
 }
 TEST(LookupDiagnostics, EmptyHistory)
 {

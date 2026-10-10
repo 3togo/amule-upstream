@@ -3,8 +3,8 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		kademlia/kademlia/Kademlia.cpp
 		kademlia/kademlia/Prefs.cpp
 		kademlia/kademlia/Search.cpp
-		kademlia/utils/LookupDiagnostics.cpp
 		kademlia/kademlia/UDPFirewallTester.cpp
+		kademlia/utils/LookupDiagnostics.cpp
 		kademlia/net/KademliaUDPListener.cpp
 		kademlia/net/PacketTracking.cpp
 		kademlia/routing/Contact.cpp

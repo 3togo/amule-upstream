@@ -74,9 +74,9 @@ void CKadDlg::Init()
 	SetGraphColors();
 
 	UpdateConnectButton();
-	auto *diagnostics = new wxButton(this, wxID_ANY, _("Lookup diagnostics"));
-	GetSizer()->Add(diagnostics, 0, wxALL, 5);
-	diagnostics->Bind(wxEVT_BUTTON, [this](wxCommandEvent &event) {
+	m_lookupButton = new wxButton(this, wxID_ANY, _("Lookup diagnostics"));
+	GetSizer()->Add(m_lookupButton, 0, wxALL, 5);
+	m_lookupButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent &event) {
 		if (!m_lookupView) {
 			m_lookupView = new CKadLookupView(this);
 		}
@@ -84,11 +84,12 @@ void CKadDlg::Init()
 		m_lookupView->Raise();
 #ifdef CLIENT_GUI
 		auto *button = static_cast<wxButton *>(event.GetEventObject());
-		if (!button->IsEnabled()) {
+		if (!button->IsEnabled() || !theApp->m_connect->ServerSupportsKadLookups()) {
 			return;
 		}
 		button->Disable();
-		m_lookupView->SetSnapshot(_("Requesting Kad lookup diagnostics…"));
+		m_lookupView->SetPending(true);
+		m_lookupView->SetSnapshot(_("Requesting Kad lookup diagnostics..."));
 		CECPacket request(EC_OP_GET_KAD_LOOKUPS);
 		theApp->m_connect->SendRequest(new CKadLookupReply(m_lookupView.get(), button), &request);
 #else
@@ -96,6 +97,7 @@ void CKadDlg::Init()
   m_lookupView->SetSnapshot(Kademlia::CSearchManager::GetLookupDiagnostics());
 #endif
 	});
+	UpdateConnectButton();
 	Layout();
 }
 
@@ -116,6 +118,15 @@ void CKadDlg::UpdateConnectButton()
 	// _("Kad") matches the translatable tab label (muuli_wdr.cpp's
 	// NetDialog); see CServerWnd::UpdateED2KConnectButton's ED2K equivalent.
 	SetConnectButtonState(button, state, thePrefs::GetNetworkKademlia(), _("Kad"));
+#ifdef CLIENT_GUI
+	if (m_lookupButton) {
+		const bool supported = theApp->m_connect->ServerSupportsKadLookups();
+		m_lookupButton->Enable(supported && (!m_lookupView || !m_lookupView->IsPending()));
+		m_lookupButton->SetToolTip(
+			supported ? wxString()
+				  : _("The connected core does not support Kad lookup diagnostics."));
+	}
+#endif
 }
 
 void CKadDlg::SetUpdatePeriod(int step)

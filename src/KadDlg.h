@@ -54,6 +54,7 @@ public:
 
 private:
 	COScopeCtrl *m_kad_scope;
+	wxButton *m_lookupButton = nullptr;
 	wxWeakRef<CKadLookupView> m_lookupView;
 
 	// Event handlers

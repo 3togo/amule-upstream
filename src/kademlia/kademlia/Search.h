@@ -194,6 +194,7 @@ private:
 	std::vector<uint8_t> m_searchTermsData;
 	WordList m_words; // list of words in the search string (populated in
 			  // CSearchManager::PrepareFindKeywords)
+	wxString m_lookupKeyword;
 	wxString m_fileName;
 	UIntList m_fileIDs;
 	CKadClientSearcher *m_nodeSpecialSearchRequester; // used to callback result for NODESPECIAL searches

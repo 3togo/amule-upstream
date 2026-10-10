@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule GIT\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-10-09 12:39+0000\n"
+"POT-Creation-Date: 2026-10-10 10:23-0400\n"
 "PO-Revision-Date: 2026-10-07 16:32+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: none\n"
@@ -3251,7 +3251,11 @@ msgid "Lookup diagnostics"
 msgstr ""
 
 #: src/KadDlg.cpp
-msgid "Requesting Kad lookup diagnostics…"
+msgid "Requesting Kad lookup diagnostics..."
+msgstr ""
+
+#: src/KadDlg.cpp
+msgid "The connected core does not support Kad lookup diagnostics."
 msgstr ""
 
 #: src/KadDlg.cpp src/muuli_wdr.cpp src/StatisticsDlg.cpp
@@ -3303,9 +3307,129 @@ msgstr "Tiếp tục?"
 msgid "Kad lookup diagnostics"
 msgstr ""
 
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "Node"
+msgstr "Nút (0)"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "Complete node"
+msgstr "Hoàn tất"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "File"
+msgstr "Tệp"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "Keyword"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "Notes"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "Publish file"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "Publish keyword"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "Publish notes"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "Find buddy"
+msgstr "Không có buddy"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "Find source"
+msgstr "Nguồn tệp:"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "Special node"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "UDP firewall check"
+msgstr "bị tường lửa chặn"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, c-format
+msgid "type %u"
+msgstr ""
+
 #: src/KadLookupView.h
 msgid "The core does not support Kad lookup diagnostics."
 msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid ""
+"Overdue means a routing request unanswered for at least 3 seconds; late replies may still arrive. Result records are received records, not unique files. Only bounded recent history is retained.\n"
+"\n"
+msgstr ""
+
+#: src/KadLookupView.h
+msgid "Invalid Kad lookup diagnostics reply."
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, c-format
+msgid "Lookup %s (%s, %s): %u peers, %u overdue routing requests, %u omitted peers, %u evicted referrals\n"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "active lookup"
+msgstr "Đang hoạt động"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "finished lookup"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, c-format
+msgid "  Keyword: %s\n"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, c-format
+msgid "  %s [%s], distance %s, Kad version %u (%s): %u routing requests, %u replies, last RTT %u ms, %u item requests, %u result packets, %u result records\n"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "awaiting reply"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "reply received"
+msgstr "Chưa nhận"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, c-format
+msgid "  +%u ms: %s referred %s (distance %s, %s)\n"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "closer to target"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "no closer to target"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "No Kad lookup history available."
+msgstr "không có tùy chọn nào khả dụng"
 
 #: src/KadLookupView.h
 msgid "Connection lost. Reconnect and request lookup diagnostics again."
@@ -7040,7 +7164,7 @@ msgstr ""
 msgid "running"
 msgstr ""
 
-#: src/SearchProgressReport.cpp src/kademlia/utils/LookupDiagnostics.cpp
+#: src/SearchProgressReport.cpp
 msgid "finished"
 msgstr ""
 
@@ -9665,55 +9789,6 @@ msgstr "aMule dường như đang chạy. Vui lòng đóng nó và chạy lại 
 #: packaging/windows/installer_strings.c
 msgid "Removing user data at $APPDATA\\aMule..."
 msgstr "Đang xóa dữ liệu người dùng tại $APPDATA\\aMule..."
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-#, c-format
-msgid "Lookup %s (type %u, %s): %u peers, %u overdue routing requests, %u omitted records\n"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
-msgid "active"
-msgstr "Đang hoạt động"
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-#, c-format
-msgid "  %s [%s]: %u routing requests, %u replies, last RTT %u ms, %u item requests, %u result packets, %u result records\n"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-#, c-format
-msgid "  +%u ms: %s referred %s (%s)\n"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-msgid "closer to target"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-msgid "no closer to target"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-msgid ""
-"Overdue means a routing request unanswered for at least 3 seconds; late replies may still arrive. Result records are received records, not unique files. Only bounded recent history is retained.\n"
-"\n"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-msgid "Additional active lookups omitted.\n"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
-msgid "No Kad lookup history available."
-msgstr "không có tùy chọn nào khả dụng"
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-msgid ""
-"\n"
-"Diagnostic output truncated.\n"
-msgstr ""
 
 #, c-format
 #~ msgid "Failed to load country data for '%s'."

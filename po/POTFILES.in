@@ -50,6 +50,7 @@ src/KadDlg.cpp
 src/KadLookupView.h
 src/kademlia/kademlia/SearchManager.cpp
 src/kademlia/routing/RoutingZone.cpp
+src/kademlia/utils/LookupDiagnostics.cpp
 src/KnownFile.cpp
 src/KnownFileList.cpp
 src/LanguageList.cpp
@@ -121,4 +122,3 @@ src/utils/wxCas/src/wxcasprefs.cpp
 src/webserver/src/WebInterface.cpp
 src/webserver/src/WebServer.cpp
 packaging/windows/installer_strings.c
-src/kademlia/utils/LookupDiagnostics.cpp

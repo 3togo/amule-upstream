@@ -40,6 +40,7 @@ there client on the eMule forum..
 #define SEARCHMANAGER_H
 
 #include "../utils/UInt128.h"
+#include "../utils/LookupDiagnostics.h"
 #include "../routing/Maps.h"
 #include "../../Tag.h"
 #include <memory>
@@ -65,6 +66,8 @@ class CSearchManager
 
 public:
 	static wxString GetLookupDiagnostics();
+	static void GetLookupSnapshots(
+		std::vector<LookupSnapshot> &active, std::deque<LookupSnapshot> &recent);
 
 	static bool IsSearching(uint32_t searchID) noexcept;
 	static void StopSearch(uint32_t searchID, bool delayDelete);

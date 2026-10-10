@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
-"POT-Creation-Date: 2026-10-09 12:39+0000\n"
+"POT-Creation-Date: 2026-10-10 10:23-0400\n"
 "PO-Revision-Date: 2026-10-07 16:25+0000\n"
 "Last-Translator: Tapio Rantala <tapio.rantala@iki.fi>\n"
 "Language-Team: aMule Team <https://github.com/amule-org/amule>\n"
@@ -3296,7 +3296,11 @@ msgid "Lookup diagnostics"
 msgstr ""
 
 #: src/KadDlg.cpp
-msgid "Requesting Kad lookup diagnostics…"
+msgid "Requesting Kad lookup diagnostics..."
+msgstr ""
+
+#: src/KadDlg.cpp
+msgid "The connected core does not support Kad lookup diagnostics."
 msgstr ""
 
 #: src/KadDlg.cpp src/muuli_wdr.cpp src/StatisticsDlg.cpp
@@ -3348,9 +3352,132 @@ msgstr "Jatketaanko?"
 msgid "Kad lookup diagnostics"
 msgstr ""
 
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "Node"
+msgstr "Yhteyspisteitä (0)"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "Complete node"
+msgstr "Valmiina"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "File"
+msgstr "Tiedostot"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "Keyword"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "Notes"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "Publish file"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "Publish keyword"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "Publish notes"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "Find buddy"
+msgstr "Ei kaveria"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "Find source"
+msgstr "Tiedostolähteet:"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "Special node"
+msgstr "Uusi yhteyspiste"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "UDP firewall check"
+msgstr "palomuurattu"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, c-format
+msgid "type %u"
+msgstr ""
+
 #: src/KadLookupView.h
 msgid "The core does not support Kad lookup diagnostics."
 msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid ""
+"Overdue means a routing request unanswered for at least 3 seconds; late replies may still arrive. Result records are received records, not unique files. Only bounded recent history is retained.\n"
+"\n"
+msgstr ""
+
+#: src/KadLookupView.h
+msgid "Invalid Kad lookup diagnostics reply."
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, c-format
+msgid "Lookup %s (%s, %s): %u peers, %u overdue routing requests, %u omitted peers, %u evicted referrals\n"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "active lookup"
+msgstr "Aktiivinen"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "finished lookup"
+msgstr "Suomi"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, c-format
+msgid "  Keyword: %s\n"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, c-format
+msgid "  %s [%s], distance %s, Kad version %u (%s): %u routing requests, %u replies, last RTT %u ms, %u item requests, %u result packets, %u result records\n"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "awaiting reply"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "reply received"
+msgstr "Ei vastaanotettu"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, c-format
+msgid "  +%u ms: %s referred %s (distance %s, %s)\n"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+msgid "closer to target"
+msgstr ""
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "no closer to target"
+msgstr "(Tuntematon nimi)"
+
+#: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
+#, fuzzy
+msgid "No Kad lookup history available."
+msgstr "vaihtoehtoja ei saatavilla"
 
 #: src/KadLookupView.h
 msgid "Connection lost. Reconnect and request lookup diagnostics again."
@@ -7133,7 +7260,7 @@ msgstr ""
 msgid "running"
 msgstr "Käynnissä"
 
-#: src/SearchProgressReport.cpp src/kademlia/utils/LookupDiagnostics.cpp
+#: src/SearchProgressReport.cpp
 #, fuzzy
 msgid "finished"
 msgstr "Suomi"
@@ -9787,56 +9914,6 @@ msgstr "aMule vaikuttaa olevan käynnissä. Sulje se ja suorita asennuksen poist
 msgid "Removing user data at $APPDATA\\aMule..."
 msgstr "Poistetaan käyttäjätietoja kohteesta $APPDATA\\aMule..."
 
-#: src/kademlia/utils/LookupDiagnostics.cpp
-#, c-format
-msgid "Lookup %s (type %u, %s): %u peers, %u overdue routing requests, %u omitted records\n"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
-msgid "active"
-msgstr "Aktiivinen"
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-#, c-format
-msgid "  %s [%s]: %u routing requests, %u replies, last RTT %u ms, %u item requests, %u result packets, %u result records\n"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-#, c-format
-msgid "  +%u ms: %s referred %s (%s)\n"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-msgid "closer to target"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
-msgid "no closer to target"
-msgstr "(Tuntematon nimi)"
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-msgid ""
-"Overdue means a routing request unanswered for at least 3 seconds; late replies may still arrive. Result records are received records, not unique files. Only bounded recent history is retained.\n"
-"\n"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-msgid "Additional active lookups omitted.\n"
-msgstr ""
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
-msgid "No Kad lookup history available."
-msgstr "vaihtoehtoja ei saatavilla"
-
-#: src/kademlia/utils/LookupDiagnostics.cpp
-msgid ""
-"\n"
-"Diagnostic output truncated.\n"
-msgstr ""
-
 #, c-format
 #~ msgid "Failed to load country data for '%s'."
 #~ msgstr "Valtiotietojen lataus osoitteesta '%s' epäonnistui."
@@ -9944,9 +10021,6 @@ msgstr ""
 
 #~ msgid "Bootstrap"
 #~ msgstr "Yhdistämisapu"
-
-#~ msgid "New node"
-#~ msgstr "Uusi yhteyspiste"
 
 #~ msgid "IP:"
 #~ msgstr "IP:"
