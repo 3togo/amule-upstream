@@ -1306,6 +1306,7 @@ void CStatistics::UpdateStats(const CECPacket *stats, bool distributionRequested
 	const auto *distributionTag = stats->GetTagByName(EC_TAG_STATS_KAD_DISTRIBUTION);
 	const bool customDistribution = distributionTag && distributionTag->IsCustom();
 	s_kadDistribution.Update(distributionRequested,
+		distributionTag != nullptr,
 		customDistribution ? distributionTag->GetTagData() : nullptr,
 		customDistribution ? distributionTag->GetTagDataLen() : 0);
 	s_statData[sdBuddyStatus] = stats->GetTagByNameSafe(EC_TAG_STATS_BUDDY_STATUS)->GetInt();

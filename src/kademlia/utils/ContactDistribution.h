@@ -35,7 +35,8 @@ enum class ContactDistributionState
 {
 	Loading,
 	Available,
-	Unsupported
+	Unsupported,
+	Invalid
 };
 struct ContactDistribution
 {
@@ -140,15 +141,19 @@ struct ContactDistribution
 class ContactDistributionCache
 {
 public:
-	void Update(bool requested, const void *data, size_t size)
+	void Update(bool requested, bool tagPresent, const void *data, size_t size)
 	{
 		if (!requested) {
 			return;
 		}
 		m_data = {};
-		m_state = ContactDistribution::Decode(data, size, m_data)
-				  ? ContactDistributionState::Available
-				  : ContactDistributionState::Unsupported;
+		if (!tagPresent) {
+			m_state = ContactDistributionState::Unsupported;
+		} else {
+			m_state = ContactDistribution::Decode(data, size, m_data)
+					  ? ContactDistributionState::Available
+					  : ContactDistributionState::Invalid;
+		}
 	}
 	void Reset()
 	{

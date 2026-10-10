@@ -40,7 +40,7 @@ public:
 	explicit CKadContactHistogram(wxWindow *parent)
 	: wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
 	{
-		SetMinSize(FromDIP(wxSize(200, 150)));
+		SetMinSize(FromDIP(wxSize(200, 0)));
 		SetBackgroundStyle(wxBG_STYLE_PAINT);
 		SetName("kadContactDistribution");
 		SetToolTip(_("Contacts grouped by the first twelve bits of their KadID. Blue: all contacts; "
@@ -56,6 +56,7 @@ public:
 			event.Skip();
 			CallAfter(&CKadContactHistogram::UpdateMinimumSize);
 		});
+		UpdateMinimumSize();
 	}
 	bool SetFont(const wxFont &font) override
 	{
@@ -122,10 +123,14 @@ private:
 			return _("Loading contact distribution...");
 		}
 		if (m_state == Kademlia::ContactDistributionState::Unsupported) {
-			return _("Contact distribution is unsupported by this core or its data is invalid.");
+			return _("This core does not send the contact distribution. Update the core to see "
+				 "the chart.");
 		}
-		return wxString::Format(
-			_("KadID distribution: %u contacts, %u verified, %u distinct /24 subnets"),
+		if (m_state == Kademlia::ContactDistributionState::Invalid) {
+			return _("The core sent contact distribution data that could not be read.");
+		}
+		return wxString::Format(_("KadID distribution: %u routing-table contacts, %u verified, %u "
+					  "distinct /24 subnets"),
 			m_data.Total(),
 			m_data.Verified(),
 			m_data.subnets);
@@ -150,7 +155,7 @@ private:
 		if (m_state == Kademlia::ContactDistributionState::Available) {
 			height += FromDIP(64 + 7 + 6) + dc.GetCharHeight();
 		}
-		const wxSize minimum(minimumWidth, std::max(FromDIP(150), height));
+		const wxSize minimum(minimumWidth, height);
 		if (minimum != GetMinSize()) {
 			SetMinSize(minimum);
 			// Re-layout once the current resize/DPI event finishes. A changed height
@@ -229,13 +234,15 @@ private:
 		if (m_data.hasLocalID) {
 			const int x = left + static_cast<int>(static_cast<uint64_t>(m_data.localID) *
 							      (width - 1) / UINT32_MAX);
+			const int radius = FromDIP(5);
+			const int markerHeight = FromDIP(7);
 			dc.SetPen(wxPen(GetForegroundColour(), FromDIP(1), wxPENSTYLE_SHORT_DASH));
-			dc.DrawLine(x, top, x, bottom);
+			dc.DrawLine(x, top + markerHeight, x, bottom);
+			dc.SetPen(*wxTRANSPARENT_PEN);
 			dc.SetBrush(wxBrush(GetForegroundColour()));
-			const int radius = FromDIP(3);
 			wxPoint marker[] = { wxPoint(x - radius, top),
 				wxPoint(x + radius, top),
-				wxPoint(x, top + FromDIP(5)) };
+				wxPoint(x, top + markerHeight) };
 			dc.DrawPolygon(3, marker);
 		}
 		dc.DrawText("000", left, bottom + FromDIP(2));

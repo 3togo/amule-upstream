@@ -140,24 +140,26 @@ TEST(ContactDistribution, RemoteLoadingAndRequestedReplies)
 	Kademlia::ContactDistributionCache cache;
 	ContactDistribution snapshot;
 	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Loading);
-	cache.Update(false, nullptr, 0); // a hidden-panel stats reply, without a tag
+	cache.Update(false, false, nullptr, 0); // a hidden-panel stats reply, without a tag
 	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Loading);
-	cache.Update(true, nullptr, 0); // older core answered an opted-in request
+	cache.Update(true, false, nullptr, 0); // older core answered an opted-in request
 	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Unsupported);
 	ContactDistribution data;
 	data.contacts[123] = 12;
 	auto wire = data.Encode();
-	cache.Update(true, wire.data(), wire.size());
+	cache.Update(true, true, wire.data(), wire.size());
 	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Available);
 	ASSERT_EQUALS(12u, snapshot.contacts[123]);
-	cache.Update(false, nullptr, 0); // hiding does not clear the snapshot
+	cache.Update(false, false, nullptr, 0); // hiding does not clear the snapshot
 	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Available);
 	ASSERT_EQUALS(12u, snapshot.Total());
 	cache.Reset(); // reconnect to a different core
 	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Loading);
 	ASSERT_EQUALS(0u, snapshot.Total());
 	wire[0] = 99;
-	cache.Update(true, wire.data(), wire.size());
-	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Unsupported);
+	cache.Update(true, true, wire.data(), wire.size());
+	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Invalid);
 	ASSERT_EQUALS(0u, snapshot.Total());
+	cache.Update(true, true, nullptr, 0); // wrong EC tag type or empty custom tag
+	ASSERT_TRUE(cache.Get(snapshot) == Kademlia::ContactDistributionState::Invalid);
 }

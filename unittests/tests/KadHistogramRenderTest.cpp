@@ -1,5 +1,27 @@
-// Copyright (c) 2026 aMule Team
-// SPDX-License-Identifier: GPL-2.0-or-later
+//								-*- C++ -*-
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// Any parts of this program derived from the xMule, lMule or eMule project,
+// or contributed by third-party developers are copyrighted by their
+// respective authors.
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
+//
+
 #include <wx/wx.h>
 #include "KadContactHistogram.h"
 #include <iostream>
@@ -176,9 +198,11 @@ static void VerifyRendering()
 	const auto largeFont = KadHistogramTestAccess::Render(panel, largeSize);
 	SaveRender(largeFont, "large-font.png");
 	Check(Pixels(largeFont, wxColour(35, 160, 90)) > 0, "Large fonts hide the chart");
-	// Exercise the real fixed-proportion Kad layout, not an oversized bitmap.
+	// Exercise the Kad graph/chart proportions in a real sizer.
 	auto *layout = new wxBoxSizer(wxVERTICAL);
-	layout->Add(&panel, 0, wxEXPAND);
+	wxPanel graph(&frame);
+	layout->Add(&graph, 3, wxEXPAND);
+	layout->Add(&panel, 2, wxEXPAND);
 	frame.SetSizer(layout);
 	frame.SetClientSize(wxSize(std::max(panel.FromDIP(260), panel.GetMinSize().x), panel.FromDIP(1200)));
 	frame.Layout();
@@ -200,11 +224,21 @@ static void VerifyRendering()
 	Check(Pixels(KadHistogramTestAccess::RenderPixels(panel, panel.GetClientSize()),
 		      wxColour(35, 160, 90)) > 0,
 		"Restoring the font hides the chart");
+	frame.SetClientSize(wxSize(panel.FromDIP(380), panel.FromDIP(310)));
+	frame.Layout();
+	Check(graph.GetSize().y > panel.FromDIP(100),
+		"Chart squeezes the Kad graph at a scaled window height");
+	Check(panel.GetSize().y >= panel.GetMinSize().y, "Chart is smaller than its text and plot minimum");
 	// Degenerate widths and heights must clip safely rather than divide by zero.
 	KadHistogramTestAccess::Render(panel, wxSize(20, 20));
 	panel.SetDistribution(populated, Kademlia::ContactDistributionState::Unsupported);
+	Check(panel.GetMinSize().y < panel.FromDIP(80),
+		"Unsupported state keeps an unnecessary plot minimum");
 	auto unavailable = KadHistogramTestAccess::Render(panel, wxSize(240, 240));
 	Check(Pixels(unavailable, wxColour(70, 130, 210)) == 0, "Unavailable data displays stale bars");
+	panel.SetDistribution(populated, Kademlia::ContactDistributionState::Invalid);
+	Check(Pixels(KadHistogramTestAccess::Render(panel, wxSize(240, 240)), wxColour(70, 130, 210)) == 0,
+		"Invalid data displays stale bars");
 	panel.SetDistribution({}, Kademlia::ContactDistributionState::Available);
 	auto empty = KadHistogramTestAccess::Render(panel, wxSize(740, 360));
 	Check(Pixels(empty, wxColour(35, 160, 90)) == 0, "Stopped Kad displays stale verified contacts");
