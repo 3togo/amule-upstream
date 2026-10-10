@@ -15,7 +15,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-10 09:55-0400\n"
-"PO-Revision-Date: 2026-10-07 16:29+0000\n"
+"PO-Revision-Date: 2026-10-09 21:10+0000\n"
 "Last-Translator: Radist Morse <radist.morse@gmail.com>\n"
 "Language-Team: Russian <kde-russian@lists.kde.ru>\n"
 "Language: ru\n"
@@ -420,7 +420,7 @@ msgstr "ПРЕДУПРЕЖДЕНИЕ: не удалось выполнить п�
 msgid "Your locale has been changed to System Default due to a configuration change. Sorry."
 msgstr "В связи со сменой версии, значение вашей локали было изменено на значение по умолчанию. Извините."
 
-#: src/amule.cpp src/CatDialog.cpp src/ServerList.cpp src/ServerListCtrl.cpp
+#: src/amule.cpp src/CatDialog.cpp src/ServerListCtrl.cpp
 msgid "Info"
 msgstr "Сведения"
 
@@ -2390,6 +2390,10 @@ msgid "server not found: %s"
 msgstr "сервер не найден: %s"
 
 #: src/ExternalConn.cpp
+msgid "You are connected to the server you are trying to delete. please disconnect first."
+msgstr "Вы соединены с сервером, который вы пытаетесь удалить. Отключитесь от него."
+
+#: src/ExternalConn.cpp
 msgid "need to define server to be removed"
 msgstr "необходимо выделить сервер для удаления"
 
@@ -4112,7 +4116,7 @@ msgstr "Отд: 0,0 | Заг: 0,0"
 # делают их многострочными ;-))
 #: src/muuli_wdr.cpp
 msgid "Current average upload and download rates. If enabled the numbers in the braces signify the overhead from client communication."
-msgstr "Текущая средняя скорость отдачи и загрузки. Если включено, числа в скобках обозначают служебный трафик от обмена данными с клиентами."
+msgstr "Текущая средняя скорость отдачи и загрузки. Если включено, числа в скобках обозначают служебный трафик обмена данными с клиентами."
 
 # Тултип. Лучше оставить как можно более коротким (не все системы автоматом
 # делают их многострочными ;-))
@@ -4972,7 +4976,7 @@ msgstr "Введите здесь минимальный размер свобо
 
 #: src/muuli_wdr.cpp
 msgid "Save up to 10 HighID sources of rare files (20 or fewer sources) on exit"
-msgstr "Сохранять до 10 источников с Высоким ИД для редких файлов (≤20 сидов) при выходе"
+msgstr "Сохранять до 10 источников с Высоким ИД для редких файлов (≤20 источников) при выходе"
 
 #: src/muuli_wdr.cpp
 msgid "The saved sources are used again only if aMule restarts within 2 hours. LowID sources are not saved: a LowID only identifies a peer on the server that assigned it."
@@ -5005,11 +5009,11 @@ msgstr "Извлечение метаданных медиафайлов"
 
 #: src/muuli_wdr.cpp
 msgid "Extract length / bitrate / codec from shared audio and video files"
-msgstr "Извлекать длительность / битрейт / кодек из общих файлов аудио и видео"
+msgstr "Извлекать длительность, битрейт и кодек из общих файлов аудио и видео"
 
 #: src/muuli_wdr.cpp
 msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
-msgstr "Если включено, aMule запускает ffprobe для каждого общего медиафайла, чтобы заполнить столбцы «Длительность» / «Битрейт» / «Кодек», которые видят другие клиенты при обнаружении файла в поиске. Требуется установленный ffmpeg (исполняемый файл ffprobe)."
+msgstr "Если включено, aMule запускает ffprobe для каждого общего медиафайла, чтобы заполнить столбцы «Длительность», «Битрейт» и «Кодек», которые видят другие клиенты при обнаружении файла в поиске. Требуется установленный ffmpeg (исполняемый файл ffprobe)."
 
 #: src/muuli_wdr.cpp
 msgid "Path to ffprobe:"
@@ -5241,7 +5245,7 @@ msgstr "Размер буфера файла: 240000 байт"
 
 #: src/muuli_wdr.cpp
 msgid "Use MMAP: memory-mapped file access (lower memory use)"
-msgstr "Включить MMAP: доступ с отображением файлов в память (экономит память)"
+msgstr "Использовать MMAP: доступ к файлам с отображением в память (экономит память)"
 
 #: src/muuli_wdr.cpp
 msgid "Maps part files into memory instead of buffering them on the heap, lowering the process memory footprint. May reduce download speed on some disks; best for memory-constrained or upload-heavy hosts."
@@ -6943,7 +6947,8 @@ msgstr "Команда граф. интерфейса:"
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
 "Core commands must be configured in the daemon's amule.conf.\n"
-"Only the chat event supports GUI commands with a remote core."
+"Chat and observed download completions support GUI commands with a remote core.\n"
+"Already completed downloads do not run commands at first sync or reconnect."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -7351,6 +7356,14 @@ msgid "Server.met file corrupt, found invalid versiontag: 0x%x, size %i"
 msgstr "Файл server.met повреждён. Неверная метка версии: 0x%x, размер %i"
 
 #: src/ServerList.cpp
+msgid "Error: the file 'server.met' is corrupted: "
+msgstr "Ошибка: файл «server.met» повреждён: "
+
+#: src/ServerList.cpp
+msgid "IO error while reading 'server.met': "
+msgstr "Ошибка ввода/вывода при чтении файла known.met: "
+
+#: src/ServerList.cpp
 #, c-format
 msgid "%i server in server.met found"
 msgid_plural "%i servers in server.met found"
@@ -7365,14 +7378,6 @@ msgid_plural "%d servers added"
 msgstr[0] "Добавлен %d сервер"
 msgstr[1] "Добавлены %d сервера"
 msgstr[2] "Добавлено %d серверов"
-
-#: src/ServerList.cpp
-msgid "Error: the file 'server.met' is corrupted: "
-msgstr "Ошибка: файл «server.met» повреждён: "
-
-#: src/ServerList.cpp
-msgid "IO error while reading 'server.met': "
-msgstr "Ошибка ввода/вывода при чтении файла known.met: "
 
 #: src/ServerList.cpp
 #, c-format
@@ -7393,10 +7398,6 @@ msgstr "Сервер не был добавлен: сервер с такими 
 #, c-format
 msgid "Server added: Server at [%s:%d] using the name '%s'."
 msgstr "Сервер добавлен: сервер [%s:%d] использует имя «%s»."
-
-#: src/ServerList.cpp
-msgid "You are connected to the server you are trying to delete. please disconnect first."
-msgstr "Вы соединены с сервером, который вы пытаетесь удалить. Отключитесь от него."
 
 #: src/ServerList.cpp
 #, c-format
@@ -9094,7 +9095,8 @@ msgid "Download completed"
 msgstr "Загрузка завершена"
 
 #: src/UserEvents.h
-msgid "The full path to the file."
+#, fuzzy
+msgid "The full path to the file (empty in remote GUI mode)."
 msgstr "Полный путь к файлу."
 
 #: src/UserEvents.h
@@ -9132,6 +9134,10 @@ msgstr "Раздел диска."
 #: src/UserEvents.h
 msgid "Error on completion"
 msgstr "Ошибка при завершении"
+
+#: src/UserEvents.h
+msgid "The full path to the file."
+msgstr "Полный путь к файлу."
 
 #: src/utils/aLinkCreator/src/alcc.cpp
 #, c-format
