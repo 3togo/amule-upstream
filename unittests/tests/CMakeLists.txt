@@ -2236,6 +2236,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/LogfilePathIntegrationTest.py $<TARGET_FILE:amuled>
 		)
+		add_test (NAME KadIndexLifecycleECTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/KadIndexLifecycleECTest.py $<TARGET_FILE:amuled>
+		)
 		add_test (NAME AllSearchIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/AllSearchIntegrationTest.py $<TARGET_FILE:amuled>
@@ -2347,6 +2351,26 @@ if (TARGET wxWidgets::CORE)
 	add_test (NAME KadLookupViewTest COMMAND KadLookupViewTest)
 	set_tests_properties (KadLookupViewTest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
+
+find_package (Threads REQUIRED)
+add_executable (BackgroundLoadTest BackgroundLoadTest.cpp)
+add_test (NAME BackgroundLoadTest COMMAND BackgroundLoadTest)
+target_include_directories (BackgroundLoadTest PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (BackgroundLoadTest muleunit mulecommon Threads::Threads)
+
+add_executable (IndexedLoadTest
+	IndexedLoadTest.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/Indexed.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/Entry.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/AICHHashList.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+	${CMAKE_SOURCE_DIR}/src/GetTickCount.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+	KadPrefsStub.cpp
+)
+add_test (NAME IndexedLoadTest COMMAND IndexedLoadTest)
+target_include_directories (IndexedLoadTest PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${Boost_INCLUDE_DIR})
+target_link_libraries (IndexedLoadTest muleunit muleappcommon mulecommon Threads::Threads)
 
 # Event values are untrusted: verify they cannot become additional arguments or
 # shell syntax when passed as positional parameters to a configured shell.

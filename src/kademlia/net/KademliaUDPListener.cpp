@@ -1162,6 +1162,9 @@ void CKademliaUDPListener::Process2PublishKeyRequest(const uint8_t *packetData,
 	uint16_t port,
 	const CKadUDPKey &senderKey)
 {
+	if (!CKademlia::GetIndexed()->IsReady()) {
+		return;
+	}
 	CIndexed *indexed = CKademlia::GetIndexed();
 
 	// check if we are UDP firewalled
@@ -1188,7 +1191,7 @@ void CKademliaUDPListener::Process2PublishKeyRequest(const uint8_t *packetData,
 
 		CUInt128 target = bio.ReadUInt128();
 
-		Kademlia::CKeyEntry *entry = new Kademlia::CKeyEntry();
+		Kademlia::CKeyEntry *entry = indexed->CreateKeyEntry();
 		try {
 			entry->m_uIP = ip;
 			entry->m_uUDPport = port;
@@ -1324,6 +1327,9 @@ void CKademliaUDPListener::Process2PublishSourceRequest(const uint8_t *packetDat
 	uint16_t port,
 	const CKadUDPKey &senderKey)
 {
+	if (!CKademlia::GetIndexed()->IsReady()) {
+		return;
+	}
 	CIndexed *indexed = CKademlia::GetIndexed();
 
 	// check if we are UDP firewalled
@@ -1518,6 +1524,9 @@ void CKademliaUDPListener::Process2PublishNotesRequest(const uint8_t *packetData
 	uint16_t port,
 	const CKadUDPKey &senderKey)
 {
+	if (!CKademlia::GetIndexed()->IsReady()) {
+		return;
+	}
 	// check if we are UDP firewalled
 	if (CUDPFirewallTester::IsFirewalledUDP(true)) {
 		// We are firewalled. We should not index this entry and give publisher a false report.
