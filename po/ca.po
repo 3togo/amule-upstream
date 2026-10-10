@@ -417,7 +417,7 @@ msgstr "AVÍS: no s'ha pogut vincular a la interfície de xarxa «%s»; el tràn
 msgid "Your locale has been changed to System Default due to a configuration change. Sorry."
 msgstr "S'ha establert l'idioma Predeterminat del Sistema a causa d'un canvi de configuració. Disculpeu."
 
-#: src/amule.cpp src/CatDialog.cpp src/ServerList.cpp src/ServerListCtrl.cpp
+#: src/amule.cpp src/CatDialog.cpp src/ServerListCtrl.cpp
 msgid "Info"
 msgstr "Informació"
 
@@ -2365,6 +2365,10 @@ msgstr "No s'ha afegit el servidor"
 #, c-format
 msgid "server not found: %s"
 msgstr "no s'ha trobat el servidor: %s"
+
+#: src/ExternalConn.cpp
+msgid "You are connected to the server you are trying to delete. please disconnect first."
+msgstr "Esteu connectat al servidor què intenteu eliminar. Si us plau, primer desconnecteu-vos."
 
 #: src/ExternalConn.cpp
 msgid "need to define server to be removed"
@@ -6880,7 +6884,8 @@ msgstr "Ordre de la IGU:"
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
 "Core commands must be configured in the daemon's amule.conf.\n"
-"Only the chat event supports GUI commands with a remote core."
+"Chat and observed download completions support GUI commands with a remote core.\n"
+"Already completed downloads do not run commands at first sync or reconnect."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -7285,6 +7290,14 @@ msgid "Server.met file corrupt, found invalid versiontag: 0x%x, size %i"
 msgstr "Fitxer server.met corrupte, s'ha trobat una etiqueta de versió invàlida: 0x%x, mida %i"
 
 #: src/ServerList.cpp
+msgid "Error: the file 'server.met' is corrupted: "
+msgstr "Error: el fitxer 'server.met' està corrupte: "
+
+#: src/ServerList.cpp
+msgid "IO error while reading 'server.met': "
+msgstr "Error d'E/S mentre es llegia el fitxer 'server.met': "
+
+#: src/ServerList.cpp
 #, c-format
 msgid "%i server in server.met found"
 msgid_plural "%i servers in server.met found"
@@ -7297,14 +7310,6 @@ msgid "%d server added"
 msgid_plural "%d servers added"
 msgstr[0] "%d servidor afegit"
 msgstr[1] "%d servidors afegits"
-
-#: src/ServerList.cpp
-msgid "Error: the file 'server.met' is corrupted: "
-msgstr "Error: el fitxer 'server.met' està corrupte: "
-
-#: src/ServerList.cpp
-msgid "IO error while reading 'server.met': "
-msgstr "Error d'E/S mentre es llegia el fitxer 'server.met': "
 
 #: src/ServerList.cpp
 #, c-format
@@ -7325,10 +7330,6 @@ msgstr "No s'ha afegit el servidor: S'ha trobat un servidor amb IP:Port [%s:%d] 
 #, c-format
 msgid "Server added: Server at [%s:%d] using the name '%s'."
 msgstr "S'ha afegit un Servidor: [%s:%d] s'està usant el nom '%s'."
-
-#: src/ServerList.cpp
-msgid "You are connected to the server you are trying to delete. please disconnect first."
-msgstr "Esteu connectat al servidor què intenteu eliminar. Si us plau, primer desconnecteu-vos."
 
 #: src/ServerList.cpp
 #, c-format
@@ -9005,7 +9006,8 @@ msgid "Download completed"
 msgstr "Descàrrega completada"
 
 #: src/UserEvents.h
-msgid "The full path to the file."
+#, fuzzy
+msgid "The full path to the file (empty in remote GUI mode)."
 msgstr "La ruta completa al fitxer."
 
 #: src/UserEvents.h
@@ -9043,6 +9045,10 @@ msgstr "Partició de disc."
 #: src/UserEvents.h
 msgid "Error on completion"
 msgstr "Error completant"
+
+#: src/UserEvents.h
+msgid "The full path to the file."
+msgstr "La ruta completa al fitxer."
 
 #: src/utils/aLinkCreator/src/alcc.cpp
 #, c-format
@@ -9760,6 +9766,24 @@ msgstr "Sembla que l'aMule s'està executant. Tanqueu-lo i torneu a executar el 
 #: packaging/windows/installer_strings.c
 msgid "Removing user data at $APPDATA\\aMule..."
 msgstr "S'estan eliminant les dades d'usuari a $APPDATA\\aMule..."
+
+#: src/kademlia/kademlia/Indexed.cpp
+#, c-format
+msgid "Kad could not read %s. It was renamed to %s.bad, and a new index will be saved at shutdown."
+msgstr ""
+
+#: src/kademlia/kademlia/Indexed.cpp
+#, c-format
+msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgstr ""
+
+#: src/kademlia/kademlia/Indexed.cpp
+msgid "Kad could not load its saved index. Existing index files were preserved."
+msgstr ""
+
+#: src/kademlia/kademlia/Indexed.cpp
+msgid "Kad could not save an index. The previous copy of that file was preserved."
+msgstr ""
 
 #, c-format
 #~ msgid "Failed to load country data for '%s'."

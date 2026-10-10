@@ -381,7 +381,7 @@ msgstr ""
 msgid "Your locale has been changed to System Default due to a configuration change. Sorry."
 msgstr ""
 
-#: src/amule.cpp src/CatDialog.cpp src/ServerList.cpp src/ServerListCtrl.cpp
+#: src/amule.cpp src/CatDialog.cpp src/ServerListCtrl.cpp
 msgid "Info"
 msgstr "Info"
 
@@ -2352,6 +2352,10 @@ msgstr ""
 #: src/ExternalConn.cpp
 #, c-format
 msgid "server not found: %s"
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "You are connected to the server you are trying to delete. please disconnect first."
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -6883,7 +6887,8 @@ msgstr ""
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
 "Core commands must be configured in the daemon's amule.conf.\n"
-"Only the chat event supports GUI commands with a remote core."
+"Chat and observed download completions support GUI commands with a remote core.\n"
+"Already completed downloads do not run commands at first sync or reconnect."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -7297,6 +7302,16 @@ msgid "Server.met file corrupt, found invalid versiontag: 0x%x, size %i"
 msgstr ""
 
 #: src/ServerList.cpp
+#, fuzzy
+msgid "Error: the file 'server.met' is corrupted: "
+msgstr "Greska: fajl server.met je koruptan"
+
+#: src/ServerList.cpp
+#, fuzzy
+msgid "IO error while reading 'server.met': "
+msgstr "Neocekivana fajl greska prilikom pisanja %s : %s"
+
+#: src/ServerList.cpp
 #, fuzzy, c-format
 msgid "%i server in server.met found"
 msgid_plural "%i servers in server.met found"
@@ -7311,16 +7326,6 @@ msgid_plural "%d servers added"
 msgstr[0] "%d servera dodato"
 msgstr[1] "%d servera dodato"
 msgstr[2] ""
-
-#: src/ServerList.cpp
-#, fuzzy
-msgid "Error: the file 'server.met' is corrupted: "
-msgstr "Greska: fajl server.met je koruptan"
-
-#: src/ServerList.cpp
-#, fuzzy
-msgid "IO error while reading 'server.met': "
-msgstr "Neocekivana fajl greska prilikom pisanja %s : %s"
 
 #: src/ServerList.cpp
 #, c-format
@@ -7340,10 +7345,6 @@ msgstr ""
 #: src/ServerList.cpp
 #, c-format
 msgid "Server added: Server at [%s:%d] using the name '%s'."
-msgstr ""
-
-#: src/ServerList.cpp
-msgid "You are connected to the server you are trying to delete. please disconnect first."
 msgstr ""
 
 #: src/ServerList.cpp
@@ -9006,7 +9007,7 @@ msgid "Download completed"
 msgstr ""
 
 #: src/UserEvents.h
-msgid "The full path to the file."
+msgid "The full path to the file (empty in remote GUI mode)."
 msgstr ""
 
 #: src/UserEvents.h
@@ -9043,6 +9044,10 @@ msgstr ""
 
 #: src/UserEvents.h
 msgid "Error on completion"
+msgstr ""
+
+#: src/UserEvents.h
+msgid "The full path to the file."
 msgstr ""
 
 #: src/utils/aLinkCreator/src/alcc.cpp
@@ -9739,6 +9744,24 @@ msgstr ""
 
 #: packaging/windows/installer_strings.c
 msgid "Removing user data at $APPDATA\\aMule..."
+msgstr ""
+
+#: src/kademlia/kademlia/Indexed.cpp
+#, c-format
+msgid "Kad could not read %s. It was renamed to %s.bad, and a new index will be saved at shutdown."
+msgstr ""
+
+#: src/kademlia/kademlia/Indexed.cpp
+#, c-format
+msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgstr ""
+
+#: src/kademlia/kademlia/Indexed.cpp
+msgid "Kad could not load its saved index. Existing index files were preserved."
+msgstr ""
+
+#: src/kademlia/kademlia/Indexed.cpp
+msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
 
 #, fuzzy, c-format

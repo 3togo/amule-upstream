@@ -385,7 +385,7 @@ msgstr "CẢNH BÁO: không thể liên kết với giao diện mạng '%s' - l�
 msgid "Your locale has been changed to System Default due to a configuration change. Sorry."
 msgstr "Ngôn ngữ của bạn đã được đổi về Mặc định Hệ thống do thay đổi cấu hình. Xin lỗi."
 
-#: src/amule.cpp src/CatDialog.cpp src/ServerList.cpp src/ServerListCtrl.cpp
+#: src/amule.cpp src/CatDialog.cpp src/ServerListCtrl.cpp
 msgid "Info"
 msgstr "Thông tin"
 
@@ -2322,6 +2322,10 @@ msgstr "Chưa thêm máy chủ"
 #, c-format
 msgid "server not found: %s"
 msgstr "không tìm thấy máy chủ: %s"
+
+#: src/ExternalConn.cpp
+msgid "You are connected to the server you are trying to delete. please disconnect first."
+msgstr "Bạn đang được kết nối với máy chủ mà bạn đang cố xóa. Vui lòng ngắt kết nối trước."
 
 #: src/ExternalConn.cpp
 msgid "need to define server to be removed"
@@ -6808,7 +6812,8 @@ msgstr "Lệnh GUI:"
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
 "Core commands must be configured in the daemon's amule.conf.\n"
-"Only the chat event supports GUI commands with a remote core."
+"Chat and observed download completions support GUI commands with a remote core.\n"
+"Already completed downloads do not run commands at first sync or reconnect."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -7214,6 +7219,14 @@ msgid "Server.met file corrupt, found invalid versiontag: 0x%x, size %i"
 msgstr "Tệp server.met bị hỏng, tìm thấy versiontag không hợp lệ: 0x%x, kích thước %i"
 
 #: src/ServerList.cpp
+msgid "Error: the file 'server.met' is corrupted: "
+msgstr "Lỗi: tệp 'server.met' bị hỏng: "
+
+#: src/ServerList.cpp
+msgid "IO error while reading 'server.met': "
+msgstr "Lỗi IO khi đọc 'server.met': "
+
+#: src/ServerList.cpp
 #, c-format
 msgid "%i server in server.met found"
 msgid_plural "%i servers in server.met found"
@@ -7224,14 +7237,6 @@ msgstr[0] "Tìm thấy %i máy chủ trong server.met"
 msgid "%d server added"
 msgid_plural "%d servers added"
 msgstr[0] "Đã thêm %d máy chủ"
-
-#: src/ServerList.cpp
-msgid "Error: the file 'server.met' is corrupted: "
-msgstr "Lỗi: tệp 'server.met' bị hỏng: "
-
-#: src/ServerList.cpp
-msgid "IO error while reading 'server.met': "
-msgstr "Lỗi IO khi đọc 'server.met': "
 
 #: src/ServerList.cpp
 #, c-format
@@ -7252,10 +7257,6 @@ msgstr "Không thêm máy chủ: Đã tìm thấy máy chủ có IP:Port trùng 
 #, c-format
 msgid "Server added: Server at [%s:%d] using the name '%s'."
 msgstr "Đã thêm máy chủ: Máy chủ tại [%s:%d] sử dụng tên '%s'."
-
-#: src/ServerList.cpp
-msgid "You are connected to the server you are trying to delete. please disconnect first."
-msgstr "Bạn đang được kết nối với máy chủ mà bạn đang cố xóa. Vui lòng ngắt kết nối trước."
 
 #: src/ServerList.cpp
 #, c-format
@@ -8915,7 +8916,8 @@ msgid "Download completed"
 msgstr "Tải xuống hoàn tất"
 
 #: src/UserEvents.h
-msgid "The full path to the file."
+#, fuzzy
+msgid "The full path to the file (empty in remote GUI mode)."
 msgstr "Đường dẫn đầy đủ đến tệp."
 
 #: src/UserEvents.h
@@ -8953,6 +8955,10 @@ msgstr "Phân vùng đĩa."
 #: src/UserEvents.h
 msgid "Error on completion"
 msgstr "Lỗi khi hoàn tất"
+
+#: src/UserEvents.h
+msgid "The full path to the file."
+msgstr "Đường dẫn đầy đủ đến tệp."
 
 #: src/utils/aLinkCreator/src/alcc.cpp
 #, c-format
@@ -9664,6 +9670,24 @@ msgstr "aMule dường như đang chạy. Vui lòng đóng nó và chạy lại 
 #: packaging/windows/installer_strings.c
 msgid "Removing user data at $APPDATA\\aMule..."
 msgstr "Đang xóa dữ liệu người dùng tại $APPDATA\\aMule..."
+
+#: src/kademlia/kademlia/Indexed.cpp
+#, c-format
+msgid "Kad could not read %s. It was renamed to %s.bad, and a new index will be saved at shutdown."
+msgstr ""
+
+#: src/kademlia/kademlia/Indexed.cpp
+#, c-format
+msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgstr ""
+
+#: src/kademlia/kademlia/Indexed.cpp
+msgid "Kad could not load its saved index. Existing index files were preserved."
+msgstr ""
+
+#: src/kademlia/kademlia/Indexed.cpp
+msgid "Kad could not save an index. The previous copy of that file was preserved."
+msgstr ""
 
 #, c-format
 #~ msgid "Failed to load country data for '%s'."

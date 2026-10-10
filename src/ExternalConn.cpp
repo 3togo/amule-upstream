@@ -1497,9 +1497,8 @@ static CECPacket *Get_EC_Response_StatRequest(const CECPacket *request, CLoggerA
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_NODES, CStatistics::GetKadNodes()));
 		}
 		// Kad stats
-		if (Kademlia::CKademlia::IsConnected()) {
-			response->AddTag(CECTag(EC_TAG_STATS_KAD_FIREWALLED_UDP,
-				Kademlia::CUDPFirewallTester::IsFirewalledUDP(true)));
+		// Index ownership is local: report the adopted snapshot even before bootstrap.
+		if (Kademlia::CKademlia::IsRunning()) {
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_INDEXED_SOURCES,
 				Kademlia::CKademlia::GetIndexed()->m_totalIndexSource));
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_INDEXED_KEYWORDS,
@@ -1508,6 +1507,10 @@ static CECPacket *Get_EC_Response_StatRequest(const CECPacket *request, CLoggerA
 				Kademlia::CKademlia::GetIndexed()->m_totalIndexNotes));
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_INDEXED_LOAD,
 				Kademlia::CKademlia::GetIndexed()->m_totalIndexLoad));
+		}
+		if (Kademlia::CKademlia::IsConnected()) {
+			response->AddTag(CECTag(EC_TAG_STATS_KAD_FIREWALLED_UDP,
+				Kademlia::CUDPFirewallTester::IsFirewalledUDP(true)));
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_IP_ADDRESS,
 				wxUINT32_SWAP_ALWAYS(Kademlia::CKademlia::GetPrefs()->GetIPAddress())));
 			response->AddTag(CECTag(
@@ -2320,9 +2323,14 @@ static CECPacket *Get_EC_Response_Server(const CECPacket *request)
 		response = new CECPacket(EC_OP_NOOP);
 		break;
 	case EC_OP_SERVER_REMOVE:
-		if (srv) {
-			theApp->serverlist->RemoveServer(srv);
+		if (srv && theApp->serverlist->RemoveServer(srv, true)) {
 			response = new CECPacket(EC_OP_NOOP);
+		} else if (srv) {
+			response = new CECPacket(EC_OP_FAILED);
+			response->AddTag(CECTag(EC_TAG_STRING,
+				wxTRANSLATE(
+					"You are connected to the server you are trying to delete. please "
+					"disconnect first.")));
 		} else {
 			response = new CECPacket(EC_OP_FAILED);
 			response->AddTag(
