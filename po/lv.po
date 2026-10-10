@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: aMule GIT\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-10 10:32-0400\n"
-"PO-Revision-Date: 2026-10-07 16:32+0000\n"
+"PO-Revision-Date: 2026-10-10 14:47+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: none\n"
 "Language: lv\n"
@@ -3268,8 +3268,9 @@ msgstr "Neizdevās ielādēt ipfilter.dat datni '%s', neizdevās atvērt datni."
 #, c-format
 msgid "Loaded %u IP-range from '%s'."
 msgid_plural "Loaded %u IP-ranges from '%s'."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Ielādēti %u IP adrešu diapazoni no '%s'."
+msgstr[1] "Ielādēts %u IP adrešu diapazons no '%s'."
+msgstr[2] "Ielādēti %u IP adrešu diapazoni no '%s'."
 
 #: src/IPFilter.cpp
 #, c-format
@@ -3425,9 +3426,8 @@ msgid "Lookup %s (%s, %s): %u peers, %u overdue routing requests, %u omitted pee
 msgstr ""
 
 #: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "active lookup"
-msgstr "Aktīvs"
+msgstr ""
 
 #: src/KadLookupView.h src/kademlia/utils/LookupDiagnostics.cpp
 #, fuzzy
@@ -3850,7 +3850,7 @@ msgstr "Asio pavediens %d palaists"
 
 #: src/ListenSocket.cpp
 msgid "ListenSocket: Ok."
-msgstr "ListenSocket: OK."
+msgstr "Klausīšanās ligzda: Viss kārtībā."
 
 #: src/ListenSocket.cpp
 msgid "ERROR: Could not listen to TCP port."
@@ -5218,7 +5218,7 @@ msgstr "Grafiki"
 
 #: src/muuli_wdr.cpp
 msgid "Update delay : 5 secs"
-msgstr "Atjaunināšanas aizture : 5 sek."
+msgstr "Atjaunināšanas intervāls : 5 sek."
 
 #: src/muuli_wdr.cpp
 msgid "Time for average graph: 100 mins"
@@ -6952,8 +6952,9 @@ msgstr "Statuss: nav atrasts - noklikšķiniet uz 'Atjaunināt tagad', lai lejup
 #, c-format
 msgid "Update delay: %d second"
 msgid_plural "Update delay: %d seconds"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Atjaunināšanas intervāls: %d sekundes"
+msgstr[1] "Atjaunināšanas intervāls: %d sekunde"
+msgstr[2] "Atjaunināšanas intervāls: %d sekundes"
 
 #: src/PrefsUnifiedDlg.cpp
 #, c-format
@@ -7294,14 +7295,14 @@ msgid "Estimated availability: %u"
 msgstr ""
 
 #: src/SearchSourceFormat.h
-#, fuzzy, c-format
+#, c-format
 msgid "eD2k sources: %u"
-msgstr "Datnes avoti:"
+msgstr "eD2k avoti: %u"
 
 #: src/SearchSourceFormat.h
-#, fuzzy, c-format
+#, c-format
 msgid "Kad sources: %u"
-msgstr "Atrastie avoti: %s"
+msgstr "Kad avoti: %u"
 
 #: src/SearchSourceFormat.h
 msgid "Network counts may overlap; they are not added together."
@@ -7365,9 +7366,9 @@ msgid "Obfuscated connection established on: %s (%s:%i)"
 msgstr "Savienojums izveidots: %s"
 
 #: src/ServerConnect.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Connection established on: %s (%s:%i)"
-msgstr "Savienojums izveidots: %s"
+msgstr "Savienojums izveidots: %s (%s:%i)"
 
 #: src/ServerConnect.cpp
 msgid "Fatal Error while trying to connect. Internet connection might be down"
