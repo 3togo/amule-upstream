@@ -175,6 +175,8 @@ void CKademlia::Process()
 		return;
 	}
 
+	instance->m_indexed->ProcessIndexLoad();
+
 	time_t now = time(NULL);
 	uint32_t maxUsers = 0;
 	uint32_t tempUsers = 0;
