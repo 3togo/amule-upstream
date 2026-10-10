@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 aMule Team
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Controlled interoperability with the published ed2k-server v0.9.79 binary.
+"""Controlled interoperability with the published ed2k-server v0.9.80 binary.
 
 Never connects to a public server. Checks the server's source index via its
 loopback admin API, and records the actual client frames through a local relay.
@@ -63,6 +63,7 @@ class Relay:
         self.plain = plain
         self.coalesce = coalesce
         self.offers = []
+        self.logins = []
         self.sockets = []
         self.errors = []
         threading.Thread(target=self.accept, daemon=True).start()
@@ -86,6 +87,12 @@ class Relay:
                 protocol, length = struct.unpack('<BI', header)
                 assert 0 < length <= 1_000_000, length
                 body = exact(source, length)
+                if outgoing and body[0] == 0x01:  # OP_LOGINREQUEST
+                    payload = body[1:]
+                    assert len(payload) >= 26
+                    count = struct.unpack_from('<I', payload, 22)[0]
+                    request = b'\x03\x0c\x00offerfiles_v\x01\x00\x00\x00'
+                    self.logins.append((count, payload.endswith(request)))
                 if outgoing and body[0] == 0x15:  # OP_OFFERFILES
                     payload = zlib.decompress(body[1:]) if protocol == 0xd4 else body[1:]
                     count = struct.unpack_from('<I', payload)[0]
@@ -282,6 +289,9 @@ level="info"
         indexed_at = time.monotonic()
         stats = json_get(admin, 'stats')
         assert not relay.errors, relay.errors
+        assert relay.logins and all(
+            login == ((5, True) if client_enabled else (4, False))
+            for login in relay.logins), relay.logins
         assert all(0 < n <= 200 and n < 201 for _, n, _ in relay.offers), relay.offers
         if capable:
             assert stats['offer_v1']['oversized'] == 0, stats

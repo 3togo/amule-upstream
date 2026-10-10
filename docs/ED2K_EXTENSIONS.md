@@ -10,11 +10,11 @@ For controlled testing with a compatible server, enable **Advanced → Experimen
 `ExperimentalED2KPublication=1` in the `[eMule]` section of `amule.conf`; the remote
 GUI does not configure this option. Resetting Advanced preferences disables it.
 
-The setting permits acceleration only after a valid v1 advertisement on the
-current connection. Missing, malformed or repeated advertisements retain legacy
-pacing. Disabling the setting restores the existing batch heuristic (at most 200
-records) and one-minute pacing. No server identity or manual rate override enables
-acceleration.
+When enabled, the client requests v1 in its login and permits acceleration only
+after a valid v1 advertisement on the current connection. Missing, malformed or
+repeated advertisements retain legacy pacing. Disabling the setting omits the
+request and restores the existing batch heuristic (at most 200 records) and
+one-minute pacing. No server identity or manual rate override enables acceleration.
 
 Negotiated publication runs on each monotonic core timer tick (100 ms in the GUI and
 300 ms in the daemon), separately from the one-second shared-file maintenance
@@ -28,8 +28,8 @@ skipped during accelerated publication; the soft budget is not replenished by
 removing local files. Live nonzero soft/hard limits can further restrict the
 advertised snapshot. Negotiated pacing is never persisted in `server.met`.
 
-The contract was confirmed by the companion server maintainer in
-[ed2k-server #19](https://github.com/andrey23127/ed2k-server/issues/19#issuecomment-5930455238).
+The contract was confirmed and later amended by the companion server maintainer in
+[ed2k-server #19](https://github.com/andrey23127/ed2k-server/issues/19#issuecomment-6096942323).
 The implementation request and reusable-conventions discussion are in
 [aMule #1699](https://github.com/amule-org/amule/issues/1699).
 
@@ -52,7 +52,15 @@ The implementation request and reusable-conventions discussion are in
   accepted by the indexer. A compliant packet must not be silently discarded
   merely because the server is busy; the agreed server behavior is backpressure.
 
-## Advertisement
+## Request and advertisement
+
+With the experimental setting enabled, `OP_LOGINREQUEST` contains one additional
+tag, `offerfiles_v = 1`, after the four standard login tags. It is a string-named
+uint32 tag: type `0x03`, a uint16 name length, the case-sensitive name, and a
+uint32 value. The login tag count is five. With the setting disabled, the tag
+count remains four and the request is absent. A server that does not understand
+this tag ignores it. A v1 server advertises and applies its policy only to a
+client that asked; absence of an advertisement keeps this client at legacy pace.
 
 One post-login `OP_SERVERIDENT` packet carries each field exactly once:
 
@@ -81,9 +89,10 @@ ceilings, not a production load recommendation.
 Controlled interoperability tests use the companion server implementation,
 including coalesced TCP frames, disconnects, overload backpressure, concurrent
 publishers, and reconnect waves. The published companion implementation is
-[ed2k-server v0.9.79](https://github.com/andrey23127/ed2k-server/tree/v0.9.79),
-commit `eb2cc91c7be18da76f9173c3f7e31941466a370a`. Its source includes the
-advertisement, snapshot, pacing and overload acceptance tests from issue #19.
+[ed2k-server 0.9.80 source](https://github.com/andrey23127/ed2k-server/tree/ea88f175f12765d2afb4734c6b3a5924bdb7b37a),
+commit `ea88f175f12765d2afb4734c6b3a5924bdb7b37a`.
+Its source includes the opt-in request, advertisement, snapshot, pacing and
+overload acceptance tests from issue #19.
 This opt-in and controlled local measurements do not establish production
 readiness. Acknowledgements, automatic retries after indexing
 failures, and dynamic policy renegotiation remain separate extensions.
