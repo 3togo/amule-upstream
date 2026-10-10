@@ -2845,7 +2845,7 @@ item9->SetName("kadScope");
     item0->Add( item2, wxSizerFlags(3).Expand() );
 
     CKadContactHistogram *histogram = new CKadContactHistogram(parent);
-    item0->Add(histogram, wxSizerFlags(2).Expand().Border(wxALL, parent->FromDIP(5)));
+    item0->Add(histogram, wxSizerFlags().Expand().Border(wxALL, parent->FromDIP(5)));
 
     // Bootstrap-from-node row, full width below the graph -- mirrors serverListDlgUp's "Add server
     // manually" row: a single IP field, not eD2k's four-octet split, plus a port field and the

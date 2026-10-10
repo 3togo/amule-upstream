@@ -29,6 +29,7 @@
 #include <wx/dcclient.h>
 #include <wx/intl.h>
 #include <wx/textwrapper.h>
+#include <wx/sizer.h>
 #include <vector>
 #include <algorithm>
 #include <utility>
@@ -137,6 +138,17 @@ private:
 	}
 	void UpdateMinimumSize()
 	{
+		bool layoutChanged = false;
+		if (auto *sizer = GetContainingSizer()) {
+			if (auto *item = sizer->GetItem(this)) {
+				const int proportion =
+					m_state == Kademlia::ContactDistributionState::Available ? 2 : 0;
+				if (item->GetProportion() != proportion) {
+					item->SetProportion(proportion);
+					layoutChanged = true;
+				}
+			}
+		}
 		wxClientDC dc(this);
 		dc.SetFont(GetFont());
 		int minimumWidth = FromDIP(200);
@@ -158,11 +170,12 @@ private:
 		const wxSize minimum(minimumWidth, height);
 		if (minimum != GetMinSize()) {
 			SetMinSize(minimum);
-			// Re-layout once the current resize/DPI event finishes. A changed height
-			// must not recursively resize the parent during its own sizer pass.
-			if (GetParent()) {
-				GetParent()->CallAfter([parent = GetParent()] { parent->Layout(); });
-			}
+			layoutChanged = true;
+		}
+		// Re-layout once the current resize/DPI event finishes. A changed size
+		// or proportion must not recursively resize the parent in its sizer pass.
+		if (layoutChanged && GetParent()) {
+			GetParent()->CallAfter([parent = GetParent()] { parent->Layout(); });
 		}
 	}
 	void Paint(wxPaintEvent &)

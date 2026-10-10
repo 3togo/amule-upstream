@@ -202,11 +202,16 @@ static void VerifyRendering()
 	auto *layout = new wxBoxSizer(wxVERTICAL);
 	wxPanel graph(&frame);
 	layout->Add(&graph, 3, wxEXPAND);
-	layout->Add(&panel, 2, wxEXPAND);
+	layout->Add(&panel, 0, wxEXPAND);
 	frame.SetSizer(layout);
 	frame.SetClientSize(wxSize(std::max(panel.FromDIP(260), panel.GetMinSize().x), panel.FromDIP(1200)));
+	panel.SetDistribution({}, Kademlia::ContactDistributionState::Loading);
+	Check(layout->GetItem(&panel)->GetProportion() == 0,
+		"Loading chart still takes a proportional share of the Kad pane");
 	frame.Layout();
 	panel.SetDistribution(populated, Kademlia::ContactDistributionState::Available);
+	Check(layout->GetItem(&panel)->GetProportion() == 2,
+		"Available chart does not share the Kad pane with the graph");
 	wxTheApp->ProcessPendingEvents();
 	frame.Layout();
 	KadHistogramTestAccess::CheckSummaryFits(panel);
@@ -232,11 +237,18 @@ static void VerifyRendering()
 	// Degenerate widths and heights must clip safely rather than divide by zero.
 	KadHistogramTestAccess::Render(panel, wxSize(20, 20));
 	panel.SetDistribution(populated, Kademlia::ContactDistributionState::Unsupported);
+	wxTheApp->ProcessPendingEvents();
+	frame.Layout();
+	Check(layout->GetItem(&panel)->GetProportion() == 0,
+		"Unsupported chart still takes a proportional share of the Kad pane");
+	Check(panel.GetSize().y == panel.GetMinSize().y, "Unsupported chart uses more than its text height");
 	Check(panel.GetMinSize().y < panel.FromDIP(80),
 		"Unsupported state keeps an unnecessary plot minimum");
 	auto unavailable = KadHistogramTestAccess::Render(panel, wxSize(240, 240));
 	Check(Pixels(unavailable, wxColour(70, 130, 210)) == 0, "Unavailable data displays stale bars");
 	panel.SetDistribution(populated, Kademlia::ContactDistributionState::Invalid);
+	Check(layout->GetItem(&panel)->GetProportion() == 0,
+		"Invalid chart still takes a proportional share of the Kad pane");
 	Check(Pixels(KadHistogramTestAccess::Render(panel, wxSize(240, 240)), wxColour(70, 130, 210)) == 0,
 		"Invalid data displays stale bars");
 	panel.SetDistribution({}, Kademlia::ContactDistributionState::Available);
