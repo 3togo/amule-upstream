@@ -38,6 +38,7 @@ Any mod that changes anything within the Kademlia side will not be allowed to ad
 there client on the eMule forum..
 */
 
+#include "../../KadCallbackPolicy.h"
 #include "Search.h"
 #include "../../GetTickCount.h"
 
@@ -783,9 +784,12 @@ void CSearch::StorePacket()
 
 			bool directCallback = false;
 			if (theApp->IsFirewalled()) {
+				const bool udpFirewalled =
+					Kademlia::CUDPFirewallTester::IsFirewalledUDP(true);
 				directCallback = (Kademlia::CKademlia::IsRunning() &&
-						  !Kademlia::CUDPFirewallTester::IsFirewalledUDP(true) &&
-						  Kademlia::CUDPFirewallTester::IsVerified());
+						  Kademlia::DirectCallbackAvailable(theApp->IsFirewalled(),
+							  udpFirewalled,
+							  Kademlia::CUDPFirewallTester::IsVerified()));
 				if (directCallback) {
 					// firewalled, but direct udp callback is possible so no need for
 					// buddies We are not firewalled..
@@ -826,7 +830,8 @@ void CSearch::StorePacket()
 							new CTagVarInt(TAG_FILESIZE, file->GetFileSize()));
 					}
 				} else {
-					// We are firewalled, but lost our buddy.. Stop everything.
+					// No callback route remains. Let the next shared-file pass retry.
+					file->SetLastPublishTimeKadSrc(0, 0);
 					PrepareToStop();
 					break;
 				}

@@ -388,7 +388,7 @@ msgstr "警告：ネットワークインターフェイス '%s' にバインド
 msgid "Your locale has been changed to System Default due to a configuration change. Sorry."
 msgstr "申し訳ありませんが、設定の変更を行ったため、あなたのロケールはシステム標準に変更されました。"
 
-#: src/amule.cpp src/CatDialog.cpp src/ServerList.cpp src/ServerListCtrl.cpp
+#: src/amule.cpp src/CatDialog.cpp src/ServerListCtrl.cpp
 msgid "Info"
 msgstr "情報"
 
@@ -2344,6 +2344,10 @@ msgstr "サーバは追加しませんでした"
 #, c-format
 msgid "server not found: %s"
 msgstr "サーバは見付かりませんでした： %s"
+
+#: src/ExternalConn.cpp
+msgid "You are connected to the server you are trying to delete. please disconnect first."
+msgstr "削除しようとするサーバには現在接続しています。先に切断を行ってください。"
 
 #: src/ExternalConn.cpp
 msgid "need to define server to be removed"
@@ -6982,7 +6986,8 @@ msgstr "GUIコマンド："
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
 "Core commands must be configured in the daemon's amule.conf.\n"
-"Only the chat event supports GUI commands with a remote core."
+"Chat and observed download completions support GUI commands with a remote core.\n"
+"Already completed downloads do not run commands at first sync or reconnect."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -7397,6 +7402,14 @@ msgid "Server.met file corrupt, found invalid versiontag: 0x%x, size %i"
 msgstr "server.metファイルは破損しています。不正なバージョン・タグが見つかりました：0x%x、サイズ %i"
 
 #: src/ServerList.cpp
+msgid "Error: the file 'server.met' is corrupted: "
+msgstr "エラー：ファイル 'server.met' が破損しています： "
+
+#: src/ServerList.cpp
+msgid "IO error while reading 'server.met': "
+msgstr "'server.met' の読み込み中に IO エラーが発生しました： "
+
+#: src/ServerList.cpp
 #, c-format
 msgid "%i server in server.met found"
 msgid_plural "%i servers in server.met found"
@@ -7407,14 +7420,6 @@ msgstr[0] "server.metに%i個のサーバが見つかりました"
 msgid "%d server added"
 msgid_plural "%d servers added"
 msgstr[0] "%d個のサーバが追加されました"
-
-#: src/ServerList.cpp
-msgid "Error: the file 'server.met' is corrupted: "
-msgstr "エラー：ファイル 'server.met' が破損しています： "
-
-#: src/ServerList.cpp
-msgid "IO error while reading 'server.met': "
-msgstr "'server.met' の読み込み中に IO エラーが発生しました： "
 
 #: src/ServerList.cpp
 #, c-format
@@ -7435,10 +7440,6 @@ msgstr "サーバは追加されていません：同じ[%s:%d]のIP:ポート�
 #, c-format
 msgid "Server added: Server at [%s:%d] using the name '%s'."
 msgstr "サーバは追加されました：[%s:%d]は'%s'という名前を使用しています。"
-
-#: src/ServerList.cpp
-msgid "You are connected to the server you are trying to delete. please disconnect first."
-msgstr "削除しようとするサーバには現在接続しています。先に切断を行ってください。"
 
 #: src/ServerList.cpp
 #, c-format
@@ -9106,7 +9107,8 @@ msgid "Download completed"
 msgstr "ダウンロード完了"
 
 #: src/UserEvents.h
-msgid "The full path to the file."
+#, fuzzy
+msgid "The full path to the file (empty in remote GUI mode)."
 msgstr "ファイルのフルパス。"
 
 #: src/UserEvents.h
@@ -9144,6 +9146,10 @@ msgstr "ディスク・パーティション。"
 #: src/UserEvents.h
 msgid "Error on completion"
 msgstr "完了中にエラー"
+
+#: src/UserEvents.h
+msgid "The full path to the file."
+msgstr "ファイルのフルパス。"
 
 #: src/utils/aLinkCreator/src/alcc.cpp
 #, c-format

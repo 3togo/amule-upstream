@@ -57,6 +57,14 @@ enum
 	MULE_SOCKET_LOST
 };
 
+// Which address families a listening socket binds for. Scoped so a string literal passed for the
+// bind-interface overload of CLibSocketServer cannot convert to it.
+enum class ListenerFamilies
+{
+	FromAddress, // Exactly the family of the given address
+	FromPolicy   // Widen the IPv4 wildcard per AddressFamilyPolicy::Configured()
+};
+
 // Abstraction class for a library TCP socket: either a wxSocket or an ASIO socket.
 
 // Client TCP socket
@@ -200,7 +208,9 @@ private:
 class CLibSocketServer
 {
 public:
-	CLibSocketServer(const amuleIPV4Address &adr, int flags);
+	CLibSocketServer(const amuleIPV4Address &adr,
+		int flags,
+		ListenerFamilies families = ListenerFamilies::FromAddress);
 	// Bind the acceptor to a specific network interface (empty = any), independent of the
 	// global bind-to-interface pin set via SetSocketBindInterface(). Used by the EC listener so
 	// external-control traffic can live on a different interface than ed2k/Kad.
@@ -215,6 +225,9 @@ public:
 	virtual void OnAccept() {}
 
 	bool IsOk() const;
+	// Host the acceptor is actually bound to ("[::]" for IPv6, dotted quad for IPv4, empty when
+	// not listening); a policy-following listener can bind a different family than requested.
+	wxString BoundHost() const;
 	// Replace only the listening acceptor. Existing accepted CLibSocket instances remain
 	// independent and continue their connections.
 	bool Rebind(const amuleIPV4Address &adr);
@@ -234,6 +247,8 @@ private:
 	// shared_ptr for the same reason as CLibSocket::m_aSocket -- pending
 	// async_accept completions must keep the impl alive past wrapper death.
 	std::shared_ptr<class CAsioSocketServerImpl> m_aServer;
+	// Kept here because Rebind() replaces m_aServer.
+	ListenerFamilies m_listenerFamilies;
 };
 
 // UDP socket

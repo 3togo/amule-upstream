@@ -40,6 +40,7 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		SearchList.cpp
 		ServerConnect.cpp
 		ServerList.cpp
+		ServerMet.cpp
 		ServerSocket.cpp
 		ServerUDPSocket.cpp
 		SHAHashSet.cpp
@@ -48,6 +49,7 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		UploadBandwidthThrottler.cpp
 		UploadClient.cpp
 		UploadDiskIOThread.cpp
+		UploadPacketBuilder.cpp
 		UploadQueue.cpp
 		PartFileWriteThread.cpp
 		PartFileHashThread.cpp

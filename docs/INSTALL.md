@@ -164,7 +164,7 @@ These switches are `OFF` by default and compile in unfinished work.
 | Option                            | Effect |
 | --------------------------------- | ------ |
 | `ENABLE_UTP`                      | IPv4 uTP in `amule` and `amuled`: datagram framing, inbound streams, and dialing a peer that advertises uTP |
-| `ENABLE_IPV6`                     | native IPv6 TCP admission. The IPv6 identity work is not complete |
+| `ENABLE_IPV6`                     | native IPv6 TCP admission, and the `AddressFamilies` setting in `amule.conf` (`1` = dual-stack ed2k TCP listener). The IPv6 identity work is not complete |
 | `ENABLE_NATT_SERVER_COORDINATION` | the server-coordinated NAT-T wire codecs. No login advertisement or network traffic yet |
 | `ENABLE_KAD_NODE_PROTECTION`      | local Kad node-protection heuristics: adaptive request timeouts and Kad identity checks. No wire-protocol change |
 | `ENABLE_ALL_EXPERIMENTAL`         | all of the switches above |

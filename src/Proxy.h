@@ -410,7 +410,8 @@ public:
 	/* Constructor */
 	CSocketServerProxy(amuleIPV4Address &address,
 		muleSocketFlags flags = MULE_SOCKET_NONE,
-		const CProxyData *proxyData = NULL);
+		const CProxyData *proxyData = nullptr,
+		ListenerFamilies families = ListenerFamilies::FromAddress);
 
 private:
 	wxMutex m_socketLocker;
