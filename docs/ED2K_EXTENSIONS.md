@@ -12,9 +12,12 @@ GUI does not configure this option. Resetting Advanced preferences disables it.
 
 When enabled, the client requests v1 in its login and permits acceleration only
 after a valid v1 advertisement on the current connection. Missing, malformed or
-repeated advertisements retain legacy pacing. Disabling the setting omits the
-request and restores the existing batch heuristic (at most 200 records) and
-one-minute pacing. No server identity or manual rate override enables acceleration.
+repeated advertisements retain legacy pacing. Disabling the setting before
+login omits the request and uses the existing batch heuristic (at most 200
+records) and one-minute pacing. If disabled during a negotiated session, the
+server still enforces that session's snapshot: aMule keeps its batch and budget
+limits and slows to at least one-minute pacing until reconnect. No server
+identity or manual rate override enables acceleration.
 
 Negotiated publication runs on each monotonic core timer tick (100 ms in the GUI and
 300 ms in the daemon), separately from the one-second shared-file maintenance

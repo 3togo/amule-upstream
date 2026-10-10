@@ -44,6 +44,7 @@ public:
 	uint32_t HardLimit() const { return m_values[4]; }
 	uint32_t BatchLimit(uint32_t alreadyOffered, uint32_t liveSoft = 0, uint32_t liveHard = 0) const;
 	uint32_t IntervalMs() const;
+	uint32_t PublicationIntervalMs(bool accelerated, uint32_t legacyIntervalMs) const;
 
 private:
 	std::array<uint32_t, 5> m_values{};
@@ -74,7 +75,8 @@ private:
 
 // Socket-owned snapshot. Begin before decoding so truncation cannot preserve
 // an earlier policy. Duplicate SERVERIDENT packets invalidate the snapshot.
-// Publication also requires the disabled-by-default experimental preference.
+// A valid snapshot remains binding until disconnect, even if the experimental
+// preference is switched off after the login requested v1.
 class COfferFilesConnectionPolicy
 {
 public:
@@ -83,10 +85,6 @@ public:
 	void Commit(const COfferFilesAdvertisement &advertisement);
 	void Reset() { *this = COfferFilesConnectionPolicy(); }
 	const COfferFilesAdvertisement *Get() const { return m_valid ? &m_snapshot : nullptr; }
-	const COfferFilesAdvertisement *GetForPublication(bool enabled) const
-	{
-		return enabled ? Get() : nullptr;
-	}
 
 private:
 	COfferFilesAdvertisement m_snapshot;

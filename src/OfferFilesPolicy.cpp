@@ -93,6 +93,11 @@ uint32_t COfferFilesAdvertisement::IntervalMs() const
 	return IsValid() ? std::max(m_values[2], uint32_t(500)) : 60000;
 }
 
+uint32_t COfferFilesAdvertisement::PublicationIntervalMs(bool accelerated, uint32_t legacyIntervalMs) const
+{
+	return accelerated ? IntervalMs() : std::max(IntervalMs(), legacyIntervalMs);
+}
+
 bool COfferFilesConnectionPolicy::BeginAdvertisement()
 {
 	const bool first = !m_seen;

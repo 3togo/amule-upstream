@@ -64,6 +64,9 @@ TEST(OfferFilesPolicy, CompleteAdvertisementBoundsBudgetAndRate)
 	ASSERT_EQUALS(uint32(0), policy.BatchLimit(60000));
 	ASSERT_EQUALS(uint32(0), policy.BatchLimit(std::numeric_limits<uint32>::max()));
 	ASSERT_EQUALS(uint32(500), policy.IntervalMs());
+	ASSERT_EQUALS(uint32(500), policy.PublicationIntervalMs(true, 60000));
+	ASSERT_EQUALS(uint32(60000), policy.PublicationIntervalMs(false, 60000));
+	ASSERT_EQUALS(uint32(120000), Valid(9, 11, 10, 120000).PublicationIntervalMs(false, 60000));
 	ASSERT_EQUALS(uint32(200), Valid(60000, 10000, 9999, 1).BatchLimit(0));
 	ASSERT_EQUALS(uint32(500), Valid(60000, 10000, 9999, 1).IntervalMs());
 	ASSERT_EQUALS(uint32(9), Valid(9, 11, 10, 1200).BatchLimit(0));
@@ -287,21 +290,19 @@ TEST(OfferFilesPolicy, LiveLimitsRestrictWithoutExpandingNegotiatedBudget)
 	ASSERT_EQUALS(uint32(0), policy.BatchLimit(0, 300, 1));
 }
 
-TEST(OfferFilesPolicy, OptInRequiresValidSupportOnThisConnection)
+TEST(OfferFilesPolicy, ValidSnapshotStaysBindingUntilDisconnect)
 {
 	COfferFilesConnectionPolicy state;
-	ASSERT_TRUE(state.GetForPublication(true) == nullptr); // Enabled, support unknown.
+	ASSERT_TRUE(state.Get() == nullptr); // Support unknown.
 	ASSERT_TRUE(state.BeginAdvertisement());
 	state.Commit(COfferFilesAdvertisement()); // Legacy or incomplete advertisement.
-	ASSERT_TRUE(state.GetForPublication(true) == nullptr);
+	ASSERT_TRUE(state.Get() == nullptr);
 	state.Reset();
 	ASSERT_TRUE(state.BeginAdvertisement());
 	state.Commit(Valid());
-	ASSERT_TRUE(state.GetForPublication(false) == nullptr); // Supported, option disabled.
-	ASSERT_TRUE(state.GetForPublication(true) != nullptr);  // Both conditions satisfied.
-	ASSERT_TRUE(state.GetForPublication(false) == nullptr); // Turning off takes effect immediately.
+	ASSERT_TRUE(state.Get() != nullptr); // Turning acceleration off cannot relax server limits.
 	state.RejectAdvertisement();
-	ASSERT_TRUE(state.GetForPublication(true) == nullptr); // Broken renegotiation cannot activate.
+	ASSERT_TRUE(state.Get() == nullptr); // Broken renegotiation cannot activate.
 	state.Reset();
-	ASSERT_TRUE(state.GetForPublication(true) == nullptr); // Support cannot carry to a new socket.
+	ASSERT_TRUE(state.Get() == nullptr); // Support cannot carry to a new socket.
 }

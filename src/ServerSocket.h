@@ -71,9 +71,9 @@ public:
 	CServer *GetServerConnected() const { return serverconnect->GetCurrentServer(); }
 
 	uint32 GetServerIP() const;
-	const COfferFilesAdvertisement *GetOfferFilesAdvertisement(bool enabled) const
+	const COfferFilesAdvertisement *GetOfferFilesAdvertisement() const
 	{
-		return m_offerFilesPolicy.GetForPublication(enabled);
+		return m_offerFilesPolicy.Get();
 	}
 	COfferFilesPublication &GetOfferFilesPublication() { return m_offerFilesPublication; }
 	// The port ConnectToServer() dialed: the obfuscation port, or GetConnPort(), which can be an
