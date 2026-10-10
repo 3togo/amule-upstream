@@ -1,3 +1,13 @@
+# Shared application anchors for headless tests that link production core code.
+function (add_application_test_stubs target)
+	target_sources (${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationTestStubs.cpp)
+	if (ENABLE_UPNP)
+		# CamuleApp's destructor needs the complete UPnP mapping type.
+		target_include_directories (${target} PRIVATE
+			$<TARGET_PROPERTY:UPNP::Shared,INTERFACE_INCLUDE_DIRECTORIES>)
+	endif()
+endfunction()
+
 add_test (NAME QuicCMakeConfigTest
 	COMMAND ${CMAKE_COMMAND}
 		-DAMULE_SOURCE_DIR=${CMAKE_SOURCE_DIR}
@@ -54,6 +64,12 @@ target_include_directories (IPFilterIPv6Test PRIVATE
 )
 target_link_libraries (IPFilterIPv6Test muleunit mulecommon ${Boost_LIBRARIES})
 
+# Callback and buddy eligibility without a running Kad instance.
+add_executable (KadCallbackPolicyTest KadCallbackPolicyTest.cpp)
+add_test (NAME KadCallbackPolicyTest COMMAND KadCallbackPolicyTest)
+target_include_directories (KadCallbackPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (KadCallbackPolicyTest muleunit mulecommon)
+
 # The Kad firewall state across an hourly recheck, with the clock passed in.
 add_executable (KadFirewallRecheckTest KadFirewallRecheckTest.cpp)
 add_test (NAME KadFirewallRecheckTest COMMAND KadFirewallRecheckTest)
@@ -63,11 +79,34 @@ target_include_directories (KadFirewallRecheckTest PRIVATE
 )
 target_link_libraries (KadFirewallRecheckTest muleunit mulecommon)
 
+# Production UDP verification queries with a deterministic clock.
+add_executable (KadUDPFirewallIntegrationTest
+	KadUDPFirewallIntegrationTest.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/UDPFirewallTester.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/routing/Contact.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+)
+target_compile_definitions (KadUDPFirewallIntegrationTest PRIVATE AMULE_DAEMON)
+target_include_directories (KadUDPFirewallIntegrationTest PRIVATE
+	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+	${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs
+	${CMAKE_BINARY_DIR}/src/libs/ec/cpp
+)
+add_application_test_stubs (KadUDPFirewallIntegrationTest)
+target_link_libraries (KadUDPFirewallIntegrationTest muleunit mulecommon wxWidgets::BASE CRYPTOPP::CRYPTOPP)
+add_test (NAME KadUDPFirewallIntegrationTest COMMAND KadUDPFirewallIntegrationTest)
+
 # Tagged protocol identity is pure value semantics and does not require live clients.
 add_executable (ProtocolPeerIdentityTest ProtocolPeerIdentityTest.cpp)
 add_test (NAME ProtocolPeerIdentityTest COMMAND ProtocolPeerIdentityTest)
 target_include_directories (ProtocolPeerIdentityTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (ProtocolPeerIdentityTest muleunit mulecommon)
+
+add_executable (DeadSourceKeyTest DeadSourceKeyTest.cpp)
+add_test (NAME DeadSourceKeyTest COMMAND DeadSourceKeyTest)
+target_include_directories (DeadSourceKeyTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (DeadSourceKeyTest muleunit mulecommon)
 
 # Credit identity and wait ownership run without the application. The test supplies
 # a deterministic GetTickCount64; do not link the production clock into this target.
@@ -359,6 +398,24 @@ target_include_directories (PacketTest PRIVATE
 target_link_libraries (PacketTest muleunit ZLIB::ZLIB)
 add_test (NAME PacketTest COMMAND PacketTest)
 
+add_executable (UploadPacketBuilderTest
+	UploadPacketBuilderTest.cpp
+	${CMAKE_SOURCE_DIR}/src/UploadPacketBuilder.cpp
+	${CMAKE_SOURCE_DIR}/src/Packet.cpp
+	${CMAKE_SOURCE_DIR}/src/MemFile.cpp
+	${CMAKE_SOURCE_DIR}/src/SafeFile.cpp
+	${CMAKE_SOURCE_DIR}/src/Tag.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/Format.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/strerror_r.c
+)
+target_include_directories (UploadPacketBuilderTest PRIVATE
+	${CMAKE_BINARY_DIR}
+	${CMAKE_SOURCE_DIR}/src
+	${CMAKE_SOURCE_DIR}/src/include
+)
+target_link_libraries (UploadPacketBuilderTest muleunit ZLIB::ZLIB)
+add_test (NAME UploadPacketBuilderTest COMMAND UploadPacketBuilderTest)
+
 if (ENABLE_UTP)
 	add_executable (UtpContextTest
 		UtpContextTest.cpp
@@ -432,6 +489,32 @@ target_include_directories (CTagTest
 )
 
 target_link_libraries (CTagTest
+	muleunit
+)
+
+# server.met reading, including files older aMule versions wrote with one tag too many declared
+# for a server without a version. Same TU set as CTagTest.
+add_executable (ServerMetTest
+	ServerMetTest.cpp
+	${CMAKE_SOURCE_DIR}/src/ServerMet.cpp
+	${CMAKE_SOURCE_DIR}/src/SafeFile.cpp
+	${CMAKE_SOURCE_DIR}/src/MemFile.cpp
+	${CMAKE_SOURCE_DIR}/src/Tag.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/Format.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/strerror_r.c
+)
+
+add_test (NAME ServerMetTest
+	COMMAND ServerMetTest
+)
+
+target_include_directories (ServerMetTest
+	PRIVATE ${CMAKE_BINARY_DIR}
+	PRIVATE ${CMAKE_SOURCE_DIR}/src
+	PRIVATE ${CMAKE_SOURCE_DIR}/src/include
+)
+
+target_link_libraries (ServerMetTest
 	muleunit
 )
 
@@ -1235,6 +1318,29 @@ target_include_directories (LanguageListTest
 )
 
 target_link_libraries (LanguageListTest
+	muleunit
+	mulecommon
+	CRYPTOPP::CRYPTOPP
+)
+
+add_executable (UserHashTest
+	UserHashTest.cpp
+	${CMAKE_SOURCE_DIR}/src/UserHash.cpp
+	${CMAKE_SOURCE_DIR}/src/RandomFunctions.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+)
+
+add_test (NAME UserHashTest
+	COMMAND UserHashTest
+)
+
+target_include_directories (UserHashTest
+	PRIVATE ${CMAKE_BINARY_DIR}
+	PRIVATE ${CMAKE_SOURCE_DIR}/src
+	PRIVATE ${CMAKE_SOURCE_DIR}/src/include
+)
+
+target_link_libraries (UserHashTest
 	muleunit
 	mulecommon
 	CRYPTOPP::CRYPTOPP
@@ -2138,6 +2244,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/AllSearchIntegrationTest.py $<TARGET_FILE:amuled>
 		)
+		add_test (NAME ShareWatcherMoveIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/ShareWatcherMoveIntegrationTest.py $<TARGET_FILE:amuled>
+		)
 		if (BUILD_AMULEAPI AND BUILD_AMULECMD)
 			add_test (NAME AllSearchClientCapabilityTest
 				COMMAND ${Python3_EXECUTABLE}
@@ -2193,35 +2303,29 @@ target_include_directories (AICHSearchResultTest PRIVATE
 	${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs
 	${CMAKE_BINARY_DIR}/src/libs/ec/cpp
 )
-if (ENABLE_UPNP)
-	# AICHSearchResultStubs.cpp defines CamuleApp::~CamuleApp(), whose
-	# m_upnpMappings member (std::vector<CUPnPPortMapping>) needs the complete
-	# UPnPBase.h, which in turn includes <upnp.h> from libupnp. The test links
-	# mulecommon (not muleappcommon), so it does not inherit that include path.
-	target_include_directories (AICHSearchResultTest PRIVATE
-		$<TARGET_PROPERTY:UPNP::Shared,INTERFACE_INCLUDE_DIRECTORIES>)
-endif()
+add_application_test_stubs (AICHSearchResultTest)
 target_link_libraries (AICHSearchResultTest muleunit mulecommon wxWidgets::BASE CRYPTOPP::CRYPTOPP)
 add_test (NAME AICHSearchResultTest COMMAND AICHSearchResultTest)
 
-find_package(Threads REQUIRED)
-add_executable(BackgroundLoadTest BackgroundLoadTest.cpp)
-add_test(NAME BackgroundLoadTest COMMAND BackgroundLoadTest)
-target_include_directories(BackgroundLoadTest PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(BackgroundLoadTest muleunit mulecommon Threads::Threads)
+find_package (Threads REQUIRED)
+add_executable (BackgroundLoadTest BackgroundLoadTest.cpp)
+add_test (NAME BackgroundLoadTest COMMAND BackgroundLoadTest)
+target_include_directories (BackgroundLoadTest PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (BackgroundLoadTest muleunit mulecommon Threads::Threads)
 
-add_executable(IndexedLoadTest
- IndexedLoadTest.cpp
- ${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/Indexed.cpp
- ${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/Entry.cpp
- ${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/AICHHashList.cpp
- ${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
- ${CMAKE_SOURCE_DIR}/src/GetTickCount.cpp
- ${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
- KadPrefsStub.cpp)
-add_test(NAME IndexedLoadTest COMMAND IndexedLoadTest)
-target_include_directories(IndexedLoadTest PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${Boost_INCLUDE_DIR})
-target_link_libraries(IndexedLoadTest muleunit muleappcommon mulecommon Threads::Threads)
+add_executable (IndexedLoadTest
+	IndexedLoadTest.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/Indexed.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/Entry.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/kademlia/AICHHashList.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+	${CMAKE_SOURCE_DIR}/src/GetTickCount.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+	KadPrefsStub.cpp
+)
+add_test (NAME IndexedLoadTest COMMAND IndexedLoadTest)
+target_include_directories (IndexedLoadTest PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${Boost_INCLUDE_DIR})
+target_link_libraries (IndexedLoadTest muleunit muleappcommon mulecommon Threads::Threads)
 
 # Event values are untrusted: verify they cannot become additional arguments or
 # shell syntax when passed as positional parameters to a configured shell.
@@ -2241,3 +2345,9 @@ target_link_libraries (UserEventCommandTest muleunit mulecommon wxWidgets::BASE)
 if (WIN32)
 	target_link_libraries (UserEventCommandTest shell32)
 endif()
+
+# EC session baselines suppress completion commands during initial sync/reconnect.
+add_executable (RemoteDownloadEventsTest RemoteDownloadEventsTest.cpp)
+add_test (NAME RemoteDownloadEventsTest COMMAND RemoteDownloadEventsTest)
+target_include_directories (RemoteDownloadEventsTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (RemoteDownloadEventsTest muleunit mulecommon)

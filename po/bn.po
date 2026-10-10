@@ -386,7 +386,7 @@ msgstr "সতর্কতা: নেটওয়ার্ক ইন্টার
 msgid "Your locale has been changed to System Default due to a configuration change. Sorry."
 msgstr "কনফিগারেশন পরিবর্তনের কারণে আপনার লোকেল সিস্টেম ডিফল্টে পরিবর্তন করা হয়েছে। দুঃখিত।"
 
-#: src/amule.cpp src/CatDialog.cpp src/ServerList.cpp src/ServerListCtrl.cpp
+#: src/amule.cpp src/CatDialog.cpp src/ServerListCtrl.cpp
 msgid "Info"
 msgstr "তথ্য"
 
@@ -2335,6 +2335,10 @@ msgstr "সার্ভার যোগ করা হয়নি"
 #, c-format
 msgid "server not found: %s"
 msgstr "সার্ভার পাওয়া যায়নি: %s"
+
+#: src/ExternalConn.cpp
+msgid "You are connected to the server you are trying to delete. please disconnect first."
+msgstr "আপনি যে সার্ভারটি মুছতে চাইছেন তার সাথে আপনি সংযুক্ত আছেন। অনুগ্রহ করে প্রথমে সংযোগ বিচ্ছিন্ন করুন।"
 
 #: src/ExternalConn.cpp
 msgid "need to define server to be removed"
@@ -6822,7 +6826,8 @@ msgstr "GUI কমান্ড:"
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
 "Core commands must be configured in the daemon's amule.conf.\n"
-"Only the chat event supports GUI commands with a remote core."
+"Chat and observed download completions support GUI commands with a remote core.\n"
+"Already completed downloads do not run commands at first sync or reconnect."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -7229,6 +7234,14 @@ msgid "Server.met file corrupt, found invalid versiontag: 0x%x, size %i"
 msgstr "server.met ফাইল ক্ষতিগ্রস্ত, অবৈধ versiontag পাওয়া গেছে: 0x%x, আকার %i"
 
 #: src/ServerList.cpp
+msgid "Error: the file 'server.met' is corrupted: "
+msgstr "ত্রুটি: 'server.met' ফাইলটি ক্ষতিগ্রস্ত: "
+
+#: src/ServerList.cpp
+msgid "IO error while reading 'server.met': "
+msgstr "'server.met' পড়ার সময় IO ত্রুটি: "
+
+#: src/ServerList.cpp
 #, c-format
 msgid "%i server in server.met found"
 msgid_plural "%i servers in server.met found"
@@ -7241,14 +7254,6 @@ msgid "%d server added"
 msgid_plural "%d servers added"
 msgstr[0] "%dটি সার্ভার যোগ করা হয়েছে"
 msgstr[1] "%dটি সার্ভার যোগ করা হয়েছে"
-
-#: src/ServerList.cpp
-msgid "Error: the file 'server.met' is corrupted: "
-msgstr "ত্রুটি: 'server.met' ফাইলটি ক্ষতিগ্রস্ত: "
-
-#: src/ServerList.cpp
-msgid "IO error while reading 'server.met': "
-msgstr "'server.met' পড়ার সময় IO ত্রুটি: "
 
 #: src/ServerList.cpp
 #, c-format
@@ -7269,10 +7274,6 @@ msgstr "সার্ভার যোগ করা হয়নি: মিলে 
 #, c-format
 msgid "Server added: Server at [%s:%d] using the name '%s'."
 msgstr "সার্ভার যোগ করা হয়েছে: [%s:%d] এ থাকা সার্ভারটি '%s' নাম ব্যবহার করছে।"
-
-#: src/ServerList.cpp
-msgid "You are connected to the server you are trying to delete. please disconnect first."
-msgstr "আপনি যে সার্ভারটি মুছতে চাইছেন তার সাথে আপনি সংযুক্ত আছেন। অনুগ্রহ করে প্রথমে সংযোগ বিচ্ছিন্ন করুন।"
 
 #: src/ServerList.cpp
 #, c-format
@@ -8947,7 +8948,8 @@ msgid "Download completed"
 msgstr "ডাউনলোড সম্পন্ন হয়েছে"
 
 #: src/UserEvents.h
-msgid "The full path to the file."
+#, fuzzy
+msgid "The full path to the file (empty in remote GUI mode)."
 msgstr "ফাইলের সম্পূর্ণ পাথ।"
 
 #: src/UserEvents.h
@@ -8985,6 +8987,10 @@ msgstr "ডিস্ক পার্টিশন।"
 #: src/UserEvents.h
 msgid "Error on completion"
 msgstr "সমাপ্তিতে ত্রুটি"
+
+#: src/UserEvents.h
+msgid "The full path to the file."
+msgstr "ফাইলের সম্পূর্ণ পাথ।"
 
 #: src/utils/aLinkCreator/src/alcc.cpp
 #, c-format

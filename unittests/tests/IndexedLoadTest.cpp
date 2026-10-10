@@ -49,11 +49,9 @@ public:
 };
 static bool WaitForLoad(CIndexed &index)
 {
-	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-	while (index.GetLoadState() == CIndexed::LoadState::Loading &&
-		std::chrono::steady_clock::now() < deadline) {
+	while (index.GetLoadState() == CIndexed::LoadState::Loading) {
 		index.ProcessIndexLoad();
-		std::this_thread::yield();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	return index.IsReady();
 }

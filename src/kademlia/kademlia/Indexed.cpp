@@ -91,6 +91,8 @@ CIndexed::CIndexed(const wxString &directory, const CUInt128 &kadID, bool worker
 
 void CIndexed::ProcessIndexLoad()
 {
+	// The worker owns partial reads until adoption. Quarantine only damaged files
+	// on this thread so healthy sibling indexes can still be used and saved.
 	if (!m_loader || m_loadState != LoadState::Loading) {
 		return;
 	}
@@ -149,6 +151,8 @@ bool OpenIndex(CFile &file, const wxString &path)
 
 void CIndexed::ReadFile(const std::atomic<bool> &cancel)
 {
+	// Read each persisted index independently: a corrupt part loses only its own
+	// entries, and cancellation leaves the saved files untouched.
 	try {
 		for (const auto part : { IndexPart::Load, IndexPart::Keyword, IndexPart::Source }) {
 			if (cancel.load()) {
@@ -437,6 +441,8 @@ CIndexed::~CIndexed()
 
 void CIndexed::SaveIndexFile(const wxString &path, const std::function<void(CFile &)> &write)
 {
+	// Quarantine failures keep their originals; every other file is staged and
+	// committed independently so one save failure does not skip sibling indexes.
 	if (std::find(m_preservedFiles.begin(), m_preservedFiles.end(), path) != m_preservedFiles.end()) {
 		return;
 	}
