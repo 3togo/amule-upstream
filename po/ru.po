@@ -15,7 +15,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-09 21:10+0000\n"
+"PO-Revision-Date: 2026-10-10 14:45+0000\n"
 "Last-Translator: Radist Morse <radist.morse@gmail.com>\n"
 "Language-Team: Russian <kde-russian@lists.kde.ru>\n"
 "Language: ru\n"
@@ -2803,27 +2803,27 @@ msgstr "ОК"
 
 #: src/ExternalCommand.cpp
 msgid "The command has no executable."
-msgstr ""
+msgstr "У команды нет исполняемого файла."
 
 #: src/ExternalCommand.cpp
 msgid "The command template or an argument contains a NUL character."
-msgstr ""
+msgstr "Шаблон команды или аргумент содержит символ NUL."
 
 #: src/ExternalCommand.cpp
 msgid "An event value cannot select the executable."
-msgstr ""
+msgstr "Значение события не может выбирать исполняемый файл."
 
 #: src/ExternalCommand.cpp
 msgid "An event value would be used as interpreter code, a script name, or an unsupported launcher argument."
-msgstr ""
+msgstr "Значение события было бы использовано как код интерпретатора, имя скрипта или неподдерживаемый аргумент средства запуска."
 
 #: src/ExternalCommand.cpp
 msgid "A command-shell argument contains a double quote, percent sign, exclamation mark, or line break."
-msgstr ""
+msgstr "Аргумент командной оболочки содержит двойную кавычку, знак процента, восклицательный знак или перенос строки."
 
 #: src/ExternalCommand.cpp
 msgid "cmd.exe requires a fixed builtin or an explicit .exe, .com, .bat, or .cmd target followed by separate data arguments."
-msgstr ""
+msgstr "cmd.exe требует фиксированной встроенной команды либо явного файла .exe, .com, .bat или .cmd, за которым следуют отдельные аргументы данных."
 
 #: src/FileLaunch.cpp
 msgid "File preview"
@@ -2832,7 +2832,7 @@ msgstr "Предпросмотр файла"
 #: src/FileLaunch.cpp
 #, c-format
 msgid "Media-player command '%s' was not run: %s"
-msgstr ""
+msgstr "Команда проигрывателя медиа «%s» не была выполнена: %s"
 
 #: src/FileLaunch.cpp
 #, c-format
@@ -9062,7 +9062,7 @@ msgstr "Приостановка отдачи файла: %s"
 #: src/UserEvents.cpp
 #, c-format
 msgid "Command '%s' was not run on '%s' event: %s"
-msgstr ""
+msgstr "Команда «%s» не была выполнена при событии «%s»: %s"
 
 #: src/UserEvents.cpp
 #, c-format
