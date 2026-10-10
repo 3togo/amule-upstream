@@ -1503,9 +1503,8 @@ static CECPacket *Get_EC_Response_StatRequest(const CECPacket *request, CLoggerA
 			const auto wire = distribution.Encode();
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_DISTRIBUTION, wire.size(), wire.data()));
 		}
-		if (Kademlia::CKademlia::IsConnected()) {
-			response->AddTag(CECTag(EC_TAG_STATS_KAD_FIREWALLED_UDP,
-				Kademlia::CUDPFirewallTester::IsFirewalledUDP(true)));
+		// Index ownership is local: report the adopted snapshot even before bootstrap.
+		if (Kademlia::CKademlia::IsRunning()) {
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_INDEXED_SOURCES,
 				Kademlia::CKademlia::GetIndexed()->m_totalIndexSource));
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_INDEXED_KEYWORDS,
@@ -1514,6 +1513,10 @@ static CECPacket *Get_EC_Response_StatRequest(const CECPacket *request, CLoggerA
 				Kademlia::CKademlia::GetIndexed()->m_totalIndexNotes));
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_INDEXED_LOAD,
 				Kademlia::CKademlia::GetIndexed()->m_totalIndexLoad));
+		}
+		if (Kademlia::CKademlia::IsConnected()) {
+			response->AddTag(CECTag(EC_TAG_STATS_KAD_FIREWALLED_UDP,
+				Kademlia::CUDPFirewallTester::IsFirewalledUDP(true)));
 			response->AddTag(CECTag(EC_TAG_STATS_KAD_IP_ADDRESS,
 				wxUINT32_SWAP_ALWAYS(Kademlia::CKademlia::GetPrefs()->GetIPAddress())));
 			response->AddTag(CECTag(
