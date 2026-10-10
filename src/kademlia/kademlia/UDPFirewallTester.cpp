@@ -337,7 +337,7 @@ void CUDPFirewallTester::QueryNextClient()
 						 curContact.GetIPAddress(), 0, false) == NULL) {
 			// ok, tell the clientlist to do the same search and start the check if ok
 			if (theApp->clientlist->DoRequestFirewallCheckUDP(curContact)) {
-				UsedClient_Struct sAdd = { curContact, false, true };
+				UsedClient_Struct sAdd = { curContact, false };
 				m_usedTestClients.push_front(sAdd);
 				m_fwChecksRunningUDP++;
 				break;

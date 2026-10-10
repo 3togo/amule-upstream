@@ -33,7 +33,6 @@
 #include <PartFile.h>
 #include <updownclient.h>
 #include <SearchList.h>
-#include <Packet.h> // Complete the packet owned by CSearchList for its virtual anchor.
 
 using namespace muleunit;
 
@@ -146,14 +145,6 @@ namespace
 	std::abort();
 }
 } // namespace
-
-// SearchFile's live-search branch also needs genuine RTTI under UBSan.
-CSearchList::~CSearchList()
-{
-	UnexpectedApplicationCall("CSearchList::~CSearchList");
-}
-wxBEGIN_EVENT_TABLE(CSearchList, wxEvtHandler)
-wxEND_EVENT_TABLE()
 
 CDownloadQueue::~CDownloadQueue()
 {

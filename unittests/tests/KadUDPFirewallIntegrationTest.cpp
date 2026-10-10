@@ -157,7 +157,7 @@ public:
 	void Request(uint32_t ip = peer)
 	{
 		CContact contact(CUInt128(false), ip, 1, 1, 6, CKadUDPKey(), true, CUInt128(false));
-		CUDPFirewallTester::m_usedTestClients.push_front({ contact, false, true });
+		CUDPFirewallTester::m_usedTestClients.push_front({ contact, false });
 		++CUDPFirewallTester::m_fwChecksRunningUDP;
 	}
 	void Open()

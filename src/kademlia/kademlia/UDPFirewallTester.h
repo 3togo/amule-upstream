@@ -42,7 +42,7 @@ struct UsedClient_Struct
 {
 	CContact contact;
 	bool answered;
-	bool currentRound; // Retired entries remain to prevent reusing their IPs.
+	bool currentRound = true; // Retired entries remain to prevent reusing their IPs.
 };
 
 #define UDP_FIREWALLTEST_CLIENTSTOASK \
