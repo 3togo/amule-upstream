@@ -44,7 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         # the user supplies their own GeoLite2-Country.mmdb at runtime.
         # We don't ship the database — MaxMind's licence forbids
         # redistribution; users drop it in ~/.aMule/.
-        libmaxminddb-dev \
+        libmediainfo-dev libavformat-dev libavcodec-dev libavutil-dev libmaxminddb-dev \
         libreadline-dev \
         # libupnp-dev intentionally omitted: Ubuntu 22.04 only ships the
         # ancient 1.8.x line. The pinned 22.x is built from source below.

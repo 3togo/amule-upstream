@@ -1,0 +1,30 @@
+# Also usable standalone for backend tests and benchmarks.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  cmake_minimum_required(VERSION 3.12)
+  project(AMuleMediaProbe LANGUAGES CXX)
+  enable_testing()
+endif()
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MEDIA_AV REQUIRED IMPORTED_TARGET libavformat libavcodec libavutil)
+find_library(MEDIAINFO_LIBRARY NAMES mediainfo libmediainfo.so.0)
+if(NOT MEDIAINFO_LIBRARY)
+  message(FATAL_ERROR "MediaInfoLib required: install libmediainfo-dev or configure -DENABLE_MEDIA_PROBE=OFF")
+endif()
+add_executable(amule-media-probe main.cpp)
+target_compile_features(amule-media-probe PRIVATE cxx_std_17)
+target_link_libraries(amule-media-probe PRIVATE ${MEDIAINFO_LIBRARY} PkgConfig::MEDIA_AV)
+if(MEDIA_PROBE_STATIC)
+  find_library(MEDIA_ZEN_LIBRARY NAMES zen REQUIRED)
+  target_link_libraries(amule-media-probe PRIVATE ${MEDIA_AV_STATIC_LDFLAGS} ${MEDIA_ZEN_LIBRARY} z)
+endif()
+# Same directory as the core, including relocated bundles and portable installs.
+set_target_properties(amule-media-probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/src")
+install(TARGETS amule-media-probe RUNTIME DESTINATION bin)
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_test(NAME MediaProbeBackends COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_backends.py $<TARGET_FILE:amule-media-probe>)
+endif()
+
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../packaging/media/licenses/"
+  DESTINATION share/licenses/amule-media-probe)

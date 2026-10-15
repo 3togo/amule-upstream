@@ -639,6 +639,9 @@ if (ENABLE_NLS)
 endif()
 
 add_subdirectory (docs)
+if(BUILD_TESTING)
+    enable_testing()
+endif()
 add_subdirectory (src)
 
 if (BUILD_TESTING)
