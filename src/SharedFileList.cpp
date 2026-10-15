@@ -753,8 +753,6 @@ bool CSharedFileList::MaybeScheduleMediaProbe(CKnownFile *pFile, MediaProbeMode 
 	if (!thePrefs::GetMediaMetadataEnabled()) {
 		return false;
 	}
-	// The worker resolves the sibling helper once per process.
-	const wxString helperPath;
 	// Shared with the GUI's menu-enable test (IsMediaProbeCandidate, in OtherFunctions): the
 	// view must not offer an action the scheduler will silently drop, which is what two copies
 	// of this rule would eventually produce.
@@ -808,10 +806,9 @@ bool CSharedFileList::MaybeScheduleMediaProbe(CKnownFile *pFile, MediaProbeMode 
 	// #280: run on the dedicated media-probe worker, NOT the shared
 	// CThreadScheduler -- a slow/hung helper there wedges completions.
 	if (theApp->mediaProbeThread) {
-		AddDebugLogLineN(logMediaProbe,
-			CFormat(wxT("MediaProbe: queueing %s (helper=%s)")) % pFile->GetFileName() %
-				helperPath);
-		theApp->mediaProbeThread->QueueProbe(pFile->GetFileHash(), fullPath, helperPath, bulk);
+		AddDebugLogLineN(
+			logMediaProbe, CFormat(wxT("MediaProbe: queueing %s")) % pFile->GetFileName());
+		theApp->mediaProbeThread->QueueProbe(pFile->GetFileHash(), fullPath, bulk);
 		return true;
 	} else {
 		AddDebugLogLineN(logMediaProbe,

@@ -233,6 +233,7 @@ modules:
     sources:
       - type: archive
         url: https://codeload.github.com/MediaArea/ZenLib/tar.gz/refs/tags/v0.4.41
+        dest-filename: ZenLib-0.4.41.tar.gz
         sha256: 45d5173fa0278f5264daa6836ae297aa303984482227d00b35c4f03929494c8f
 
   - name: media-mediainfo
@@ -242,6 +243,7 @@ modules:
     sources:
       - type: archive
         url: https://codeload.github.com/MediaArea/MediaInfoLib/tar.gz/refs/tags/v26.05
+        dest-filename: MediaInfoLib-26.05.tar.gz
         sha256: f3fa9faa5623a5bacf6bed30c1d4c7434852be1654e655d458f964f597d98b8e
 
   - name: amule

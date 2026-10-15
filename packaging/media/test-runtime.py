@@ -188,7 +188,7 @@ Enabled=1
 ''', encoding='utf-8')
     daemon, child_env = command('amuled')
     with (root / 'console.log').open('w', encoding='utf-8') as console:
-        proc = subprocess.Popen(daemon + ['-c', str(root), '--disable-fatal'],
+        proc = subprocess.Popen(daemon + ['-c', str(root)],
                                 env=child_env, stdout=console, stderr=console)
         try:
             deadline = time.monotonic() + 90

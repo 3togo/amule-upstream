@@ -23,9 +23,9 @@ class BackendTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def run_probe(self, backend, json_output=True):
+    def run_probe(self, json_output=True):
         with self.path.open('rb') as f:
-            return subprocess.run([HELPER, '--backend', backend] + (['--json'] if json_output else []),
+            return subprocess.run([HELPER] + (['--json'] if json_output else []),
                                   stdin=f, capture_output=True, timeout=10)
 
     def append_title(self, payload, unicode=False):
@@ -49,86 +49,75 @@ class BackendTests(unittest.TestCase):
 
     def test_invalid_tag_encoding_does_not_discard_metadata(self):
         self.append_title(b'bad\xff\xfe')
-        for backend in ('mediainfo',):
-            with self.subTest(backend=backend):
-                p = self.run_probe(backend)
-                self.assertEqual(p.returncode, 0)
-                result = json.loads(p.stdout)
-                self.assertEqual(result['length_seconds'], 3)
-                self.assertTrue(result['title'].startswith('bad'))
-                self.run_probe(backend, False).stdout.decode('utf-8', 'strict')
+        p = self.run_probe()
+        self.assertEqual(p.returncode, 0)
+        result = json.loads(p.stdout)
+        self.assertEqual(result['length_seconds'], 3)
+        self.assertTrue(result['title'].startswith('bad'))
+        self.run_probe(False).stdout.decode('utf-8', 'strict')
 
     def test_unicode_tag_round_trips(self):
         title = '艺术家 🎵 "quoted" \\ path'
         self.append_title(title.encode('utf-8'), unicode=True)
-        for backend in ('mediainfo',):
-            with self.subTest(backend=backend):
-                p = self.run_probe(backend)
-                self.assertEqual(p.returncode, 0)
-                self.assertEqual(json.loads(p.stdout)['title'], title)
+        p = self.run_probe()
+        self.assertEqual(p.returncode, 0)
+        self.assertEqual(json.loads(p.stdout)['title'], title)
 
     def test_large_multibyte_tag_has_bounded_valid_output(self):
         self.append_title(('🎵' * 20000).encode('utf-8'), unicode=True)
-        for backend in ('mediainfo',):
-            with self.subTest(backend=backend):
-                p = self.run_probe(backend)
-                self.assertEqual(p.returncode, 0)
-                data = json.loads(p.stdout)
-                self.assertEqual(data['codec'], 'pcm_s16le')
-                self.assertLess(len(p.stdout), 64 * 1024)
-                self.assertLessEqual(len(data['title'].encode('utf-8')), 4096)
+        p = self.run_probe()
+        self.assertEqual(p.returncode, 0)
+        data = json.loads(p.stdout)
+        self.assertEqual(data['codec'], 'pcm_s16le')
+        self.assertLess(len(p.stdout), 64 * 1024)
+        self.assertLessEqual(len(data['title'].encode('utf-8')), 4096)
 
     def test_mediainfo_extracts_wav(self):
-        for backend in ('mediainfo',):
-            with self.subTest(backend=backend):
-                p = self.run_probe(backend)
-                self.assertEqual(p.returncode, 0, p.stderr)
-                data = json.loads(p.stdout)
-                self.assertEqual(data['length_seconds'], 3)
-                self.assertEqual(data['bitrate_kbps'], 768)
-                self.assertEqual(data['codec'], 'pcm_s16le')
+        p = self.run_probe()
+        self.assertEqual(p.returncode, 0, p.stderr)
+        data = json.loads(p.stdout)
+        self.assertEqual(data['length_seconds'], 3)
+        self.assertEqual(data['bitrate_kbps'], 768)
+        self.assertEqual(data['codec'], 'pcm_s16le')
 
     def test_flat_protocol_has_exact_framing(self):
-        for backend in ('mediainfo',):
-            lines = self.run_probe(backend, False).stdout.decode().splitlines()
-            self.assertEqual(len(lines), 9)
-            self.assertEqual((lines[0], lines[-1]), ('AMMP 1', 'END'))
+        lines = self.run_probe(False).stdout.decode().splitlines()
+        self.assertEqual(len(lines), 9)
+        self.assertEqual((lines[0], lines[-1]), ('AMMP 1', 'END'))
 
     def test_malformed_file_is_not_success(self):
         self.path.write_bytes(b'not a media file')
-        for backend in ('mediainfo',):
-            self.assertIn(self.run_probe(backend).returncode, (10, 11))
+        self.assertIn(self.run_probe().returncode, (10, 11))
 
-    def test_invalid_backend_is_configuration_error(self):
-        self.assertEqual(self.run_probe('not-a-backend').returncode, 12)
+    def test_removed_backend_option_is_configuration_error(self):
+        with self.path.open('rb') as source:
+            result = subprocess.run([HELPER, '--backend', 'mediainfo'], stdin=source,
+                                    capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 12)
 
     def test_duration_rounding_uses_actual_sample_count(self):
         for frames, seconds in ((119520, 2), (120000, 3), (124800, 3)):
             with wave.open(str(self.path), 'wb') as f:
                 f.setparams((1, 2, 48000, 0, 'NONE', 'not compressed'))
                 f.writeframes(bytes(frames * 2))
-            for backend in ('mediainfo',):
-                with self.subTest(frames=frames, backend=backend):
-                    p = self.run_probe(backend)
-                    self.assertEqual(p.returncode, 0)
-                    self.assertEqual(json.loads(p.stdout)['length_seconds'], seconds)
+            with self.subTest(frames=frames):
+                p = self.run_probe()
+                self.assertEqual(p.returncode, 0)
+                self.assertEqual(json.loads(p.stdout)['length_seconds'], seconds)
 
     def test_empty_file_is_not_success(self):
         self.path.write_bytes(b'')
-        for backend in ('mediainfo',):
-            self.assertIn(self.run_probe(backend).returncode, (10, 11))
+        self.assertIn(self.run_probe().returncode, (10, 11))
 
     def test_codec_only_result_is_usable_for_short_audio(self):
         with wave.open(str(self.path), 'wb') as f:
             f.setparams((1, 1, 8000, 0, 'NONE', 'not compressed'))
             f.writeframes(bytes([128]) * 800)
-        for backend in ('mediainfo',):
-            with self.subTest(backend=backend):
-                p = self.run_probe(backend)
-                self.assertEqual(p.returncode, 0)
-                result = json.loads(p.stdout)
-                self.assertEqual(result['length_seconds'], 0)
-                self.assertEqual(result['codec'], 'pcm_u8')
+        p = self.run_probe()
+        self.assertEqual(p.returncode, 0)
+        result = json.loads(p.stdout)
+        self.assertEqual(result['length_seconds'], 0)
+        self.assertEqual(result['codec'], 'pcm_u8')
 
     def test_raw_h264_never_publishes_partial_duration(self):
         ffmpeg = shutil.which('ffmpeg')
@@ -142,14 +131,13 @@ class BackendTests(unittest.TestCase):
                 'testsrc2=size=64x64:rate=25', '-frames:v', '65', '-c:v', 'libx264',
                 '-threads', '1', '-x264-params', parameters, '-f', 'h264', str(self.path)],
                 check=True, capture_output=True, timeout=15)
-            for backend in ('mediainfo',):
-                with self.subTest(parameters=parameters, backend=backend):
-                    p = self.run_probe(backend)
-                    self.assertEqual(p.returncode, 0)
-                    result = json.loads(p.stdout)
-                    self.assertEqual(result['codec'], 'h264')
-                    self.assertEqual(result['length_seconds'], 0)
-                    self.assertEqual(result['bitrate_kbps'], 0)
+            with self.subTest(parameters=parameters):
+                p = self.run_probe()
+                self.assertEqual(p.returncode, 0)
+                result = json.loads(p.stdout)
+                self.assertEqual(result['codec'], 'h264')
+                self.assertEqual(result['length_seconds'], 0)
+                self.assertEqual(result['bitrate_kbps'], 0)
 
     def test_additional_codec_and_container_tags(self):
         ffmpeg = shutil.which('ffmpeg')
@@ -174,7 +162,7 @@ class BackendTests(unittest.TestCase):
                        '-metadata', 'artist=Fixture Artist', '-metadata', 'album=Fixture Album', str(self.path)]
             subprocess.run(command, check=True, capture_output=True, timeout=30)
             with self.subTest(codec=codec, container=extension):
-                result = self.run_probe('mediainfo')
+                result = self.run_probe()
                 self.assertEqual(result.returncode, 0, result.stderr)
                 data = json.loads(result.stdout)
                 self.assertEqual(data['codec'], codec)
@@ -193,11 +181,10 @@ class BackendTests(unittest.TestCase):
         data = bytearray(self.path.read_bytes() + chunk)
         struct.pack_into('<I', data, 4, len(data) - 8)
         self.path.write_bytes(data)
-        for backend in ('mediainfo',):
-            p = self.run_probe(backend, False)
-            self.assertEqual(p.returncode, 0)
-            self.assertEqual(len(p.stdout.splitlines()), 9)
-            self.assertIn(b'format.duration=3\n', p.stdout)
+        p = self.run_probe(False)
+        self.assertEqual(p.returncode, 0)
+        self.assertEqual(len(p.stdout.splitlines()), 9)
+        self.assertIn(b'format.duration=3\n', p.stdout)
 
 if __name__ == '__main__':
     unittest.main()

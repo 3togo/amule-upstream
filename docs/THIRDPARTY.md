@@ -239,7 +239,7 @@ domain; attribution appreciated but not required, per the original notice.
 
 `amule-media-probe` links MediaInfoLib. Binary bundles build MediaInfoLib 26.05
 and ZenLib 0.4.41 from the checksum-pinned sources in
-[`packaging/media/pins.json`](../packaging/media/pins.json), with curl and libmms
+[`packaging/linux/versions.env`](../packaging/linux/versions.env), with curl and libmms
 readers disabled. System-package builds may use the distribution's MediaInfoLib.
 
 MediaInfoLib uses BSD-2-Clause; ZenLib uses the zlib licence. Full notices are installed

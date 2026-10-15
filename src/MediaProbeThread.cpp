@@ -61,13 +61,11 @@ void CMediaProbeThread::EndThread()
 	Wait();
 }
 
-void CMediaProbeThread::QueueProbe(
-	const CMD4Hash &hash, const CPath &fullPath, const wxString &ffprobePath, bool bulk)
+void CMediaProbeThread::QueueProbe(const CMD4Hash &hash, const CPath &fullPath, bool bulk)
 {
 	MediaProbeJob job;
 	job.hash = hash;
 	job.path = fullPath;
-	job.ffprobePath = ffprobePath;
 	job.bulk = bulk;
 
 	wxMutexLocker lock(m_mutex);
