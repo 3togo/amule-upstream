@@ -33,7 +33,7 @@
 #include "MD4Hash.h"     // Needed for CMD4Hash
 #include <common/Path.h> // Needed for CPath (value member of MediaProbeJob)
 
-// One queued ffprobe job. Everything is snapshotted by value at enqueue
+// One queued media-helper job. Everything is snapshotted by value at enqueue
 // time so the worker never touches shared CKnownFile / thePrefs state.
 struct MediaProbeJob
 {
@@ -48,13 +48,12 @@ struct MediaProbeJob
 	bool bulk = false;
 };
 
-// Dedicated worker for ffprobe media-metadata extraction (#280).
+// Dedicated worker for media-metadata extraction (#280).
 //
-// Why its own thread: media probing shells out to ffprobe via wxExecute, which can block for a long
-// time (or, on a headless daemon, hang) and must never stall the core. CMediaProbeTask used to run
-// on the shared CThreadScheduler alongside CHashingTask / CCompletionTask, so a single hung ffprobe
-// wedged every download completion. On a dedicated, isolated worker a slow or hung probe can only
-// delay other probes. A wall-clock timeout in MediaProbe::Probe bounds each probe so even this
+// Why its own thread: media probing waits for a bounded helper process and must never stall the core.
+// CMediaProbeTask used to run on the shared CThreadScheduler alongside CHashingTask / CCompletionTask, so a
+// single hung probe wedged every download completion. On a dedicated, isolated worker a slow or hung probe
+// can only delay other probes. A wall-clock timeout in MediaProbe::Probe bounds each probe so even this
 // thread cannot wedge.
 //
 // Mirrors CPartFileHashThread: a single joinable worker draining a job queue and posting a
@@ -68,8 +67,8 @@ public:
 	~CMediaProbeThread() = default;
 
 	// Signal the worker to stop and join it. Queued, not-yet-started probes are dropped --
-	// metadata is best-effort. An in-flight probe's ffprobe child is killed promptly (Probe
-	// polls the run flag), so the join returns without waiting on a slow or hung ffprobe.
+	// metadata is best-effort. An in-flight probe's helper child is killed promptly (Probe
+	// polls the run flag), so the join returns without waiting on a slow or hung helper.
 	void EndThread();
 
 	// Enqueue a probe. Thread-safe; returns immediately.
