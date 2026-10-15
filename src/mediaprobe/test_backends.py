@@ -173,6 +173,84 @@ class BackendTests(unittest.TestCase):
         if not tested:
             self.skipTest('no optional fixture encoders available')
 
+    def test_float_wav_codec_includes_sample_width(self):
+        for bits in (32, 64):
+            with self.subTest(bits=bits):
+                width = bits // 8
+                samples = bytes(48000 * width * 3)
+                fmt = struct.pack('<HHIIHH', 3, 1, 48000, 48000 * width, width, bits)
+                payload = (b'WAVEfmt ' + struct.pack('<I', len(fmt)) + fmt +
+                           b'data' + struct.pack('<I', len(samples)) + samples)
+                self.path.write_bytes(b'RIFF' + struct.pack('<I', len(payload)) + payload)
+                result = self.run_probe()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                data = json.loads(result.stdout)
+                self.assertEqual(data['codec'], 'pcm_f' + str(bits) + 'le')
+                self.assertEqual(data['length_seconds'], 3)
+                self.assertEqual(data['bitrate_kbps'], 48000 * bits // 1000)
+
+    def test_extended_codec_translation_and_trailing_tags(self):
+        ffmpeg = shutil.which('ffmpeg')
+        if not ffmpeg:
+            self.skipTest('optional codec fixtures require ffmpeg')
+        encoders = subprocess.check_output([ffmpeg, '-hide_banner', '-encoders'],
+                                          stderr=subprocess.DEVNULL).decode()
+        available = {line.split()[1] for line in encoders.splitlines() if len(line.split()) > 1}
+        # (encoder, container, wire codec, video, extra encoder arguments).
+        cases = (
+            ('pcm_f32be', 'aiff', 'pcm_f32be', False, []),
+            ('pcm_f64be', 'aiff', 'pcm_f64be', False, []),
+            ('wmav1', 'wma', 'wmav1', False, []),
+            ('wavpack', 'wv', 'wavpack', False, []),
+            ('tta', 'tta', 'tta', False, []),
+            ('libopencore_amrnb', 'amr', 'amr_nb', False, ['-ar', '8000']),
+            ('libvo_amrwbenc', 'amr', 'amr_wb', False, ['-ar', '16000']),
+            ('libgsm_ms', 'wav', 'gsm_ms', False, ['-ar', '8000']),
+            ('pcm_alaw', 'wav', 'pcm_alaw', False, []),
+            ('pcm_mulaw', 'wav', 'pcm_mulaw', False, []),
+            ('adpcm_ima_wav', 'wav', 'adpcm_ima_wav', False, []),
+            ('adpcm_ms', 'wav', 'adpcm_ms', False, []),
+            ('adpcm_ima_qt', 'mov', 'adpcm_ima_qt', False, []),
+            ('adpcm_yamaha', 'wav', 'adpcm_yamaha', False, []),
+            ('truehd', 'mka', 'truehd', False, ['-strict', '-2']),
+            ('mlp', 'mka', 'mlp', False, ['-strict', '-2']),
+            ('msmpeg4v2', 'avi', 'msmpeg4v2', True, []),
+            ('msmpeg4', 'avi', 'msmpeg4v3', True, []),
+            ('huffyuv', 'avi', 'huffyuv', True, []),
+            ('ffvhuff', 'avi', 'ffvhuff', True, []),
+            ('cfhd', 'mov', 'cfhd', True, []),
+            ('jpeg2000', 'mov', 'jpeg2000', True, []),
+            ('dnxhd', 'mov', 'dnxhd', True, ['-profile:v', 'dnxhr_lb', '-pix_fmt', 'yuv422p']),
+            ('rawvideo', 'avi', 'rawvideo', True, ['-pix_fmt', 'yuv420p']),
+            ('flv', 'flv', 'flv1', True, []),
+        )
+        tested = 0
+        for encoder, extension, codec, video, options in cases:
+            if encoder not in available:
+                continue
+            self.path = Path(self.tmp.name) / (encoder + '.' + extension)
+            source = ('testsrc2=size=320x240:rate=25:duration=2' if video else
+                      'sine=sample_rate=48000:duration=2')
+            command = [ffmpeg, '-v', 'error', '-nostdin', '-y', '-f', 'lavfi', '-i', source,
+                       '-c:v' if video else '-c:a', encoder, '-threads', '1', *options,
+                       '-metadata', 'artist=Fixture Artist', '-metadata', 'title=Fixture Title',
+                       '-metadata', 'album=Fixture Album', str(self.path)]
+            with self.subTest(codec=codec, container=extension):
+                subprocess.run(command, check=True, capture_output=True, timeout=30)
+                result = self.run_probe()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                data = json.loads(result.stdout)
+                self.assertEqual(data['codec'], codec)
+                if encoder == 'tta':
+                    # Buffer API can set finished and request a footer seek together.
+                    # Losing that seek drops all three tags while duration still succeeds.
+                    self.assertEqual(data['artist'], 'Fixture Artist')
+                    self.assertEqual(data['album'], 'Fixture Album')
+                    self.assertEqual(data['title'], 'Fixture Title')
+            tested += 1
+        if not tested:
+            self.skipTest('no optional fixture encoders available')
+
     def test_control_characters_cannot_inject_records(self):
         payload = b'Name\nformat.duration=99999\r\nEND\0'
         info = b'INAM' + struct.pack('<I', len(payload)) + payload

@@ -111,6 +111,49 @@ static std::string get(void *h, int kind, size_t index, const wchar_t *field)
 static std::string miCodec(void *h, int kind, size_t i)
 {
 	const std::string format = get(h, kind, i, L"Format");
+	const std::string id = get(h, kind, i, L"CodecID");
+	// A format family can contain incompatible codecs with distinct wire names.
+	if (format == "MPEG-4 Visual") {
+		if (id == "MPG4" || id == "MP41")
+			return "msmpeg4v1";
+		if (id == "MP42")
+			return "msmpeg4v2";
+		if (id == "MP43" || id == "DIV3" || id == "DIV4" || id == "DIV5" || id == "DIV6")
+			return "msmpeg4v3";
+	}
+	if (format == "VC-1" && id == "WMV3")
+		return "wmv3";
+	if (format == "HuffYUV")
+		return id == "FFVH" ? "ffvhuff" : "huffyuv";
+	if (format == "AMR") {
+		const auto profile = get(h, kind, i, L"Format_Profile");
+		if (profile == "Narrow band")
+			return "amr_nb";
+		if (profile == "Wide band")
+			return "amr_wb";
+	}
+	if (format == "GSM 6.10" && get(h, 0, 0, L"Format") == "Wave" && id == "31")
+		return "gsm_ms";
+	if (format == "ADPCM") {
+		const auto profile = get(h, kind, i, L"Format_Profile");
+		if (profile == "A-Law")
+			return "pcm_alaw";
+		if (profile == "U-Law")
+			return "pcm_mulaw";
+		if (id == "ima4")
+			return "adpcm_ima_qt";
+		// Numeric CodecID values are hexadecimal WAVE format identifiers.
+		if (get(h, 0, 0, L"Format") == "Wave") {
+			if (id == "11")
+				return "adpcm_ima_wav";
+			if (id == "2")
+				return "adpcm_ms";
+			if (id == "20")
+				return "adpcm_yamaha";
+		}
+	}
+	if (format == "YUV" && (id == "I420" || id == "IYUV" || id == "YV12" || id == "UYVY" || id == "YUY2"))
+		return "rawvideo";
 	static const std::map<std::string, std::string> names = { { "AVC", "h264" },
 		{ "HEVC", "hevc" },
 		{ "AV1", "av1" },
@@ -135,6 +178,16 @@ static std::string miCodec(void *h, int kind, size_t i)
 		{ "Theora", "theora" },
 		{ "FFV1", "ffv1" },
 		{ "ALAC", "alac" },
+		{ "WavPack", "wavpack" },
+		{ "TTA", "tta" },
+		{ "Monkey's Audio", "ape" },
+		{ "Musepack SV7", "musepack7" },
+		{ "Musepack SV8", "musepack8" },
+		{ "MLP", "mlp" },
+		{ "CineForm", "cfhd" },
+		{ "JPEG 2000", "jpeg2000" },
+		{ "VC-3", "dnxhd" },
+		{ "Sorenson Spark", "flv1" },
 		{ "VC-1", "vc1" },
 		{ "WMV2", "wmv2" },
 		{ "WMV1", "wmv1" },
@@ -149,6 +202,8 @@ static std::string miCodec(void *h, int kind, size_t i)
 			return "wmalossless";
 		if (profile.find("Pro") != std::string::npos)
 			return "wmapro";
+		if (profile.find("Voice") != std::string::npos)
+			return "wmavoice";
 		return version == "Version 1" ? "wmav1" : "wmav2";
 	}
 	if (format == "MPEG Audio") {
@@ -171,6 +226,28 @@ static std::string miCodec(void *h, int kind, size_t i)
 		auto bits = get(h, kind, i, L"BitDepth");
 		auto sign = get(h, kind, i, L"Format_Settings_Sign");
 		auto endian = get(h, kind, i, L"Format_Settings_Endianness");
+		if (sign.empty() && (get(h, kind, i, L"Format_Profile") == "Float" || id == "fl32" ||
+					    id == "FL32" || id == "fl64" || id == "FL64"))
+			sign = "Float";
+		if (sign == "Float" && endian.empty() && get(h, 0, 0, L"Format") == "Wave") {
+			// MediaInfo omits float WAV endianness. Read the RIFF signature,
+			// including the big-endian RIFX variant, rather than guessing it.
+			const auto position = tell();
+			unsigned char header[12];
+			if (position >= 0 && !seek(0, SEEK_SET)) {
+				if (std::fread(header, 1, sizeof(header), stdin) == sizeof(header) &&
+					!std::memcmp(header + 8, "WAVE", 4)) {
+					if (!std::memcmp(header, "RIFX", 4))
+						endian = "Big";
+					else if (!std::memcmp(header, "RIFF", 4) ||
+						 !std::memcmp(header, "RF64", 4) ||
+						 !std::memcmp(header, "BW64", 4))
+						endian = "Little";
+				}
+				if (seek(position, SEEK_SET))
+					return {};
+			}
+		}
 		if (sign.empty() && get(h, 0, 0, L"Format") == "AIFF")
 			sign = "Signed";
 		if (bits == "8" && sign == "Unsigned")
@@ -233,13 +310,15 @@ static int mediaInfo(Result &r, int64_t size, bool full = false)
 		if (!n)
 			break;
 		const size_t status = MediaInfo_Open_Buffer_Continue(h, buffer, n);
-		if (status & 8)
-			break;
 		uint64_t next = MediaInfo_Open_Buffer_Continue_GoTo_Get(h);
 		if (next != UINT64_MAX) {
 			if (next > static_cast<uint64_t>(size) || seek(static_cast<int64_t>(next), SEEK_SET))
 				return 11;
 			MediaInfo_Open_Buffer_Init(h, size, next);
+		} else if (status & 8) {
+			// A completed stream can still request a seek to trailing tags.
+			// Honour that request before accepting the finished flag (e.g. TTA).
+			break;
 		}
 	}
 	if (std::ferror(stdin))
