@@ -131,7 +131,6 @@ TEST(MediaProbeEnv, WithoutAppdirTheEnvironmentIsUnchanged)
 namespace
 {
 MediaInfo RunPolicyScript(const wxString &primary,
-	const wxString &secondary,
 	unsigned timeout = 2000,
 	MediaProbe::ProbeOutcome *outcome = nullptr,
 	const std::atomic<bool> *keepRunning = nullptr)
@@ -139,8 +138,7 @@ MediaInfo RunPolicyScript(const wxString &primary,
 	const wxString path = wxFileName::CreateTempFileName(wxT("amule-policy"));
 	const wxString media = wxFileName::CreateTempFileName(wxT("amule-input"));
 	wxFFile script(path, wxT("w"));
-	script.Write(wxT("#!/bin/sh\nif [ \"$2\" = mediainfo ]; then\n") + primary + wxT("\nelse\n") +
-		     secondary + wxT("\nfi\n"));
+	script.Write(wxT("#!/bin/sh\n") + primary + wxT("\n"));
 	script.Close();
 	wxChmod(path, 0700);
 	MediaInfo info;
@@ -164,40 +162,19 @@ wxString Reply(unsigned duration, const wxString &title)
 		title);
 }
 } // namespace
-TEST(MediaProbeEnv, CompletePrimaryWins)
+TEST(MediaProbeEnv, CompleteResultIsPublished)
 {
-	ASSERT_EQUALS(wxString(wxT("primary")),
-		RunPolicyScript(Reply(3, wxT("primary")), Reply(5, wxT("fallback"))).title);
+	ASSERT_EQUALS(wxString(wxT("primary")), RunPolicyScript(Reply(3, wxT("primary"))).title);
 }
-TEST(MediaProbeEnv, RejectedPrimaryFallsBack)
+TEST(MediaProbeEnv, CodecOnlyResultIsPublished)
 {
-	ASSERT_EQUALS(
-		wxString(wxT("fallback")), RunPolicyScript(wxT("exit 11"), Reply(5, wxT("fallback"))).title);
+	ASSERT_EQUALS(wxString(wxT("primary")), RunPolicyScript(Reply(0, wxT("primary"))).title);
 }
-TEST(MediaProbeEnv, CrashedPrimaryFallsBackInFreshProcess)
+TEST(MediaProbeEnv, TimeoutIsCancelled)
 {
-	ASSERT_EQUALS(wxString(wxT("fallback")),
-		RunPolicyScript(wxT("ulimit -c 0; kill -SEGV $$"), Reply(5, wxT("fallback"))).title);
-}
-TEST(MediaProbeEnv, IncompletePrimaryReplacedAsWhole)
-{
-	ASSERT_EQUALS(wxString(wxT("fallback")),
-		RunPolicyScript(Reply(0, wxT("primary")), Reply(5, wxT("fallback"))).title);
-}
-TEST(MediaProbeEnv, FailedFallbackPreservesPrimary)
-{
-	ASSERT_EQUALS(
-		wxString(wxT("primary")), RunPolicyScript(Reply(0, wxT("primary")), wxT("exit 11")).title);
-}
-TEST(MediaProbeEnv, PrimaryTimeoutLeavesFallbackBudget)
-{
-	ASSERT_EQUALS(wxString(wxT("fallback")),
-		RunPolicyScript(wxT("sleep 30"), Reply(5, wxT("fallback")), 600).title);
-}
-TEST(MediaProbeEnv, MalformedPrimaryFallsBack)
-{
-	ASSERT_EQUALS(wxString(wxT("fallback")),
-		RunPolicyScript(wxT("echo forged"), Reply(5, wxT("fallback"))).title);
+	MediaProbe::ProbeOutcome outcome;
+	RunPolicyScript(wxT("sleep 30"), 100, &outcome);
+	ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Cancelled);
 }
 
 TEST(MediaProbeEnv, HelperFailuresAreNeverPersistentFileVerdicts)
@@ -207,7 +184,7 @@ TEST(MediaProbeEnv, HelperFailuresAreNeverPersistentFileVerdicts)
 		     wxString(wxT("exit 127")),
 		     wxString(wxT("exit 1")) }) {
 		MediaProbe::ProbeOutcome outcome;
-		RunPolicyScript(failure, failure, 2000, &outcome);
+		RunPolicyScript(failure, 2000, &outcome);
 		ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Unavailable);
 		ASSERT_FALSE(MediaProbe::IsFileVerdict(outcome));
 	}
@@ -216,22 +193,10 @@ TEST(MediaProbeEnv, HelperFailuresAreNeverPersistentFileVerdicts)
 TEST(MediaProbeEnv, RecognizedFileRejectionsRemainFileVerdicts)
 {
 	MediaProbe::ProbeOutcome outcome;
-	RunPolicyScript(wxT("exit 10"), wxT("exit 10"), 2000, &outcome);
+	RunPolicyScript(wxT("exit 10"), 2000, &outcome);
 	ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::NoUsableMetadata);
-	RunPolicyScript(wxT("exit 11"), wxT("exit 11"), 2000, &outcome);
+	RunPolicyScript(wxT("exit 11"), 2000, &outcome);
 	ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::UnreadableFile);
-}
-
-TEST(MediaProbeEnv, FallbackCannotLoseAnExistingCoreField)
-{
-	wxString fallback = Reply(5, wxT("fallback"));
-	fallback.Replace(wxT("codec_name=\"mp3\""), wxT("codec_name=\"\""));
-	ASSERT_EQUALS(wxString(wxT("primary")), RunPolicyScript(Reply(0, wxT("primary")), fallback).title);
-
-	wxString primary = Reply(3, wxT("primary"));
-	primary.Replace(wxT("codec_name=\"mp3\""), wxT("codec_name=\"\""));
-	ASSERT_EQUALS(wxString(wxT("primary")), RunPolicyScript(primary, Reply(0, wxT("fallback"))).title);
-	ASSERT_EQUALS(wxString(wxT("fallback")), RunPolicyScript(primary, Reply(5, wxT("fallback"))).title);
 }
 
 TEST(MediaProbeEnv, CancelledProbeDoesNotLaunchHelper)
@@ -240,11 +205,8 @@ TEST(MediaProbeEnv, CancelledProbeDoesNotLaunchHelper)
 	wxRemoveFile(marker);
 	const std::atomic<bool> running(false);
 	MediaProbe::ProbeOutcome outcome;
-	RunPolicyScript(wxT("touch '") + marker + wxT("'\n") + Reply(3, wxT("primary")),
-		Reply(5, wxT("fallback")),
-		2000,
-		&outcome,
-		&running);
+	RunPolicyScript(
+		wxT("touch '") + marker + wxT("'\n") + Reply(3, wxT("primary")), 2000, &outcome, &running);
 	const bool launched = wxFileExists(marker);
 	if (wxFileExists(marker))
 		wxRemoveFile(marker);
@@ -252,7 +214,7 @@ TEST(MediaProbeEnv, CancelledProbeDoesNotLaunchHelper)
 	ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Cancelled);
 }
 
-TEST(MediaProbeEnv, MalformedProtocolFieldsTriggerFallback)
+TEST(MediaProbeEnv, MalformedProtocolFieldsAreUnavailable)
 {
 	const wxString valid = Reply(3, wxT("primary"));
 	for (const auto &change :
@@ -263,20 +225,21 @@ TEST(MediaProbeEnv, MalformedProtocolFieldsTriggerFallback)
 			{ wxT("title=\"primary\""), wxT("title=\"broken\"quote\"") } }) {
 		wxString malformed = valid;
 		ASSERT_TRUE(malformed.Replace(change.first, change.second) > 0);
-		ASSERT_EQUALS(wxString(wxT("fallback")),
-			RunPolicyScript(malformed, Reply(5, wxT("fallback"))).title);
+		MediaProbe::ProbeOutcome outcome;
+		RunPolicyScript(malformed, 2000, &outcome);
+		ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Unavailable);
 	}
 }
 
 TEST(MediaProbeEnv, ExcessiveHelperOutputIsNotAFileVerdict)
 {
 	MediaProbe::ProbeOutcome outcome;
-	RunPolicyScript(wxT("head -c 70000 /dev/zero"), wxT("exit 11"), 2000, &outcome);
+	RunPolicyScript(wxT("head -c 70000 /dev/zero"), 2000, &outcome);
 	ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Unavailable);
 	ASSERT_FALSE(MediaProbe::IsFileVerdict(outcome));
 }
 
-TEST(MediaProbeEnv, CancellationDuringFallbackDiscardsPartialPrimary)
+TEST(MediaProbeEnv, CancellationDiscardsResult)
 {
 	std::atomic<bool> running(true);
 	std::thread cancel([&running] {
@@ -285,7 +248,7 @@ TEST(MediaProbeEnv, CancellationDuringFallbackDiscardsPartialPrimary)
 	});
 	MediaProbe::ProbeOutcome outcome;
 	const MediaInfo info =
-		RunPolicyScript(Reply(0, wxT("primary")), wxT("sleep 30"), 2000, &outcome, &running);
+		RunPolicyScript(wxT("sleep 30\n") + Reply(3, wxT("primary")), 2000, &outcome, &running);
 	cancel.join();
 	ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Cancelled);
 	ASSERT_TRUE(info.title.empty());

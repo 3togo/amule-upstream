@@ -324,7 +324,7 @@ jobs:
     env:
       # What the .app build needs from Homebrew. On x86_64 the keg cache is
       # limited to these and their dependency closure.
-      BREW_DEPS: cmake wxwidgets cryptopp libupnp gd gettext boost dylibbundler libmaxminddb libmediainfo ffmpeg
+      BREW_DEPS: cmake wxwidgets cryptopp libupnp gd gettext boost dylibbundler libmaxminddb
     steps:
       - uses: actions/checkout@v7
         with:
@@ -769,8 +769,6 @@ jobs:
             ${{ matrix.pkg_prefix }}-gettext
             ${{ matrix.pkg_prefix }}-libgd
             ${{ matrix.pkg_prefix }}-libmaxminddb
-            ${{ matrix.pkg_prefix }}-libmediainfo
-            ${{ matrix.pkg_prefix }}-ffmpeg
             ${{ matrix.pkg_prefix }}-make
             ${{ matrix.pkg_prefix }}-ninja
             ${{ matrix.pkg_prefix }}-pkgconf
@@ -779,6 +777,7 @@ jobs:
             ${{ matrix.pkg_prefix }}-wxwidgets3.3-msw
             ${{ matrix.pkg_prefix }}-zlib
             git
+            python
             zip
         run: |
           set -euo pipefail

@@ -748,22 +748,13 @@ bool CSharedFileList::MaybeScheduleMediaProbe(CKnownFile *pFile, MediaProbeMode 
 	// only the main thread removes a file from the list. It is that single-thread property
 	// doing the work, not the mutex.
 	//
-	// Probes local shared audio / video files with ffprobe to populate the six FT_MEDIA_*
-	// fields. Cost-limited three ways: only for files whose ED2K file-type is audio / video
-	// (a cheap extension filter -- a .zip renamed to .mp4 gets scheduled and ffprobe fails
-	// fast, but this skips the mass of docs / archives / images in a typical share tree),
-	// only when the file has no media metadata yet, and only one task at a time at ETP_Low
-	// so hashing and completion never starve. An empty ffprobe path is NOT "off": it means
-	// auto-detect.
+	// Extract metadata with the sibling helper on a low-priority worker. Only
+	// audio/video candidates without metadata or a current failure marker are queued.
 	if (!thePrefs::GetMediaMetadataEnabled()) {
 		return false;
 	}
-	// An empty preference is not "off" -- it means "whatever this machine has", which is what
-	// every place that documents the setting promises. The worker resolves it through
-	// MediaProbe::DetectedPath() and drops the job if that finds nothing; doing it there keeps
-	// the detection subprocess off this thread and pays for it once per process rather than
-	// once per file.
-	const wxString &ffprobePath = thePrefs::GetMediaMetadataFFProbePath();
+	// The worker resolves the sibling helper once per process.
+	const wxString helperPath;
 	// Shared with the GUI's menu-enable test (IsMediaProbeCandidate, in OtherFunctions): the
 	// view must not offer an action the scheduler will silently drop, which is what two copies
 	// of this rule would eventually produce.
@@ -785,17 +776,15 @@ bool CSharedFileList::MaybeScheduleMediaProbe(CKnownFile *pFile, MediaProbeMode 
 	}
 	// GetMetaDataVer(), not a second FT_MEDIA_LENGTH test: one definition of "this file has
 	// been probed", shared with the publishers and the UI. The length-only form here never
-	// considered a codec-only file probed, so every startup re-ran ffprobe on all of them.
+	// considered a codec-only file probed, so every startup re-ran the helper on all of them.
 	if (mode == MediaProbeMode::Normal && pFile->GetMetaDataVer() > 0) {
 		AddDebugLogLineN(logMediaProbe,
 			CFormat(wxT("MediaProbe: skip (already has metadata) %s")) % pFile->GetFileName());
 		return false;
 	}
-	// A file ffprobe already tried and could not read is not re-tried on the normal path.
-	// Nothing about it has changed since the last attempt, so a share reload would spawn
-	// ffprobe on every broken file in the library, every time, to fail identically. Refresh
-	// deliberately ignores this -- that is the whole point of an explicit re-extraction.
-	if (mode == MediaProbeMode::Normal && pFile->GetIntTagValue(FT_MEDIA_PROBE_FAILED)) {
+	// Skip MediaInfo failures only. Legacy ffprobe marker 1 gets one retry;
+	// refresh always retries and successful extraction clears the marker.
+	if (mode == MediaProbeMode::Normal && pFile->GetIntTagValue(FT_MEDIA_PROBE_FAILED) == 2) {
 		AddDebugLogLineN(logMediaProbe,
 			CFormat(wxT("MediaProbe: skip (previous probe found nothing) %s")) %
 				pFile->GetFileName());
@@ -815,12 +804,12 @@ bool CSharedFileList::MaybeScheduleMediaProbe(CKnownFile *pFile, MediaProbeMode 
 		return false;
 	}
 	// #280: run on the dedicated media-probe worker, NOT the shared
-	// CThreadScheduler -- a slow/hung ffprobe there wedges completions.
+	// CThreadScheduler -- a slow/hung helper there wedges completions.
 	if (theApp->mediaProbeThread) {
 		AddDebugLogLineN(logMediaProbe,
-			CFormat(wxT("MediaProbe: queueing %s (ffprobe=%s)")) % pFile->GetFileName() %
-				ffprobePath);
-		theApp->mediaProbeThread->QueueProbe(pFile->GetFileHash(), fullPath, ffprobePath, bulk);
+			CFormat(wxT("MediaProbe: queueing %s (helper=%s)")) % pFile->GetFileName() %
+				helperPath);
+		theApp->mediaProbeThread->QueueProbe(pFile->GetFileHash(), fullPath, helperPath, bulk);
 		return true;
 	} else {
 		AddDebugLogLineN(logMediaProbe,

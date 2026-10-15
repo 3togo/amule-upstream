@@ -261,7 +261,6 @@ bool CPreferences::s_NewVersionCheck;
 // prefs-apply.
 bool CPreferences::s_versionCheckAvailable = true;
 bool CPreferences::s_MediaMetadataEnabled;
-wxString CPreferences::s_MediaMetadataFFProbePath;
 bool CPreferences::s_ConnectToKad;
 bool CPreferences::s_ConnectToED2K;
 bool CPreferences::s_KadProtocol10;
@@ -1458,7 +1457,7 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	 * benefits other people is one almost nobody enables. It is also undiscoverable on a
 	 * headless amuled + amuleapi deployment, where there is no dialog to stumble across.
 	 *
-	 * Enabling it does not require ffprobe to exist: detection is memoised for the life
+	 * Enabling it does not require the helper to exist: detection is memoised for the life
 	 * of the process, and with nothing found the worker drops every job after a single
 	 * log line.
 	 *
@@ -1470,8 +1469,6 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	 */
 	NewCfgItem(IDC_MEDIAMETA_ENABLED,
 		(new Cfg_Bool("/MediaMetadata/Enabled", s_MediaMetadataEnabled, true)));
-	NewCfgItem(IDC_MEDIAMETA_FFPROBEPATH,
-		(new Cfg_Str("/MediaMetadata/FFProbePath", s_MediaMetadataFFProbePath, "")));
 
 	/** Obfuscation */
 	NewCfgItem(IDC_SUPPORT_PO,
@@ -1609,6 +1606,15 @@ void CPreferences::EraseItemList()
 
 void CPreferences::LoadAllItems(wxConfigBase *cfg)
 {
+	if (cfg->HasEntry("/MediaMetadata/FFProbePath")) {
+		const wxString oldPath = cfg->Read("/MediaMetadata/FFProbePath", wxEmptyString);
+		if (!oldPath.empty()) {
+			AddLogLineN(_("Media metadata: FFProbePath is obsolete; aMule now uses its bundled "
+				      "MediaInfo parser. Removing the old setting."));
+		}
+		cfg->DeleteEntry("/MediaMetadata/FFProbePath");
+		cfg->Flush();
+	}
 #ifndef CLIENT_GUI
 	// Preserve values from old config. The global config object may not be set yet
 	// when BuildItemList() is called, so we need to provide defaults later - here.

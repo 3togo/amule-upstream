@@ -85,14 +85,14 @@ wxString DetectedPath(bool redetect = false);
 
 //! Why a probe produced no metadata. The distinction matters because one of these is a statement
 //! about the FILE and the rest about the environment: only the first justifies recording "this file
-//! cannot be probed" and skipping it on later scans. Marking on the others would let a mistyped
-//! ffprobe path, a spun-down disk or a shutdown mid-scan brand every file it touched as permanently
+//! cannot be probed" and skipping it on later scans. Marking on the others would let a missing
+//! helper, a spun-down disk or a shutdown mid-scan brand every file it touched as permanently
 //! unprobeable (issue #1116).
 enum class ProbeOutcome
 {
 	Extracted,        //!< usable metadata came back
-	NoUsableMetadata, //!< both backends found no usable metadata
-	UnreadableFile,   //!< a backend explicitly rejected the input
+	NoUsableMetadata, //!< MediaInfo found no usable metadata
+	UnreadableFile,   //!< MediaInfo explicitly rejected the input
 	OutputTooLarge,   //!< legacy outcome retained for compatibility
 	Unavailable,      //!< helper unavailable, bad protocol or unexpected exit
 	Cancelled,        //!< timed out, or shutdown cancelled the drain

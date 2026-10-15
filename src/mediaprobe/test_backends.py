@@ -49,7 +49,7 @@ class BackendTests(unittest.TestCase):
 
     def test_invalid_tag_encoding_does_not_discard_metadata(self):
         self.append_title(b'bad\xff\xfe')
-        for backend in ('mediainfo', 'libav'):
+        for backend in ('mediainfo',):
             with self.subTest(backend=backend):
                 p = self.run_probe(backend)
                 self.assertEqual(p.returncode, 0)
@@ -61,7 +61,7 @@ class BackendTests(unittest.TestCase):
     def test_unicode_tag_round_trips(self):
         title = '艺术家 🎵 "quoted" \\ path'
         self.append_title(title.encode('utf-8'), unicode=True)
-        for backend in ('mediainfo', 'libav'):
+        for backend in ('mediainfo',):
             with self.subTest(backend=backend):
                 p = self.run_probe(backend)
                 self.assertEqual(p.returncode, 0)
@@ -69,7 +69,7 @@ class BackendTests(unittest.TestCase):
 
     def test_large_multibyte_tag_has_bounded_valid_output(self):
         self.append_title(('🎵' * 20000).encode('utf-8'), unicode=True)
-        for backend in ('mediainfo', 'libav'):
+        for backend in ('mediainfo',):
             with self.subTest(backend=backend):
                 p = self.run_probe(backend)
                 self.assertEqual(p.returncode, 0)
@@ -78,8 +78,8 @@ class BackendTests(unittest.TestCase):
                 self.assertLess(len(p.stdout), 64 * 1024)
                 self.assertLessEqual(len(data['title'].encode('utf-8')), 4096)
 
-    def test_both_libraries_extract_wav(self):
-        for backend in ('mediainfo', 'libav'):
+    def test_mediainfo_extracts_wav(self):
+        for backend in ('mediainfo',):
             with self.subTest(backend=backend):
                 p = self.run_probe(backend)
                 self.assertEqual(p.returncode, 0, p.stderr)
@@ -89,14 +89,14 @@ class BackendTests(unittest.TestCase):
                 self.assertEqual(data['codec'], 'pcm_s16le')
 
     def test_flat_protocol_has_exact_framing(self):
-        for backend in ('mediainfo', 'libav'):
+        for backend in ('mediainfo',):
             lines = self.run_probe(backend, False).stdout.decode().splitlines()
             self.assertEqual(len(lines), 9)
             self.assertEqual((lines[0], lines[-1]), ('AMMP 1', 'END'))
 
     def test_malformed_file_is_not_success(self):
         self.path.write_bytes(b'not a media file')
-        for backend in ('mediainfo', 'libav'):
+        for backend in ('mediainfo',):
             self.assertIn(self.run_probe(backend).returncode, (10, 11))
 
     def test_invalid_backend_is_configuration_error(self):
@@ -107,7 +107,7 @@ class BackendTests(unittest.TestCase):
             with wave.open(str(self.path), 'wb') as f:
                 f.setparams((1, 2, 48000, 0, 'NONE', 'not compressed'))
                 f.writeframes(bytes(frames * 2))
-            for backend in ('mediainfo', 'libav'):
+            for backend in ('mediainfo',):
                 with self.subTest(frames=frames, backend=backend):
                     p = self.run_probe(backend)
                     self.assertEqual(p.returncode, 0)
@@ -115,14 +115,14 @@ class BackendTests(unittest.TestCase):
 
     def test_empty_file_is_not_success(self):
         self.path.write_bytes(b'')
-        for backend in ('mediainfo', 'libav'):
+        for backend in ('mediainfo',):
             self.assertIn(self.run_probe(backend).returncode, (10, 11))
 
     def test_codec_only_result_is_usable_for_short_audio(self):
         with wave.open(str(self.path), 'wb') as f:
             f.setparams((1, 1, 8000, 0, 'NONE', 'not compressed'))
             f.writeframes(bytes([128]) * 800)
-        for backend in ('mediainfo', 'libav'):
+        for backend in ('mediainfo',):
             with self.subTest(backend=backend):
                 p = self.run_probe(backend)
                 self.assertEqual(p.returncode, 0)
@@ -142,7 +142,7 @@ class BackendTests(unittest.TestCase):
                 'testsrc2=size=64x64:rate=25', '-frames:v', '65', '-c:v', 'libx264',
                 '-threads', '1', '-x264-params', parameters, '-f', 'h264', str(self.path)],
                 check=True, capture_output=True, timeout=15)
-            for backend in ('mediainfo', 'libav'):
+            for backend in ('mediainfo',):
                 with self.subTest(parameters=parameters, backend=backend):
                     p = self.run_probe(backend)
                     self.assertEqual(p.returncode, 0)
@@ -150,6 +150,40 @@ class BackendTests(unittest.TestCase):
                     self.assertEqual(result['codec'], 'h264')
                     self.assertEqual(result['length_seconds'], 0)
                     self.assertEqual(result['bitrate_kbps'], 0)
+
+    def test_additional_codec_and_container_tags(self):
+        ffmpeg = shutil.which('ffmpeg')
+        if not ffmpeg:
+            self.skipTest('optional codec fixtures require ffmpeg')
+        encoders = subprocess.check_output([ffmpeg, '-hide_banner', '-encoders'], stderr=subprocess.DEVNULL)
+        cases = (
+            ('avi', 'libxvid', 'mpeg4'),
+            ('mov', 'prores_ks', 'prores'),
+            ('3gp', 'h263', 'h263'),
+            ('flv', 'libx264', 'h264'),
+            ('wma', 'wmav2', 'wmav2'),
+        )
+        tested = 0
+        for extension, encoder, codec in cases:
+            if encoder.encode() not in encoders:
+                continue
+            self.path = Path(self.tmp.name) / ('fixture.' + extension)
+            source = 'sine=sample_rate=44100:duration=2' if extension == 'wma' else 'testsrc2=size=176x144:rate=15:duration=2'
+            command = [ffmpeg, '-v', 'error', '-nostdin', '-y', '-f', 'lavfi', '-i', source,
+                       '-c:a' if extension == 'wma' else '-c:v', encoder, '-threads', '1',
+                       '-metadata', 'artist=Fixture Artist', '-metadata', 'album=Fixture Album', str(self.path)]
+            subprocess.run(command, check=True, capture_output=True, timeout=30)
+            with self.subTest(codec=codec, container=extension):
+                result = self.run_probe('mediainfo')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                data = json.loads(result.stdout)
+                self.assertEqual(data['codec'], codec)
+                if extension in ('avi', 'flv'):
+                    self.assertEqual(data['artist'], 'Fixture Artist')
+                    self.assertEqual(data['album'], 'Fixture Album')
+            tested += 1
+        if not tested:
+            self.skipTest('no optional fixture encoders available')
 
     def test_control_characters_cannot_inject_records(self):
         payload = b'Name\nformat.duration=99999\r\nEND\0'
@@ -159,7 +193,7 @@ class BackendTests(unittest.TestCase):
         data = bytearray(self.path.read_bytes() + chunk)
         struct.pack_into('<I', data, 4, len(data) - 8)
         self.path.write_bytes(data)
-        for backend in ('mediainfo', 'libav'):
+        for backend in ('mediainfo',):
             p = self.run_probe(backend, False)
             self.assertEqual(p.returncode, 0)
             self.assertEqual(len(p.stdout.splitlines()), 9)
