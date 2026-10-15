@@ -23,6 +23,7 @@
 #include <map>
 #include <cmath>
 #include <cstdlib>
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -48,6 +49,8 @@
 #include <windows.h>
 #else
 #include <csignal>
+#include <cerrno>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <spawn.h>
 #include <sys/wait.h>
@@ -67,10 +70,9 @@ namespace
 {
 
 // Return values for RunBoundedHelper: a child exit code (>= 0), or one of:
-constexpr int kSpawnFailed = -1;    // couldn't launch the binary at all
+constexpr int kSpawnFailed = -1;    // unavailable helper, abnormal exit or malformed response
 constexpr int kKilled = -2;         // overran timeoutMs, or keepRunning went false
 constexpr int kOutputTooLarge = -3; // reply exceeded the read budget; see the slurp
-constexpr int kBadProtocol = -4;    // helper malfunction, never a verdict about the input
 
 // Spawn `exe argv...`, capturing stdout to a temp file, bounded by `timeoutMs` wall-clock. The wait
 // loop also polls `keepRunning`, so worker shutdown kills the child at once. Real argv, no shell,
@@ -91,6 +93,11 @@ int RunBoundedHelper(const wxString &exe,
 	}
 
 	int exitCode = kSpawnFailed;
+	const wxFileOffset kMaxProbeOutputBytes = 64 * 1024;
+	const auto outputTooLarge = [&] {
+		wxFFile output(tmpPath, wxT("rb"));
+		return output.IsOpened() && output.Length() > kMaxProbeOutputBytes;
+	};
 
 #ifdef __WXMSW__
 	const wxString program = exe;
@@ -243,7 +250,8 @@ int RunBoundedHelper(const wxString &exe,
 			exitCode = static_cast<int>(code);
 			break;
 		}
-		if (!keepRunning || static_cast<unsigned>(sw.Time()) >= timeoutMs) {
+		const bool oversized = outputTooLarge();
+		if (!keepRunning || static_cast<unsigned>(sw.Time()) >= timeoutMs || oversized) {
 			// Kill the whole job (wrapper + real ffprobe); fall back to the bare
 			// process if the job could not be created.
 			if (hJob != nullptr) {
@@ -252,7 +260,7 @@ int RunBoundedHelper(const wxString &exe,
 				::TerminateProcess(pi.hProcess, 1);
 			}
 			::WaitForSingleObject(pi.hProcess, INFINITE);
-			exitCode = kKilled;
+			exitCode = oversized ? kOutputTooLarge : kKilled;
 			break;
 		}
 	}
@@ -282,8 +290,11 @@ int RunBoundedHelper(const wxString &exe,
 
 	posix_spawn_file_actions_t fa;
 	posix_spawn_file_actions_init(&fa);
-	const int inputFd = open(input.GetRaw().fn_str(), O_RDONLY | O_CLOEXEC);
-	if (inputFd < 0) {
+	const int inputFd = open(input.GetRaw().fn_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+	struct stat inputStat;
+	if (inputFd < 0 || fstat(inputFd, &inputStat) != 0 || !S_ISREG(inputStat.st_mode)) {
+		if (inputFd >= 0)
+			close(inputFd);
 		posix_spawn_file_actions_destroy(&fa);
 		wxRemoveFile(tmpPath);
 		return kSpawnFailed;
@@ -322,17 +333,22 @@ int RunBoundedHelper(const wxString &exe,
 		int status = 0;
 		const pid_t r = waitpid(pid, &status, WNOHANG);
 		if (r == pid) {
-			exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : kKilled;
+			exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : kSpawnFailed;
 			break;
+		}
+		if (r == -1 && errno == EINTR) {
+			continue;
 		}
 		if (r == -1) { // vanished / already reaped
-			exitCode = kKilled;
+			exitCode = kSpawnFailed;
 			break;
 		}
-		if (!keepRunning || static_cast<unsigned>(sw.Time()) >= timeoutMs) {
-			kill(-pid, SIGKILL);      // whole group: wrapper + real ffprobe
-			waitpid(pid, &status, 0); // reap the leader; init reaps the rest
-			exitCode = kKilled;
+		const bool oversized = outputTooLarge();
+		if (!keepRunning || static_cast<unsigned>(sw.Time()) >= timeoutMs || oversized) {
+			kill(-pid, SIGKILL); // whole group: wrapper + real ffprobe
+			while (waitpid(pid, &status, 0) == -1 && errno == EINTR) {
+			} // reap the leader; init reaps the rest
+			exitCode = oversized ? kOutputTooLarge : kKilled;
 			break;
 		}
 		wxMilliSleep(25);
@@ -347,8 +363,7 @@ int RunBoundedHelper(const wxString &exe,
 	// and the unescaper before kMaxTagChars ever applies. A legitimate five-field reply is a
 	// few hundred bytes, and anything past the cap is treated as a failed probe rather than
 	// truncated.
-	const wxFileOffset kMaxProbeOutputBytes = 64 * 1024;
-	if (exitCode >= 0) {
+	if (exitCode == 0) {
 		wxFFile f(tmpPath, wxT("rb"));
 		wxString content;
 		if (f.IsOpened() && f.Length() > kMaxProbeOutputBytes) {
@@ -359,9 +374,18 @@ int RunBoundedHelper(const wxString &exe,
 			// reporting "failed (code -1)" would name the wrong thing.
 			exitCode = kOutputTooLarge;
 		} else if (f.IsOpened() && f.ReadAll(&content, wxConvUTF8)) {
-			wxStringTokenizer tok(content, wxT("\r\n"), wxTOKEN_STRTOK);
-			while (tok.HasMoreTokens()) {
-				stdoutLines.Add(tok.GetNextToken());
+			// Exactly LF-delimited records, including the terminal newline. Do not
+			// silently discard blank lines or CR bytes from malformed responses.
+			if (content.empty() || content.Last() != wxT('\n') ||
+				content.find(wxT('\r')) != wxString::npos ||
+				content.find(wxT('\0')) != wxString::npos) {
+				exitCode = kSpawnFailed;
+			} else {
+				content.RemoveLast();
+				wxStringTokenizer tok(content, wxT("\n"), wxTOKEN_RET_EMPTY_ALL);
+				while (tok.HasMoreTokens()) {
+					stdoutLines.Add(tok.GetNextToken());
+				}
 			}
 		}
 	}
@@ -753,6 +777,10 @@ bool ParseHelperOutput(const wxArrayString &lines, MediaInfo &info)
 		for (const wxUniChar c : value)
 			if (c < wxT('0') || c > wxT('9'))
 				return false;
+		wxULongLong_t number = 0;
+		if (!value.ToULongLong(&number) || (i == 1 && number > UINT32_MAX) ||
+			(i == 2 && (number > uint64_t(UINT32_MAX) * 1000 || number % 1000 != 0)))
+			return false;
 	}
 	const wxString codec = UnflattenValue(lines[4].AfterFirst(wxT('=')));
 	if (codec.length() > 32)

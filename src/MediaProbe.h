@@ -75,7 +75,7 @@ wxString DetectedPath(bool redetect = false);
 // Probe a single file, populating `out` only for Extracted. Other outcomes describe
 // file rejection, an unavailable helper or cancellation. The file remains shared.
 //
-// The probe spawns the helper once per backend and waits for it with a `timeoutMs` wall-clock bound, killing
+// The probe spawns the helper once per file and waits for it with a `timeoutMs` wall-clock bound, killing
 // it on expiry. `keepRunning` is polled during the wait, so worker shutdown kills the child at once
 // and the caller's join can complete. Both bounds mean a slow or hung helper can never wedge the
 // worker.
@@ -104,8 +104,7 @@ enum class ProbeOutcome
 inline bool IsFileVerdict(ProbeOutcome outcome)
 {
 	// Only file verdicts persist; cancellation and missing helpers are retried.
-	return outcome == ProbeOutcome::NoUsableMetadata || outcome == ProbeOutcome::UnreadableFile ||
-	       outcome == ProbeOutcome::OutputTooLarge;
+	return outcome == ProbeOutcome::NoUsableMetadata || outcome == ProbeOutcome::UnreadableFile;
 }
 
 //! \param bulk true when the caller is draining a batch of queued probes, in which case the per-

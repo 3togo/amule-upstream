@@ -6,9 +6,10 @@ the parent validates a bounded, versioned nine-line response containing duration
 (rounded seconds), bitrate (kbps), codec, artist, album and title. The existing
 metadata queue and enable/refresh controls remain.
 
-The parent enforces a wall-clock deadline and cancellation, and terminates the
-child on timeout. Windows uses a Job object and an explicit inherited handle
-list. POSIX builds limit CPU, memory and core dumps. Bundle library search paths
+The parent enforces a wall-clock deadline, cancellation and a 64 KiB output
+limit while the child runs. It rejects malformed framing and numeric values
+outside the helper protocol, and treats crashes as helper failures. Windows uses
+a Job object and an explicit inherited handle list. POSIX builds limit CPU, memory and core dumps. Bundle library search paths
 are preserved. This is process isolation and resource limiting, not an operating
 system sandbox. Pinned bundle builds disable curl and libmms readers.
 

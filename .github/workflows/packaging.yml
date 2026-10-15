@@ -180,6 +180,9 @@ jobs:
         with:
           fetch-depth: 0  # git describe for the version string
 
+      - name: Check static bundle staging
+        run: python3 -m unittest discover -s packaging/linux/tests -v
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
 

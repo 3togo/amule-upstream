@@ -45,6 +45,9 @@ DECLARE_SIMPLE(MediaProbeEnv)
 // The bundled helper inherits AppImage library paths. The stand-in returns
 // LD_LIBRARY_PATH as a title so the test reads the actual child environment.
 #ifndef __WXMSW__
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 namespace
 {
@@ -182,7 +185,8 @@ TEST(MediaProbeEnv, HelperFailuresAreNeverPersistentFileVerdicts)
 	for (const wxString &failure : { wxString(wxT("echo forged")),
 		     wxString(wxT("exit 12")),
 		     wxString(wxT("exit 127")),
-		     wxString(wxT("exit 1")) }) {
+		     wxString(wxT("exit 1")),
+		     wxString(wxT("ulimit -c 0; kill -SEGV $$")) }) {
 		MediaProbe::ProbeOutcome outcome;
 		RunPolicyScript(failure, 2000, &outcome);
 		ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Unavailable);
@@ -231,12 +235,85 @@ TEST(MediaProbeEnv, MalformedProtocolFieldsAreUnavailable)
 	}
 }
 
+TEST(MediaProbeEnv, MalformedProtocolFramingAndRangesAreUnavailable)
+{
+	const wxString valid = Reply(3, wxT("primary"));
+	std::vector<wxString> malformed = {
+		wxT("printf '\\n'; ") + valid,
+		valid + wxT("; printf '\\n'"),
+	};
+	for (const auto &change : std::vector<std::pair<wxString, wxString>>{
+		     { wxT("duration=3"), wxT("duration=4294967296") },
+		     { wxT("bit_rate=1000"), wxT("bit_rate=4294967296000") },
+		     { wxT("bit_rate=1000"), wxT("bit_rate=1001") },
+		     { wxT("\\nformat.duration"), wxT("\\n\\nformat.duration") },
+		     { wxT("\\nformat.duration"), wxT("\\r\\nformat.duration") },
+		     { wxT("END\\n"), wxT("END") },
+		     { wxT("AMMP 1"), wxT("AMMP 1\\000") },
+	     }) {
+		wxString reply = valid;
+		ASSERT_TRUE(reply.Replace(change.first, change.second) > 0);
+		malformed.push_back(reply);
+	}
+	for (const wxString &reply : malformed) {
+		MediaProbe::ProbeOutcome outcome;
+		RunPolicyScript(reply, 2000, &outcome);
+		ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Unavailable);
+	}
+}
+
+TEST(MediaProbeEnv, ProtocolBoundaryValuesAreAccepted)
+{
+	wxString reply = Reply(0xffffffffu, wxT("maximum"));
+	reply.Replace(wxT("bit_rate=1000"), wxT("bit_rate=4294967295000"));
+	MediaProbe::ProbeOutcome outcome;
+	const auto info = RunPolicyScript(reply, 2000, &outcome);
+	ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Extracted);
+	ASSERT_EQUALS(uint32(0xffffffffu), info.length_seconds);
+	ASSERT_EQUALS(uint32(0xffffffffu), info.bitrate_kbps);
+	ASSERT_FALSE(MediaProbe::IsFileVerdict(MediaProbe::ProbeOutcome::OutputTooLarge));
+}
+
+TEST(MediaProbeEnv, PipeInputCannotBlockBeforeTheWatchdog)
+{
+	const wxString path = wxFileName::CreateTempFileName(wxT("amule-pipe-input"));
+	wxRemoveFile(path);
+	ASSERT_EQUALS(0, mkfifo(path.fn_str(), 0600));
+	// Let the old blocking open complete too, so a regression fails an assertion
+	// instead of hanging the test indefinitely.
+	std::thread writer([&path] {
+		std::this_thread::sleep_for(std::chrono::milliseconds(300));
+		const int fd = open(path.fn_str(), O_WRONLY | O_NONBLOCK);
+		if (fd >= 0)
+			close(fd);
+	});
+	MediaInfo info;
+	const std::atomic<bool> running(true);
+	const auto start = std::chrono::steady_clock::now();
+	const auto outcome = MediaProbe::Probe(wxT("/bin/true"), CPath(path), info, 50, running, true, false);
+	const auto elapsed = std::chrono::steady_clock::now() - start;
+	writer.join();
+	wxRemoveFile(path);
+	ASSERT_TRUE(elapsed < std::chrono::milliseconds(250));
+	ASSERT_FALSE(MediaProbe::IsFileVerdict(outcome));
+	ASSERT_FALSE(outcome == MediaProbe::ProbeOutcome::Extracted);
+}
+
 TEST(MediaProbeEnv, ExcessiveHelperOutputIsNotAFileVerdict)
 {
 	MediaProbe::ProbeOutcome outcome;
 	RunPolicyScript(wxT("head -c 70000 /dev/zero"), 2000, &outcome);
 	ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Unavailable);
 	ASSERT_FALSE(MediaProbe::IsFileVerdict(outcome));
+}
+
+TEST(MediaProbeEnv, ExcessiveOutputStopsARunningHelper)
+{
+	MediaProbe::ProbeOutcome outcome;
+	const auto start = std::chrono::steady_clock::now();
+	RunPolicyScript(wxT("head -c 70000 /dev/zero; sleep 30"), 2000, &outcome);
+	ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Unavailable);
+	ASSERT_TRUE(std::chrono::steady_clock::now() - start < std::chrono::milliseconds(1000));
 }
 
 TEST(MediaProbeEnv, CancellationDiscardsResult)

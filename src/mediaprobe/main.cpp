@@ -305,6 +305,7 @@ int main(int argc, char **argv)
 	std::setlocale(LC_NUMERIC, "C");
 #ifdef _WIN32
 	_setmode(_fileno(stdin), _O_BINARY);
+	_setmode(_fileno(stdout), _O_BINARY);
 #else
 	rlimit noCore{ 0, 0 };
 	setrlimit(RLIMIT_CORE, &noCore);

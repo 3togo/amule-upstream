@@ -19,7 +19,7 @@ commands:
   flatpak [arch]             produce .flatpak bundle in dist/
                              arch: host (default) | x86_64 | aarch64
   static [arch]              produce a fully static musl daemon tarball
-                             (amuled + amulecmd + amuleapi) in dist/
+                             (amuled + amulecmd + amuleapi + amule-media-probe) in dist/
                              arch: host (default) | x86_64 | aarch64
   validate [arch]            run amuled --version inside a fixed matrix
                              of distro Docker images to catch lib-load
@@ -311,7 +311,7 @@ build_static() {
 
     # Belt-and-suspenders: the Dockerfile already gates on this, re-check here.
     local b
-    for b in amuled amulecmd amuleapi; do
+    for b in amuled amulecmd amuleapi amule-media-probe; do
         file "${outdir}/${b}" | grep -q "statically linked" \
             || { echo "fatal: ${b} is not statically linked" >&2; exit 1; }
     done
@@ -322,7 +322,10 @@ build_static() {
     version=$(cd "${REPO_ROOT}" && git describe --tags --always --dirty 2>/dev/null || echo "snapshot")
     local stem="aMule-${version}-Linux-${arch_label}-static"
     mkdir -p "${outdir}/${stem}"
-    cp "${outdir}/amuled" "${outdir}/amulecmd" "${outdir}/amuleapi" "${outdir}/${stem}/"
+    for b in amuled amulecmd amuleapi amule-media-probe; do
+        cp "${outdir}/${b}" "${outdir}/${stem}/"
+    done
+    cp -R "${outdir}/licenses" "${outdir}/${stem}/licenses"
 
     # The WebUI ships inside this bundle. amuleapi serves no assets of its
     # own, so a static-binary operator who fetched this tarball had a daemon
