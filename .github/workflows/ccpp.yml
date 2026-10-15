@@ -316,6 +316,8 @@ jobs:
         run: |
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' &&
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 60 -R '${{ env.ctest_slow_unit_tests }}'
+      - name: run OFFERFILES v1 policy tests
+        run: ctest ${{ env.ctest_flags }} --timeout 60 --no-tests=error -R '^OfferFilesPolicyTest$'
       - name: run integration tests
         run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '^(NetworkPreferencesIntegration|AmuleApiRestartIntegration|AllSearch(Integration|ClientCapability)|ChatCaptchaIntegration|PathDefaultsIntegration|LogfilePathIntegration|KadIndexLifecycleEC|ShareWatcherMoveIntegration|(Download)?DisplayRatesIntegration|UploadRefill(Compressed)?Integration|KnownHistoryIntegration|ServerListSourcesIntegration|ServerListGuiIntegration|ServerListFallback(Api)?Integration|KadDistributionEC|KadPopulatedDistributionEC|Kad(Populated)?LookupEC|CompletedFileDelete(Integration|Capability)|SharedMembershipIntegration|AmuleApiEcPasswordIntegration)Test$'
       - name: run shared-file reverify integration test
