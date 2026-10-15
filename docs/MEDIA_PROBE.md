@@ -83,3 +83,18 @@ See `docs/THIRDPARTY.md`. Update the source pins and both Flatpak manifests
 together. Keep the exact sources and build recipes with redistributed bundles.
 Windows/macOS packaging, Flatpak runtime and the fully static Alpine image need
 validation on their respective platforms.
+
+## Packaged runtime validation
+
+`packaging/media/test-runtime.py` checks the shipped notices, pinned helper
+version, inherited-file input, duration/bitrate/codec, Unicode tags, exact
+protocol framing and rejection of empty/malformed media. It then launches the
+packaged daemon with isolated configuration and verifies persisted metadata and
+failure marker 2. AppImage tests enter through the extracted AppRun; Flatpak
+tests execute inside the installed sandbox. Windows tests use a relocated
+extraction of the final zip, and macOS tests use the mounted dmg.
+
+The Packaging workflow runs these checks after building each bundle. It also
+accepts `only=runtime` with `artifact_run` set to an earlier Packaging run ID to
+exercise existing artifacts on native x86_64/ARM64 runners without rebuilding.
+For the Universal2 dmg, both slices are exercised on macOS (Intel via Rosetta).
