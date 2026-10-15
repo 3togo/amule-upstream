@@ -24,8 +24,8 @@ helpers, crashes, malformed output and cancellation never become file verdicts.
 
 ## Build and tests
 
-Install MediaInfoLib (`libmediainfo-dev` on Debian/Ubuntu, `libmediainfo` on
-Fedora/Arch or Homebrew, `mingw-w64-<toolchain>-libmediainfo` on MSYS2). CMake builds
+Install MediaInfoLib (`libmediainfo-dev` on Debian/Ubuntu, `libmediainfo-devel` on
+Fedora, `libmediainfo` on Arch or Homebrew, `mingw-w64-<toolchain>-libmediainfo` on MSYS2). CMake builds
 and installs the helper by default with either core target. Configure
 `-DENABLE_MEDIA_PROBE=OFF` to omit it; extraction needs the sibling executable.
 

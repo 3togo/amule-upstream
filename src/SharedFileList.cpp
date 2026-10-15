@@ -777,7 +777,9 @@ bool CSharedFileList::MaybeScheduleMediaProbe(CKnownFile *pFile, MediaProbeMode 
 	// GetMetaDataVer(), not a second FT_MEDIA_LENGTH test: one definition of "this file has
 	// been probed", shared with the publishers and the UI. The length-only form here never
 	// considered a codec-only file probed, so every startup re-ran the helper on all of them.
-	if (mode == MediaProbeMode::Normal && pFile->GetMetaDataVer() > 0) {
+	// A legacy failure still gets one retry even if the file retains preview metadata.
+	if (mode == MediaProbeMode::Normal && pFile->GetMetaDataVer() > 0 &&
+		pFile->GetIntTagValue(FT_MEDIA_PROBE_FAILED) != 1) {
 		AddDebugLogLineN(logMediaProbe,
 			CFormat(wxT("MediaProbe: skip (already has metadata) %s")) % pFile->GetFileName());
 		return false;
