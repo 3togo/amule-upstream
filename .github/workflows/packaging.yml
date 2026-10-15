@@ -38,7 +38,7 @@ on:
         type: string
         default: ''
       runtime_kinds:
-        description: 'Optional comma-separated subset for only=runtime: appimage, static, flatpak, windows, macos.'
+        description: 'Optional comma-separated subset for only=runtime: appimage, static, flatpak, windows, installer, macos.'
         required: false
         type: string
         default: ''
@@ -971,6 +971,10 @@ jobs:
           # The action's package cache saves on every event, with no way to limit
           # it to master, and these packages are only ~50 MB.
           cache: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          architecture: ${{ matrix.arch }}
       - name: Install NSIS
         # NSIS isn't packaged for every MSYS2 environment (e.g. no
         # clangarm64 build), so install the Windows-native NSIS via
@@ -1037,6 +1041,8 @@ jobs:
             echo Uninstall.exe missing after silent install
             exit /b 1
           )
+          python packaging\media\test-runtime.py --bin-dir C:\amule-installtest\bin --licenses C:\amule-installtest\share\licenses\amule-media-probe
+          if errorlevel 1 exit /b 1
           rem _? keeps the uninstaller from spawning a copy of itself
           rem in %TEMP% and returning before the work is done.
           "C:\amule-installtest\Uninstall.exe" /S _?=C:\amule-installtest
@@ -1069,6 +1075,8 @@ jobs:
           - {kind: flatpak, arch: aarch64, runner: ubuntu-24.04-arm, artifact: flatpak-aarch64}
           - {kind: windows, arch: x64, runner: windows-2025, artifact: windows-x64, python_arch: x64}
           - {kind: windows, arch: arm64, runner: windows-11-arm, artifact: windows-arm64, python_arch: arm64}
+          - {kind: installer, arch: x64, runner: windows-2025, artifact: windows-installer-x64, python_arch: x64}
+          - {kind: installer, arch: arm64, runner: windows-11-arm, artifact: windows-installer-arm64, python_arch: arm64}
           - {kind: macos, arch: arm64, runner: macos-15, artifact: macos-universal2}
           - {kind: macos, arch: x86_64, runner: macos-15, artifact: macos-universal2}
     runs-on: ${{ matrix.runner }}
@@ -1082,7 +1090,7 @@ jobs:
           run-id: ${{ fromJSON(inputs.artifact_runs)[matrix.kind] || inputs.artifact_run }}
           github-token: ${{ github.token }}
       - uses: actions/setup-python@v7
-        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind == 'windows'
+        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && (matrix.kind == 'windows' || matrix.kind == 'installer')
         with:
           python-version: '3.13'
           architecture: ${{ matrix.python_arch }}
@@ -1094,6 +1102,23 @@ jobs:
           Expand-Archive -Path (Get-ChildItem artifacts -Filter '*.zip' | Select-Object -First 1).FullName -DestinationPath $stage
           $bundle = (Get-ChildItem $stage -Directory | Select-Object -First 1).FullName
           python packaging/media/test-runtime.py --bin-dir "$bundle/bin" --licenses "$bundle/share/licenses/amule-media-probe"
+      - name: Test Windows installer payload
+        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind == 'installer'
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem artifacts -Filter '*.exe' | Select-Object -First 1).FullName
+          $stage = 'C:\amule-runtime-${{ matrix.arch }}'
+          $install = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$stage") -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Installer failed: $($install.ExitCode)" }
+          try {
+            python packaging/media/test-runtime.py --bin-dir "$stage/bin" --licenses "$stage/share/licenses/amule-media-probe"
+            if ($LASTEXITCODE -ne 0) { throw 'Installed payload runtime checks failed' }
+          } finally {
+            if (Test-Path "$stage/Uninstall.exe") {
+              Start-Process -FilePath "$stage/Uninstall.exe" -ArgumentList @('/S', "_?=$stage") -Wait
+            }
+            Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
+          }
       - name: Install Flatpak runtime
         if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind == 'flatpak'
         shell: bash
@@ -1105,7 +1130,7 @@ jobs:
           flatpak install --user --noninteractive flathub "org.gnome.Platform//${GNOME_RUNTIME_VERSION}"
           flatpak install --user --noninteractive "$(ls artifacts/*.flatpak | head -1)"
       - name: Test Linux and macOS package
-        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind != 'windows'
+        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind != 'windows' && matrix.kind != 'installer'
         shell: bash
         run: |
           case '${{ matrix.kind }}' in
