@@ -5,19 +5,21 @@ prefix=${1:-/usr/local}
 work=${2:-/tmp/amule-media-deps}
 if [ "$#" -ge 2 ]; then shift 2; else set --; fi
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$script_dir/../linux/versions.env"
 mkdir -p "$work"
-python3 - "$script_dir/pins.json" "$work" <<'PY'
-import hashlib, json, pathlib, subprocess, sys, urllib.request
-work=pathlib.Path(sys.argv[2])
-for name, item in json.load(open(sys.argv[1])).items():
-    path=work/item['archive']
-    if not path.exists(): path.write_bytes(urllib.request.urlopen(item['url']).read())
-    if hashlib.sha256(path.read_bytes()).hexdigest()!=item['sha256']:
-        raise SystemExit('Checksum mismatch: '+name)
-    target=work/name
+python3 - "$work" "$ZENLIB_TARBALL_URL" "$ZENLIB_SHA256" \
+  "$MEDIAINFO_TARBALL_URL" "$MEDIAINFO_SHA256" <<'PYTHON'
+import hashlib, pathlib, subprocess, sys, urllib.request
+work = pathlib.Path(sys.argv[1])
+for name, url, checksum in (('zenlib', *sys.argv[2:4]), ('mediainfo', *sys.argv[4:6])):
+    path = work / (name + '.tar.gz')
+    if not path.exists(): path.write_bytes(urllib.request.urlopen(url).read())
+    if hashlib.sha256(path.read_bytes()).hexdigest() != checksum:
+        raise SystemExit('Checksum mismatch: ' + name)
+    target = work / name
     target.mkdir(exist_ok=True)
-    subprocess.run(['tar','-xf',str(path),'-C',str(target),'--strip-components=1'],check=True)
-PY
+    subprocess.run(['tar', '-xf', str(path), '-C', str(target), '--strip-components=1'], check=True)
+PYTHON
 for project in zenlib mediainfo; do
   cmake -S "$work/$project/Project/CMake" -B "$work/$project-build" \
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=17 -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX="$prefix" \

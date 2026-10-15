@@ -324,13 +324,10 @@ int main(int argc, char **argv)
 #endif
 #endif
 #endif
-	std::string backend = "mediainfo";
 	bool json = false;
 	for (int i = 1; i < argc; ++i) {
 		std::string arg = argv[i];
-		if (arg == "--backend" && i + 1 < argc)
-			backend = argv[++i];
-		else if (arg == "--json")
+		if (arg == "--json")
 			json = true;
 		else if (arg == "--version") {
 			std::cout << "amule-media-probe 1; "
@@ -339,8 +336,6 @@ int main(int argc, char **argv)
 		} else
 			return 12;
 	}
-	if (backend != "mediainfo")
-		return 12;
 	if (seek(0, SEEK_END))
 		return 12;
 	const auto size = tell();
@@ -357,7 +352,7 @@ int main(int argc, char **argv)
 		return rc;
 	if (json) {
 		std::cout << "{\"backend\":";
-		quoted(backend);
+		quoted("mediainfo");
 		std::cout << ",\"length_seconds\":" << r.length << ",\"bitrate_kbps\":" << r.bitrate;
 		for (const auto &item : { std::make_pair("codec", r.codec),
 			     { "artist", r.artist },

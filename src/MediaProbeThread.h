@@ -37,9 +37,8 @@
 // time so the worker never touches shared CKnownFile / thePrefs state.
 struct MediaProbeJob
 {
-	CMD4Hash hash;        // resolved back to the CKnownFile on the main thread
-	CPath path;           // file to probe
-	wxString ffprobePath; // ffprobe binary
+	CMD4Hash hash; // resolved back to the CKnownFile on the main thread
+	CPath path;    // file to probe
 	// Part of a mass operation (a share scan, a whole-share refresh) rather than a single user-
 	// visible file. Set by the scheduler, NOT inferred from how many jobs happen to be queued:
 	// the worker swaps the entire pending list out on each wake, so a batch size says only when
@@ -74,8 +73,7 @@ public:
 	void EndThread();
 
 	// Enqueue a probe. Thread-safe; returns immediately.
-	void QueueProbe(
-		const CMD4Hash &hash, const CPath &fullPath, const wxString &ffprobePath, bool bulk = false);
+	void QueueProbe(const CMD4Hash &hash, const CPath &fullPath, bool bulk = false);
 
 	bool IsRunning() const { return m_bRun; }
 

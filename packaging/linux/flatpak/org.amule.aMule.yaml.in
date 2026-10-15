@@ -1,7 +1,6 @@
 # Flatpak manifest TEMPLATE for aMule.
 #
-# Media parser pins mirror packaging/media/pins.json. Other pinned values come from
-# packaging/linux/versions.env, rendered into this file by
+# Pinned values come from packaging/linux/versions.env, rendered into this file by
 # packaging/linux/build.sh via envsubst. Hand-editing this template
 # is fine for structural changes (modules, finish-args, build steps),
 # but version pins belong in versions.env.
@@ -340,8 +339,9 @@ modules:
     config-opts: [-DCMAKE_CXX_STANDARD=17, -DBUILD_SHARED_LIBS=ON, -DCMAKE_POLICY_VERSION_MINIMUM=3.5]
     sources:
       - type: archive
-        url: https://codeload.github.com/MediaArea/ZenLib/tar.gz/refs/tags/v0.4.41
-        sha256: 45d5173fa0278f5264daa6836ae297aa303984482227d00b35c4f03929494c8f
+        url: ${ZENLIB_TARBALL_URL}
+        dest-filename: ZenLib-${ZENLIB_VERSION}.tar.gz
+        sha256: ${ZENLIB_SHA256}
 
   - name: media-mediainfo
     buildsystem: cmake-ninja
@@ -349,8 +349,9 @@ modules:
     config-opts: [-DCMAKE_CXX_STANDARD=17, -DBUILD_SHARED_LIBS=ON, -DBUILD_ZENLIB=OFF, -DBUILD_ZLIB=OFF, -DCMAKE_DISABLE_FIND_PACKAGE_TinyXML=ON, -DCMAKE_DISABLE_FIND_PACKAGE_CURL=ON, '-DCMAKE_CXX_FLAGS=-DMEDIAINFO_LIBCURL_NO -DMEDIAINFO_LIBMMS_NO']
     sources:
       - type: archive
-        url: https://codeload.github.com/MediaArea/MediaInfoLib/tar.gz/refs/tags/v26.05
-        sha256: f3fa9faa5623a5bacf6bed30c1d4c7434852be1654e655d458f964f597d98b8e
+        url: ${MEDIAINFO_TARBALL_URL}
+        dest-filename: MediaInfoLib-${MEDIAINFO_VERSION}.tar.gz
+        sha256: ${MEDIAINFO_SHA256}
 
   - name: amule
     buildsystem: cmake-ninja
