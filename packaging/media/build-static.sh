@@ -1,8 +1,9 @@
 #!/bin/sh
-# Pinned, reduced source builds for the fully static Alpine bundle.
+# Pinned static MediaInfoLib/ZenLib for every bundle; no curl or libmms.
 set -eu
 prefix=${1:-/usr/local}
 work=${2:-/tmp/amule-media-deps}
+if [ "$#" -ge 2 ]; then shift 2; else set --; fi
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 mkdir -p "$work"
 python3 - "$script_dir/pins.json" "$work" <<'PY'
@@ -20,22 +21,11 @@ PY
 for project in zenlib mediainfo; do
   cmake -S "$work/$project/Project/CMake" -B "$work/$project-build" \
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX="$prefix" \
-    -DCMAKE_PREFIX_PATH="$prefix" -DBUILD_SHARED_LIBS=OFF \
-    -DBUILD_ZENLIB=OFF -DBUILD_ZLIB=OFF -DCMAKE_DISABLE_FIND_PACKAGE_CURL=ON
+    -DCMAKE_PREFIX_PATH="$prefix" -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DBUILD_ZENLIB=OFF -DBUILD_ZLIB=OFF -DCMAKE_DISABLE_FIND_PACKAGE_CURL=ON \
+    '-DCMAKE_CXX_FLAGS=-DMEDIAINFO_LIBCURL_NO -DMEDIAINFO_LIBMMS_NO' "$@"
   cmake --build "$work/$project-build" -j2
   cmake --install "$work/$project-build"
 done
-cd "$work/ffmpeg"
-./configure --prefix="$prefix" --disable-shared --enable-static --enable-pic \
-  --disable-programs --disable-doc --disable-debug --disable-autodetect \
-  --disable-network --disable-protocols --disable-encoders --disable-muxers \
-  --disable-avdevice --disable-avfilter --disable-swscale --disable-swresample \
-  --disable-x86asm
-make -j2
-make install
 mkdir -p "$prefix/share/licenses/amule-media-probe"
-cp COPYING.LGPLv2.1 "$prefix/share/licenses/amule-media-probe/FFmpeg-LGPL-2.1.txt"
-cp "$work/mediainfo/License.html" "$prefix/share/licenses/amule-media-probe/MediaInfoLib.html"
-cp "$work/zenlib/License.txt" "$prefix/share/licenses/amule-media-probe/ZenLib.txt"
-
 cp "$script_dir"/licenses/* "$prefix/share/licenses/amule-media-probe/"

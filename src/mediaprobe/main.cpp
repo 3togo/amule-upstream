@@ -13,6 +13,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <type_traits>
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
@@ -22,10 +23,6 @@
 #define MI_CALL
 #endif
 extern "C" {
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-#include <libavutil/avutil.h>
-#include <libavutil/avstring.h>
 // MediaInfoLib's stable wide-character C ABI; no C++/ZenLib ABI dependency.
 void *MI_CALL MediaInfo_New();
 void MI_CALL MediaInfo_Delete(void *);
@@ -66,13 +63,18 @@ static std::string utf8(const wchar_t *value)
 		return {};
 	std::string out;
 	while (*value) {
-		uint32_t c = static_cast<uint32_t>(*value++);
+		uint32_t c = static_cast<uint32_t>(static_cast<std::make_unsigned_t<wchar_t>>(*value++));
 #ifdef _WIN32
 		if (c >= 0xd800 && c <= 0xdbff && *value >= 0xdc00 && *value <= 0xdfff)
-			c = 0x10000 + ((c - 0xd800) << 10) + (static_cast<uint32_t>(*value++) - 0xdc00);
+			c = 0x10000 + ((c - 0xd800) << 10) +
+			    (static_cast<uint32_t>(static_cast<std::make_unsigned_t<wchar_t>>(*value++)) -
+				    0xdc00);
 #endif
 		if ((c >= 0xd800 && c <= 0xdfff) || c > 0x10ffff)
 			c = 0xfffd;
+		const size_t width = c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
+		if (out.size() + width > 4096)
+			break;
 		if (c < 0x80)
 			out += char(c);
 		else if (c < 0x800) {
@@ -115,6 +117,13 @@ static std::string miCodec(void *h, int kind, size_t i)
 		{ "VP8", "vp8" },
 		{ "VP9", "vp9" },
 		{ "MPEG-4 Visual", "mpeg4" },
+		{ "xvid", "mpeg4" },
+		{ "XviD", "mpeg4" },
+		{ "DivX", "mpeg4" },
+		{ "H.263", "h263" },
+		{ "ProRes", "prores" },
+		{ "MLP FBA", "truehd" },
+		{ "TrueHD", "truehd" },
 		{ "AAC", "aac" },
 		{ "FLAC", "flac" },
 		{ "Opus", "opus" },
@@ -133,6 +142,15 @@ static std::string miCodec(void *h, int kind, size_t i)
 	auto it = names.find(format);
 	if (it != names.end())
 		return it->second;
+	if (format == "WMA") {
+		const auto profile = get(h, kind, i, L"Format_Profile");
+		const auto version = get(h, kind, i, L"Format_Version");
+		if (profile.find("Lossless") != std::string::npos)
+			return "wmalossless";
+		if (profile.find("Pro") != std::string::npos)
+			return "wmapro";
+		return version == "Version 1" ? "wmav1" : "wmav2";
+	}
 	if (format == "MPEG Audio") {
 		auto profile = get(h, kind, i, L"Format_Profile");
 		if (profile.find("Layer 3") != std::string::npos)
@@ -168,7 +186,7 @@ static std::string miCodec(void *h, int kind, size_t i)
 							  : "u") +
 			       bits + (endian == "Little" ? "le" : "be");
 	}
-	return {}; // Unknown vocabulary is explicit missing data; parent can try libav.
+	return {}; // Unknown vocabulary is explicit missing data.
 }
 static bool streamTags(const std::string &codec)
 {
@@ -184,10 +202,10 @@ static void miTags(void *h, int kind, size_t index, Result &r)
 		}
 		return std::string{};
 	};
-	r.artist = first({ L"Performer", L"Artist", L"ARTIST" });
-	r.album = first({ L"Album", L"ALBUM" });
+	r.artist = first({ L"Performer", L"Artist", L"ARTIST", L"artist" });
+	r.album = first({ L"Album", L"ALBUM", L"album" });
 	r.title = first({ L"Title", L"Track", L"TITLE" });
-	if (kind == 0 && get(h, 0, 0, L"Format") == "Wave") {
+	if (kind == 0 && (get(h, 0, 0, L"Format") == "Wave" || get(h, 0, 0, L"Format") == "AVI")) {
 		if (r.artist.empty())
 			r.artist = get(h, 0, 0, L"Director");
 		if (r.album.empty())
@@ -219,7 +237,7 @@ static int mediaInfo(Result &r, int64_t size, bool full = false)
 			break;
 		uint64_t next = MediaInfo_Open_Buffer_Continue_GoTo_Get(h);
 		if (next != UINT64_MAX) {
-			if (next > static_cast<uint64_t>(size) || seek(next, SEEK_SET))
+			if (next > static_cast<uint64_t>(size) || seek(static_cast<int64_t>(next), SEEK_SET))
 				return 11;
 			MediaInfo_Open_Buffer_Init(h, size, next);
 		}
@@ -264,125 +282,11 @@ static int mediaInfo(Result &r, int64_t size, bool full = false)
 	}
 	return r.usable() ? 0 : 10;
 }
-static int readPacket(void *, uint8_t *buffer, int count)
-{
-	size_t n = std::fread(buffer, 1, count, stdin);
-	return n ? int(n) : std::ferror(stdin) ? AVERROR(EIO) : AVERROR_EOF;
-}
-static int64_t seekPacket(void *opaque, int64_t offset, int whence)
-{
-	if (whence == AVSEEK_SIZE)
-		return *static_cast<int64_t *>(opaque);
-	if (seek(offset, whence & ~AVSEEK_FORCE))
-		return AVERROR(EIO);
-	return tell();
-}
-static int denyOpen(AVFormatContext *, AVIOContext **, const char *, int, AVDictionary **)
-{
-	return AVERROR(EACCES);
-}
-static void avTags(const AVDictionary *tags, Result &r)
-{
-	const AVDictionaryEntry *e = nullptr;
-	while ((e = av_dict_get(tags, "", e, AV_DICT_IGNORE_SUFFIX))) {
-		std::string key(e->key);
-		std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) {
-			return char(std::tolower(c));
-		});
-		if (key == "artist")
-			r.artist = e->value;
-		if (key == "album")
-			r.album = e->value;
-		if (key == "title")
-			r.title = e->value;
-	}
-}
-static int libav(Result &r, int64_t size)
-{
-	if (seek(0, SEEK_SET))
-		return 12;
-	auto *buffer = static_cast<unsigned char *>(av_malloc(65536));
-	if (!buffer)
-		return 12;
-	AVIOContext *io = avio_alloc_context(buffer, 65536, 0, &size, readPacket, nullptr, seekPacket);
-	if (!io) {
-		av_free(buffer);
-		return 12;
-	}
-	AVFormatContext *ctx = avformat_alloc_context();
-	if (!ctx) {
-		av_freep(&io->buffer);
-		avio_context_free(&io);
-		return 12;
-	}
-	ctx->pb = io;
-	ctx->flags |= AVFMT_FLAG_CUSTOM_IO;
-	ctx->io_open = denyOpen;
-	int rc = avformat_open_input(&ctx, nullptr, nullptr, nullptr);
-	if (rc >= 0)
-		rc = avformat_find_stream_info(ctx, nullptr);
-	if (rc >= 0) {
-		if (ctx->duration != AV_NOPTS_VALUE)
-			r.length = numeric(std::to_string(ctx->duration), AV_TIME_BASE, true);
-		r.bitrate = numeric(std::to_string(ctx->bit_rate), 1000, false);
-		avTags(ctx->metadata, r);
-		const AVStream *video = nullptr, *audio = nullptr;
-		unsigned audioCount = 0;
-		for (unsigned i = 0; i < ctx->nb_streams; ++i) {
-			auto *stream = ctx->streams[i];
-			if ((stream->disposition & AV_DISPOSITION_ATTACHED_PIC) ||
-				stream->codecpar->codec_id == AV_CODEC_ID_NONE)
-				continue;
-			if (stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO && !video)
-				video = stream;
-			if (stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
-				++audioCount;
-				if (!audio)
-					audio = stream;
-			}
-		}
-		auto *selected = video ? video : audio;
-		if (selected)
-			r.codec = avcodec_get_name(selected->codecpar->codec_id);
-		if (!video && audioCount == 1 && streamTags(r.codec)) {
-			Result tags;
-			avTags(audio->metadata, tags);
-			if (r.artist.empty())
-				r.artist = tags.artist;
-			if (r.album.empty())
-				r.album = tags.album;
-			if (r.title.empty())
-				r.title = tags.title;
-		}
-	}
-	avformat_close_input(&ctx);
-	av_freep(&io->buffer);
-	avio_context_free(&io);
-	return rc < 0 ? 11 : r.usable() ? 0 : 10;
-}
 static void quoted(const std::string &s, bool json = true)
 {
 	std::cout << '"';
-	// Some libav metadata dictionaries contain legacy or malformed byte strings.
-	// Validate before emitting either protocol so one bad title cannot discard
-	// otherwise usable metadata. Bound work and preserve complete UTF-8 characters.
-	const auto *cursor = reinterpret_cast<const uint8_t *>(s.data());
-	const auto *end = cursor + std::min(s.size(), size_t(4096));
-	std::string safe;
-	while (cursor < end) {
-		const auto *start = cursor;
-		int32_t codepoint;
-		if (av_utf8_decode(&codepoint, &cursor, end, AV_UTF8_FLAG_ACCEPT_NON_CHARACTERS) < 0) {
-			if (safe.size() + 3 > 4096)
-				break;
-			safe += "\xef\xbf\xbd";
-		} else {
-			if (safe.size() + (cursor - start) > 4096)
-				break;
-			safe.append(reinterpret_cast<const char *>(start), cursor - start);
-		}
-	}
-	for (unsigned char c : safe) {
+	// utf8() already validates and bounds complete code points.
+	for (unsigned char c : s) {
 		if (c == '\\' || c == '"')
 			std::cout << '\\' << c;
 		else if (c == '\n')
@@ -399,7 +303,6 @@ static void quoted(const std::string &s, bool json = true)
 int main(int argc, char **argv)
 {
 	std::setlocale(LC_NUMERIC, "C");
-	av_log_set_level(AV_LOG_QUIET);
 #ifdef _WIN32
 	_setmode(_fileno(stdin), _O_BINARY);
 #else
@@ -430,13 +333,12 @@ int main(int argc, char **argv)
 			json = true;
 		else if (arg == "--version") {
 			std::cout << "amule-media-probe 1; "
-				  << utf8(MediaInfo_Option(nullptr, L"Info_Version", L"")) << "; FFmpeg "
-				  << av_version_info() << '\n';
+				  << utf8(MediaInfo_Option(nullptr, L"Info_Version", L"")) << '\n';
 			return 0;
 		} else
 			return 12;
 	}
-	if (backend != "mediainfo" && backend != "libav")
+	if (backend != "mediainfo")
 		return 12;
 	if (seek(0, SEEK_END))
 		return 12;
@@ -446,7 +348,7 @@ int main(int argc, char **argv)
 	Result r;
 	int rc = 12;
 	try {
-		rc = backend == "mediainfo" ? mediaInfo(r, size) : libav(r, size);
+		rc = mediaInfo(r, size);
 	} catch (...) {
 		return 12;
 	}
@@ -456,7 +358,7 @@ int main(int argc, char **argv)
 		std::cout << "{\"backend\":";
 		quoted(backend);
 		std::cout << ",\"length_seconds\":" << r.length << ",\"bitrate_kbps\":" << r.bitrate;
-		for (auto item : { std::make_pair("codec", r.codec),
+		for (const auto &item : { std::make_pair("codec", r.codec),
 			     { "artist", r.artist },
 			     { "album", r.album },
 			     { "title", r.title } }) {
@@ -471,7 +373,7 @@ int main(int argc, char **argv)
 		std::cout << "streams.stream.0.codec_type=\"audio\"\nstreams.stream.0.codec_name=";
 		quoted(r.codec);
 		std::cout << '\n';
-		for (auto item :
+		for (const auto &item :
 			{ std::make_pair("artist", r.artist), { "album", r.album }, { "title", r.title } }) {
 			std::cout << "format.tags." << item.first << '=';
 			quoted(item.second, false);

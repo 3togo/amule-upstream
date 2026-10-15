@@ -80,6 +80,10 @@ build() {
         exit 1
     fi
 
+    local media_prefix="${BUILD_DIR}/media-prefix"
+    "${REPO_ROOT}/packaging/media/build-static.sh" "${media_prefix}" "${BUILD_DIR}/media-sources" \
+        -G "MinGW Makefiles"
+
     echo "==> Configuring cmake (Windows ${ARCH}, ${WINDOWS_MSYSTEM})"
     # Generator choice: "MinGW Makefiles" picks mingw32-make.exe from
     # the clangarm64 toolchain — matching the native Windows compiler.
@@ -94,6 +98,9 @@ build() {
     # same family of try_compile crashes that pushed us off Ninja.
     cmake -B "${BUILD_DIR}" -S "${REPO_ROOT}" -G "MinGW Makefiles" \
         -DCMAKE_BUILD_TYPE=Release \
+        -DMEDIAINFO_LIBRARY="${media_prefix}/lib/libmediainfo.a" \
+        -DMEDIA_ZEN_LIBRARY="${media_prefix}/lib/libzen.a" \
+        -DMEDIA_PROBE_STATIC=ON \
         -DCMAKE_C_COMPILER_LAUNCHER= \
         -DCMAKE_CXX_COMPILER_LAUNCHER= \
         -DBUILD_MONOLITHIC=YES \

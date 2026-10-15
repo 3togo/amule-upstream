@@ -763,7 +763,11 @@ public:
 	// The legacy ffprobe path accessors remain for EC/API compatibility.
 	static bool GetMediaMetadataEnabled() { return s_MediaMetadataEnabled; }
 	static void SetMediaMetadataEnabled(bool val) { s_MediaMetadataEnabled = val; }
-	static const wxString &GetMediaMetadataFFProbePath() { static const wxString empty; return empty; }
+	static const wxString &GetMediaMetadataFFProbePath()
+	{
+		static const wxString empty;
+		return empty;
+	}
 	static void SetMediaMetadataFFProbePath(const wxString &) {} // Reserved compatibility field; ignored.
 
 	// Networks
@@ -1174,7 +1178,6 @@ protected:
 
 	// Media metadata (issue #140)
 	static bool s_MediaMetadataEnabled;
-	static wxString s_MediaMetadataFFProbePath;
 
 	// Kad
 	static bool s_ConnectToKad;

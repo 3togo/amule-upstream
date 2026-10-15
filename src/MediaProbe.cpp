@@ -93,7 +93,7 @@ int RunBoundedHelper(const wxString &exe,
 	int exitCode = kSpawnFailed;
 
 #ifdef __WXMSW__
-	const wxString program = FindProgram(exe);
+	const wxString program = exe;
 	if (program.IsEmpty()) {
 		wxRemoveFile(tmpPath);
 		return kSpawnFailed;
@@ -781,58 +781,24 @@ ProbeOutcome Probe(const wxString &helperPath,
 		return ProbeOutcome::Vanished;
 	if (!bulk)
 		AddLogLineN(CFormat(_("Extracting media metadata: %s")) % file.GetPrintable());
-	wxStopWatch timer;
-	auto attempt = [&](const wxString &backend, unsigned budget, MediaInfo &result) {
-		wxArrayString args, lines;
-		args.Add(wxT("--backend"));
-		args.Add(backend);
-		const int rc = RunBoundedHelper(helperPath, args, budget, keepRunning, lines, file);
-		if (rc == 0 && !ParseHelperOutput(lines, result))
-			return kBadProtocol;
-		return rc;
-	};
-	MediaInfo primary, fallback;
-	const int first = attempt(wxT("mediainfo"), timeoutMs / 2, primary);
-	if (!keepRunning)
+	wxArrayString args, lines;
+	MediaInfo result;
+	const int rc = RunBoundedHelper(helperPath, args, timeoutMs, keepRunning, lines, file);
+	if (!keepRunning || rc == kKilled)
 		return ProbeOutcome::Cancelled;
-	const bool usable = first == 0;
-	// Keep a complete primary result. Never replace it just because libav disagrees.
-	if (usable && primary.length_seconds && !primary.codec.empty()) {
-		out = primary;
-		return ProbeOutcome::Extracted;
-	}
-	if (!keepRunning)
-		return ProbeOutcome::Cancelled;
-	const unsigned elapsed = static_cast<unsigned>(timer.Time());
-	int second = kKilled;
-	if (elapsed < timeoutMs)
-		second = attempt(wxT("libav"), timeoutMs - elapsed, fallback);
-	if (!keepRunning)
-		return ProbeOutcome::Cancelled;
-	// Select one whole result; never combine tags or bitrates from different parsers.
-	if (second == 0 &&
-		(!usable || ((!primary.length_seconds || fallback.length_seconds) &&
-				    (primary.codec.empty() || !fallback.codec.empty()) &&
-				    ((!primary.length_seconds && fallback.length_seconds) ||
-					    (primary.codec.empty() && !fallback.codec.empty()))))) {
-		out = fallback;
-		AddDebugLogLineN(logMediaProbe,
-			CFormat(wxT("Media metadata: libav fallback used for %s")) % file.GetPrintable());
-		return ProbeOutcome::Extracted;
-	}
-	if (usable) {
-		out = primary;
+	if (rc == 0 && ParseHelperOutput(lines, result)) {
+		out = result;
 		return ProbeOutcome::Extracted;
 	}
 	if (logFailure)
-		AddLogLineN(CFormat(_("Media metadata: both parsers failed for %s")) % file.GetPrintable());
-	if (first == kKilled || second == kKilled || !keepRunning)
-		return ProbeOutcome::Cancelled;
+		AddLogLineN(CFormat(_("Media metadata: parser failed for %s")) % file.GetPrintable());
 	// Only documented parser rejections describe the file. Loader failures,
 	// protocol errors and unexpected exits must not poison known.met entries.
-	if ((first != 10 && first != 11) || (second != 10 && second != 11))
-		return ProbeOutcome::Unavailable;
-	return first == 10 && second == 10 ? ProbeOutcome::NoUsableMetadata : ProbeOutcome::UnreadableFile;
+	if (rc == 10)
+		return ProbeOutcome::NoUsableMetadata;
+	if (rc == 11)
+		return ProbeOutcome::UnreadableFile;
+	return ProbeOutcome::Unavailable;
 }
 
 } // namespace MediaProbe

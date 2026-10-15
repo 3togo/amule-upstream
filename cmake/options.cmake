@@ -379,4 +379,4 @@ foreach (experimental_option IN LISTS AMULE_EXPERIMENTAL_OPTIONS)
 	endif()
 endforeach()
 
-option(ENABLE_MEDIA_PROBE "Build bundled MediaInfo/libav media metadata helper" ON)
+option(ENABLE_MEDIA_PROBE "Build bundled MediaInfo media metadata helper" ON)
