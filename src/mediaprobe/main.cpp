@@ -289,7 +289,7 @@ static void miTags(void *h, int kind, size_t index, Result &r)
 			r.album = get(h, 0, 0, L"OriginalSourceForm/Name");
 	}
 }
-static int mediaInfo(Result &r, int64_t size, bool full = false)
+static int mediaInfo(Result &r, int64_t size, bool full = false, unsigned seekCount = 0)
 {
 	void *h = MediaInfo_New();
 	if (!h)
@@ -312,6 +312,10 @@ static int mediaInfo(Result &r, int64_t size, bool full = false)
 		const size_t status = MediaInfo_Open_Buffer_Continue(h, buffer, n);
 		uint64_t next = MediaInfo_Open_Buffer_Continue_GoTo_Get(h);
 		if (next != UINT64_MAX) {
+			// Count across both parses. A seek loop is a persistent file verdict,
+			// not a helper timeout that would be retried at every startup.
+			if (++seekCount > 64)
+				return 11;
 			if (next > static_cast<uint64_t>(size) || seek(static_cast<int64_t>(next), SEEK_SET))
 				return 11;
 			MediaInfo_Open_Buffer_Init(h, size, next);
@@ -355,7 +359,9 @@ static int mediaInfo(Result &r, int64_t size, bool full = false)
 	// Full scans are bounded by size and the parent's process watchdog.
 	if (!r.length && !rawAvc && !full && size <= 512LL * 1024 * 1024) {
 		Result retry;
-		int rc = mediaInfo(retry, size, true);
+		int rc = mediaInfo(retry, size, true, seekCount);
+		if (rc == 11)
+			return rc;
 		if (rc == 0 && retry.length)
 			r = retry;
 	}

@@ -385,17 +385,13 @@ modules:
       - -DENABLE_NLS=YES
       - -DENABLE_UPNP=YES
       - -DENABLE_IP2COUNTRY=YES
-    # AMULE_REVISION (in versions.env) controls what gets built:
-    #   - "master" or another branch -> branch: <name> at flatpak-builder time
-    #   - a release tag like "2.3.3" -> branch: <tag-name> works because flatpak's
-    #     git fetcher resolves any ref. For Flathub release builds this can be
-    #     swapped to `tag: ${AMULE_REVISION}` if stricter pinning is preferred.
-    # flatpak-external-data-checker uses x-checker-data to auto-bump when new
-    # release tags are pushed upstream.
+    # Standalone rendering follows AMULE_REVISION from versions.env upstream.
+    # build.sh flatpak overrides these two fields with the local repository URL
+    # and exact HEAD commit, so CI packages the revision being tested.
     sources:
       - type: git
-        url: https://github.com/amule-org/amule.git
-        branch: ${AMULE_REVISION}
+        url: ${AMULE_SOURCE_URL}
+        ${AMULE_SOURCE_REF}
         # Default flatpak-builder fetch is a shallow clone, which strips
         # all tags. Without tags `git describe --tags` (called from
         # cmake/git-rev.cmake at configure time) returns empty, leaving

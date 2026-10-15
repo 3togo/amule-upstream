@@ -96,10 +96,12 @@ failure marker 2. AppImage tests enter through the extracted AppRun; Flatpak
 tests execute inside the installed sandbox. Windows tests use a relocated
 extraction of the final zip, and macOS tests use the mounted dmg.
 
-The Packaging workflow runs these checks after building each bundle. It also
-accepts `only=runtime` with `artifact_run` set to an earlier Packaging run ID to
-exercise existing artifacts on native x86_64/ARM64 runners without rebuilding.
-For the Universal2 dmg, both slices are exercised on macOS (Intel via Rosetta).
+The Packaging workflow runs these checks against the bundle produced by each
+build job. Flatpak clones the exact local HEAD commit rather than upstream
+master, and its notices are checked in the installed bundle. Final PR validation
+uses one full workflow dispatch with no `only` filter, so every build and runtime
+check covers the same commit. For the Universal2 dmg, both slices are exercised
+on macOS (Intel via Rosetta).
 
 ### System-library compatibility
 
