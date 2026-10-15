@@ -104,7 +104,7 @@ For the Universal2 dmg, both slices are exercised on macOS (Intel via Rosetta).
 ### System-library compatibility
 
 The minimum supported MediaInfoLib is 21.09 (Ubuntu 22.04 package
-`libmediainfo0v5_21.09+dfsg-4`, with ZenLib 0.4.39). All 13 tests in
+`libmediainfo0v5_21.09+dfsg-4`, with ZenLib 0.4.39). All 15 tests in
 `src/mediaprobe/test_backends.py` pass against that library and the bundled 26.05,
 including the optional FFmpeg-generated codec/container and raw H.264 fixtures.
 The suite checks Unicode tags, malformed input, duration rounding and the
@@ -114,3 +114,29 @@ against the helper linked to the system library:
 ```sh
 python3 src/mediaprobe/test_backends.py build/src/amule-media-probe -v
 ```
+
+## Compatibility scope and remaining gaps
+
+The helper replaces the six fields aMule used from ffprobe: duration, bitrate,
+codec, artist, album and title. It does not reproduce ffprobe's complete stream,
+chapter, attachment or technical-field output. Codec names are translated
+explicitly; an unknown MediaInfo format stays empty instead of publishing a
+misleading identifier.
+
+The expanded fixture audit covers WMA 1/2, WavPack, TTA, AMR-NB/WB, WAV GSM,
+A-law/mu-law, IMA/MS/Yamaha ADPCM, TrueHD/MLP, float PCM in WAV/AIFF, Microsoft
+MPEG-4 v2/v3, HuffYUV/FFVH, CineForm, JPEG 2000, DNxHR, raw YUV video and FLV1,
+in addition to the original codec/container cases. CodecID distinguishes codec
+variants within one MediaInfo Format family. A finished stream can also request
+a seek to trailing tags; the helper follows that seek before finalizing, which
+preserves TTA artist/album/title.
+
+This is not universal ffprobe parity. In the expanded 36-file audit, 35 codec
+names match ffprobe; raw GSM is not recognized by MediaInfoLib. Raw AMR-WB and
+video-only Ogg/Theora fixtures identify their codec but provide no duration or
+overall bitrate through MediaInfo, even with a full parse. Raw H.264 timing also
+remains unknown as described above. RIFX float WAV is not recognized in the tested
+library. Container overhead and encoder padding can produce duration/bitrate
+differences, such as 193 versus 192 kbps for a Yamaha ADPCM WAV. These are library
+coverage or accounting differences, not missing string translations; no duration
+is invented when the library has insufficient timing data.
