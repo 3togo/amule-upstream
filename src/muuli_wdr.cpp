@@ -1877,7 +1877,7 @@ wxSizer *PreferencesFilesTab( wxWindow *parent, bool call_fit, bool set_sizer )
     wxCheckBox *item23 = new wxCheckBox( item22, IDC_MEDIAMETA_ENABLED,
         _("Extract length / bitrate / codec from shared audio and video files"),
         wxDefaultPosition, wxDefaultSize, 0 );
-    item23->SetToolTip( _("When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed.") );
+    item23->SetToolTip( _("When enabled, aMule uses its bundled MediaInfo parser, with an FFmpeg library fallback, to extract metadata from shared media files.") );
     item22sz->Add( item23, wxSizerFlags().CenterVertical().Border(wxRIGHT, 0) );
 
     wxFlexGridSizer *item24 = new wxFlexGridSizer( 4, 0, 0 );
@@ -1889,6 +1889,7 @@ wxSizer *PreferencesFilesTab( wxWindow *parent, bool call_fit, bool set_sizer )
 
     CMuleTextCtrl *item26 = new CMuleTextCtrl( item22, IDC_MEDIAMETA_FFPROBEPATH,
         "", wxDefaultPosition, wxSize(80,-1), 0 );
+    item26->Hide();
     item26->SetToolTip( _("Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup.") );
     item24->Add( item26, wxSizerFlags(1).Expand().CenterVertical() );
 
@@ -1901,6 +1902,7 @@ wxSizer *PreferencesFilesTab( wxWindow *parent, bool call_fit, bool set_sizer )
     item28->SetToolTip( _("Search the standard install locations for an ffprobe binary and fill the path field.") );
     item24->Add( item28, wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
 
+    item24->ShowItems(false); // Reserved controls retained for preference binding compatibility.
     item22sz->Add( item24, wxSizerFlags().Expand().CenterVertical() );
     item0->Add( item22sz, wxSizerFlags().Expand().CenterVertical().Border(wxLEFT|wxRIGHT|wxBOTTOM, 0) );
 

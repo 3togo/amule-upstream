@@ -67,7 +67,7 @@ DESTDIR="${APPDIR}" cmake --install "${BUILD_DIR}"
 #    invokes the daemon, amulegui invokes the remote GUI, and so on.
 #    Listing each via --executable makes linuxdeploy walk their .so
 #    deps and bundle every transitive library.
-EXTRA_BINS=(amuled amulegui amulecmd amuleweb amuleapi ed2k cas wxcas alc alcc)
+EXTRA_BINS=(amule-media-probe amuled amulegui amulecmd amuleweb amuleapi ed2k cas wxcas alc alcc)
 EXEC_ARGS=()
 for bin in "${EXTRA_BINS[@]}"; do
     if [ -x "${APPDIR}/usr/bin/${bin}" ]; then

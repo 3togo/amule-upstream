@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(MediaProbeCompare LANGUAGES CXX)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavformat libavcodec libavutil)
+add_executable(libav-probe libav_probe.cpp)
+target_compile_features(libav-probe PRIVATE cxx_std_17)
+target_link_libraries(libav-probe PRIVATE PkgConfig::FFMPEG)

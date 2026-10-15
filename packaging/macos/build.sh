@@ -116,6 +116,7 @@ build() {
     # path list rather than the previous flat src/<bin> assumption.
     echo "==> Copying auxiliary binaries into aMule.app"
     local bin_paths=(
+        src/amule-media-probe
         src/amuled
         src/amulecmd
         src/webserver/src/amuleweb
@@ -141,6 +142,9 @@ build() {
                 -p "@executable_path/../libs/" >/dev/null
         fi
     done
+
+    mkdir -p "${APP_BUNDLE}/Contents/Resources/licenses/amule-media-probe"
+    cp "${REPO_ROOT}/packaging/media/licenses/"* "${APP_BUNDLE}/Contents/Resources/licenses/amule-media-probe/"
 
     echo "==> Producing .dmg"
     make_dmg

@@ -226,6 +226,47 @@ modules:
         url: https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.12/wxWidgets-3.2.12.tar.bz2
         sha256: a62719bb5e1dcc41c1a6fc1eecd499c7ee8521f70402c7b1bb3342a1e16344e0
 
+  - name: media-zenlib
+    buildsystem: cmake-ninja
+    subdir: Project/CMake
+    config-opts: [-DBUILD_SHARED_LIBS=ON, -DCMAKE_POLICY_VERSION_MINIMUM=3.5]
+    sources:
+      - type: archive
+        url: https://codeload.github.com/MediaArea/ZenLib/tar.gz/refs/tags/v0.4.41
+        sha256: 45d5173fa0278f5264daa6836ae297aa303984482227d00b35c4f03929494c8f
+
+  - name: media-mediainfo
+    buildsystem: cmake-ninja
+    subdir: Project/CMake
+    config-opts: [-DBUILD_SHARED_LIBS=ON, -DBUILD_ZENLIB=OFF, -DBUILD_ZLIB=OFF, -DCMAKE_DISABLE_FIND_PACKAGE_CURL=ON]
+    sources:
+      - type: archive
+        url: https://codeload.github.com/MediaArea/MediaInfoLib/tar.gz/refs/tags/v26.05
+        sha256: f3fa9faa5623a5bacf6bed30c1d4c7434852be1654e655d458f964f597d98b8e
+
+  - name: media-ffmpeg
+    buildsystem: autotools
+    config-opts:
+      - --enable-shared
+      - --disable-static
+      - --disable-programs
+      - --disable-doc
+      - --disable-debug
+      - --disable-autodetect
+      - --disable-network
+      - --disable-protocols
+      - --disable-encoders
+      - --disable-muxers
+      - --disable-avdevice
+      - --disable-avfilter
+      - --disable-swscale
+      - --disable-swresample
+      - --disable-x86asm
+    sources:
+      - type: archive
+        url: https://ffmpeg.org/releases/ffmpeg-8.0.tar.xz
+        sha256: b2751fccb6cc4c77708113cd78b561059b6fa904b24162fa0be2d60273d27b8e
+
   - name: amule
     buildsystem: cmake-ninja
     config-opts:

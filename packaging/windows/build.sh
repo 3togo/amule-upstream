@@ -113,6 +113,8 @@ build() {
     echo "==> Building"
     cmake --build "${BUILD_DIR}" -j"$(nproc)"
 
+    "${BUILD_DIR}/src/amule-media-probe.exe" --version
+
     # Kill any running aMule before install — the .exe files in the
     # destination would otherwise be locked. Common when iterating.
     taskkill //F //IM amule.exe //IM amulegui.exe //IM amuled.exe 2>/dev/null || true

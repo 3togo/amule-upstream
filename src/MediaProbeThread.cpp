@@ -127,12 +127,8 @@ void *CMediaProbeThread::Entry()
 			if (!m_bRun) {
 				break;
 			}
-			// An empty path means the user never pinned one, so fall back to what this
-			// machine has. DetectedPath() memoises, so only the first job pays for the
-			// scan; when it finds nothing every job lands here and is dropped without a
-			// word, the one line explaining why having been logged by that first call.
-			const wxString exe =
-				job.ffprobePath.IsEmpty() ? MediaProbe::DetectedPath() : job.ffprobePath;
+			// The helper is installed beside the core; missing-helper logging is cached.
+			const wxString exe = MediaProbe::DetectedPath();
 			if (exe.IsEmpty()) {
 				continue;
 			}
