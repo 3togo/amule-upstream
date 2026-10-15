@@ -2,6 +2,7 @@
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   cmake_minimum_required(VERSION 3.12)
   project(AMuleMediaProbe LANGUAGES CXX)
+  option(BUILD_TESTING "Build tests" ON)
   enable_testing()
 endif()
 find_library(MEDIAINFO_LIBRARY NAMES mediainfo libmediainfo.so.0)
@@ -33,6 +34,12 @@ find_package(Python3 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
   add_test(NAME MediaProbeBackends COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/test_backends.py $<TARGET_FILE:amule-media-probe>)
+  if(BUILD_TESTING)
+    add_executable(media-probe-seek-fixture main.cpp test_seek_stub.cpp)
+    target_compile_features(media-probe-seek-fixture PRIVATE cxx_std_17)
+    add_test(NAME MediaProbeSeekLimit COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_seek_limit.py $<TARGET_FILE:media-probe-seek-fixture>)
+  endif()
 endif()
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../packaging/media/licenses/"
   DESTINATION share/licenses/amule-media-probe)

@@ -32,27 +32,12 @@ on:
       - 'cmake/**'
   workflow_dispatch:
     inputs:
-      artifact_run:
-        description: 'Existing Packaging run to test with only=runtime; avoids rebuilding artifacts.'
-        required: false
-        type: string
-        default: ''
-      runtime_kinds:
-        description: 'Optional comma-separated subset for only=runtime: appimage, static, flatpak, windows, installer, macos.'
-        required: false
-        type: string
-        default: ''
-      artifact_runs:
-        description: 'Optional JSON map of runtime kinds to replacement artifact runs, e.g. {"appimage":"123"}.'
-        required: false
-        type: string
-        default: '{}'
       only:
         description: >-
           Comma-separated list of platform tracks to run.
           Default empty = run all. Useful during iteration to focus
           on the failing tracks without paying for the green ones.
-          Valid: appimage, flatpak, macos, windows, linux-static; runtime tests artifact_run.
+          Valid: appimage, flatpak, macos, windows, linux-static.
         required: false
         type: string
         default: ''
@@ -197,7 +182,7 @@ jobs:
         with:
           fetch-depth: 0  # git describe for the version string
 
-      - name: Check static bundle staging
+      - name: Check Linux packaging wrappers
         run: python3 -m unittest discover -s packaging/linux/tests -v
 
       - name: Set up Buildx
@@ -288,13 +273,16 @@ jobs:
         run: |
           mkdir -p "$CCACHE_DIR"
           echo "max_size = 1.0G" > "$CCACHE_DIR/ccache.conf"
+      - name: Check Flatpak source provenance
+        run: python3 -m unittest discover -s packaging/linux/tests -p test_flatpak_source.py -v
       - name: Build Flatpak
         run: packaging/linux/build.sh flatpak
       - name: Test packaged media runtime
         run: |
           flatpak install --user --noninteractive "$(ls dist/aMule-*-Linux-*.flatpak | head -1)"
+          LOCATION=$(flatpak info --user --show-location org.amule.aMule)
           python3 packaging/media/test-runtime.py --flatpak org.amule.aMule \
-            --licenses "build-flatpak-${{ matrix.arch }}/files/share/licenses/amule-media-probe"
+            --licenses "$LOCATION/files/share/licenses/amule-media-probe"
       - name: Save flatpak-builder ccache
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: ./.github/actions/cache-save-newest
@@ -745,11 +733,14 @@ jobs:
               "dist/aMule-${VERSION}-macOS-universal2.dmg"
       - name: Test Universal2 packaged media runtime
         run: |
+          sudo softwareupdate --install-rosetta --agree-to-license
           MNT=$(mktemp -d)
           hdiutil attach -nobrowse -mountpoint "$MNT" "$(ls dist/*-universal2.dmg | head -1)"
-          python3 packaging/media/test-runtime.py \
-              --bin-dir "$MNT/aMule.app/Contents/MacOS" \
-              --licenses "$MNT/aMule.app/Contents/Resources/licenses/amule-media-probe"
+          for ARCH in arm64 x86_64; do
+            python3 packaging/media/test-runtime.py --arch "$ARCH" \
+                --bin-dir "$MNT/aMule.app/Contents/MacOS" \
+                --licenses "$MNT/aMule.app/Contents/Resources/licenses/amule-media-probe"
+          done
           hdiutil detach "$MNT"
       - uses: actions/upload-artifact@v7
         with:
@@ -1059,102 +1050,3 @@ jobs:
           name: windows-installer-${{ matrix.arch }}
           path: dist/aMule-*-Windows-Setup-${{ matrix.arch }}.exe
           if-no-files-found: error
-
-  packaged-runtime:
-    name: Packaged runtime (${{ matrix.kind }}, ${{ matrix.arch }})
-    if: github.event_name == 'workflow_dispatch' && inputs.only == 'runtime' && inputs.artifact_run != ''
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - {kind: appimage, arch: x86_64, runner: ubuntu-22.04, artifact: appimage-x86_64}
-          - {kind: appimage, arch: aarch64, runner: ubuntu-22.04-arm, artifact: appimage-aarch64}
-          - {kind: static, arch: x86_64, runner: ubuntu-22.04, artifact: linux-static-x86_64}
-          - {kind: static, arch: aarch64, runner: ubuntu-22.04-arm, artifact: linux-static-aarch64}
-          - {kind: flatpak, arch: x86_64, runner: ubuntu-24.04, artifact: flatpak-x86_64}
-          - {kind: flatpak, arch: aarch64, runner: ubuntu-24.04-arm, artifact: flatpak-aarch64}
-          - {kind: windows, arch: x64, runner: windows-2025, artifact: windows-x64, python_arch: x64}
-          - {kind: windows, arch: arm64, runner: windows-11-arm, artifact: windows-arm64, python_arch: arm64}
-          - {kind: installer, arch: x64, runner: windows-2025, artifact: windows-installer-x64, python_arch: x64}
-          - {kind: installer, arch: arm64, runner: windows-11-arm, artifact: windows-installer-arm64, python_arch: arm64}
-          - {kind: macos, arch: arm64, runner: macos-15, artifact: macos-universal2}
-          - {kind: macos, arch: x86_64, runner: macos-15, artifact: macos-universal2}
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        if: inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)
-        with:
-          name: ${{ matrix.artifact }}
-          path: artifacts
-          run-id: ${{ fromJSON(inputs.artifact_runs)[matrix.kind] || inputs.artifact_run }}
-          github-token: ${{ github.token }}
-      - uses: actions/setup-python@v7
-        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && (matrix.kind == 'windows' || matrix.kind == 'installer')
-        with:
-          python-version: '3.13'
-          architecture: ${{ matrix.python_arch }}
-      - name: Test Windows portable archive
-        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind == 'windows'
-        shell: pwsh
-        run: |
-          $stage = Join-Path $env:RUNNER_TEMP 'relocated aMule package'
-          Expand-Archive -Path (Get-ChildItem artifacts -Filter '*.zip' | Select-Object -First 1).FullName -DestinationPath $stage
-          $bundle = (Get-ChildItem $stage -Directory | Select-Object -First 1).FullName
-          python packaging/media/test-runtime.py --bin-dir "$bundle/bin" --licenses "$bundle/share/licenses/amule-media-probe"
-      - name: Test Windows installer payload
-        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind == 'installer'
-        shell: pwsh
-        run: |
-          $installer = (Get-ChildItem artifacts -Filter '*.exe' | Select-Object -First 1).FullName
-          $stage = 'C:\amule-runtime-${{ matrix.arch }}'
-          $install = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$stage") -Wait -PassThru
-          if ($install.ExitCode -ne 0) { throw "Installer failed: $($install.ExitCode)" }
-          try {
-            python packaging/media/test-runtime.py --bin-dir "$stage/bin" --licenses "$stage/share/licenses/amule-media-probe"
-            if ($LASTEXITCODE -ne 0) { throw 'Installed payload runtime checks failed' }
-          } finally {
-            if (Test-Path "$stage/Uninstall.exe") {
-              Start-Process -FilePath "$stage/Uninstall.exe" -ArgumentList @('/S', "_?=$stage") -Wait
-            }
-            Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
-          }
-      - name: Install Flatpak runtime
-        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind == 'flatpak'
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak
-          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          . packaging/linux/versions.env
-          flatpak install --user --noninteractive flathub "org.gnome.Platform//${GNOME_RUNTIME_VERSION}"
-          flatpak install --user --noninteractive "$(ls artifacts/*.flatpak | head -1)"
-      - name: Test Linux and macOS package
-        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind != 'windows' && matrix.kind != 'installer'
-        shell: bash
-        run: |
-          case '${{ matrix.kind }}' in
-            appimage)
-              python3 packaging/media/test-runtime.py --appimage "$(ls artifacts/*.AppImage | head -1)"
-              ;;
-            static)
-              STAGE=$(mktemp -d)
-              tar -xzf "$(ls artifacts/*.tar.gz | head -1)" -C "$STAGE"
-              BUNDLE=$(find "$STAGE" -mindepth 1 -maxdepth 1 -type d | head -1)
-              python3 packaging/media/test-runtime.py --bin-dir "$BUNDLE" --licenses "$BUNDLE/licenses"
-              ;;
-            flatpak)
-              LOCATION=$(flatpak info --user --show-location org.amule.aMule)
-              python3 packaging/media/test-runtime.py --flatpak org.amule.aMule --licenses "$LOCATION/files/share/licenses/amule-media-probe"
-              ;;
-            macos)
-              if [ '${{ matrix.arch }}' = x86_64 ]; then
-                sudo softwareupdate --install-rosetta --agree-to-license
-              fi
-              MNT=$(mktemp -d)
-              hdiutil attach -nobrowse -mountpoint "$MNT" "$(ls artifacts/*.dmg | head -1)"
-              python3 packaging/media/test-runtime.py --arch '${{ matrix.arch }}' \
-                --bin-dir "$MNT/aMule.app/Contents/MacOS" --licenses "$MNT/aMule.app/Contents/Resources/licenses/amule-media-probe"
-              hdiutil detach "$MNT"
-              ;;
-          esac

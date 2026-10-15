@@ -170,7 +170,9 @@ render_flatpak_manifest() {
         exit 1
     }
     echo "==> Rendering ${out}"
-    envsubst < "${in}" > "${out}"
+    AMULE_SOURCE_URL="${AMULE_SOURCE_URL:-https://github.com/amule-org/amule.git}" \
+    AMULE_SOURCE_REF="${AMULE_SOURCE_REF:-branch: ${AMULE_REVISION}}" \
+        envsubst < "${in}" > "${out}"
 }
 
 build_flatpak() {
@@ -195,7 +197,14 @@ build_flatpak() {
         fi
     fi
 
-    render_flatpak_manifest
+    # Build the committed checkout, just like the AppImage and static tracks.
+    # Cloning this local repository includes the exact sources and notices under
+    # review; fetching upstream master instead silently packaged a different app.
+    local source_url source_commit
+    source_url=$(python3 -c 'import pathlib, sys; print(pathlib.Path(sys.argv[1]).as_uri())' "${REPO_ROOT}")
+    source_commit=$(git -C "${REPO_ROOT}" rev-parse HEAD)
+    echo "==> Flatpak source: ${source_commit} from ${source_url} (committed files)"
+    AMULE_SOURCE_URL="${source_url}" AMULE_SOURCE_REF="commit: ${source_commit}" render_flatpak_manifest
     local manifest="${SCRIPT_DIR}/flatpak/${APP_ID}.yaml"
     local statedir="${REPO_ROOT}/build-flatpak-${target_arch}"
     local repodir="${REPO_ROOT}/build-flatpak-${target_arch}-repo"
