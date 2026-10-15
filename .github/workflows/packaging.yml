@@ -37,6 +37,11 @@ on:
         required: false
         type: string
         default: ''
+      runtime_kinds:
+        description: 'Optional comma-separated subset for only=runtime: appimage, static, flatpak, windows, macos.'
+        required: false
+        type: string
+        default: ''
       artifact_runs:
         description: 'Optional JSON map of runtime kinds to replacement artifact runs, e.g. {"appimage":"123"}.'
         required: false
@@ -1070,18 +1075,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
+        if: inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)
         with:
           name: ${{ matrix.artifact }}
           path: artifacts
           run-id: ${{ fromJSON(inputs.artifact_runs)[matrix.kind] || inputs.artifact_run }}
           github-token: ${{ github.token }}
       - uses: actions/setup-python@v7
-        if: matrix.kind == 'windows'
+        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind == 'windows'
         with:
           python-version: '3.13'
           architecture: ${{ matrix.python_arch }}
       - name: Test Windows portable archive
-        if: matrix.kind == 'windows'
+        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind == 'windows'
         shell: pwsh
         run: |
           $stage = Join-Path $env:RUNNER_TEMP 'relocated aMule package'
@@ -1089,7 +1095,7 @@ jobs:
           $bundle = (Get-ChildItem $stage -Directory | Select-Object -First 1).FullName
           python packaging/media/test-runtime.py --bin-dir "$bundle/bin" --licenses "$bundle/share/licenses/amule-media-probe"
       - name: Install Flatpak runtime
-        if: matrix.kind == 'flatpak'
+        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind == 'flatpak'
         shell: bash
         run: |
           sudo apt-get update
@@ -1099,7 +1105,7 @@ jobs:
           flatpak install --user --noninteractive flathub "org.gnome.Platform//${GNOME_RUNTIME_VERSION}"
           flatpak install --user --noninteractive "$(ls artifacts/*.flatpak | head -1)"
       - name: Test Linux and macOS package
-        if: matrix.kind != 'windows'
+        if: (inputs.runtime_kinds == '' || contains(inputs.runtime_kinds, matrix.kind)) && matrix.kind != 'windows'
         shell: bash
         run: |
           case '${{ matrix.kind }}' in
