@@ -22,7 +22,8 @@ for project in zenlib mediainfo; do
   cmake -S "$work/$project/Project/CMake" -B "$work/$project-build" \
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX="$prefix" \
     -DCMAKE_PREFIX_PATH="$prefix" -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-    -DBUILD_ZENLIB=OFF -DBUILD_ZLIB=OFF -DCMAKE_DISABLE_FIND_PACKAGE_CURL=ON \
+    -DBUILD_ZENLIB=OFF -DBUILD_ZLIB=OFF -DCMAKE_DISABLE_FIND_PACKAGE_TinyXML=ON \
+    -DCMAKE_DISABLE_FIND_PACKAGE_CURL=ON \
     '-DCMAKE_CXX_FLAGS=-DMEDIAINFO_LIBCURL_NO -DMEDIAINFO_LIBMMS_NO' "$@"
   cmake --build "$work/$project-build" -j2
   cmake --install "$work/$project-build"

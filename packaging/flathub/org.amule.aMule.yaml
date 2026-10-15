@@ -238,7 +238,7 @@ modules:
   - name: media-mediainfo
     buildsystem: cmake-ninja
     subdir: Project/CMake
-    config-opts: [-DBUILD_SHARED_LIBS=ON, -DBUILD_ZENLIB=OFF, -DBUILD_ZLIB=OFF, -DCMAKE_DISABLE_FIND_PACKAGE_CURL=ON, '-DCMAKE_CXX_FLAGS=-DMEDIAINFO_LIBCURL_NO -DMEDIAINFO_LIBMMS_NO']
+    config-opts: [-DBUILD_SHARED_LIBS=ON, -DBUILD_ZENLIB=OFF, -DBUILD_ZLIB=OFF, -DCMAKE_DISABLE_FIND_PACKAGE_TinyXML=ON, -DCMAKE_DISABLE_FIND_PACKAGE_CURL=ON, '-DCMAKE_CXX_FLAGS=-DMEDIAINFO_LIBCURL_NO -DMEDIAINFO_LIBMMS_NO']
     sources:
       - type: archive
         url: https://codeload.github.com/MediaArea/MediaInfoLib/tar.gz/refs/tags/v26.05
