@@ -242,13 +242,17 @@ and ZenLib 0.4.41 from the checksum-pinned sources in
 [`packaging/media/pins.json`](../packaging/media/pins.json), with curl and libmms
 readers disabled. System-package builds may use the distribution's MediaInfoLib.
 
-MediaInfoLib and ZenLib use BSD-2-Clause licences. Full notices are installed
+MediaInfoLib uses BSD-2-Clause; ZenLib uses the zlib licence. Full notices are installed
 under `share/licenses/amule-media-probe` (Resources in the macOS app):
 
 - [MediaInfoLib licence](../packaging/media/licenses/MediaInfoLib.html)
 - [ZenLib licence](../packaging/media/licenses/ZenLib.txt)
 - [aes-gladman notice](../packaging/media/licenses/AES.txt), included in MediaInfoLib
 - [tinyxml2 notice](../packaging/media/licenses/TinyXML2.txt), included in MediaInfoLib
+- [SHA notice](../packaging/media/licenses/SHA-Gladman.txt) and
+  [HMAC notice](../packaging/media/licenses/HMAC-Gladman.txt), Brian Gladman's routines
+- [TFSXML notice](../packaging/media/licenses/TFSXML.txt), MediaArea's MIT XML parser
+- [fmt notice](../packaging/media/licenses/fmt.txt), MIT formatting library
 
 Retain these notices with redistributed binaries and publish the exact pinned
 sources and build recipes. MediaInfoLib does not pull FFmpeg into the bundles.
