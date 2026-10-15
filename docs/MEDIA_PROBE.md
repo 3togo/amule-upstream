@@ -98,3 +98,17 @@ The Packaging workflow runs these checks after building each bundle. It also
 accepts `only=runtime` with `artifact_run` set to an earlier Packaging run ID to
 exercise existing artifacts on native x86_64/ARM64 runners without rebuilding.
 For the Universal2 dmg, both slices are exercised on macOS (Intel via Rosetta).
+
+### System-library compatibility
+
+The minimum supported MediaInfoLib is 21.09 (Ubuntu 22.04 package
+`libmediainfo0v5_21.09+dfsg-4`, with ZenLib 0.4.39). All 13 tests in
+`src/mediaprobe/test_backends.py` pass against that library and the bundled 26.05,
+including the optional FFmpeg-generated codec/container and raw H.264 fixtures.
+The suite checks Unicode tags, malformed input, duration rounding and the
+removed `--backend` option as well as codec/tag field compatibility. Run it
+against the helper linked to the system library:
+
+```sh
+python3 src/mediaprobe/test_backends.py build/src/amule-media-probe -v
+```

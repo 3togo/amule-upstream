@@ -29,7 +29,7 @@ the standard C library on most GNU systems.
 | Package                    | Minimum | What it enables                                                          |
 | -------------------------- | ------- | ------------------------------------------------------------------------ |
 | `libgd`                    | 2.0.0   | statistics images in `cas`                                               |
-| `MediaInfoLib`            |         | Media metadata helper (default ON): `libmediainfo-dev` on Debian/Ubuntu, `libmediainfo-devel` on Fedora, `libmediainfo` on Arch and Homebrew, `mingw-w64-<toolchain>-libmediainfo` on MSYS2. Bundles build pinned sources instead. |
+| `MediaInfoLib`            | 21.09   | Media metadata helper (default ON): `libmediainfo-dev` on Debian/Ubuntu, `libmediainfo-devel` on Fedora, `libmediainfo` on Arch and Homebrew, `mingw-w64-<toolchain>-libmediainfo` on MSYS2. Ubuntu 22.04’s 21.09 passes the helper suite. Bundles build pinned sources instead. |
 | `libupnp`                  | 1.6.6   | UPnP port forwarding                                                     |
 | `libmaxminddb`             | 1.0     | country flags + IP→country mapping ([docs/IP2Country.md](IP2Country.md)) |
 | `gettext`                  | 0.11.5  | native-language support (NLS)                                            |
