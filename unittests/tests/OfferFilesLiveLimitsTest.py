@@ -106,7 +106,7 @@ def live_limits(binary):
         process = stream = None
         try:
             process, stream, ec = daemon(binary, root, 6, 'live-limits', True,
-                                         extra_config='[Obfuscation]\nIsClientCryptLayerSupported=0\n')
+                                         sections={'Obfuscation': {'IsClientCryptLayerSupported': 0}})
             config = configparser.ConfigParser()
             config.read(root / 'amule.conf')
             server.destination = ('127.0.0.1', config.getint('eMule', 'Port') + 3)
