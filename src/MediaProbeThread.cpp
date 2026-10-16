@@ -42,11 +42,15 @@ CMediaProbeThread::CMediaProbeThread()
 : wxThread(wxTHREAD_JOINABLE)
 , m_condition(m_mutex)
 {
-	m_bRun = false;
 	m_bWorkPending = false;
 	wxMutexLocker lock(m_mutex);
 	if (Create() == wxTHREAD_NO_ERROR) {
-		Run();
+		// Set the flag before the worker can start. Otherwise EndThread() may
+		// clear it before Entry() runs, only for Entry() to set it again.
+		m_bRun = true;
+		m_started = Run() == wxTHREAD_NO_ERROR;
+		if (!m_started)
+			m_bRun = false;
 	}
 }
 
@@ -58,7 +62,8 @@ void CMediaProbeThread::EndThread()
 		m_bWorkPending = true;
 		m_condition.Signal();
 	}
-	Wait();
+	if (m_started)
+		Wait();
 }
 
 void CMediaProbeThread::QueueProbe(const CMD4Hash &hash, const CPath &fullPath, bool bulk)
@@ -76,7 +81,6 @@ void CMediaProbeThread::QueueProbe(const CMD4Hash &hash, const CPath &fullPath, 
 
 void *CMediaProbeThread::Entry()
 {
-	m_bRun = true;
 	AddDebugLogLineN(logMediaProbe, wxT("Media probe thread: started"));
 
 	// Accumulated across the drains of one bulk operation; see the summary at

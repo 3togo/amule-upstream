@@ -49,6 +49,8 @@ size_t MI_CALL MediaInfo_Open_Buffer_Continue(void *h, const unsigned char *, si
 uint64_t MI_CALL MediaInfo_Open_Buffer_Continue_GoTo_Get(void *h)
 {
 	const auto &parser = *static_cast<Parser *>(h);
+	if (std::getenv("AMULE_TEST_RETRY_MISSING_FIELDS") || std::getenv("AMULE_TEST_RETRY_TAGS_ONLY"))
+		return UINT64_MAX;
 	if (std::getenv("AMULE_TEST_FORWARD_SEEKS"))
 		return parser.calls <= 80 ? parser.position + 1 : UINT64_MAX;
 	// Retry mode spends 40 seeks on a codec-only first parse, then loops on the
@@ -61,16 +63,30 @@ size_t MI_CALL MediaInfo_Open_Buffer_Finalize(void *)
 {
 	return 0;
 }
-const wchar_t *MI_CALL MediaInfo_Get(void *, int kind, size_t, const wchar_t *field, int, int)
+const wchar_t *MI_CALL MediaInfo_Get(void *h, int kind, size_t, const wchar_t *field, int, int)
 {
+	const bool missingFields = std::getenv("AMULE_TEST_RETRY_MISSING_FIELDS");
+	const bool tagsOnly = std::getenv("AMULE_TEST_RETRY_TAGS_ONLY");
+	const bool full = static_cast<Parser *>(h)->full;
 	if (!std::wcscmp(field, L"Format"))
-		return kind == 0 ? L"Wave" : L"AAC";
+		return kind == 0 ? L"Wave" : (missingFields || tagsOnly) && full ? L"" : L"AAC";
+	if (missingFields && !std::wcscmp(field, L"Duration") && full)
+		return L"42000";
+	if (missingFields && !std::wcscmp(field, L"OverallBitRate") && !full)
+		return L"128000";
+	if (missingFields && !std::wcscmp(field, L"Title") && !full)
+		return L"First pass title";
+	if (tagsOnly && !std::wcscmp(field, L"Title") && full)
+		return L"Full pass title";
 	if (!std::wcscmp(field, L"Duration") && std::getenv("AMULE_TEST_FORWARD_SEEKS"))
 		return L"1800000";
 	return L"";
 }
-size_t MI_CALL MediaInfo_Count_Get(void *, int kind, size_t)
+size_t MI_CALL MediaInfo_Count_Get(void *h, int kind, size_t)
 {
+	if ((std::getenv("AMULE_TEST_RETRY_MISSING_FIELDS") || std::getenv("AMULE_TEST_RETRY_TAGS_ONLY")) &&
+		static_cast<Parser *>(h)->full)
+		return 0;
 	return kind == 2 ? 1 : 0;
 }
 const wchar_t *MI_CALL MediaInfo_Option(void *h, const wchar_t *field, const wchar_t *value)

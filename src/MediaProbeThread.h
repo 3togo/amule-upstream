@@ -90,7 +90,8 @@ private:
 	void *Entry() override;
 
 	std::atomic<bool> m_bRun{ false };
-	bool m_bWorkPending; // sticky wake flag, protected by m_mutex
+	bool m_started = false; // Set by the constructor; EndThread is called after construction.
+	bool m_bWorkPending;    // sticky wake flag, protected by m_mutex
 
 	wxMutex m_mutex;
 	wxCondition m_condition;
