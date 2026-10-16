@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// A hostile parser stub exercises the real helper's seek budget without media fixtures.
+// Parser stub exercises seek loops and finite forward seeks without media fixtures.
 #include <cstdlib>
 #include <cstdint>
 #include <cwchar>
@@ -17,6 +17,7 @@ struct Parser
 {
 	unsigned calls = 0;
 	bool full = false;
+	uint64_t position = 0;
 };
 unsigned totalCalls = 0;
 } // namespace
@@ -30,21 +31,26 @@ void MI_CALL MediaInfo_Delete(void *h)
 {
 	delete static_cast<Parser *>(h);
 }
-size_t MI_CALL MediaInfo_Open_Buffer_Init(void *, uint64_t, uint64_t)
+size_t MI_CALL MediaInfo_Open_Buffer_Init(void *h, uint64_t, uint64_t offset)
 {
+	static_cast<Parser *>(h)->position = offset;
 	return 0;
 }
-size_t MI_CALL MediaInfo_Open_Buffer_Continue(void *h, const unsigned char *, size_t)
+size_t MI_CALL MediaInfo_Open_Buffer_Continue(void *h, const unsigned char *, size_t size)
 {
 	// Terminate the old implementation promptly rather than waiting for its CPU limit.
-	if (++totalCalls > 66)
+	if (++totalCalls > (std::getenv("AMULE_TEST_FORWARD_SEEKS") ? 100U : 66U))
 		std::exit(99);
-	++static_cast<Parser *>(h)->calls;
+	auto &parser = *static_cast<Parser *>(h);
+	++parser.calls;
+	parser.position += size;
 	return 15; // Accepted, filled and finished, but a seek can still be pending.
 }
 uint64_t MI_CALL MediaInfo_Open_Buffer_Continue_GoTo_Get(void *h)
 {
 	const auto &parser = *static_cast<Parser *>(h);
+	if (std::getenv("AMULE_TEST_FORWARD_SEEKS"))
+		return parser.calls <= 80 ? parser.position + 1 : UINT64_MAX;
 	// Retry mode spends 40 seeks on a codec-only first parse, then loops on the
 	// full scan. A budget reset on that second parse trips the guard above.
 	if (std::getenv("AMULE_TEST_SEEK_RETRY") && !parser.full && parser.calls > 40)
@@ -59,6 +65,8 @@ const wchar_t *MI_CALL MediaInfo_Get(void *, int kind, size_t, const wchar_t *fi
 {
 	if (!std::wcscmp(field, L"Format"))
 		return kind == 0 ? L"Wave" : L"AAC";
+	if (!std::wcscmp(field, L"Duration") && std::getenv("AMULE_TEST_FORWARD_SEEKS"))
+		return L"1800000";
 	return L"";
 }
 size_t MI_CALL MediaInfo_Count_Get(void *, int kind, size_t)
