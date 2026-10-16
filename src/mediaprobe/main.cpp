@@ -365,9 +365,23 @@ static int mediaInfo(Result &r, int64_t size, bool full = false, unsigned seekCo
 	if (!r.length && !rawAvc && !full && size <= 512LL * 1024 * 1024) {
 		Result retry;
 		int rc = mediaInfo(retry, size, true, seekCount);
-		if (rc == 0 && retry.length)
-			r = retry;
-		else if (rc && !r.usable())
+		if (rc == 0 || rc == 10) {
+			// The full pass can recover fields independently, and may omit
+			// fields found during the fast pass. Merge what it found even when
+			// it still has no duration or codec of its own.
+			if (retry.length)
+				r.length = retry.length;
+			if (retry.bitrate)
+				r.bitrate = retry.bitrate;
+			if (!retry.codec.empty())
+				r.codec = retry.codec;
+			if (!retry.artist.empty())
+				r.artist = retry.artist;
+			if (!retry.album.empty())
+				r.album = retry.album;
+			if (!retry.title.empty())
+				r.title = retry.title;
+		} else if (rc && !r.usable())
 			return rc;
 	}
 	return r.usable() ? 0 : 10;
