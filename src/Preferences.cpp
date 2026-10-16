@@ -1458,8 +1458,8 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	 * headless amuled + amuleapi deployment, where there is no dialog to stumble across.
 	 *
 	 * Enabling it does not require the helper to exist: detection is memoised for the life
-	 * of the process, and with nothing found the worker drops every job after a single
-	 * log line.
+	 * of the process, and with nothing found the scheduler skips probe jobs after a
+	 * single log line.
 	 *
 	 * No migration accompanies this. Cfg_Bool applies a default only when the key is
 	 * ABSENT, and the key does not exist in 3.0.0 or 3.0.1 -- so every config written by

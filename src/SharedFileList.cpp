@@ -41,6 +41,7 @@
 #include "ServerConnect.h"    // Needed for CServerConnect
 #include "KnownFileList.h"    // Needed for CKnownFileList
 #include "ThreadTasks.h"      // Needed for CThreadScheduler and CHasherTask
+#include "MediaProbe.h"       // Needed for MediaProbe::DetectedPath
 #include "MediaProbeThread.h" // Needed for CMediaProbeThread (media probe queue)
 #include "OtherFunctions.h"   // Needed for GetED2KFileTypeID / ED2KFT_* (MaybeScheduleMediaProbe)
 #include "ThreadScheduler.h"  // Needed for CThreadScheduler::GetPendingCount (bulk probe logging)
@@ -803,18 +804,23 @@ bool CSharedFileList::MaybeScheduleMediaProbe(CKnownFile *pFile, MediaProbeMode 
 	if (mode != MediaProbeMode::Refresh && !fullPath.FileExists()) {
 		return false;
 	}
+	// A refresh count reports work the helper can actually attempt. Detect once
+	// (DetectedPath caches the answer) instead of accepting every file into a
+	// queue that the worker will discard when the sibling helper is missing.
+	if (MediaProbe::DetectedPath().IsEmpty()) {
+		return false;
+	}
 	// #280: run on the dedicated media-probe worker, NOT the shared
 	// CThreadScheduler -- a slow/hung helper there wedges completions.
 	if (theApp->mediaProbeThread) {
-		AddDebugLogLineN(
-			logMediaProbe, CFormat(wxT("MediaProbe: queueing %s")) % pFile->GetFileName());
-		theApp->mediaProbeThread->QueueProbe(pFile->GetFileHash(), fullPath, bulk);
-		return true;
-	} else {
-		AddDebugLogLineN(logMediaProbe,
-			CFormat(wxT("MediaProbe: dropped %s - probe thread not ready")) %
-				pFile->GetFileName());
+		if (theApp->mediaProbeThread->QueueProbe(pFile->GetFileHash(), fullPath, bulk)) {
+			AddDebugLogLineN(logMediaProbe,
+				CFormat(wxT("MediaProbe: queueing %s")) % pFile->GetFileName());
+			return true;
+		}
 	}
+	AddDebugLogLineN(logMediaProbe,
+		CFormat(wxT("MediaProbe: dropped %s - probe thread not ready")) % pFile->GetFileName());
 	return false;
 }
 

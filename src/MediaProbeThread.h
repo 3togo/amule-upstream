@@ -71,8 +71,9 @@ public:
 	// polls the run flag), so the join returns without waiting on a slow or hung helper.
 	void EndThread();
 
-	// Enqueue a probe. Thread-safe; returns immediately.
-	void QueueProbe(const CMD4Hash &hash, const CPath &fullPath, bool bulk = false);
+	// Enqueue a probe if the worker started and is still running. Thread-safe;
+	// returns false rather than accepting work that can never be processed.
+	bool QueueProbe(const CMD4Hash &hash, const CPath &fullPath, bool bulk = false);
 
 	bool IsRunning() const { return m_bRun; }
 
