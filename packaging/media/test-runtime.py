@@ -124,7 +124,8 @@ def run(args, root):
 
     helper, child_env = command('amule-media-probe')
     version = subprocess.run(helper + ['--version'], env=child_env, capture_output=True,
-                             text=True, check=True, timeout=30)
+                             text=True, timeout=30)
+    assert version.returncode == 0, (version.returncode, version.stdout, version.stderr)
     assert 'amule-media-probe 1;' in version.stdout, version.stdout + version.stderr
     assert 'v26.05' in version.stdout, 'package did not use pinned MediaInfoLib: ' + version.stdout
     print('PASS packaged helper version:', version.stdout.strip(), flush=True)
