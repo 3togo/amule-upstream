@@ -27,6 +27,7 @@ import urllib.request
 import zlib
 from pathlib import Path
 
+from DaemonConfig import write_amule_conf
 from ShareWatcherMoveIntegrationTest import shared
 
 from AllSearchIntegrationTest import C, EC, exact, free_ports, string, tag
@@ -194,45 +195,20 @@ def library(root, count, seed):
     (root / 'known2_64.met').write_bytes(aich)
 
 
-def daemon(binary, root, count, seed, enabled, prepare=None, extra_config=''):
+def daemon(binary, root, count, seed, enabled, prepare=None, sections=None):
     root.mkdir()
     library(root, count, seed)
     if prepare:
         prepare(root)
     ec_port, peer_port, udp_port = free_ports(3, udp_indices=(2,), peer_index=1)
-    (root / 'amule.conf').write_text(f'''[eMule]
-Nick={seed}
-Port={peer_port}
-UDPPort={udp_port}
-Address=127.0.0.1
-ConnectToKad=0
-ConnectToED2K=1
-FilterLanIPs=0
-NewVersionCheck=0
-GeoIPEnabled=0
-GeoIPAutoUpdate=0
-GeoIPSource=custom
-GeoIPCustomUrl=
-Reconnect=0
-Serverlist=0
-Ed2kServersUrl=
-KadNodesUrl=
-AddServerListFromServer=0
-AddServerListFromClient=0
-Language=en_US
-VerboseDebug=1
-VerboseDebugLogfile=1
-ExperimentalED2KPublication={int(enabled)}
-TempDir={root}/Temp
-IncomingDir={root}/Incoming
-[Debug]
-Cat_Servers=1
-[ExternalConnect]
-AcceptExternalConnections=1
-ECAddress=127.0.0.1
-ECPort={ec_port}
-ECPassword={hashlib.md5(b'regression').hexdigest()}
-{extra_config}''')
+    config_sections = {'Debug': {'Cat_Servers': 1}}
+    for name, values in (sections or {}).items():
+        config_sections.setdefault(name, {}).update(values)
+    write_amule_conf(root, ec_port, Nick=seed, Port=peer_port, UDPPort=udp_port,
+                     ConnectToED2K=1, FilterLanIPs=0, GeoIPAutoUpdate=0,
+                     GeoIPSource='custom', GeoIPCustomUrl='', VerboseDebug=1,
+                     VerboseDebugLogfile=1, ExperimentalED2KPublication=int(enabled),
+                     sections=config_sections)
     (root / 'nodes.dat').write_bytes(struct.pack('<III', 0, 1, 0))
     log = (root / 'stdout.log').open('w')
     process = subprocess.Popen([binary, '-c', str(root)], stdout=log, stderr=log)
