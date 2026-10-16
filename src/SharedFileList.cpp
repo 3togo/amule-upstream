@@ -1575,23 +1575,23 @@ static bool SortFunc(const CKnownFile *fileA, const CKnownFile *fileB)
 	return GetRealPrio(fileA->GetUpPriority()) < GetRealPrio(fileB->GetUpPriority());
 }
 
-void CSharedFileList::SendListToServer()
+bool CSharedFileList::SendListToServer()
 {
 	CServer *server = theApp->serverconnect->GetCurrentServer();
 	if (!server || !theApp->IsConnectedED2K()) {
-		return;
+		return false;
 	}
 	CServerSocket *socket = theApp->serverconnect->GetConnectedSocket();
 #ifdef ENABLE_ED2K_OFFERFILES_V1
 	if (!socket || !socket->CanPublishOfferFiles(GetTickCount64())) {
-		return;
+		return false;
 	}
 	auto &publication = socket->GetOfferFilesPublication();
 	const auto *policy = socket->GetOfferFilesAdvertisement();
 	if (policy && !publication.Due(GetTickCount64(),
 			      policy->PublicationIntervalMs(
 				      thePrefs::GetExperimentalED2KPublication(), ED2KREPUBLISHTIME))) {
-		return;
+		return false;
 	}
 	// Packet capacity applies to every record; the distinct-candidate budget
 	// applies only to hashes not previously offered on this connection.
@@ -1630,7 +1630,7 @@ void CSharedFileList::SendListToServer()
 	}
 #endif
 	if (!limit) {
-		return;
+		return false;
 	}
 	std::vector<CKnownFile *> SortedList;
 
@@ -1638,7 +1638,7 @@ void CSharedFileList::SendListToServer()
 		wxMutexLocker lock(list_mut);
 
 		if (m_Files_map.empty() || !theApp->IsConnectedED2K()) {
-			return;
+			return false;
 		}
 
 		// Getting a sorted list of the non-published files.
@@ -1664,9 +1664,9 @@ void CSharedFileList::SendListToServer()
 		limit = SortedList.size();
 		if (limit == 0) {
 			// Idle ticks remain constant-time, even with an exhausted soft budget.
-			// RepublishFile/AddFile reactivate this walk when something changes.
+			// RepublishFile/AddFile and live limit changes reactivate this walk.
 			m_lastPublishED2KFlag = false;
-			return;
+			return false;
 		}
 	}
 
@@ -1708,7 +1708,7 @@ void CSharedFileList::SendListToServer()
 	// Nothing eligible to publish to this server. Sending an OP_OFFERFILES with
 	// count=0 would just be ~28 bytes of TCP overhead per republish tick.
 	if (count == 0) {
-		return;
+		return false;
 	}
 
 	// Patch the count to match what we actually wrote.
@@ -1734,11 +1734,15 @@ void CSharedFileList::SendListToServer()
 #endif
 		for (CKnownFile *file : offered) {
 #ifdef ENABLE_ED2K_OFFERFILES_V1
-			publication.Record(file->GetFileHash());
+			if (socket->RequestedOfferFilesV1()) {
+				publication.Record(file->GetFileHash());
+			}
 #endif
 			file->SetPublishedED2K(true);
 		}
+		return true;
 	}
+	return false;
 }
 
 void CSharedFileList::Process()
@@ -1793,6 +1797,18 @@ void CSharedFileList::ProcessED2K(bool acceleratedOnly)
 	if (socket && !socket->CanPublishOfferFiles(now)) {
 		return;
 	}
+	if (policy) {
+		const CServer *server = theApp->serverconnect->GetCurrentServer();
+		const CServer *listed = server ? theApp->serverlist->GetServerByAddress(
+							 server->GetAddress(), server->GetPort())
+					       : nullptr;
+		if (server && socket->GetOfferFilesPublication().UpdateLimits(server->GetSoftFiles(),
+				      server->GetHardFiles(),
+				      listed ? listed->GetSoftFiles() : 0,
+				      listed ? listed->GetHardFiles() : 0)) {
+			m_lastPublishED2KFlag = true;
+		}
+	}
 	if (policy && theLogger.IsEnabled(logServer)) {
 		AddDebugLogLineN(logServer,
 			CFormat("OFFERFILES queue: tick_ms=%llu pending_control_packets=%llu") % now %
@@ -1814,8 +1830,9 @@ void CSharedFileList::ProcessED2K(bool acceleratedOnly)
 	if (!m_lastPublishED2KFlag || !due) {
 		return;
 	}
-	SendListToServer();
-	m_lastPublishED2K = ::GetTickCount64();
+	if (SendListToServer()) {
+		m_lastPublishED2K = ::GetTickCount64();
+	}
 }
 
 SKadPublishFacts CSharedFileList::CurrentKadPublishFacts()

@@ -31,7 +31,8 @@ first advertisement uses legacy pacing. A later advertisement is ignored and
 cannot relax a valid first snapshot; the connection stays open. Disabling the
 setting before login omits the request and uses the existing batch heuristic
 (at most 200 records and strictly below any known hard boundary) and one-minute
-pacing. Offline ticks do not postpone the first publication after connecting. If disabled during a negotiated
+pacing. Offline, empty, and rejected publication attempts do not advance the
+legacy publication timer. If disabled during a negotiated
 session, the server still enforces that session's snapshot: aMule keeps its
 batch and budget limits and slows to at least one-minute pacing until reconnect. No server
 identity or manual rate override enables acceleration.
@@ -42,14 +43,19 @@ loop. It sends at most one batch per eligible tick, measuring the next interval
 from socket queue acceptance; late ticks do not grant catch-up bursts. Legacy
 publication keeps the existing shared-file maintenance schedule.
 Distinct candidate hashes are counted only after socket queue acceptance,
-including legacy offers before negotiation, and reset on disconnect. Queue
+including legacy offers before negotiation on a connection that requested v1,
+and reset on disconnect. Unrequested legacy connections do not retain a
+distinct-hash set. Queue
 acceptance does not confirm transmission or indexing. Already published files
 are skipped until a rename or completion marks them
 for republication. A re-offer of the same hash consumes packet capacity and
 pacing time, but no new distinct-candidate slot, even after the soft budget is
 full. Removing local files does not replenish that budget. Live nonzero
 soft/hard limits can further restrict the
-advertised snapshot. Negotiated pacing is never persisted in `server.met`.
+advertised snapshot. An idle publisher rechecks its library when live limits
+change, so a temporarily restrictive limit cannot stall publication for the
+rest of the connection. Unchanged limits do not trigger new scans.
+Negotiated pacing is never persisted in `server.met`.
 
 Republication refreshes source metadata; it does not guarantee that a server
 replaces the searchable filename. On ed2k-server v0.9.82, a re-offer updates
@@ -225,3 +231,13 @@ Queue-sampled cases also check that the client control queues drain and nobody
 remains waiting at the global ceiling after indexing. The JSON includes sampled
 peak and final queue counts per client. These sampled peaks are observations,
 not queue bounds or measurements of Asio/kernel buffering.
+
+The independent loopback scheduling regression test needs no external server:
+
+```sh
+python3 unittests/tests/OfferFilesLiveLimitsTest.py /absolute/path/to/amuled
+```
+
+It verifies resumption after a live UDP soft limit is raised and prompt legacy
+publication after an empty library gains a file. Use `--legacy-only` for a
+compiled-out daemon. CTest registers this test when integration tests are enabled.

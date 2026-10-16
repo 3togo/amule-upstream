@@ -69,9 +69,23 @@ public:
 		m_sent = true;
 		m_lastSent = now;
 	}
+	// Live UDP metadata may change while publication is idle. Recheck work once
+	// when limits change, without rescanning the library on every core tick.
+	bool UpdateLimits(uint32_t soft, uint32_t hard, uint32_t listedSoft, uint32_t listedHard)
+	{
+		const std::array<uint32_t, 4> limits{ { soft, hard, listedSoft, listedHard } };
+		if (m_haveLimits && m_limits == limits) {
+			return false;
+		}
+		m_limits = limits;
+		m_haveLimits = true;
+		return true;
+	}
 	void Reset() { *this = COfferFilesPublication(); }
 
 private:
+	std::array<uint32_t, 4> m_limits{};
+	bool m_haveLimits = false;
 	std::set<CMD4Hash> m_offered;
 	uint64_t m_lastSent = 0;
 	bool m_sent = false;
@@ -97,6 +111,7 @@ public:
 		return !m_requested || (m_seen && !m_pending) ||
 		       (!m_seen && now >= m_loginAt && now - m_loginAt >= 60000);
 	}
+	bool Requested() const { return m_requested; }
 	bool BeginAdvertisement();
 	void RejectAdvertisement();
 	void Commit(const COfferFilesAdvertisement &advertisement);

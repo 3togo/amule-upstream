@@ -81,6 +81,7 @@ public:
 	{
 		return m_offerFilesPolicy.Get();
 	}
+	bool RequestedOfferFilesV1() const { return m_offerFilesPolicy.Requested(); }
 	bool CanPublishOfferFiles(uint64 now) const { return m_offerFilesPolicy.CanPublish(now); }
 	COfferFilesPublication &GetOfferFilesPublication() { return m_offerFilesPublication; }
 #endif

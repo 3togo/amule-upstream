@@ -351,11 +351,13 @@ TEST(OfferFilesPolicy, UnrequestedAdvertisementCannotActivateConnectionPolicy)
 {
 	COfferFilesConnectionPolicy state;
 	state.BeginLogin(false, 1000);
+	ASSERT_FALSE(state.Requested());
 	ASSERT_TRUE(state.CanPublish(1000));
 	ASSERT_FALSE(state.BeginAdvertisement());
 	state.Commit(Valid());
 	ASSERT_TRUE(state.Get() == nullptr);
 	state.BeginLogin(true, 2000);
+	ASSERT_TRUE(state.Requested());
 	ASSERT_TRUE(state.BeginAdvertisement());
 	state.Commit(Valid());
 	ASSERT_TRUE(state.Get() != nullptr);
@@ -405,4 +407,32 @@ TEST(OfferFilesPolicy, LegacyPacketsKeepTheExclusiveKnownHardBoundary)
 	ASSERT_EQUALS(uint32(200),
 		COfferFilesAdvertisement::LegacyPacketLimit(
 			std::numeric_limits<uint32>::max(), std::numeric_limits<uint32>::max()));
+}
+
+TEST(OfferFilesPolicy, IdlePublicationWakesWhenLiveLimitsChange)
+{
+	COfferFilesPublication publication;
+	const auto policy = Valid(10, 201, 2);
+	unsigned char bytes[16] = {};
+	bytes[0] = 1;
+	publication.Record(CMD4Hash(bytes));
+	// A restrictive UDP soft limit leaves unpublished files in an idle library.
+	ASSERT_TRUE(publication.UpdateLimits(10, 201, 1, 201));
+	ASSERT_EQUALS(uint32(0), policy.BatchLimit(publication.Count(), 1, 201));
+	ASSERT_FALSE(publication.UpdateLimits(10, 201, 1, 201));
+	// Raising it must wake publication, while retaining the connection snapshot.
+	ASSERT_TRUE(publication.UpdateLimits(10, 201, 100, 201));
+	ASSERT_EQUALS(uint32(2), policy.BatchLimit(publication.Count(), 100, 201));
+	ASSERT_FALSE(publication.UpdateLimits(10, 201, 100, 201));
+	ASSERT_TRUE(publication.UpdateLimits(10, 201, 100, 1));
+	ASSERT_EQUALS(uint32(0), policy.PacketLimit(1));
+	ASSERT_TRUE(publication.UpdateLimits(10, 201, 100, 201));
+	ASSERT_EQUALS(uint32(2), policy.PacketLimit(201));
+	// Changes to the socket's own limits and removal of list metadata also wake it.
+	ASSERT_TRUE(publication.UpdateLimits(1, 201, 100, 201));
+	ASSERT_TRUE(publication.UpdateLimits(1, 1, 100, 201));
+	ASSERT_TRUE(publication.UpdateLimits(1, 1, 0, 0));
+	ASSERT_FALSE(publication.UpdateLimits(1, 1, 0, 0));
+	publication.Reset();
+	ASSERT_TRUE(publication.UpdateLimits(1, 1, 0, 0));
 }

@@ -194,7 +194,7 @@ def library(root, count, seed):
     (root / 'known2_64.met').write_bytes(aich)
 
 
-def daemon(binary, root, count, seed, enabled, prepare=None):
+def daemon(binary, root, count, seed, enabled, prepare=None, extra_config=''):
     root.mkdir()
     library(root, count, seed)
     if prepare:
@@ -232,7 +232,7 @@ AcceptExternalConnections=1
 ECAddress=127.0.0.1
 ECPort={ec_port}
 ECPassword={hashlib.md5(b'regression').hexdigest()}
-''')
+{extra_config}''')
     (root / 'nodes.dat').write_bytes(struct.pack('<III', 0, 1, 0))
     log = (root / 'stdout.log').open('w')
     process = subprocess.Popen([binary, '-c', str(root)], stdout=log, stderr=log)
