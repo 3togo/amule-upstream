@@ -66,7 +66,7 @@ void CMediaProbeThread::EndThread()
 		Wait();
 }
 
-void CMediaProbeThread::QueueProbe(const CMD4Hash &hash, const CPath &fullPath, bool bulk)
+bool CMediaProbeThread::QueueProbe(const CMD4Hash &hash, const CPath &fullPath, bool bulk)
 {
 	MediaProbeJob job;
 	job.hash = hash;
@@ -74,9 +74,12 @@ void CMediaProbeThread::QueueProbe(const CMD4Hash &hash, const CPath &fullPath, 
 	job.bulk = bulk;
 
 	wxMutexLocker lock(m_mutex);
+	if (!m_bRun)
+		return false;
 	m_jobList.push_back(job);
 	m_bWorkPending = true;
 	m_condition.Signal();
+	return true;
 }
 
 void *CMediaProbeThread::Entry()
