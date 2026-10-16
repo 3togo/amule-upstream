@@ -339,7 +339,7 @@ private:
 	//! by Process() rather than announced one line each. See NotifyPathAdded.
 	unsigned m_attachedKnownFiles = 0;
 
-	void SendListToServer();
+	bool SendListToServer();
 	uint64 m_lastPublishED2K;
 	bool m_lastPublishED2KFlag;
 
