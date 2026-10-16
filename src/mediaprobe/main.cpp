@@ -312,11 +312,16 @@ static int mediaInfo(Result &r, int64_t size, bool full = false, unsigned seekCo
 		const size_t status = MediaInfo_Open_Buffer_Continue(h, buffer, n);
 		uint64_t next = MediaInfo_Open_Buffer_Continue_GoTo_Get(h);
 		if (next != UINT64_MAX) {
-			// Count across both parses. A seek loop is a persistent file verdict,
-			// not a helper timeout that would be retried at every startup.
-			if (++seekCount > 64)
+			// Forward seeks make progress through the bounded file. Count only
+			// repeated or backward seeks across both parses to stop seek loops.
+			const auto position = tell();
+			if (position < 0)
+				return 12;
+			if (next > static_cast<uint64_t>(size))
 				return 11;
-			if (next > static_cast<uint64_t>(size) || seek(static_cast<int64_t>(next), SEEK_SET))
+			if (next <= static_cast<uint64_t>(position) && ++seekCount > 64)
+				return 11;
+			if (seek(static_cast<int64_t>(next), SEEK_SET))
 				return 11;
 			MediaInfo_Open_Buffer_Init(h, size, next);
 		} else if (status & 8) {
@@ -360,10 +365,10 @@ static int mediaInfo(Result &r, int64_t size, bool full = false, unsigned seekCo
 	if (!r.length && !rawAvc && !full && size <= 512LL * 1024 * 1024) {
 		Result retry;
 		int rc = mediaInfo(retry, size, true, seekCount);
-		if (rc == 11)
-			return rc;
 		if (rc == 0 && retry.length)
 			r = retry;
+		else if (rc && !r.usable())
+			return rc;
 	}
 	return r.usable() ? 0 : 10;
 }
