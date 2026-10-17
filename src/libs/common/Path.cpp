@@ -26,6 +26,10 @@
 #include "StringFunctions.h" // Needed for filename2char()
 
 #include <wx/file.h>
+#include <wx/filefn.h> // Needed for wxRename
+#ifdef __WINDOWS__
+#include <wx/msw/wrapwin.h> // Needed for MoveFileExW
+#endif
 #if defined __WINDOWS__ || defined __IRIX__
 #include <wx/ffile.h>
 #endif
@@ -608,6 +612,18 @@ bool CPath::RemoveFile(const CPath &file)
 bool CPath::RenameFile(const CPath &src, const CPath &dst, bool overwrite)
 {
 	return ::wxRenameFile(src.m_filesystem, dst.m_filesystem, overwrite);
+}
+
+bool CPath::ReplaceFileContents(const CPath &src, const CPath &dst)
+{
+	// wxRenameFile falls back to copying after a failed rename, which can remove or truncate
+	// the existing destination before failing. Metadata replacement must leave it intact.
+#ifdef __WINDOWS__
+	return ::MoveFileExW(
+		       src.m_filesystem.wc_str(), dst.m_filesystem.wc_str(), MOVEFILE_REPLACE_EXISTING) != 0;
+#else
+	return ::wxRename(src.m_filesystem, dst.m_filesystem) == 0;
+#endif
 }
 
 bool CPath::BackupFile(const CPath &src, const wxString &appendix)

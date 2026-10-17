@@ -35,8 +35,16 @@ CPartMetSaveResult WritePartMet(CPartMetSaveRequest &req)
 		return { CPartMetSaveResult::Failed, ".part file not found" };
 	}
 
+	if (req.content.size() < 5) {
+		return { CPartMetSaveResult::Failed, "Incomplete part.met header" };
+	}
+	const time_t modified = CPath::GetModificationTime(req.partPath);
+	if (modified == static_cast<time_t>(-1)) {
+		return { CPartMetSaveResult::Failed, "Failed to read .part modification time" };
+	}
+
 	// Little-endian, as CFileDataIO::WriteUInt32 writes it.
-	const uint32 mtime = static_cast<uint32>(CPath::GetModificationTime(req.partPath));
+	const uint32 mtime = static_cast<uint32>(modified);
 	for (int i = 0; i < 4; ++i) {
 		req.content.at(1 + i) = static_cast<uint8>(mtime >> (8 * i));
 	}
@@ -49,9 +57,20 @@ CPartMetSaveResult WritePartMet(CPartMetSaveRequest &req)
 			return { CPartMetSaveResult::Failed, "Failed to open part.met.tmp file" };
 		}
 		file.Write(req.content.data(), req.content.size());
-		file.Close();
+		if (!file.Close()) {
+			CPath::RemoveFile(req.tmpPath);
+			return { CPartMetSaveResult::Failed, "Failed to close part.met.tmp file" };
+		}
 	} catch (const CIOFailureException &e) {
-		file.Close();
+		// Closing may retry a failed buffered write and throw again. Preserve the original
+		// failure and still remove the partial temporary file, including on inline saves.
+		try {
+			if (file.IsOpened()) {
+				file.Close();
+			}
+		} catch (const CIOFailureException &) {
+			// Best effort: Close has already released the descriptor.
+		}
 		CPath::RemoveFile(req.tmpPath);
 		return { CPartMetSaveResult::IOFailure, e.what() };
 	}
@@ -63,12 +82,31 @@ CPartMetSaveResult WritePartMet(CPartMetSaveRequest &req)
 		return { CPartMetSaveResult::ZeroLength, wxString() };
 	}
 
-	// The old .part.met becomes the backup LoadPartFile falls back to; then the rename over the
-	// live name is atomic, so it is never absent or partial.
-	if (req.metPath.FileExists()) {
-		CPath::RenameFile(req.metPath, req.bakPath, true);
+	if (static_cast<uint64>(tmpLength) != req.content.size()) {
+		CPath::RemoveFile(req.tmpPath);
+		return { CPartMetSaveResult::Failed, "Incomplete part.met.tmp file" };
 	}
-	CPath::RenameFile(req.tmpPath, req.metPath, true);
+	return InstallPartMet(req, { CFile::CloneFile, CPath::ReplaceFileContents });
+}
+
+CPartMetSaveResult InstallPartMet(const CPartMetSaveRequest &req, const CPartMetFileOps &ops)
+{
+	// Startup discovers downloads by their live .part.met names. Moving the old file away
+	// before installation can hide a download if the second operation fails or we crash.
+	if (req.metPath.FileExists()) {
+		// Stage the backup too: copying straight over .bak could truncate an earlier backup,
+		// or follow a backup symlink into the live file. Replace its directory entry instead.
+		const CPath stagedBackup = req.bakPath.AppendExt(".tmp");
+		if (!ops.copy(req.metPath, stagedBackup, true) || !ops.replace(stagedBackup, req.bakPath)) {
+			if (stagedBackup.FileExists()) {
+				CPath::RemoveFile(stagedBackup);
+			}
+			return { CPartMetSaveResult::Failed, "Failed to back up part.met file" };
+		}
+	}
+	if (!ops.replace(req.tmpPath, req.metPath)) {
+		return { CPartMetSaveResult::Failed, "Failed to install part.met file" };
+	}
 	return { CPartMetSaveResult::Saved, wxString() };
 }
 

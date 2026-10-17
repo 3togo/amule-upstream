@@ -169,6 +169,9 @@ public:
 	 */
 	static bool RenameFile(const CPath &src, const CPath &dst, bool overwrite = false);
 
+	/** Replaces dst with src on the same volume, with no copy/delete fallback on failure. */
+	static bool ReplaceFileContents(const CPath &src, const CPath &dst);
+
 	/** Makes a backup of a file, by copying the original file to 'src' + 'appendix' */
 	static bool BackupFile(const CPath &src, const wxString &appendix);
 
