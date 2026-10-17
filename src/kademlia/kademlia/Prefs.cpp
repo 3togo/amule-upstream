@@ -149,6 +149,17 @@ void CPrefs::IncFirewalled()
 	theApp->ShowConnectionState();
 }
 
+void CPrefs::ReportFirewallRecheckFailure(time_t now)
+{
+	if (const auto failure = m_firewallRecheck.TakeFailure(now)) {
+		AddLogLineN(CFormat(LOG_DIAGNOSTIC("Kad IPv4 TCP firewall recheck timed out: %u/%u "
+						   "reachability confirmations, %u rejected replies; "
+						   "TCP status is firewalled")) %
+			    failure->confirmations % CFirewallRecheck::kConfirmations %
+			    failure->rejectedReplies);
+	}
+}
+
 void CPrefs::SetKademliaFiles()
 {
 	// There is no real way to know how many files are in the Kad network, so first try how many

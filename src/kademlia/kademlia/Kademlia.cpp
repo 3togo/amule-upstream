@@ -192,6 +192,10 @@ void CKademlia::Process()
 		m_statusUpdate = MIN2S(1) + now;
 	}
 
+	if (!IsRunningInLANMode()) {
+		instance->m_prefs->ReportFirewallRecheckFailure(now);
+	}
+
 	if (m_nextFirewallCheck <= now) {
 		RecheckFirewalled();
 	}

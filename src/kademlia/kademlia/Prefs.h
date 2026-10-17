@@ -85,6 +85,8 @@ public:
 
 	bool GetFirewalled() const noexcept { return m_firewallRecheck.IsFirewalled(time(nullptr)); }
 	void IncFirewalled();
+	void RecordRejectedFirewallReply() noexcept { m_firewallRecheck.AddRejectedReply(); }
+	void ReportFirewallRecheckFailure(time_t now);
 
 	uint8_t GetTotalFile() const noexcept { return m_totalFile; }
 	void SetTotalFile(uint8_t val) noexcept { m_totalFile = val; }

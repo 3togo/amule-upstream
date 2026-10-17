@@ -29,6 +29,7 @@
 
 #include <cstdint>
 #include <ctime>
+#include <optional>
 
 namespace Kademlia
 {
@@ -49,6 +50,12 @@ public:
 	//! How long the confirmations may take after the last IP answer.
 	static const time_t kGraceSeconds = 60;
 
+	struct Failure
+	{
+		uint32_t confirmations;
+		uint32_t rejectedReplies;
+	};
+
 	//! Starts a recheck, keeping the current state until it ends.
 	void Start(time_t now)
 	{
@@ -56,6 +63,8 @@ public:
 		m_answers = 0;
 		m_confirmations = 0;
 		m_answeredAt = 0;
+		m_rejectedReplies = 0;
+		m_failureReported = false;
 	}
 
 	void AddAnswer(time_t now)
@@ -66,6 +75,18 @@ public:
 	}
 
 	void AddConfirmation() { ++m_confirmations; }
+	void AddRejectedReply() { ++m_rejectedReplies; }
+
+	//! Consume one diagnostic after all IP answers and the TCP grace period, only on failure.
+	std::optional<Failure> TakeFailure(time_t now)
+	{
+		if (m_failureReported || AwaitingAnswers() || m_confirmations >= kConfirmations ||
+			now < m_answeredAt + kGraceSeconds) {
+			return std::nullopt;
+		}
+		m_failureReported = true;
+		return Failure{ m_confirmations, m_rejectedReplies };
+	}
 
 	//! Whether more IP answers are wanted; the UDP listener asks peers while this is true.
 	bool AwaitingAnswers() const { return m_answers < KADEMLIAFIREWALLCHECKS; }
@@ -86,6 +107,8 @@ private:
 	uint32_t m_confirmations = 0;
 	time_t m_answeredAt = 0;
 	bool m_lastState = true;
+	uint32_t m_rejectedReplies = 0;
+	bool m_failureReported = false;
 };
 
 } // namespace Kademlia

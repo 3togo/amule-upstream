@@ -105,6 +105,66 @@ TEST(KadFirewallRecheck, LateAnswersDoNotExtendGrace)
 	ASSERT_TRUE(fw.IsFirewalled(kStart + CFirewallRecheck::kGraceSeconds));
 }
 
+TEST(KadFirewallRecheck, FailureDiagnosticWaitsForAnswersAndGrace)
+{
+	CFirewallRecheck fw;
+	fw.Start(kStart);
+	fw.AddRejectedReply();
+	ASSERT_FALSE(fw.TakeFailure(kStart + 1000).has_value());
+	AddAllAnswers(fw, kStart + 1001);
+	fw.AddConfirmation();
+	fw.AddRejectedReply();
+	const time_t deadline = kStart + 1001 + CFirewallRecheck::kGraceSeconds;
+	ASSERT_FALSE(fw.TakeFailure(deadline - 1).has_value());
+	const auto failure = fw.TakeFailure(deadline);
+	ASSERT_TRUE(failure.has_value());
+	ASSERT_EQUALS(1u, failure->confirmations);
+	ASSERT_EQUALS(2u, failure->rejectedReplies);
+	ASSERT_TRUE(fw.IsFirewalled(deadline));
+	ASSERT_FALSE(fw.TakeFailure(deadline + 1).has_value());
+	fw.AddRejectedReply();
+	ASSERT_FALSE(fw.TakeFailure(deadline + 1000).has_value());
+}
+
+TEST(KadFirewallRecheck, SuccessfulRecheckHasNoFailureDiagnostic)
+{
+	CFirewallRecheck fw;
+	fw.Start(kStart);
+	AddAllAnswers(fw, kStart);
+	fw.AddRejectedReply();
+	fw.AddConfirmation();
+	fw.AddConfirmation();
+	ASSERT_FALSE(fw.TakeFailure(kStart + CFirewallRecheck::kGraceSeconds).has_value());
+	ASSERT_FALSE(fw.TakeFailure(kStart + 1000).has_value());
+}
+
+TEST(KadFirewallRecheck, NewRecheckResetsDiagnosticAndRejectedCount)
+{
+	CFirewallRecheck fw;
+	AddAllAnswers(fw, kStart);
+	fw.AddRejectedReply();
+	ASSERT_TRUE(fw.TakeFailure(kStart + CFirewallRecheck::kGraceSeconds).has_value());
+	fw.Start(kStart + 1000);
+	AddAllAnswers(fw, kStart + 1000);
+	const auto failure = fw.TakeFailure(kStart + 1000 + CFirewallRecheck::kGraceSeconds);
+	ASSERT_TRUE(failure.has_value());
+	ASSERT_EQUALS(0u, failure->confirmations);
+	ASSERT_EQUALS(0u, failure->rejectedReplies);
+	ASSERT_FALSE(fw.TakeFailure(kStart + 2000).has_value());
+}
+
+TEST(KadFirewallRecheck, LateConfirmationCanRecoverAfterDiagnostic)
+{
+	CFirewallRecheck fw;
+	AddAllAnswers(fw, kStart);
+	fw.AddConfirmation();
+	const time_t deadline = kStart + CFirewallRecheck::kGraceSeconds;
+	ASSERT_TRUE(fw.TakeFailure(deadline).has_value());
+	fw.AddConfirmation();
+	ASSERT_FALSE(fw.IsFirewalled(deadline + 1));
+	ASSERT_FALSE(fw.TakeFailure(deadline + 1).has_value());
+}
+
 DECLARE_SIMPLE(KadUDPVerificationExpiry)
 
 namespace

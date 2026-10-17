@@ -1230,7 +1230,11 @@ bool CClientList::IsKadFirewallCheckIP(uint32 ip) const
 
 bool CClientList::TakeKadFirewallReply(uint32 ip, Kademlia::CFirewallCheckRequests::Reply reply)
 {
-	return m_firewallCheckRequests.Take(ip, reply, ::GetTickCount64());
+	const bool accepted = m_firewallCheckRequests.Take(ip, reply, ::GetTickCount64());
+	if (!accepted && Kademlia::CKademlia::IsRunning()) {
+		Kademlia::CKademlia::GetPrefs()->RecordRejectedFirewallReply();
+	}
+	return accepted;
 }
 
 void CClientList::AddDirectCallbackClient(CUpDownClient *toAdd)
