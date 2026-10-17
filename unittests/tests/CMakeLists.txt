@@ -176,6 +176,12 @@ add_test (NAME UploadRefillTest COMMAND UploadRefillTest)
 target_include_directories (UploadRefillTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (UploadRefillTest muleunit mulecommon)
 
+# Bounded upload worker sweeps and overflow-safe queued payload accounting.
+add_executable (UploadReadBudgetTest UploadReadBudgetTest.cpp)
+target_include_directories (UploadReadBudgetTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (UploadReadBudgetTest muleunit mulecommon)
+add_test (NAME UploadReadBudgetTest COMMAND UploadReadBudgetTest)
+
 # The done-list cap, without live clients.
 add_executable (UploadBlockListsTest UploadBlockListsTest.cpp)
 add_test (NAME UploadBlockListsTest COMMAND UploadBlockListsTest)
