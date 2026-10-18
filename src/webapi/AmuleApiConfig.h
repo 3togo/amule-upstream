@@ -96,6 +96,12 @@ public:
 		unsigned token_lockout_seconds = 300;
 	};
 
+	struct Metrics
+	{
+		bool enabled = false;
+		std::string token; // Dedicated scrape credential; never authorizes API operations.
+	};
+
 	struct Streaming
 	{
 		// SSE ring capacity. Sized for a cold-start tick on a busy node (5K downloads plus
@@ -122,6 +128,7 @@ public:
 	const wxString &ConfigDir() const { return m_configDir; }
 	const Server &ServerCfg() const { return m_server; }
 	const Ec &EcCfg() const { return m_ec; }
+	const Metrics &MetricsCfg() const { return m_metrics; }
 	const Auth &AuthCfg() const { return m_auth; }
 	const Streaming &StreamingCfg() const { return m_streaming; }
 
@@ -205,6 +212,7 @@ private:
 	Server m_server;
 	Ec m_ec;
 	Auth m_auth;
+	Metrics m_metrics;
 	Streaming m_streaming;
 	std::vector<unsigned char> m_jwtSecret;
 	webcommon::Credentials m_credentials;

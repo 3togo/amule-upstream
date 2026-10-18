@@ -137,7 +137,7 @@ SearchFetchOutcome FetchOneSearchFull(CamuleapiApp &app, CState &state, std::uin
 	return outcome;
 }
 
-bool RefresherTick(CamuleapiApp &app, CState &state)
+bool RefresherTick(CamuleapiApp &app, CState &state, MetricsSnapshot *metrics)
 {
 	// Per-tick budget: a few EC ops via SendRecvSerialized (m_ec_mtx-serialised). Any failure
 	// bails the whole tick so the cache stays internally consistent. STAT_REQ runs first as the
@@ -155,9 +155,13 @@ bool RefresherTick(CamuleapiApp &app, CState &state)
 		StatusSnapshot s;
 		ParseStatusFromPacket(resp, s);
 		s.search_all_supported = app.IsServerSearchAllActive();
+		if (metrics)
+			metrics->status = s;
 		state.WriteStatus(std::move(s));
 		KadSnapshot k;
 		ParseKadFromPacket(resp, k);
+		if (metrics)
+			metrics->kad = k;
 		state.WriteKad(std::move(k));
 		std::vector<std::string> new_log_lines;
 		ParseAmuleLogFromPacket(resp, new_log_lines);
@@ -191,6 +195,8 @@ bool RefresherTick(CamuleapiApp &app, CState &state)
 					ecids_before.insert(kv.first);
 			}
 			ApplyGetUpdateToDownloads(resp, cache, rle);
+			if (metrics)
+				metrics->CountDownloads(cache);
 			// Evict RLE state for ECIDs that no longer carry the downloading role.
 			// The walker handles FILE_REMOVED already; this is defence in depth.
 			for (auto ecid : ecids_before) {

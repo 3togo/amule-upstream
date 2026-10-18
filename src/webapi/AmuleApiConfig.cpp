@@ -179,6 +179,10 @@ bool CAmuleApiConfig::LoadAmuleapiConf(const wxString &path)
 			       "TokenFailureThreshold=30\n"
 			       "TokenLockoutSeconds=300\n"
 			       "\n"
+			       "[Metrics]\n"
+			       "Enabled=0\n"
+			       "Token=\n"
+			       "\n"
 			       "[Streaming]\n"
 			       "EventBusRingCapacity=16384\n"
 			       "MaxConcurrentFileResponses=6\n";
@@ -279,6 +283,33 @@ bool CAmuleApiConfig::LoadAmuleapiConf(const wxString &path)
 	}
 	if (cfg.Read("/Auth/TokenLockoutSeconds", &n) && n > 0) {
 		m_auth.token_lockout_seconds = static_cast<unsigned>(n);
+	}
+
+	// Metrics are opt-in on every load, including when a reused config object reads
+	// a profile without a Metrics section. Never retain a previous scrape credential.
+	m_metrics = Metrics{};
+	if (cfg.Read("/Metrics/Enabled", &n)) {
+		m_metrics.enabled = (n != 0);
+	}
+	if (cfg.Read("/Metrics/Token", &s)) {
+		m_metrics.token = std::string(s.utf8_str());
+	}
+	if (m_metrics.enabled) {
+		// RFC 6750 b64token alphabet: a printable token that survives a bearer header
+		// unchanged. Require a useful minimum length; generate 32 random bytes in practice.
+		const auto &token = m_metrics.token;
+		const auto end = token.find('=');
+		const auto body = token.substr(0, end);
+		if (token.size() < 32 || token.size() > 256 || body.empty() ||
+			body.find_first_not_of(
+				"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~+/") !=
+				std::string::npos ||
+			(end != std::string::npos &&
+				token.find_first_not_of('=', end) != std::string::npos)) {
+			m_lastError = "[Metrics]/Token must be a 32-256 character bearer token when metrics "
+				      "are enabled";
+			return false;
+		}
 	}
 
 	// `[Streaming]/EventBusRingCapacity`. Anything below the CEventBus floor is

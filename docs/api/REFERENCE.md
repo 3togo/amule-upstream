@@ -1,6 +1,6 @@
 # amuleapi v1 — REST reference
 
-This document is the contract for every REST endpoint exposed by the `amuleapi` daemon under the `/api/v1/` prefix. For the SSE stream see [EVENTS.md](EVENTS.md). For first-run setup see [../QUICKSTART-AMULEAPI.md](../QUICKSTART-AMULEAPI.md).
+This document is the contract for every REST endpoint exposed by the `amuleapi` daemon under the `/api/v1/` prefix. For the SSE stream see [EVENTS.md](EVENTS.md). For first-run setup see [../QUICKSTART-AMULEAPI.md](../QUICKSTART-AMULEAPI.md). The optional [Prometheus metrics endpoint](#get-metrics) lives at `/metrics`.
 
 The API is versioned in the path. **`/api/v1/` is frozen**: anything that could break a conformant client is deferred to the next version rather than applied in place, and this document is its contract. See [Backward compatibility](#backward-compatibility) for what conformant means and what may still change.
 
@@ -3452,3 +3452,75 @@ A client that follows those rules keeps working across every `/api/v1/` release.
 Corrections that cannot be made additively wait for `/api/v2/`. There is no alias window and no deprecation period inside a version, which is what makes the guarantee worth having.
 
 `POST /api/v1/auth/login` returns no token in the response body unless `?include_token=true` is given. That is the frozen shape.
+
+## GET /metrics
+
+Optional Prometheus text 0.0.4 exposition, outside the `/api/v1` namespace.
+`BasePath` applies as for the API. Also supports `HEAD`; other methods return
+405. Disabled by default (`[Metrics]/Enabled=0`), returning 404 even when static
+frontend fallback is enabled.
+
+Enable with `[Metrics]/Enabled=1` and a dedicated `[Metrics]/Token` (32–256
+characters from the RFC 6750 bearer-token alphabet). An empty or invalid token
+prevents startup when metrics are enabled. Send `Authorization: Bearer <token>`;
+JWTs and session cookies are not accepted. Missing or invalid tokens return 401
+with `WWW-Authenticate: Bearer realm="metrics"`. A separate per-address limiter
+locks out metrics after 30 failures in 60 seconds for 300 seconds, returning 429
+with `Retry-After`; neither this limiter nor the API's JWT limiter affects the
+other. These limits use the socket peer address, so clients behind one proxy
+share the metrics limit.
+
+Successful responses use `Content-Type: text/plain; version=0.0.4; charset=utf-8`
+and `Cache-Control: no-store`. They have no ETag and do not return 304. Output has
+English descriptions, locale-independent numbers, escaped labels, and a final
+newline. No library or protocol extension is required.
+
+Each scrape copies a compact snapshot published after a successful refresh. It
+makes **no EC requests**, reads no files, and does not walk file/client maps.
+Download counts are aggregated during refresh, only when metrics
+are enabled. Labels are bounded; no filenames, hashes, addresses, or client/server
+identifiers appear. Samples have no explicit Prometheus timestamps.
+
+| Metric | Type / labels | Meaning |
+|---|---|---|
+| `amule_build_info` | gauge, `version` | amuleapi binary version; value 1 |
+| `amule_ec_connected` | gauge | Last EC refresh succeeded (0/1) |
+| `amule_snapshot_timestamp_seconds` | gauge | Unix time of last successful refresh; absent before the first |
+| `amule_network_connected` | gauge, `network="ed2k\|kad"` | Network connection state (0/1) |
+| `amule_ed2k_high_id` | gauge | HighID (0/1), only while connected |
+| `amule_kad_firewalled` | gauge, `protocol="tcp\|udp"` | Firewall verdict, only when available |
+| `amule_transfer_rate_bytes_per_second` | gauge, `direction="upload\|download"`, `kind="data\|overhead"` | Data and additional overhead rates |
+| `amule_speed_limit_bytes_per_second` | gauge, `direction` | Configured limit; zero means unlimited |
+| `amule_transferred_bytes_total` | counter, `direction` | Persisted lifetime bytes, not session bytes |
+| `amule_upload_queue_length` | gauge | Waiting upload clients |
+| `amule_sources_found` | gauge | Download sources found |
+| `amule_shared_files` | gauge | Daemon's shared-file count |
+| `amule_banned_clients` | gauge | Currently banned clients |
+| `amule_downloads` | gauge, `status` | Download rows per status, including completed rows awaiting removal |
+| `amule_disk_free_bytes` | gauge, `dir="temp\|incoming"` | Filesystem free space; unknown values omitted |
+| `amule_ed2k_network_users`, `amule_ed2k_network_files` | gauge | Totals across the known server list, only while connected |
+| `amule_kad_network_users`, `amule_kad_network_files` | gauge | Network estimates, only while connected |
+| `amule_kad_network_nodes` | gauge | Local routing-table size, only while connected |
+| `amule_kad_indexed` | gauge, `type="sources\|keywords\|notes"` | Locally indexed item counts |
+| `amule_kad_index_load` | gauge | Daemon-reported index load, separate from item counts |
+
+Download status labels are `downloading`, `waiting`, `hashing`, `erroneous`,
+`insufficient_disk`, `paused`, `allocating`, `stopped`, `completing`, `completed`,
+and `unknown`. All appear, including zero counts; unrecognized states count as
+`unknown`. Optional EC tags absent from older daemons produce no corresponding
+series. Real zeros remain zero. Lifetime counters may decrease after a statistics
+reset or replacement of the daemon's profile; use `rate()` to handle resets.
+
+Before the first successful refresh, output contains build information and
+`amule_ec_connected 0`. After a failed refresh it also retains the previous
+snapshot timestamp, while omitting all daemon measurements. These are HTTP 200
+responses: Prometheus `up` describes HTTP scrape health, while
+`amule_ec_connected` and `time() - amule_snapshot_timestamp_seconds` describe
+refresh health and freshness. A hung refresh retains the last published state,
+so monitor freshness as well as connectivity. Existing process shutdown behavior
+on EC connection loss is unchanged; if amuleapi exits, the HTTP scrape fails.
+
+Uptime, session-byte counters, active-transfer/connection counts, per-file labels,
+native OpenMetrics negotiation, and OTLP push are deferred. See the
+[quickstart](../QUICKSTART-AMULEAPI.md#prometheus-metrics-proof-of-concept) for
+Prometheus and OpenTelemetry Collector configuration.

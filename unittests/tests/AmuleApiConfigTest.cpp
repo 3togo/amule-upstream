@@ -481,3 +481,37 @@ TEST(AmuleApiConfig, EcSetupMigratesPlaintextAndPreservesSettings)
 	ASSERT_TRUE(text.Find("legacy-secret") == wxNOT_FOUND);
 	ASSERT_TRUE(text.Find("Password=") == wxNOT_FOUND);
 }
+
+TEST(AmuleApiConfig, MetricsDisabledByDefault)
+{
+	CAmuleApiConfig cfg;
+	ASSERT_TRUE(cfg.Load(MakeTmpDir("metrics-default")));
+	ASSERT_FALSE(cfg.MetricsCfg().enabled);
+	ASSERT_TRUE(cfg.MetricsCfg().token.empty());
+}
+
+TEST(AmuleApiConfig, MetricsRequireDedicatedValidToken)
+{
+	CAmuleApiConfig missing;
+	ASSERT_FALSE(LoadHandWrittenConf("metrics-missing", "[Metrics]\nEnabled=1\nToken=", missing));
+	CAmuleApiConfig invalid;
+	ASSERT_FALSE(LoadHandWrittenConf("metrics-invalid",
+		"[Metrics]\nEnabled=1\nToken=" + std::string(32, ' ') + "bad token",
+		invalid));
+	CAmuleApiConfig valid;
+	const std::string token(64, 'a');
+	ASSERT_TRUE(LoadHandWrittenConf("metrics-valid", "[Metrics]\nEnabled=1\nToken=" + token, valid));
+	ASSERT_TRUE(valid.MetricsCfg().enabled);
+	ASSERT_EQUALS(token, valid.MetricsCfg().token);
+}
+
+TEST(AmuleApiConfig, ReloadWithoutMetricsSectionDisablesPreviousCredential)
+{
+	CAmuleApiConfig cfg;
+	ASSERT_TRUE(LoadHandWrittenConf(
+		"metrics-reload-enabled", "[Metrics]\nEnabled=1\nToken=" + std::string(64, 'b'), cfg));
+	ASSERT_TRUE(cfg.MetricsCfg().enabled);
+	ASSERT_TRUE(LoadHandWrittenConf("metrics-reload-disabled", "", cfg));
+	ASSERT_FALSE(cfg.MetricsCfg().enabled);
+	ASSERT_TRUE(cfg.MetricsCfg().token.empty());
+}

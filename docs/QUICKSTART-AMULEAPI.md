@@ -349,3 +349,56 @@ left off after a dropped connection — see
 - **An admin token can do anything aMule can**, including asking amuled to
   fetch a server list from a URL you supply. Treat the admin password like
   the password to the machine.
+
+## Prometheus metrics (proof of concept)
+
+Metrics are disabled by default. Enable the dedicated read-only endpoint in
+`amuleapi.conf`, generate a random token (for example, `openssl rand -hex 32`), and
+restart amuleapi:
+
+```ini
+[Metrics]
+Enabled=1
+Token=REPLACE_WITH_YOUR_RANDOM_64_CHARACTER_HEX_TOKEN
+```
+
+An enabled endpoint requires a 32–256 character bearer token. Keep the config and
+the scraper's token file private. This credential only grants access to metrics;
+API session cookies and JWTs cannot authenticate a scrape. Rotation requires
+changing the configuration and restarting amuleapi. Remote scrapes should use the
+same TLS reverse proxy as the API.
+
+Prometheus configuration (the credentials file contains just the token):
+
+```yaml
+scrape_configs:
+  - job_name: amule
+    scrape_interval: 15s
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/amule-metrics-token
+    static_configs:
+      - targets: ['127.0.0.1:4713']
+```
+
+For an OpenTelemetry Collector distribution with the Prometheus receiver:
+
+```yaml
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: amule
+          scrape_interval: 15s
+          authorization:
+            credentials_file: /etc/otelcol/secrets/amule-metrics-token
+          static_configs:
+            - targets: ['127.0.0.1:4713']
+```
+
+Add this receiver to the Collector's existing metrics pipeline. When using
+`[Server]/BasePath=/amule`, set `metrics_path: /amule/metrics` in either scraper.
+The endpoint emits Prometheus text 0.0.4; native OpenMetrics negotiation and OTLP
+push are outside this proof of concept. See the [metrics contract](api/REFERENCE.md#get-metrics)
+for the available measurements and failure behavior.
