@@ -2786,8 +2786,8 @@ TEST(Refresher, PrefsSchemaIrregularitiesStayContained)
 			const std::string id = std::string(f.category) + "." + f.key;
 			ASSERT_TRUE(id == "connection.proxy_user" || id == "geoip.custom_update_url" ||
 				    id == "geoip.maxmind_license" || id == "servers.update_url" ||
-				    id == "servers.update_urls" ||
-				    id == "security.ipfilter_update_url" || id == "kad.update_url");
+				    id == "servers.update_urls" || id == "security.ipfilter_update_url" ||
+				    id == "kad.update_url");
 		}
 	}
 	ASSERT_EQUALS(static_cast<std::size_t>(2), inverted);
