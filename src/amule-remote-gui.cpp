@@ -2640,7 +2640,9 @@ void CKnownFilesRem::ProcessItemUpdate(const CEC_SharedFile_Tag *tag, CKnownFile
 	// showed N/A for anything not downloading.
 	DecodeMediaTags(tag, file);
 
-	if (file->IsPartFile()) {
+	// Completed transfer rows still arrive as PARTFILE tags. IsPartFile() becomes
+	// false at completion and would skip later shared-role updates for those rows.
+	if (tag->GetTagName() == EC_TAG_PARTFILE) {
 		ProcessItemUpdatePartfile(
 			static_cast<const CEC_PartFile_Tag *>(tag), static_cast<CPartFile *>(file));
 	}
