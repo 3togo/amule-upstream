@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 aMule Team
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Offline CLI regression tests with disposable profiles and POSIX pseudo terminals."""
+"""Offline CLI regression tests with disposable profiles and native terminal input."""
 import configparser
 import hashlib
+import json
 import os
 from pathlib import Path
 import select
@@ -124,8 +125,18 @@ class PasswordInputTest(unittest.TestCase):
             self.assertEqual(conf.read_text(), content)
 
     def terminal(self, first, second=None, cancel=False, eof=False):
-        if os.name != 'posix':
-            self.skipTest('POSIX pseudo terminal test')
+        if os.name == 'nt':
+            scenario = 'cancel' if cancel else ('eof' if eof else
+                       ('success' if first == second else 'mismatch'))
+            startup = subprocess.STARTUPINFO()
+            startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startup.wShowWindow = subprocess.SW_HIDE
+            result = subprocess.run([sys.executable,
+                str(Path(__file__).with_name('WindowsPasswordConsoleSmoke.py')),
+                BINARY, str(self.root), scenario], capture_output=True, timeout=30,
+                creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startup)
+            self.assert_ok(result)
+            return json.loads(result.stdout)['returncode']
         import termios
         master, slave = os.openpty()
         self.addCleanup(os.close, master)
