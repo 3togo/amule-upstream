@@ -175,6 +175,18 @@ def run(binary, root):
             request(sock, file_hash, PART)
             receive(sock, file_hash, content, PART)
         assert all(not date(record) for record in records(ec).values())
+        set_interval(0xFFFFFFFF)
+    import configparser
+    saved = configparser.ConfigParser()
+    saved.read(root / 'amule.conf')
+    assert saved.getint('eMule', 'SharedFileReverifyDays') == 0xFFFFFFFF
+
+    # The unsigned config path must not wrap on reload, or turn legacy negatives into years.
+    with daemon(binary, root, 0xFFFFFFFF) as (proc, ec, port):
+        assert get_interval() == 0xFFFFFFFF
+    with daemon(binary, root, -1) as (proc, ec, port):
+        assert get_interval() == 0
+
 
     print("Checking silent corruption and healthy-part uploads", flush=True)
     # Preserve size and mtime: startup must still share the original identity.
@@ -182,7 +194,9 @@ def run(binary, root):
     with damaged.open('r+b') as output:
         output.write(bytes([content[0] ^ 0xff]))
     os.utime(damaged, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
-    with daemon(binary, root, 7) as (proc, ec, port):
+    with daemon(binary, root, 0) as (proc, ec, port):
+        set_interval(7)
+        assert get_interval() == 7
         assert records(ec)['damaged.bin'][C['EC_TAG_PARTFILE_HASH']] == file_hash
         with peer(port, file_hash, 1) as sock:
             request(sock, file_hash, PART, length=300001)
