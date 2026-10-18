@@ -225,6 +225,10 @@ CThreadScheduler::~CThreadScheduler()
 		m_thread->Stop();
 		delete m_thread;
 	}
+	// The worker owns only its current task; queued snapshots are still ours on shutdown.
+	for (const CEntryPair &entry : m_tasks) {
+		delete entry.first;
+	}
 }
 
 size_t CThreadScheduler::GetTaskCount() const

@@ -133,6 +133,29 @@ private:
 	bool &m_cancelled;
 };
 
+// Stay in Entry until shutdown, leaving queued tasks for the scheduler to release.
+class CStopTask : public CThreadTask
+{
+public:
+	explicit CStopTask(wxSemaphore &started)
+	: CThreadTask("Stopping", "shutdown", ETP_High)
+	, m_started(started)
+	{
+	}
+
+protected:
+	void Entry() override
+	{
+		m_started.Post();
+		while (!TestDestroy()) {
+			wxThread::Sleep(1);
+		}
+	}
+
+private:
+	wxSemaphore &m_started;
+};
+
 // Always release the worker if an assertion unwinds the test.
 class CReleaseWorker
 {
@@ -213,11 +236,15 @@ TEST(ThreadScheduler, QueueOwnershipAndTypeLimitsAcrossSchedulerLifecycle)
 		CThreadScheduler::Overwrite::LowerPriority));
 	ASSERT_FALSE(CThreadScheduler::AddTask(new COrderedTask(order, done, 8, ETP_High, "running-verify"),
 		CThreadScheduler::Overwrite::LowerPriority));
+	ASSERT_TRUE(CThreadScheduler::AddTask(new CStopTask(started)));
 	release.Post();
 	ASSERT_EQUALS(wxSEMA_NO_ERROR, done.WaitTimeout(5000));
 	ASSERT_EQUALS(wxSEMA_NO_ERROR, done.WaitTimeout(5000));
 	ASSERT_TRUE(cancelled);
 	ASSERT_TRUE((order == std::vector<int>{ 4, 2, 1, 7 }));
+	ASSERT_EQUALS(wxSEMA_NO_ERROR, started.WaitTimeout(5000));
+	ASSERT_TRUE(CThreadScheduler::AddTask(new CCountedTask("shutdown-pending")));
+	ASSERT_EQUALS(1, s_liveTasks);
 
 	CThreadScheduler::Terminate();
 	ASSERT_EQUALS(0, s_liveTasks);
