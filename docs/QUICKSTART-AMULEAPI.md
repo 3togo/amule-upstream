@@ -54,13 +54,30 @@ Enter the existing amuled EC password at the hidden prompt. This writes its
 MD5 digest to `[EC]/PasswordMD5` in `amuleapi.conf`, removes any legacy
 plaintext `[EC]/Password`, and exits. Then start `amuleapi` normally.
 You can also copy the digest from `[EC]/Password` in `remote.conf` into
-`[EC]/PasswordMD5` in `amuleapi.conf`.
+`[EC]/PasswordMD5` in `amuleapi.conf`; remove the legacy `Password` entry
+from `amuleapi.conf` when doing so.
 
-Legacy `Password` entries still mean plaintext, even if they contain exactly
-32 hexadecimal characters. No guessing or automatic conversion happens on
-load. Two nonempty password fields are rejected; remove one before starting
-or running setup. An invalid nonempty digest is also rejected. The setup
-command preserves other settings, but may rewrite INI formatting and comments.
+Use only one nonempty EC password field in `amuleapi.conf`:
+
+| Field | Value | How amuleapi uses it |
+| ----- | ----- | ------------------- |
+| `[EC]/Password` | Legacy plaintext password, including passwords consisting of 32 hexadecimal characters | Computes its MD5 locally. |
+| `[EC]/PasswordMD5` | Exactly 32 hexadecimal characters representing the password's MD5 digest | Uses the digest without hashing it again at the configuration step. |
+
+If both fields are nonempty, amuleapi rejects the configuration before
+connecting, even if they represent the same password. Neither field takes
+precedence. An empty entry does not conflict; an invalid nonempty digest is
+also rejected. No guessing or automatic conversion happens on load.
+
+To migrate an existing plaintext configuration, run `amuleapi --set-ec-pass-stdin`
+and enter the existing core EC password. For a custom profile, use
+`amuleapi --config-dir=/path/to/profile --set-ec-pass-stdin` and use the same
+config directory when starting amuleapi. Setup atomically replaces the plaintext
+entry with `PasswordMD5`; it does not change the core's EC password. If both
+fields are already nonempty, first remove `PasswordMD5` to keep the legacy
+plaintext entry, then run setup. Setup validates the configuration before
+writing the digest. It preserves other settings, but may rewrite INI
+formatting and comments.
 
 The digest is sufficient to authenticate to EC: keep it secret, just like the
 original password. Its benefit is avoiding disclosure of the original password

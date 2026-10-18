@@ -89,7 +89,12 @@ remove the legacy plaintext [EC]/Password key, and exit. Other settings are
 preserved; INI formatting and comments may change. Empty input is rejected.
 The digest remains sufficient to authenticate and must be kept secret.
 Configurations containing both nonempty fields, or an invalid digest, are
-rejected; remove the conflicting field before using setup.
+rejected without changing the stored credentials. To migrate a configuration
+with both fields nonempty, first remove PasswordMD5 to keep the legacy
+plaintext Password entry, then
+run this command and enter the existing core EC password. The core's password
+is unchanged. Use the same \fB\-\-config\-dir\fR for setup and normal startup
+when using a custom profile.
 .TP
 \fB[ \-\-set\-admin\-pass\fR=\fI<plain>\fR \fB]\fR
 Set the admin password to \fI<plain>\fR, storing it salted and
@@ -130,6 +135,20 @@ Print a short usage description.
 Settings file: HTTP address and port, the connection to amuled, login
 rate limits and event\-stream sizing. The QUICKSTART document shipped with
 the source has the full reference.
+.IP
+Use only one nonempty EC password field. Legacy \fB[EC]/Password\fR always
+means plaintext, even for a password consisting of 32 hexadecimal characters;
+amuleapi computes its MD5 locally. \fB[EC]/PasswordMD5\fR must contain exactly
+32 hexadecimal characters and supplies the digest without hashing it again
+at the configuration step.
+.IP
+If both fields are nonempty, configuration loading fails before any EC
+connection, even if they represent the same password. Neither takes
+precedence; an empty entry does not conflict. Migrate with
+\fB\-\-set\-ec\-pass\-stdin\fR, which atomically writes PasswordMD5 and removes
+Password. When manually copying a digest from remote.conf into PasswordMD5,
+also remove Password from amuleapi.conf. The digest remains sufficient to
+authenticate and must be kept secret.
 .TP
 \fI~/.aMule/amuleapi\-jwt\-secret\fR
 Key used to sign login tokens. Created on first launch. Deleting it signs
