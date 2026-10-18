@@ -143,7 +143,7 @@ def authenticate(sock,digest,credential=0,capabilities=(),before_proof=None):
     if op==C['EC_OP_AUTH_OK']: assert hmac.compare_digest(tags[C['EC_TAG_SRP_M2']],m2)
     return encrypted,op,tags
 
-def accept(sock,capabilities=(),password=b'regression'):
+def accept(sock,capabilities=(),password=b'regression',server_proof=None):
     op,tags=read(sock);assert op==C['EC_OP_AUTH_REQ']
     A=int.from_bytes(tags[C['EC_TAG_SRP_A']],'big');assert 0<A<N
     credential=tags[C['EC_TAG_SRP_CREDENTIAL']][0]
@@ -161,6 +161,7 @@ def accept(sock,capabilities=(),password=b'regression'):
     m1,m2=proofs(pow(A*pow(v,u,N)%N,b,N),context(credential,salt,transcript,A,B))
     op,tags=read(encrypted);assert op==C['EC_OP_AUTH_PASSWD']
     assert hmac.compare_digest(tags[C['EC_TAG_SRP_M1']],m1)
-    encrypted.sendall(packet('EC_OP_AUTH_OK',[tag('EC_TAG_SRP_M2',m2),
+    evidence = [tag('EC_TAG_SRP_M2',m2)] if server_proof is None else server_proof(m2)
+    encrypted.sendall(packet('EC_OP_AUTH_OK',evidence+[
         tag('EC_TAG_SERVER_VERSION',b'capability fixture\0',6)]+list(capabilities)))
     return encrypted

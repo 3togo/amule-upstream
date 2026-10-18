@@ -139,8 +139,8 @@ CECLoginPacket::CECLoginPacket(const wxString &client,
 	if (canChatPeerHash)
 		AddTag(CECEmptyTag(EC_TAG_CAN_CHAT_PEER_HASH));
 	// Transport encryption: our ciphers in preference order, our half of the
-	// derivation salt, and our ephemeral public key. A daemon that does not know
-	// these tags ignores them and the session stays in clear. The public key needs no
+	// derivation salt, and our ephemeral public key. An older daemon that ignores
+	// these tags cannot authenticate this client. The public key needs no
 	// capability tag of its own: encryption has never shipped, so anything offering
 	// EC_TAG_CAN_AEAD can do X25519, and a cipher list without a key is malformed
 	// rather than old.
@@ -354,12 +354,6 @@ bool CRemoteConnect::ConnectToCore(
 
 bool CRemoteConnect::IsConnectedToLocalHost()
 {
-	try {
-		m_srpA = m_srp.Start();
-	} catch (const std::exception &) {
-		m_server_reply = _("Could not generate SRP credentials.");
-		return false;
-	}
 	amuleIPV4Address addr;
 	return addr.Hostname(GetPeer()) ? addr.IsLocalHost() : false;
 }
@@ -458,8 +452,7 @@ void CRemoteConnect::SetupAEADFromSalt(const CECPacket *reply)
 	const CECTag *serverNonceTag = reply->GetTagByName(EC_TAG_AEAD_SERVER_NONCE);
 	const CECTag *serverPubTag = reply->GetTagByName(EC_TAG_AEAD_SERVER_PUBKEY);
 	if (cipherTag == nullptr || serverNonceTag == nullptr) {
-		// An old daemon, or one with encryption switched off. Nothing to do:
-		// the session stays in clear.
+		// No encrypted channel can be established; the caller rejects authentication.
 		return;
 	}
 	if (serverPubTag == nullptr) {

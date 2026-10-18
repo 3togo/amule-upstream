@@ -119,3 +119,10 @@ vectors for SHA256, scrypt, padded S and EC evidence. Regenerate the latter with
 fixtures in `ECWire.py` use Python/cryptography rather than Crypto++, exercising
 the production daemon and clients. Fault-injected config tests cover failed
 commits, interrupted cleanup, restart and malformed existing verifiers.
+The asynchronous GUI transport is also queried for connection locality during
+login to verify that UI queries do not change SRP state. Both client transports
+reject missing or tampered server evidence before sending commands.
+`ECSRPApiIntegrationTest` runs the production amuleapi against an offline core
+with both a configured password and a spawned token, including an obsolete
+`Encryption=0` setting. The token case uses a wrong configured password to rule
+out fallback and checks that the token file was consumed.

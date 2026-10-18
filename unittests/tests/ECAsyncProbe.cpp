@@ -56,6 +56,8 @@ int main(int argc, char **argv)
 		return 1;
 	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
 	while (!done && std::chrono::steady_clock::now() < deadline) {
+		// UI locality queries must not replace the pending SRP exponent or proof.
+		connection.IsConnectedToLocalHost();
 		std::vector<std::unique_ptr<MuleNotify::CMuleNotiferBase>> events;
 		{
 			std::lock_guard<std::mutex> lock(mutex);

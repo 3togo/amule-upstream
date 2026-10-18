@@ -62,6 +62,22 @@ class FixtureServer(socketserver.ThreadingTCPServer):
     daemon_threads=True
     allow_reuse_address=True
 
+class BadServerProof(socketserver.BaseRequestHandler):
+    def handle(self):
+        try:
+            def evidence(proof):
+                if self.server.missing:
+                    return []
+                return [W.tag('EC_TAG_SRP_M2', bytes([proof[0] ^ 1]) + proof[1:])]
+            encrypted = W.accept(self.request, server_proof=evidence)
+            self.request.settimeout(3)
+            try:
+                self.server.extra = encrypted.recv(8)
+            except (socket.timeout, EOFError):
+                self.server.extra = b''
+        except BaseException as exc:
+            self.server.error = exc
+
 class OldDaemon(socketserver.BaseRequestHandler):
     def handle(self):
         W.read(self.request)
@@ -154,6 +170,23 @@ def main(daemon,cmd,async_probe):
             assert time.monotonic()-start<3,'client attempted unbounded KDF'
             malicious.shutdown();assert malicious.extra==b''
         print('PASS: unauthenticated excessive scrypt cost rejected without proof')
+        for binary in (cmd, async_probe):
+            for missing in (False, True):
+                with FixtureServer(('127.0.0.1', 0), BadServerProof) as bad:
+                    bad.missing = missing
+                    bad.extra = None
+                    bad.error = None
+                    threading.Thread(target=bad.serve_forever, daemon=True).start()
+                    args = ([cmd, '-h', '127.0.0.1', '-p', str(bad.server_address[1]),
+                             '-P', 'regression', '-c', 'status'] if binary == cmd else
+                            [async_probe, str(bad.server_address[1])])
+                    out = subprocess.run(args, env=env, capture_output=True, text=True, timeout=20)
+                    assert 'failed to prove' in out.stdout + out.stderr, out
+                    assert 'Succeeded!' not in out.stdout + out.stderr, out
+                    bad.shutdown()
+                    assert bad.error is None, bad.error
+                    assert bad.extra == b'', 'command sent before validating daemon proof'
+        print('PASS: amulecmd and GUI transport reject missing/tampered server proofs before commands')
         out=subprocess.run([cmd,'--disable-ec-encryption'],env=env,capture_output=True,text=True,timeout=5)
         assert 'Unknown' in out.stdout+out.stderr or 'unknown' in out.stdout+out.stderr,out
         print('PASS: old daemon and removed encryption switch fail clearly')
