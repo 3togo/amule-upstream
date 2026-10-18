@@ -45,7 +45,7 @@
 #include <vector>
 
 #define SLOT_COMPRESSIONCHECK_DATARATE (1024 * 150) // 150 KB/s -- above this we may disable compression
-#define MAX_FINISHED_REQUESTS_COMPRESSION 15        // max reads per sweep before disabling compression
+#define MAX_FINISHED_REQUESTS_COMPRESSION 15        // max queued finished reads before disabling compression
 #define BIGBUFFER_MINDATARATE (75 * 1024)           // eMule: BIGBUFFER_MINDATARATE
 
 // Max cached complete-file read handles (OpenFile_Struct::file). Past the cap the least
@@ -62,6 +62,7 @@ CUploadDiskIOThread::CUploadDiskIOThread()
 , m_condition(m_mutex)
 {
 	m_bRun = false;
+	m_bSignalThrottler = false;
 	m_bNewBlocksPending = false;
 	m_bSocketNeedsPending = false;
 
@@ -126,9 +127,17 @@ void *CUploadDiskIOThread::Entry()
 			}
 		}
 		bool moreWork = false;
-		uint64 readsThisSweep = 0;
 		for (uint32 clientId : clientIds) {
-			moreWork = StartCreateNextBlockPackage(clientId, readsThisSweep) || moreWork;
+			moreWork = StartCreateNextBlockPackage(clientId) || moreWork;
+		}
+
+		// Reads are synchronous, so there is no m_listPendingIO: every completed
+		// read is already in m_listFinishedIO.
+		while (!m_listFinishedIO.empty()) // eMule ref: line 142
+		{
+			ReadRequest_Struct *req = m_listFinishedIO.front();
+			m_listFinishedIO.pop_front();
+			ReadCompletionRoutine(req);
 		}
 
 		// An idle handle would block a rename or delete on Windows and an unmount everywhere.
@@ -137,6 +146,11 @@ void *CUploadDiskIOThread::Entry()
 				TheTime - openFile->lastRead >= MAX_IDLE_OPEN_FILE_SECONDS) {
 				openFile->file.Close();
 			}
+		}
+
+		if (m_bSignalThrottler && theApp->uploadBandwidthThrottler != NULL) {
+			theApp->uploadBandwidthThrottler->NewUploadDataAvailable();
+			m_bSignalThrottler = false;
 		}
 
 		// wxCondition::WaitTimeout(500ms) in place of eMule's WaitForMultipleObjects.
@@ -160,6 +174,14 @@ void *CUploadDiskIOThread::Entry()
 	}
 	m_listOpenFiles.clear();
 
+	// Discard any unprocessed finished reads
+	for (std::list<ReadRequest_Struct *>::iterator it = m_listFinishedIO.begin();
+		it != m_listFinishedIO.end();
+		++it) {
+		delete *it;
+	}
+	m_listFinishedIO.clear();
+
 	return NULL;
 }
 
@@ -169,15 +191,13 @@ void *CUploadDiskIOThread::Entry()
 // m_blockListLock for every block request a client sends, so neither is held across the disk
 // read. Each block is prepared under both locks, read with none, then committed under both
 // again, after checking the client and its request are still there.
-bool CUploadDiskIOThread::StartCreateNextBlockPackage(uint32 clientId, uint64 &readsThisSweep)
+bool CUploadDiskIOThread::StartCreateNextBlockPackage(uint32 clientId)
 {
-	// Reach the fast-slot refill watermark, which is one byte above ten full blocks.
-	// Stopping at ten reads can leave the socket below that watermark until it drains.
-	uint64 bytesLeft = 10 * EMBLOCKSIZE + 1;
-	unsigned readsLeft = 11;
-	std::vector<ReadRequest_Struct *> finishedReads;
-	finishedReads.reserve(readsLeft);
-	while (m_bRun && bytesLeft != 0 && readsLeft != 0) {
+	// The fast-slot target is just over ten full blocks. Limit smaller requests to
+	// eleven reads so they cannot monopolize a sweep. Full blocks still refill to the
+	// socket target, since concurrent sends can consume queued data while we read.
+	unsigned smallReadsLeft = 11;
+	while (m_bRun && smallReadsLeft != 0) {
 		ReadRequest_Struct *req = PrepareRead(clientId);
 		if (req == nullptr) {
 			break;
@@ -186,23 +206,12 @@ bool CUploadDiskIOThread::StartCreateNextBlockPackage(uint32 clientId, uint64 &r
 		if (!CommitRead(req, ReadBlock(req))) {
 			break;
 		}
-		finishedReads.push_back(req);
-		++readsThisSweep;
-		// Requests are indivisible; the last read may exceed the remaining byte allowance.
-		bytesLeft = bytes < bytesLeft ? bytesLeft - bytes : 0;
-		--readsLeft;
+		if (bytes < EMBLOCKSIZE) {
+			--smallReadsLeft;
+		}
 	}
-	bool dataQueued = false;
-	for (ReadRequest_Struct *req : finishedReads) {
-		dataQueued = ReadCompletionRoutine(req, readsThisSweep) || dataQueued;
-	}
-	// Dispatch this client's batch before another client's potentially slow read, with one
-	// throttler wake outside uploadLock. Retain at most eleven read buffers for one client.
-	if (dataQueued && theApp->uploadBandwidthThrottler != nullptr) {
-		theApp->uploadBandwidthThrottler->NewUploadDataAvailable();
-	}
-	// Sweep all other clients before refilling this one, then continue without sleeping.
-	return m_bRun && (bytesLeft == 0 || readsLeft == 0);
+	// Visit the other clients and package this sweep before continuing small reads.
+	return m_bRun && smallReadsLeft == 0;
 }
 
 // Returns the next block to read for this client, or nullptr if there is none or it is enough
@@ -220,18 +229,11 @@ ReadRequest_Struct *CUploadDiskIOThread::PrepareRead(uint32 clientId)
 	// sent since the last timer tick. PeekSentPayload() is non-resetting (it does not consume
 	// the counter SendBlockData() uses) and is protected by m_sendLocker. Calling it from the
 	// disk thread is safe: we hold uploadLock, and disconnect/cleanup needs that lock.
+	sint64 nCurQueueSessionPayloadUp = client->m_nCurQueueSessionPayloadUp;
 	CClientTCPSocket *pSock = client->GetSocket();
-	// Keep the difference wide as defensive hardening; the refill target normally bounds
-	// it to about 1.8 MB. Subtract separately sampled completions without adding to a signed
-	// session counter, and clamp an exhausted queue to zero.
-	const sint64 added = client->m_addedPayloadQueueSession;
-	const sint64 sent = client->m_nCurQueueSessionPayloadUp;
-	const uint64 queued = added <= 0
-				      ? 0
-				      : (sent <= 0 ? static_cast<uint64>(added)
-						   : (added > sent ? static_cast<uint64>(added - sent) : 0));
-	const uint64 completed = pSock->PeekSentPayload();
-	const uint64 queuedPayload = completed < queued ? queued - completed : 0;
+	if (pSock != nullptr)
+		nCurQueueSessionPayloadUp += (sint64)pSock->PeekSentPayload();
+	sint64 addedPayloadQueueSession = client->m_addedPayloadQueueSession;
 
 	bool bFastUpload = client->GetUploadDatarate() > BIGBUFFER_MINDATARATE;
 	// Send-ahead depth: how many blocks this thread primes into a fast slot's async send queue
@@ -243,7 +245,9 @@ ReadRequest_Struct *CUploadDiskIOThread::PrepareRead(uint32 clientId)
 	const uint32 nBufferLimit = bFastUpload ? ((10 * EMBLOCKSIZE) + 1) : (EMBLOCKSIZE + 1);
 	pSock->SetUploadBufferTarget(nBufferLimit);
 
-	if (client->m_BlockRequests_queue.empty() || queuedPayload >= nBufferLimit) {
+	if (client->m_BlockRequests_queue.empty() ||
+		(addedPayloadQueueSession > nCurQueueSessionPayloadUp &&
+			(uint32)(addedPayloadQueueSession - nCurQueueSessionPayloadUp) >= nBufferLimit)) {
 		return nullptr;
 	}
 
@@ -265,6 +269,9 @@ ReadRequest_Struct *CUploadDiskIOThread::PrepareRead(uint32 clientId)
 		if (currentblock->EndOffset > srcfile->GetFileSize()) {
 			throw wxString(CFormat("Asked for data up to %d beyond end of file (%d)") %
 				       currentblock->EndOffset % srcfile->GetFileSize());
+		} else if (currentblock->StartOffset > currentblock->EndOffset) {
+			throw wxString(CFormat("Asked for invalid block (start %d > end %d)") %
+				       currentblock->StartOffset % currentblock->EndOffset);
 		}
 
 		uint64 togo = currentblock->EndOffset - currentblock->StartOffset;
@@ -471,6 +478,8 @@ bool CUploadDiskIOThread::CommitRead(ReadRequest_Struct *req, ReadResult result)
 	// Mirrors eMule's SetUploadFileID call in the main thread path.
 	client->SetUploadFileID(srcfile);
 
+	m_listFinishedIO.push_back(req);
+
 	uint64 togo = req->uEndOffset - req->uStartOffset;
 	client->m_addedPayloadQueueSession += static_cast<sint64>(togo);
 	srcfile->statistic.AddTransferred(togo);
@@ -480,15 +489,14 @@ bool CUploadDiskIOThread::CommitRead(ReadRequest_Struct *req, ReadResult result)
 }
 
 // eMule ref: CUploadDiskIOThread::ReadCompletetionRoutine()
-bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req, uint64 readsThisSweep)
+void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 {
 	if (req == NULL) {
 		wxASSERT(false);
-		return false;
+		return;
 	}
 
 	bool bError = false;
-	bool dataQueued = false;
 
 	// Check the client is still in the upload list, and hold uploadLock through SendPacket so a
 	// concurrent disconnect cannot free the socket; matches eMule's lock scope.
@@ -520,14 +528,13 @@ bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req, uint64 
 				bool bUseCompression = false;
 				if (!client->m_bDisableCompression && req->pFileStruct->bCompress &&
 					client->m_byDataCompVer == 1) {
-					// Replace the former finished-read backlog with this sweep's read
-					// count.
-					if (readsThisSweep > MAX_FINISHED_REQUESTS_COMPRESSION &&
+					if ((sint32)m_listFinishedIO.size() >
+							MAX_FINISHED_REQUESTS_COMPRESSION &&
 						theStats::GetUploadRate() > SLOT_COMPRESSIONCHECK_DATARATE) {
 						client->m_bDisableCompression = true;
 					} else if (client->GetUploadDatarate() >
 							   SLOT_COMPRESSIONCHECK_DATARATE &&
-						   pSocket != nullptr && !pSocket->HasQueues(true) &&
+						   pSocket != NULL && !pSocket->HasQueues(true) &&
 						   !pSocket->IsBusyQuickCheck()) {
 						client->m_bDisableCompression = true;
 					} else {
@@ -563,14 +570,13 @@ bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req, uint64 
 					pSocket->SendPacket(it->first, true, false, it->second);
 				}
 
-				dataQueued = true;
+				m_bSignalThrottler = true;
 			}
 		}
 	} // uploadLock released here
 
 	ReleaseOpenFile(req->pFileStruct);
 	delete req;
-	return dataQueued;
 }
 
 // Frees a request that never reached the finished list, releasing the OpenFile_Struct that
