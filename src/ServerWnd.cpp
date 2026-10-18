@@ -138,15 +138,17 @@ CServerWnd::CServerWnd(wxWindow *pParent /*=NULL*/, int splitter_pos)
 	if (auto *label = FindWindowByName("serverListLabel", this))
 		label->SetLabel(_("One-off URL"));
 	auto *sourceRow = sourceField->GetContainingSizer();
+	wxWindow *sourceParent = sourceField->GetParent();
 	auto *oldUpdate = FindWindow(ID_UPDATELIST);
 	sourceRow->Detach(oldUpdate);
 	oldUpdate->Destroy();
-	sourceRow->Insert(
-		0, new wxButton(this, ID_UPDATELIST, _("Update server list")), wxSizerFlags().Center());
-	auto *editSources = new wxButton(this, wxID_ANY, _("Edit list…"));
+	sourceRow->Insert(0,
+		new wxButton(sourceParent, ID_UPDATELIST, _("Update server list")),
+		wxSizerFlags().Center());
+	auto *editSources = new wxButton(sourceParent, wxID_ANY, _("Edit list…"));
 	sourceRow->Insert(1, editSources, wxSizerFlags().Center().Border(wxLEFT, 5));
 	editSources->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { EditServerListSources(this); });
-	auto *downloadOnce = new wxButton(this, wxID_ANY, _("Download once"));
+	auto *downloadOnce = new wxButton(sourceParent, wxID_ANY, _("Download once"));
 	sourceRow->Insert(5, downloadOnce, wxSizerFlags().Center().Border(wxLEFT, 5));
 	downloadOnce->Bind(wxEVT_BUTTON, [this, sourceField](wxCommandEvent &) {
 		if (!sourceField->GetValue().empty())

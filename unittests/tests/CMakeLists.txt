@@ -2606,6 +2606,19 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 					--amuled $<TARGET_FILE:amuled> --amuleapi $<TARGET_FILE:amuleapi>
 			)
 		endif ()
+		if (BUILD_MONOLITHIC AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+			find_program (AMULE_XVFB_RUN xvfb-run)
+			set (SERVER_LIST_GUI_TEST_COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/ServerListGuiIntegrationTest.py
+				$<TARGET_FILE:amule> $<TARGET_FILE:amuled>)
+			if (AMULE_XVFB_RUN)
+				add_test (NAME ServerListGuiIntegrationTest
+					COMMAND ${AMULE_XVFB_RUN} -a ${SERVER_LIST_GUI_TEST_COMMAND})
+			else ()
+				add_test (NAME ServerListGuiIntegrationTest COMMAND ${SERVER_LIST_GUI_TEST_COMMAND})
+			endif ()
+			set_tests_properties (ServerListGuiIntegrationTest PROPERTIES SKIP_RETURN_CODE 77)
+		endif ()
 		add_test (NAME ServerListSourcesIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/ServerListSourcesIntegrationTest.py $<TARGET_FILE:amuled>
