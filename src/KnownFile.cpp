@@ -412,7 +412,8 @@ void CKnownFile::VerifyLocalData() const
 		return;
 	}
 	// Replace a queued automatic check so this explicit request runs at high priority
-	// and reports success. A running duplicate is stopped and restarted as manual too.
+	// and reports success. A running automatic check restarts as manual; an existing
+	// manual check keeps its progress.
 	CThreadScheduler::AddTask(new CVerifyLocalDataTask(this), CThreadScheduler::Overwrite::LowerPriority);
 }
 
@@ -431,7 +432,7 @@ uint32 CKnownFile::GetUploadDatarate() const
 void CKnownFile::MaybeScheduleVerification()
 {
 	const uint32 days = thePrefs::GetSharedFileReverifyDays();
-	if (days <= 0 || IsPartFile()) {
+	if (days == 0 || IsPartFile()) {
 		return;
 	}
 	const uint64 uptime = theStats::GetUptimeMillis();

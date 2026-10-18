@@ -252,7 +252,7 @@ public:
 	static uint32 GetMaxUpload() { return s_maxupload; }
 	static uint32 GetSlotAllocation() { return s_slotallocation; }
 	static bool IsICHEnabled() { return s_ICH; }
-	// Startup-only interval in days; zero (or a negative config value) disables checks.
+	// Request-triggered verification interval in days; zero disables automatic checks.
 	static uint32 GetSharedFileReverifyDays() { return s_sharedFileReverifyDays; }
 	static void SetSharedFileReverifyDays(uint32 days) { s_sharedFileReverifyDays = days; }
 	static void SetICHEnabled(bool val) { s_ICH = val; }
