@@ -97,12 +97,12 @@ private:
 	};
 
 	// StartCreateNextBlockPackage runs each block through PrepareRead, ReadBlock, CommitRead.
-	bool StartCreateNextBlockPackage(uint32 clientId); // eMule ref: line 185
+	bool StartCreateNextBlockPackage(uint32 clientId, uint64 &readsThisSweep); // eMule ref: line 185
 	ReadRequest_Struct *PrepareRead(uint32 clientId);
 	static ReadResult ReadBlock(ReadRequest_Struct *req);
 	bool CommitRead(ReadRequest_Struct *req, ReadResult result);
-	void ReadCompletionRoutine(ReadRequest_Struct *req); // eMule ref: line 369
-	bool ReleaseOpenFile(OpenFile_Struct *pFileStruct);  // eMule ref: line 498
+	bool ReadCompletionRoutine(ReadRequest_Struct *req, uint64 readsThisSweep); // eMule ref: line 369
+	bool ReleaseOpenFile(OpenFile_Struct *pFileStruct);                         // eMule ref: line 498
 
 	std::atomic<bool> m_bRun{ false }; // eMule ref: m_bRun (line 77)
 
@@ -115,7 +115,7 @@ private:
 	// m_eventAsyncIOFinished not needed -- reads complete synchronously on this thread
 
 	std::list<OpenFile_Struct *> m_listOpenFiles; // eMule ref: line 83
-	// Synchronous reads are committed and sent before preparing another buffer.
+	// Synchronous reads are committed and sent in bounded batches for one client.
 };
 
 #endif
