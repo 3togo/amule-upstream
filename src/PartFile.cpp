@@ -1524,6 +1524,7 @@ bool CPartFile::GetNextEmptyBlockInPart(uint16 partNumber, Requested_Block_Struc
 		if (end > partEnd) {
 			end = partEnd;
 		}
+		// eMule ref: CPartFile::ShrinkToAvoidAlreadyRequested()
 		const auto available = FindUnreservedBlock(CBlockRange{ start, end },
 			m_requestedblocks_list,
 			[](const Requested_Block_Struct *block) {

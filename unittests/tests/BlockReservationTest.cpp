@@ -1,5 +1,27 @@
-// Copyright (c) 2026 aMule Team
-// SPDX-License-Identifier: GPL-2.0-or-later
+//
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// Any parts of this program derived from the xMule, lMule or eMule project,
+// or contributed by third-party developers are copyrighted by their
+// respective authors.
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
+//
+
 #include <muleunit/test.h>
 #include "BlockReservation.h"
 #include <algorithm>
@@ -83,4 +105,47 @@ TEST(BlockReservation, IgnoresMalformedAndUnrelatedReservations)
 	ASSERT_TRUE(result.has_value());
 	ASSERT_EQUALS(10u, result->start);
 	ASSERT_EQUALS(19u, result->end);
+}
+
+TEST(BlockReservation, OverlappingIntervalsMatchFirstFreeRunOracle)
+{
+	// Every candidate and pair of intervals in an eight-byte window, in both
+	// reservation orders. Repeat near UINT64_MAX to check inclusive arithmetic.
+	for (const uint64_t base : { uint64_t{ 0 }, std::numeric_limits<uint64_t>::max() - 7 }) {
+		std::vector<CBlockRange> ranges;
+		for (unsigned start = 0; start < 8; ++start) {
+			for (unsigned end = start; end < 8; ++end) {
+				ranges.push_back({ base + start, base + end });
+			}
+		}
+		for (const auto candidate : ranges) {
+			for (const auto first : ranges) {
+				for (const auto second : ranges) {
+					std::vector<CBlockRange> reservations{ first, second };
+					// Use small relative offsets so the independent byte oracle
+					// never needs an overflowing UINT64_MAX + 1 sentinel.
+					unsigned start = static_cast<unsigned>(candidate.start - base);
+					const unsigned limit = static_cast<unsigned>(candidate.end - base);
+					const auto reserved = [&](unsigned byte) {
+						const uint64_t offset = base + byte;
+						return (first.start <= offset && offset <= first.end) ||
+						       (second.start <= offset && offset <= second.end);
+					};
+					while (start <= limit && reserved(start)) {
+						++start;
+					}
+					unsigned end = start;
+					while (end < limit && !reserved(end + 1)) {
+						++end;
+					}
+					const auto result = Find(candidate, reservations);
+					ASSERT_EQUALS(start <= limit, result.has_value());
+					if (result) {
+						ASSERT_EQUALS(base + start, result->start);
+						ASSERT_EQUALS(base + end, result->end);
+					}
+				}
+			}
+		}
+	}
 }
