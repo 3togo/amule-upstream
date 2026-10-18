@@ -1276,7 +1276,7 @@ bool CamuleApp::OnInit()
 			// UPnP / port settings, which were applied before ReinitializeNetwork ran).
 			// Act on them now that the server list and sockets exist.
 			if (wizardWantsServerMet) {
-				serverlist->UpdateServerMetFromURL(thePrefs::GetEd2kServersUrl());
+				serverlist->UpdateServerMetFromURL(wxEmptyString);
 			}
 			if (wizardWantsNodesDat) {
 				UpdateNotesDat(thePrefs::GetKadNodesUrl());
@@ -1327,8 +1327,7 @@ bool CamuleApp::OnInit()
 
 				if (dlg.ShowModal() == wxID_OK) {
 					if (serverMetCheck && serverMetCheck->GetValue()) {
-						serverlist->UpdateServerMetFromURL(
-							thePrefs::GetEd2kServersUrl());
+						serverlist->UpdateServerMetFromURL(wxEmptyString);
 					}
 					if (nodesDatCheck && nodesDatCheck->GetValue()) {
 						UpdateNotesDat(thePrefs::GetKadNodesUrl());
@@ -1341,7 +1340,7 @@ bool CamuleApp::OnInit()
 		const bool needNodesDat = thePrefs::GetNetworkKademlia() &&
 					  !wxFileExists(thePrefs::GetConfigDir() + "nodes.dat");
 		if (needServerMet) {
-			serverlist->UpdateServerMetFromURL(thePrefs::GetEd2kServersUrl());
+			serverlist->UpdateServerMetFromURL(wxEmptyString);
 		}
 		if (needNodesDat) {
 			UpdateNotesDat(thePrefs::GetKadNodesUrl());

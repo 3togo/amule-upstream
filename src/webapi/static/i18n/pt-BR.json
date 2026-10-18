@@ -529,5 +529,7 @@
   "shared_files_count_other": "{n} arquivos",
   "shared_verify_confirm_selected_one": "Verificar os dados locais de {n} arquivo selecionado? O arquivo todo é lido do disco.",
   "shared_verify_confirm_selected_many": "Verificar os dados locais de {n} arquivos selecionados? Todos os arquivos são lidos do disco.",
-  "shared_verify_confirm_selected_other": "Verificar os dados locais de {n} arquivos selecionados? Todos os arquivos são lidos do disco."
+  "shared_verify_confirm_selected_other": "Verificar os dados locais de {n} arquivos selecionados? Todos os arquivos são lidos do disco.",
+  "prefs_field_servers_update_urls": "Server list source URLs (one per line)",
+  "prefs_field_servers_update_list": "Update server list"
 }

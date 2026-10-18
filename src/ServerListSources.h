@@ -15,7 +15,10 @@ inline bool IsValid(const wxString &url)
 {
 	const wxURI uri(url);
 	const wxString scheme = uri.GetScheme().Lower();
-	return uri.HasServer() && !uri.GetServer().empty() && (scheme == "http" || scheme == "https");
+	return url.Find('\n') == wxNOT_FOUND && url.Find('\r') == wxNOT_FOUND &&
+	       url.Find('\0') == wxNOT_FOUND && url.Find(' ') == wxNOT_FOUND &&
+	       url.Find('\t') == wxNOT_FOUND && uri.HasServer() && !uri.GetServer().empty() &&
+	       (scheme == "http" || scheme == "https");
 }
 
 // Read on each new update, so changes made by the editor or a daemon administrator

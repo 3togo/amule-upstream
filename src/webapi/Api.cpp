@@ -23,6 +23,7 @@
 //
 
 #include "Api.h"
+#include "ServerListSources.h"
 #include "JsonDepthScan.h" // webapi::JsonNestingWithinLimit
 
 #include "ClientTagNames.h" // Needed for the shared client-tag token decoders
@@ -1133,7 +1134,7 @@ CHttpServer::Response CApiDispatcher::DispatchToHandler(const CHttpServer::Reque
 		}
 	}
 
-	if (path == "/api/v1/servers_update") {
+	if (path == "/api/v1/servers_update" || path == "/api/v1/servers/update") {
 		if (req.method != "POST") {
 			return MethodNotAllowed("POST", "only POST on /servers_update");
 		}
@@ -3682,6 +3683,10 @@ bool ResolveFetchUrl(const CHttpServer::Request &req,
 				"bad_request",
 				("required string field " + field + " is missing").c_str());
 			return false;
+		}
+		if (spec.op == EC_OP_SERVER_UPDATE_FROM_URL) {
+			out_url.clear();
+			return true;
 		}
 		if (configured == nullptr) {
 			rejection = ErrorResponse(
@@ -6634,7 +6639,7 @@ CHttpServer::Response CApiDispatcher::HandleServerUpdateFromUrl(const CHttpServe
 	// next few ticks (CServerList::UpdateServerMetFromURL), so the `server_added` SSE
 	// events keep firing on subsequent natural ticks.
 	static const UrlFetchSpec kSpec = {
-		"url", EC_OP_SERVER_UPDATE_FROM_URL, EC_TAG_SERVERS_UPDATE_URL, true, true
+		"url", EC_OP_SERVER_UPDATE_FROM_URL, EC_TAG_SERVERS_UPDATE_URL, false, true
 	};
 	std::string url;
 	CHttpServer::Response rejection;
@@ -8062,7 +8067,14 @@ bool PrefTakeStringArray(const picojson::object &o,
 			err = std::string(key) + " must be an array of strings";
 			return false;
 		}
-		list.AddTag(CECTag(EC_TAG_STRING, wxString::FromUTF8(el.get<std::string>().c_str())));
+		const auto &value = el.get<std::string>();
+		if (name == EC_TAG_SERVERS_URL_LIST &&
+			(value.find('\0') != std::string::npos ||
+				!ServerListSources::IsValid(wxString::FromUTF8(value.c_str())))) {
+			err = "update_urls must contain valid HTTP or HTTPS URLs";
+			return false;
+		}
+		list.AddTag(CECTag(EC_TAG_STRING, wxString::FromUTF8(value.c_str())));
 	}
 	group.AddTag(list);
 	any = true;

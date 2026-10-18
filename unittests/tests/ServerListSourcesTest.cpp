@@ -64,3 +64,12 @@ TEST(ServerListSources, MissingFileDoesNotCreateDefaults)
 	ASSERT_FALSE(wxFileExists(file.path));
 	file.Write(""); // Restore for RAII cleanup.
 }
+
+TEST(ServerListSources, RejectsLineInjectionAndWhitespace)
+{
+	ASSERT_FALSE(ServerListSources::IsValid("https://example.com/list\nhttp://injected/list"));
+	ASSERT_FALSE(ServerListSources::IsValid("https://example.com/list\r"));
+	ASSERT_FALSE(ServerListSources::IsValid("https://example.com/a b"));
+	ASSERT_FALSE(ServerListSources::IsValid("https://example.com/\t"));
+	ASSERT_TRUE(ServerListSources::IsValid("HTTPS://example.com/a%20b?token=value"));
+}

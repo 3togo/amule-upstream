@@ -63,7 +63,7 @@ public:
 	bool IsInitialized() const { return m_initialized; }
 	void Sort();
 	// showDialog shows the HTTP progress dialog, for a local, user-initiated update only.
-	void UpdateServerMetFromURL(const wxString &strURL, bool showDialog = false);
+	void UpdateServerMetFromURL(const wxString &strURL, bool showDialog = false, bool automatic = false);
 	bool DownloadFinished(uint32 result);
 	void AutoDownloadFinished(uint32 result);
 	uint32 GetAvgFile() const;
@@ -98,7 +98,6 @@ public:
 
 private:
 	virtual void ObserverAdded(ObserverType *);
-	void AutoUpdate();
 	void StartServerMetDownload(const wxString &url, bool showDialog);
 	void StartNextServerMetDownload();
 	CServer *GetNextStatServer();
@@ -106,19 +105,17 @@ private:
 	wxString m_staticServersConfig;
 	void LoadStaticServers();
 	void SaveStaticServers();
-	size_t current_url_index = 0;
-	wxArrayString m_autoUpdateURLs;
 
 	typedef std::list<CServer *> CInternalList;
 	CInternalList m_servers;
 	CInternalList::const_iterator m_serverpos;
 	CInternalList::const_iterator m_statserverpos;
 
-	wxString m_URLUpdate;
 	wxString m_serverMetURL;
-	wxArrayString m_serverMetFallbacks;
-	size_t m_serverMetFallbackIndex = 0;
+	wxArrayString m_serverMetSources;
+	size_t m_serverMetSourceIndex = 0;
 	bool m_serverMetDownloading = false;
+	bool m_serverMetAutomatic = false;
 	bool m_serverMetShowDialog = false;
 	bool m_initialized;
 };

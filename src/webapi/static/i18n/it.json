@@ -1037,5 +1037,7 @@
   "messages_captcha_passed": "CAPTCHA superato. Il tuo messaggio è stato consegnato.",
   "messages_captcha_retry": "CAPTCHA non superato. Invia un altro messaggio per riprovare.",
   "messages_captcha_exhausted": "CAPTCHA non superato. Non restano altri tentativi.",
-  "messages_captcha_image": "CAPTCHA della chat"
+  "messages_captcha_image": "CAPTCHA della chat",
+  "prefs_field_servers_update_urls": "Server list source URLs (one per line)",
+  "prefs_field_servers_update_list": "Update server list"
 }

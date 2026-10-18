@@ -25,6 +25,8 @@
 
 #include <wx/wx.h>
 #include "Preferences.h"
+#include "ServerListSources.h"
+#include <wx/file.h>
 
 #include <protocol/ed2k/Constants.h>
 #include <common/Constants.h>
@@ -266,7 +268,7 @@ bool CPreferences::s_IsClientCryptLayerRequired;
 uint32 CPreferences::s_dwKadUDPKey;
 uint8 CPreferences::s_byCryptTCPPaddingLength;
 
-wxString CPreferences::s_Ed2kURL;
+wxArrayString CPreferences::s_serverListURLs;
 wxString CPreferences::s_KadURL;
 bool CPreferences::s_GeoIPEnabled;
 bool CPreferences::s_GeoIPSupported = true;
@@ -1408,8 +1410,7 @@ void CPreferences::BuildItemList(const wxString &appdir)
 
 	s_MiscList.push_back(
 		new Cfg_Str("/eMule/KadNodesUrl", s_KadURL, "https://upd.emule-security.org/nodes.dat"));
-	s_MiscList.push_back(
-		new Cfg_Str("/eMule/Ed2kServersUrl", s_Ed2kURL, "https://upd.emule-security.org/server.met"));
+
 	s_MiscList.push_back(MkCfg_Int("/eMule/ShowRatesOnTitle", s_showRatesOnTitle, 0));
 
 	// IP2Country / GeoIP database -- three sources, all delivering the same MMDB binary
@@ -1783,6 +1784,56 @@ int32 CPreferences::GetRecommendedMaxConnections()
 #endif
 }
 
+wxArrayString CPreferences::GetServerListURLs()
+{
+#ifdef CLIENT_GUI
+	return s_serverListURLs;
+#else
+	return ServerListSources::Read(GetConfigDir() + "addresses.dat");
+#endif
+}
+
+bool CPreferences::SetServerListURLs(const wxArrayString &urls)
+{
+	wxArrayString unique;
+	for (const auto &url : urls) {
+		if (!ServerListSources::IsValid(url) || url.Find('\n') != wxNOT_FOUND ||
+			url.Find('\r') != wxNOT_FOUND)
+			return false;
+		if (unique.Index(url) == wxNOT_FOUND)
+			unique.Add(url);
+	}
+#ifndef CLIENT_GUI
+	wxTempFile file(GetConfigDir() + "addresses.dat");
+	if (!file.IsOpened())
+		return false;
+	for (const auto &url : unique) {
+		if (!file.Write(url + "\n", wxConvUTF8))
+			return false;
+	}
+	if (!file.Commit())
+		return false;
+#endif
+	s_serverListURLs = unique;
+	return true;
+}
+
+wxString CPreferences::GetEd2kServersUrl()
+{
+	const auto urls = GetServerListURLs();
+	return urls.empty() ? wxString() : urls[0];
+}
+
+bool CPreferences::SetEd2kServersUrl(const wxString &url)
+{
+	auto urls = GetServerListURLs();
+	if (!urls.empty())
+		urls.RemoveAt(0);
+	if (!url.empty())
+		urls.Insert(url, 0);
+	return SetServerListURLs(urls);
+}
+
 void CPreferences::SavePreferences()
 {
 	wxConfigBase *cfg = wxConfigBase::Get();
@@ -1948,6 +1999,33 @@ static bool IsLegacyGeoIPDatUrl(const wxString &url)
 void CPreferences::LoadPreferences()
 {
 	LoadCats();
+#ifndef CLIENT_GUI
+	// Migrate once, and remove the old key only after the list is safely on disk.
+	// An existing empty file is intentional and must remain empty.
+	wxConfigBase *cfg = wxConfigBase::Get();
+	wxString legacy;
+	const bool hadLegacy = cfg->Read("/eMule/Ed2kServersUrl", &legacy);
+	const wxString path = GetConfigDir() + "addresses.dat";
+	const bool exists = wxFileExists(path);
+	if (hadLegacy || !exists) {
+		auto urls = GetServerListURLs();
+		bool changed = !exists;
+		if (!legacy.empty() && legacy != "https://upd.emule-security.org/server.met" &&
+			ServerListSources::IsValid(legacy)) {
+			const int index = urls.Index(legacy);
+			if (index != wxNOT_FOUND)
+				urls.RemoveAt(static_cast<size_t>(index));
+			urls.Insert(legacy, 0);
+			changed = true;
+		} else if (!exists && (!hadLegacy || !legacy.empty())) {
+			urls.Add("https://upd.emule-security.org/server.met");
+		}
+		if ((!changed || SetServerListURLs(urls)) && hadLegacy) {
+			cfg->DeleteEntry("/eMule/Ed2kServersUrl");
+			cfg->Flush();
+		}
+	}
+#endif
 
 	// One-shot migration of the v2.x GeoLiteCountryUpdateUrl into the new three-source
 	// model. Triggers only when the user had a non-empty URL configured *and* has not yet

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 aMule Team
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Exercise ordered addresses.dat failover through local HTTP, EC and amuled."""
+"""Exercise shared addresses.dat updates through local HTTP, EC and amuled."""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import json
@@ -15,7 +15,7 @@ import time
 from urllib.error import URLError, HTTPError
 from urllib.request import ProxyHandler, Request, build_opener
 
-from AllSearchIntegrationTest import C, free_ports, stop_daemon, string, retry_port_collisions
+from AllSearchIntegrationTest import C, free_ports, stop_daemon, string, tag, integer, retry_port_collisions
 from DaemonConfig import EC_PASSWORD, write_amule_conf
 from KnownHistoryIntegrationTest import start
 
@@ -74,15 +74,16 @@ def start_api(binary, root, ec_port):
         raise
 
 
-def run(binary, root, responses, sources, expected, *, url='/primary', startup=False,
-        success=True, reload=False, overlap=False, skipped=False, cancel=False, automatic=False, api_binary=None):
+def run(binary, root, responses, sources, expected, *, url=None, startup=False,
+        success=True, reload=False, overlap=False, skipped=False, cancel=False,
+        automatic=False, api_binary=None, legacy='', missing=False):
     requests = []
     release = threading.Event()
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             requests.append(self.path)
-            if (overlap or cancel) and self.path == url:
+            if (overlap or cancel) and self.path == expected[0]:
                 release.wait(timeout=20)
             status, body = responses.get(self.path, FAIL)
             self.send_response(status)
@@ -113,59 +114,61 @@ def run(binary, root, responses, sources, expected, *, url='/primary', startup=F
         def source_text(paths):
             return ''.join((base + entry if entry.startswith('/') else entry) + '\n' for entry in paths)
 
-        # An absent addresses.dat must remain absent; no shipped source is installed.
         if sources is not None and not reload:
             source_file.write_text(source_text(sources))
-        requested = base + url if url.startswith('/') else url
+        requested = base + url if url and url.startswith('/') else url
+        legacy_url = base + legacy if legacy.startswith('/') else legacy
         write_amule_conf(root, ports[0], Port=ports[1], UDPPort=ports[2], ConnectToED2K=1,
-                         Ed2kServersUrl=requested if startup else base + '/primary',
-                         Serverlist=int(automatic))
+                         Ed2kServersUrl=legacy_url, Serverlist=int(automatic))
         proc, ec = start(binary, root, ports)
         if reload:
             source_file.write_text(source_text(sources))
+        if missing:
+            source_file.unlink()
         expected_source_file = source_file.read_bytes() if source_file.exists() else None
-        offset = 0 if startup else len((root / 'logfile').read_text(errors='replace'))
         if api_binary:
             api_proc, endpoint, token = start_api(api_binary, root / 'api', ports[0])
-            status, data = api_post(endpoint, '/servers_update', {'url': requested}, token)
+            status, data = api_post(endpoint, '/servers/update', {} if requested is None else {'url': requested}, token)
             assert status == 202, (status, data)
         elif not startup and not automatic:
-            op, _ = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'],
-                            [string(C['EC_TAG_SERVERS_UPDATE_URL'], requested)])
+            tags = [] if requested is None else [string(C['EC_TAG_SERVERS_UPDATE_URL'], requested)]
+            op, _ = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'], tags)
             assert op == C['EC_OP_NOOP'], op
         if overlap:
-            wait_for(proc, lambda: url in requests, root)
-            # An active sequence retains its original sources. A second request must
-            # neither start another download nor replace the active fallback list.
+            wait_for(proc, lambda: len(requests) == 1, root)
+            # The current sequence must retain its snapshot despite live edits and another request.
             source_file.write_text(source_text(['/changed']))
             expected_source_file = source_file.read_bytes()
             op, _ = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'],
                             [string(C['EC_TAG_SERVERS_UPDATE_URL'], base + '/overlap')])
             assert op == C['EC_OP_NOOP'], op
             wait_for(proc, lambda: 'A server list download is already in progress.' in
-                     (root / 'logfile').read_text(errors='replace')[offset:], root)
+                     (root / 'logfile').read_text(errors='replace'), root)
             release.set()
-
         if cancel:
-            wait_for(proc, lambda: url in requests, root)
+            wait_for(proc, lambda: len(requests) == 1, root)
             stop_daemon(proc)
             release.set()
-
-        marker = ('Finished downloading the server list' if success else
-                  'Skipped download of server.met' if skipped else
-                  f'Failed to download server.met from {base + expected[-1]}' if expected else 'Invalid URL')
-        if not cancel:
-            wait_for(proc, lambda: marker in (root / 'logfile').read_text(errors='replace')[offset:], root)
-        # Allow erroneous retries to reach the server before inspecting the sequence.
-        time.sleep(0.3)
+        else:
+            wait_for(proc, lambda: len(requests) >= len(expected), root)
+            if expected:
+                last_url = base + expected[-1]
+                wait_for(proc, lambda: last_url in (root / 'logfile').read_text(errors='replace') and
+                         (('Finished downloading the server list from ' + last_url) in
+                          (root / 'logfile').read_text(errors='replace') or
+                          ('Failed to download server.met from ' + last_url) in
+                          (root / 'logfile').read_text(errors='replace') or skipped), root)
+            time.sleep(0.3)
         assert requests == expected, requests
         data = (root / 'server.met').read_bytes() if (root / 'server.met').exists() else b''
-        if not startup or success:
-            assert int.from_bytes(data[1:5], 'little') == (1 if startup or not success else 2), data
         assert bytes([203, 0, 113, 8]) not in data, data
-        if not success and not startup:
+        if not startup:
             assert bytes([203, 0, 113, 9]) in data, data
+        if success:
+            assert bytes([203, 0, 113, 7]) in data, data
         assert (source_file.read_bytes() if source_file.exists() else None) == expected_source_file
+        # A one-off request must never reintroduce the retired config key.
+        assert 'Ed2kServersUrl=' not in (root / 'amule.conf').read_text()
     finally:
         release.set()
         if api_proc:
@@ -179,8 +182,89 @@ def run(binary, root, responses, sources, expected, *, url='/primary', startup=F
         server.server_close()
         worker.join(timeout=5)
 
-    if (root / 'server.met').exists():
-        assert bytes([203, 0, 113, 8]) not in (root / 'server.met').read_bytes()
+
+def editor_case(binary, api_binary, root):
+    root.mkdir()
+    (root / 'Incoming').mkdir()
+    (root / 'Temp').mkdir()
+    (root / 'server.met').write_bytes(EXISTING)
+    source_file = root / 'addresses.dat'
+    original = '# Keep comments during migration of an uncustomised default.\nhttps://one.example/list\n'
+    source_file.write_text(original)
+    ports = free_ports(3, udp_indices=(2,), peer_index=1)
+    write_amule_conf(root, ports[0], Port=ports[1], UDPPort=ports[2],
+                     Ed2kServersUrl='https://upd.emule-security.org/server.met')
+    proc, ec = start(binary, root, ports)
+    api_proc = None
+    try:
+        assert source_file.read_text() == original
+        api_proc, endpoint, token = start_api(api_binary, root / 'api', ports[0])
+
+        def request(method, path, body=None, expected=200):
+            data = None if body is None else json.dumps(body).encode()
+            req = Request(endpoint + path, data, {'Authorization': 'Bearer ' + token,
+                          'Content-Type': 'application/json'}, method=method)
+            try:
+                with build_opener(ProxyHandler({})).open(req, timeout=3) as response:
+                    assert response.status == expected, response.status
+                    result = response.read()
+                    return json.loads(result) if result else None
+            except HTTPError as error:
+                assert error.code == expected, (error.code, error.read())
+
+        def prefs():
+            return request('GET', '/preferences')['servers']
+
+        urls = ['https://one.example/list', 'http://two.example/list']
+        request('PATCH', '/preferences', {'servers': {'update_urls': urls}})
+        wait_for(proc, lambda: prefs()['update_urls'] == urls, root)
+        assert prefs()['update_url'] == urls[0]
+        assert source_file.read_text().splitlines() == urls
+        request('PATCH', '/preferences', {'servers': {'update_url': 'http://legacy.example/list'}})
+        expected = ['http://legacy.example/list', urls[1]]
+        wait_for(proc, lambda: prefs()['update_urls'] == expected, root)
+        for invalid in ['not-an-array', [17], ['ftp://bad/list'], ['http://host/list\nhttp://other/list'],
+                        ['http://host/a\x00hidden']]:
+            request('PATCH', '/preferences', {'servers': {'update_urls': invalid}}, expected=400)
+            assert source_file.read_text().splitlines() == expected
+        # Exercise the actual EC representation, including duplicate child names and >255 entries.
+        many = [f'https://source.example/{i}' for i in range(300)]
+        listing = tag(C['EC_TAG_SERVERS_URL_LIST'], children=[string(C['EC_TAG_STRING'], u) for u in many])
+        op, result = ec.call(C['EC_OP_SET_PREFERENCES'],
+                            [tag(C['EC_TAG_PREFS_SERVERS'], children=[listing])])
+        assert op == C['EC_OP_NOOP'], (op, result)
+        assert source_file.read_text().splitlines() == many
+        wait_for(proc, lambda: prefs()['update_urls'] == many, root)
+        # Invalid EC input is rejected without truncating the existing file.
+        bad = tag(C['EC_TAG_SERVERS_URL_LIST'], children=[integer(C['EC_TAG_STRING'], 3)])
+        op, _ = ec.call(C['EC_OP_SET_PREFERENCES'], [tag(C['EC_TAG_PREFS_SERVERS'], children=[bad])])
+        assert op == C['EC_OP_FAILED'], op
+        assert source_file.read_text().splitlines() == many
+        # A write failure is reported to API clients, preserving the existing filesystem object.
+        source_file.unlink()
+        source_file.mkdir()
+        request('PATCH', '/preferences', {'servers': {'update_urls': urls}}, expected=400)
+        assert source_file.is_dir()
+        source_file.rmdir()
+        source_file.write_text('\n'.join(many) + '\n')
+        request('PATCH', '/preferences', {'servers': {'update_urls': []}})
+        wait_for(proc, lambda: prefs()['update_urls'] == [], root)
+        assert prefs()['update_url'] == ''
+        assert source_file.read_text() == ''
+        # The empty list remains empty after restarting, with no legacy key to remigrate.
+        ec.sock.close()
+        ec = None
+        stop_daemon(proc)
+        proc, ec = start(binary, root, ports)
+        assert source_file.read_text() == ''
+    finally:
+        if api_proc:
+            api_proc.terminate()
+            api_proc.wait(timeout=10)
+        if ec:
+            ec.sock.close()
+        if proc.poll() is None:
+            stop_daemon(proc)
 
 
 def main():
@@ -188,58 +272,57 @@ def main():
     api_binary = str(Path(sys.argv[2]).resolve()) if len(sys.argv) > 2 else None
 
     def attempt():
-        with tempfile.TemporaryDirectory(prefix='amule-server-fallback-') as temp:
+        with tempfile.TemporaryDirectory(prefix='amule-server-updates-') as temp:
             root = Path(temp)
 
             def case(name, responses, sources, expected, **kwargs):
                 run(binary, root / name, responses, sources, expected, **kwargs)
 
             if api_binary:
-                case('api-primary-success', {'/primary': GOOD}, ['/backup'], ['/primary'], api_binary=api_binary)
-                case('api-explicit-fallback', {'/backup': GOOD}, ['/backup'], ['/alternate', '/backup'],
+                editor_case(binary, api_binary, root / 'editors')
+                case('api-merge-all', {'/first': GOOD, '/last': GOOD}, ['/first', '/last'],
+                     ['/first', '/last'], api_binary=api_binary)
+                case('api-explicit-once', {'/alternate': GOOD}, ['/backup'], ['/alternate'],
                      url='/alternate', api_binary=api_binary)
-                case('api-ordered-retries', {'/last': GOOD}, ['/first', '/last'],
-                     ['/primary', '/first', '/last'], api_binary=api_binary)
+                case('api-explicit-failure', {'/backup': GOOD}, ['/backup'], ['/alternate'],
+                     url='/alternate', success=False, api_binary=api_binary)
                 return
 
-            case('primary-success', {'/primary': GOOD}, ['/backup'], ['/primary'])
-            case('first-run', {'/backup': GOOD}, ['/backup'], ['/primary', '/backup'], startup=True)
-            case('http-failure', {'/backup': GOOD}, ['/backup'], ['/primary', '/backup'])
-            case('invalid-primary', {'/primary': (200, b'invalid'), '/backup': GOOD},
-                 ['/backup'], ['/primary', '/backup'])
-            case('truncated-primary', {'/primary': (200, TRUNCATED), '/backup': GOOD},
-                 ['/backup'], ['/primary', '/backup'])
-            case('ordered-retries', {'/first': (200, b'invalid'), '/last': GOOD},
-                 ['/first', '/second', '/last', '/unused'], ['/primary', '/first', '/second', '/last'])
-            case('all-fail', {}, ['/first', '/last'], ['/primary', '/first', '/last'], success=False)
-            case('truncated-backup', {'/backup': (200, TRUNCATED)}, ['/backup'],
-                 ['/primary', '/backup'], success=False)
-            case('invalid-backup', {'/backup': (200, b'invalid')}, ['/backup'],
-                 ['/primary', '/backup'], success=False)
-            case('missing-sources', {}, None, ['/primary'], success=False)
-            case('empty-sources', {}, [], ['/primary'], success=False)
-            case('explicit-url', {'/backup': GOOD}, ['/backup'], ['/alternate', '/backup'], url='/alternate')
-            case('deduplicated', {'/backup': GOOD},
+            case('merge-after-success', {'/first': GOOD, '/last': GOOD}, ['/first', '/last'], ['/first', '/last'])
+            case('first-run', {'/backup': GOOD}, ['/primary', '/backup'], ['/primary', '/backup'], startup=True)
+            case('http-failure', {'/backup': GOOD}, ['/primary', '/backup'], ['/primary', '/backup'])
+            case('invalid-download', {'/primary': (200, b'invalid'), '/backup': GOOD},
+                 ['/primary', '/backup'], ['/primary', '/backup'])
+            case('truncated-download', {'/primary': (200, TRUNCATED), '/backup': GOOD},
+                 ['/primary', '/backup'], ['/primary', '/backup'])
+            case('ordered-merge', {'/first': GOOD, '/last': GOOD},
+                 ['/first', '/second', '/last', '/unused'], ['/first', '/second', '/last', '/unused'])
+            case('all-fail', {}, ['/first', '/last'], ['/first', '/last'], success=False)
+            case('truncated-only', {'/backup': (200, TRUNCATED)}, ['/backup'], ['/backup'], success=False)
+            case('invalid-only', {'/backup': (200, b'invalid')}, ['/backup'], ['/backup'], success=False)
+            case('missing-sources', {}, [], [], success=False, missing=True)
+            case('empty-sources', {}, [], [], success=False)
+            case('explicit-once', {'/alternate': GOOD}, ['/backup'], ['/alternate'], url='/alternate')
+            case('explicit-fails-without-fallback', {'/backup': GOOD}, ['/backup'], ['/alternate'],
+                 url='/alternate', success=False)
+            case('deduplicated', {'/primary': GOOD, '/backup': GOOD},
                  ['/primary', '/primary', '# comment', 'ftp://unsupported/list', '/backup', '/backup'],
                  ['/primary', '/backup'])
-            case('exhausted-duplicates', {}, ['/primary', '/backup', '/backup'],
-                 ['/primary', '/backup'], success=False)
-            case('live-edit', {'/backup': GOOD}, ['/backup'], ['/primary', '/backup'], reload=True)
-            case('overlap-snapshot', {'/backup': GOOD}, ['/backup'],
+            case('live-edit', {'/backup': GOOD}, ['/backup'], ['/backup'], reload=True)
+            case('overlap-snapshot', {'/primary': GOOD, '/backup': GOOD}, ['/primary', '/backup'],
                  ['/primary', '/backup'], overlap=True)
-            case('not-modified', {'/primary': (304, b'')}, ['/backup'], ['/primary'],
-                 success=False, skipped=True)
-            case('invalid-requested-url', {'/backup': GOOD}, ['/backup'], ['/backup'], url='invalid')
-            case('invalid-startup-url', {'/backup': GOOD}, ['/backup'], ['/backup'],
-                 url='invalid', startup=True)
-            case('invalid-url-no-sources', {}, [], [], url='invalid', success=False)
-            case('invalid-sources', {}, ['# comment', 'ftp://unsupported/list', 'invalid'],
-                 ['/primary'], success=False)
-            case('cancel-manual-on-shutdown', {}, ['/backup'], ['/primary'], success=False, cancel=True)
+            case('not-modified-continues', {'/primary': (304, b''), '/backup': GOOD},
+                 ['/primary', '/backup'], ['/primary', '/backup'], skipped=True)
+            case('invalid-requested-url', {'/backup': GOOD}, ['/backup'], [], url='invalid', success=False)
+            case('invalid-sources', {}, ['# comment', 'ftp://unsupported/list', 'invalid'], [], success=False)
+            case('migrate-custom-first', {'/custom': GOOD, '/backup': GOOD}, ['/backup', '/custom'],
+                 ['/custom', '/backup'], legacy='/custom')
+            case('cancel-manual-on-shutdown', {}, ['/primary', '/backup'], ['/primary'],
+                 success=False, cancel=True)
             case('cancel-auto-on-shutdown', {}, ['/primary', '/backup'], ['/primary'],
                  success=False, cancel=True, automatic=True)
     retry_port_collisions(attempt)
-    print('3 API fallback scenarios passed' if api_binary else '23 server-list fallback scenarios passed')
+    print('4 API/EC source-list scenarios passed' if api_binary else '22 server-list scenarios passed')
 
 
 if __name__ == '__main__':

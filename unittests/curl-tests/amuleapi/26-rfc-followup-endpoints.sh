@@ -108,10 +108,10 @@ fi
 # --- 3. POST /servers_update — body validation. ------------------
 RC=$(curl -s -o /tmp/p11_su.json -w "%{http_code}" -X POST "${H_AUTH[@]}" \
 	-H "Content-Type: application/json" -d '{}' "$API/servers_update")
-if [ "$RC" = "400" ]; then
-	_pass "POST /servers_update missing url → 400"
+if [ "$RC" = "202" ]; then
+	_pass "POST /servers_update configured sources → 202"
 else
-	_fail "servers_update no-body" "expected 400, got $RC"
+	_fail "servers_update no-body" "expected 202, got $RC"
 fi
 RC=$(curl -s -o /tmp/p11_su.json -w "%{http_code}" -X POST "${H_AUTH[@]}" \
 	-H "Content-Type: application/json" \

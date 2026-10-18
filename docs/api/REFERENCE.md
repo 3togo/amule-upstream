@@ -2063,7 +2063,7 @@ curl -s -X PATCH -H "Authorization: Bearer $TOKEN" \
 
 **Auth:** `ADMIN`
 
-Tells amuled to fetch the `server.met` from the supplied URL and refresh its list. Same operation the desktop GUI's "Update server list from URL" button drives.
+Also available as `POST /api/v1/servers/update`. With no body or `{}`, downloads and merges all configured `servers.update_urls` in order. With `url`, downloads that source once without changing preferences. Failed sources and HTTP 304 responses do not stop a configured-list update. Cancellation stops the sequence.
 
 **Body:**
 
@@ -2071,11 +2071,11 @@ Tells amuled to fetch the `server.met` from the supplied URL and refresh its lis
 { "url": "http://example.com/server.met" }
 ```
 
-`url` is **required** here, and must start with `http://` or `https://`; omitting it, or sending anything else, is a `400 bad_request`. This differs from [`POST /ipfilter/update`](#post-apiv1ipfilterupdate), which does fall back to its configured preference when the field is absent.
+`url` is optional. When supplied it must be a nonempty HTTP or HTTPS URL; invalid values produce `400 bad_request`. An empty configured list is a no-op. The daemon reads its list at the start of the operation, so this does not depend on the API preference snapshot.
 
 All three `*/update` endpoints -- servers, Kad nodes and the IP filter -- name this field `url` (R6), rather than repeating a noun the path already carries.
 
-The URL is **persisted** into the `servers.update_url` preference, so a subsequent `GET /preferences` reflects it — there is no need to PATCH it separately.
+The URL is **not saved**. Edit `servers.update_urls` through `PATCH /preferences` to change the configured sources. The array accepts only HTTP/HTTPS URLs, preserves order and removes duplicates; `[]` disables configured-list downloads. `servers.update_url` remains a read/write compatibility alias for the first entry; writing it replaces the first entry and retains the rest. If both are supplied, `update_urls` takes precedence. Sources are saved atomically in the daemon's `addresses.dat`; a failed save rejects the request.
 
 **Response:** `202 Accepted`, no body. The download runs asynchronously -- its outcome arrives on the log channel.
 
@@ -2347,7 +2347,8 @@ Returns every preference category amuled carries over EC. The `general` and `con
     "server_priority_system_enabled": true,
     "smart_lowid_check_enabled": true, "safe_server_connect_enabled": false,
     "autoconnect_static_servers_only": false, "manual_servers_high_priority": false,
-    "update_url": "http://upd.emule-security.org/server.met"
+    "update_url": "https://upd.emule-security.org/server.met",
+    "update_urls": ["https://upd.emule-security.org/server.met"]
   },
   "security": {
     "shared_files_visibility": "everybody",
@@ -2665,7 +2666,7 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" \
   "http://$HOST/api/v1/ipfilter/update"
 ```
 
-An explicit URL is **persisted** into the `security.ipfilter_update_url` preference, so a subsequent `GET /preferences` reflects it and the next startup auto-update (`security.ipfilter_auto_update_enabled`) uses it — the same side effect [`POST /api/v1/servers_update`](#post-apiv1servers_update) and [`POST /api/v1/kad/update`](#post-apiv1kadupdate) have.
+An explicit URL is **persisted** into the `security.ipfilter_update_url` preference, so a subsequent `GET /preferences` reflects it and the next startup auto-update (`security.ipfilter_auto_update_enabled`) uses it — the same side effect [`POST /api/v1/kad/update`](#post-apiv1kadupdate) has.
 
 **Response:** `202 Accepted`, no body. Where the request named a URL it already knows which one ran; where it omitted one, `security.ipfilter_update_url` on [`GET /preferences`](#get-apiv1preferences) is the answer, and the paragraph above is why reading it there is the honest version -- the snapshot this handler resolves from is the same one that endpoint serves.
 

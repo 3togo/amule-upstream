@@ -785,8 +785,10 @@ public:
 	static const wxString &GetKadNodesUrl() { return s_KadURL; }
 	static void SetKadNodesUrl(const wxString &url) { s_KadURL = url; }
 
-	static const wxString &GetEd2kServersUrl() { return s_Ed2kURL; }
-	static void SetEd2kServersUrl(const wxString &url) { s_Ed2kURL = url; }
+	static wxArrayString GetServerListURLs();
+	static bool SetServerListURLs(const wxArrayString &urls);
+	static wxString GetEd2kServersUrl();
+	static bool SetEd2kServersUrl(const wxString &url);
 
 	// Crypt
 	static bool IsClientCryptLayerSupported() { return s_IsClientCryptLayerSupported; }
@@ -1157,7 +1159,7 @@ protected:
 	// Drop slow sources if needed
 	static bool s_DropSlowSources;
 
-	static wxString s_Ed2kURL;
+	static wxArrayString s_serverListURLs;
 	static wxString s_KadURL;
 
 	// Crypt

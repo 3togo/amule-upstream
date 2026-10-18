@@ -330,34 +330,32 @@ responsibly.
 
 ### Server-list sources
 
-`addresses.dat` in the aMule configuration directory holds an ordered list of
-HTTP or HTTPS URLs for `server.met` files, one per line. Blank lines and lines
-beginning with `#` are ignored, as are unsupported URLs and duplicate entries.
-aMule reads the file when an update sequence begins, so edits apply to the next
-sequence without restarting. It does not create or rewrite this file or install
-a default backup source.
+`addresses.dat` in the aMule configuration directory is the single list of
+HTTP or HTTPS `server.met` source URLs, one per line. Blank lines, comments
+beginning with `#`, unsupported URLs and duplicates are skipped. A fresh install
+starts with `https://upd.emule-security.org/server.met`, the existing default;
+no additional source ships without project agreement. An existing empty file
+stays empty. A customised legacy `Ed2kServersUrl` moves to the top of the list
+once, after which that configuration key is removed.
 
-The existing automatic server-list update option downloads and merges all valid
-sources in order. Local users can edit the file through the Servers preferences
-editor. For a daemon, edit the file in the daemon's configuration directory;
-remote clients do not edit that file through this setting.
+Startup auto-update, first-run bootstrap, an empty daemon server list, and manual
+updates all download and merge every configured source in order. Failures and
+HTTP 304 responses advance to the next entry. Each download must validate in
+full before any of its records are imported; malformed or truncated files never
+replace the existing server list. Local damaged startup files can still be
+salvaged. Cancellation stops the sequence. Only one sequence runs at a time;
+edits during a download affect the next update, preserving the active snapshot.
 
-### Server-list download fallback
+The Networks tab and Servers preferences share the same list editor. amulegui
+edits the daemon's list through EC, without touching a local `addresses.dat`.
+amuleapi exposes `servers.update_urls` as an array and retains
+`servers.update_url` as a compatibility alias for its first entry. Updating the
+alias replaces the first entry while preserving the remaining sources. If both
+fields are supplied, the array takes precedence. The Web UI provides a multiline
+list editor and an update button; apply edits before starting an update.
 
-A manual or first-run download tries the requested URL first. If the URL is
-invalid, the request fails, or the downloaded list is invalid or truncated,
-aMule tries the valid
-`addresses.dat` entries in order until a complete list is imported. This also
-applies to explicitly entered URLs and requests from remote clients. Each
-source is tried at most once; the requested URL is skipped if it also appears
-in the file. Existing server entries are preserved when a download is invalid.
-
-A successful download, a not-modified response, or cancellation ends the
-sequence. An empty or absent `addresses.dat` disables additional attempts.
-Edits made during a download apply to the next sequence; overlapping manual
-requests do not replace the active sequence. Startup automatic updates continue
-to process their own source list independently.
-
-The former proposed `Ed2kServersFallbackUrl` setting is no longer used. If you
-used an earlier development build with that setting, put its intended backup
-URL in `addresses.dat` instead. No new backup URL is installed by default.
+`POST /api/v1/servers/update` (also `/api/v1/servers_update`) without `url`
+updates the configured list. An explicit URL, a Networks one-off download, or
+an `ed2k://|serverlist|URL|/` link fetches just that URL once and saves nothing.
+The proposed `Ed2kServersFallbackUrl` is no longer used; add any desired source
+to `addresses.dat` instead.

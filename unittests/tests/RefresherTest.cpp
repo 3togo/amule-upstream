@@ -2390,6 +2390,10 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 	CECEmptyTag srv(EC_TAG_PREFS_SERVERS);
 	srv.AddTag(CECTag(EC_TAG_SERVERS_DEAD_SERVER_RETRIES, static_cast<std::uint16_t>(5)));
 	srv.AddTag(CECTag(EC_TAG_SERVERS_UPDATE_URL, wxString::FromUTF8("http://srv")));
+	CECEmptyTag sources(EC_TAG_SERVERS_URL_LIST);
+	sources.AddTag(CECTag(EC_TAG_STRING, "http://srv"));
+	sources.AddTag(CECTag(EC_TAG_STRING, "https://backup"));
+	srv.AddTag(sources);
 	resp.AddTag(srv);
 
 	CECEmptyTag sec(EC_TAG_PREFS_SECURITY);
@@ -2446,6 +2450,9 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 
 	ASSERT_EQUALS(static_cast<std::uint32_t>(5), p.servers.dead_server_retry_count);
 	ASSERT_EQUALS(std::string("http://srv"), p.servers.update_url);
+	ASSERT_EQUALS(size_t(2), p.servers.update_urls.size());
+	ASSERT_EQUALS(std::string("http://srv"), p.servers.update_urls[0]);
+	ASSERT_EQUALS(std::string("https://backup"), p.servers.update_urls[1]);
 
 	// 3-state (#596): the middle/high value round-trips, not just 0/1, and
 	// decodes to its enum string rather than the wire int (#655).

@@ -3876,9 +3876,7 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 	case EC_OP_SERVER_UPDATE_FROM_URL: {
 		wxString url = request->GetFirstTagSafe()->GetStringData();
 
-		// Save the new url, and update the UI (if not amuled).
-		Notify_ServersURLChanged(url);
-		thePrefs::SetEd2kServersUrl(url);
+		// An empty URL updates the configured list; explicit URLs are never saved.
 
 		theApp->serverlist->UpdateServerMetFromURL(url);
 		response = new CECPacket(EC_OP_NOOP);
@@ -4071,7 +4069,13 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		const wxString oldBindInterface(thePrefs::GetNetworkInterface());
 		bool portRebindFailed = false;
 		wxString networkMessage;
-		static_cast<const CEC_Prefs_Packet *>(request)->Apply();
+		if (!static_cast<const CEC_Prefs_Packet *>(request)->Apply()) {
+			response = new CECPacket(EC_OP_FAILED);
+			response->AddTag(CECTag(EC_TAG_STRING,
+				_("Could not save the server list sources. Check the URLs and file "
+				  "permissions.")));
+			break;
+		}
 		// Apply() left any amuleapi password the client sent sitting in the
 		// preferences as a pending request; this is what turns it into a
 		// stored, stretched record in amuleapi-passwords. Logged rather than
