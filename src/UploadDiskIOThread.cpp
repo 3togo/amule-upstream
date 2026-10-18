@@ -171,8 +171,10 @@ void *CUploadDiskIOThread::Entry()
 // again, after checking the client and its request are still there.
 bool CUploadDiskIOThread::StartCreateNextBlockPackage(uint32 clientId, uint64 &readsThisSweep)
 {
-	uint64 bytesLeft = 10 * EMBLOCKSIZE;
-	unsigned readsLeft = 10;
+	// Reach the fast-slot refill watermark, which is one byte above ten full blocks.
+	// Stopping at ten reads can leave the socket below that watermark until it drains.
+	uint64 bytesLeft = 10 * EMBLOCKSIZE + 1;
+	unsigned readsLeft = 11;
 	std::vector<ReadRequest_Struct *> finishedReads;
 	finishedReads.reserve(readsLeft);
 	while (m_bRun && bytesLeft != 0 && readsLeft != 0) {
@@ -195,7 +197,7 @@ bool CUploadDiskIOThread::StartCreateNextBlockPackage(uint32 clientId, uint64 &r
 		dataQueued = ReadCompletionRoutine(req, readsThisSweep) || dataQueued;
 	}
 	// Dispatch this client's batch before another client's potentially slow read, with one
-	// throttler wake outside uploadLock. Retain at most ten read buffers for one client.
+	// throttler wake outside uploadLock. Retain at most eleven read buffers for one client.
 	if (dataQueued && theApp->uploadBandwidthThrottler != nullptr) {
 		theApp->uploadBandwidthThrottler->NewUploadDataAvailable();
 	}
