@@ -2824,6 +2824,12 @@ add_test (NAME RemoteDownloadEventsTest COMMAND RemoteDownloadEventsTest)
 target_include_directories (RemoteDownloadEventsTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (RemoteDownloadEventsTest muleunit mulecommon)
 
+# Download block reservations: no peer objects or network state.
+add_executable (BlockReservationTest BlockReservationTest.cpp)
+target_include_directories (BlockReservationTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (BlockReservationTest muleunit mulecommon)
+add_test (NAME BlockReservationTest COMMAND BlockReservationTest)
+
 add_executable (DiskSpaceResumeBudgetTest DiskSpaceResumeBudgetTest.cpp)
 target_include_directories (DiskSpaceResumeBudgetTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (DiskSpaceResumeBudgetTest muleunit mulecommon)
@@ -2898,6 +2904,11 @@ add_test (NAME AmuleApiProcessTest COMMAND AmuleApiProcessTest)
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND UNIX AND NOT APPLE)
 	find_package (Python3 QUIET COMPONENTS Interpreter)
 	if (Python3_Interpreter_FOUND)
+		add_test (NAME SharedMembershipIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/SharedMembershipIntegrationTest.py
+				$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
+		)
 		add_test (NAME CompletedFileDeleteIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/CompletedFileDeleteIntegrationTest.py
@@ -2946,4 +2957,19 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Int
 			$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
 	)
 	set_tests_properties (AmuleApiEcPasswordIntegrationTest PROPERTIES TIMEOUT 180)
+endif ()
+
+# Download diagnostics must never expose URL credentials to log/status readers.
+add_executable (DownloadUrlTest DownloadUrlTest.cpp)
+target_include_directories (DownloadUrlTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (DownloadUrlTest muleunit mulecommon)
+add_test (NAME DownloadUrlTest COMMAND DownloadUrlTest)
+
+if (ENABLE_INTEGRATION_TESTS AND ENABLE_IP2COUNTRY AND BUILD_DAEMON AND BUILD_AMULEAPI AND UNIX AND NOT APPLE)
+	find_package (Python3 QUIET COMPONENTS Interpreter)
+	if (Python3_Interpreter_FOUND)
+		add_test (NAME UpdateUrlPrivacyTest
+			COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/UpdateUrlPrivacyTest.py
+				$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>)
+	endif ()
 endif ()

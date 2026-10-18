@@ -141,12 +141,11 @@ env:
   # each with a 15 s watchdog. Give these tests 60 s; fast unit tests keep their 10 s budget.
   # Keep the budgets here rather than in TIMEOUT properties, which would also cap distro
   # builds that run ctest with no limit.
-  ctest_slow_unit_tests: '^(CredentialsTest|AmuleApiConfigTest|IntegrationFixtureUnitTest|UnicodeCommandLineIntegrationTest)$'
-  # Password CLI/EC smoke tests have their own required, verbose step on every platform.
+  ctest_slow_unit_tests: '^(CredentialsTest|AmuleApiConfigTest|IntegrationFixtureUnitTest|UnicodeCommandLineIntegrationTest|AmuleApiPasswordInputTest)$'
   # Integration tests start and restart real processes. Run them separately
   # on Ubuntu outside the fast unit-test time budget, with 300 s each so a hung daemon
   # still fails the job. AllSearchIntegrationTest takes about 15 s on the runners.
-  ctest_fast_exclude: '^(AmuleApiPasswordInputTest|AmuleApiEcPasswordIntegrationTest|CredentialsTest|AmuleApiConfigTest|IntegrationFixtureUnitTest|UnicodeCommandLineIntegrationTest|AmuleApiRestartIntegrationTest|AllSearchIntegrationTest|AllSearchClientCapabilityTest|ChatCaptchaIntegrationTest|PathDefaultsIntegrationTest|LogfilePathIntegrationTest|KadIndexLifecycleECTest|ShareWatcherMoveIntegrationTest|UploadRefillIntegrationTest|UploadRefillCompressedIntegrationTest|KnownHistoryIntegrationTest|KadDistributionECTest|KadPopulatedDistributionECTest|KadLookupECTest|KadPopulatedLookupECTest|CompletedFileDeleteIntegrationTest|CompletedFileDeleteCapabilityTest)$'
+  ctest_fast_exclude: '^(AmuleApiPasswordInputTest|AmuleApiEcPasswordIntegrationTest|CredentialsTest|AmuleApiConfigTest|IntegrationFixtureUnitTest|UnicodeCommandLineIntegrationTest|AmuleApiRestartIntegrationTest|AllSearchIntegrationTest|AllSearchClientCapabilityTest|ChatCaptchaIntegrationTest|PathDefaultsIntegrationTest|LogfilePathIntegrationTest|KadIndexLifecycleECTest|ShareWatcherMoveIntegrationTest|UploadRefillIntegrationTest|UploadRefillCompressedIntegrationTest|KnownHistoryIntegrationTest|KadDistributionECTest|KadPopulatedDistributionECTest|KadLookupECTest|KadPopulatedLookupECTest|CompletedFileDeleteIntegrationTest|CompletedFileDeleteCapabilityTest|SharedMembershipIntegrationTest)$'
 
 jobs:
   # Window IDs in muuli_wdr.h and each EC enum in the .abstract files must not repeat a value. Two
@@ -215,11 +214,7 @@ jobs:
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}' &&
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 60 -R '${{ env.ctest_slow_unit_tests }}'
       - name: run integration tests
-        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '^(AmuleApiRestartIntegration|AllSearch(Integration|ClientCapability)|ChatCaptchaIntegration|PathDefaultsIntegration|LogfilePathIntegration|KadIndexLifecycleEC|ShareWatcherMoveIntegration|UploadRefill(Compressed)?Integration|KnownHistoryIntegration|KadDistributionEC|KadPopulatedDistributionEC|Kad(Populated)?LookupEC|CompletedFileDelete(Integration|Capability))Test$'
-      - name: password setup smoke tests
-        run: |
-          ctest ${{ env.ctest_flags }} --verbose --timeout 180 --no-tests=error -R '^AmuleApiPasswordInputTest$' &&
-          ctest ${{ env.ctest_flags }} --verbose --timeout 180 --no-tests=error -R '^AmuleApiEcPasswordIntegrationTest$'
+        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '^(AmuleApiRestartIntegration|AllSearch(Integration|ClientCapability)|ChatCaptchaIntegration|PathDefaultsIntegration|LogfilePathIntegration|KadIndexLifecycleEC|ShareWatcherMoveIntegration|UploadRefill(Compressed)?Integration|KnownHistoryIntegration|KadDistributionEC|KadPopulatedDistributionEC|Kad(Populated)?LookupEC|CompletedFileDelete(Integration|Capability)|SharedMembershipIntegration|AmuleApiEcPasswordIntegration)Test$'
       # amuleapi_curl_smoke drives these two against a live daemon rather than
       # compiling its own copy. Release only: the smoke times SSE windows, and
       # a Debug daemon makes those flaky.
@@ -310,11 +305,7 @@ jobs:
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}' &&
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 60 -R '${{ env.ctest_slow_unit_tests }}'
       - name: run integration tests
-        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '^(AmuleApiRestartIntegration|AllSearch(Integration|ClientCapability)|ChatCaptchaIntegration|PathDefaultsIntegration|LogfilePathIntegration|KadIndexLifecycleEC|ShareWatcherMoveIntegration|UploadRefill(Compressed)?Integration|KnownHistoryIntegration|KadDistributionEC|KadPopulatedDistributionEC|Kad(Populated)?LookupEC|CompletedFileDelete(Integration|Capability))Test$'
-      - name: password setup smoke tests
-        run: |
-          ctest ${{ env.ctest_flags }} --verbose --timeout 180 --no-tests=error -R '^AmuleApiPasswordInputTest$' &&
-          ctest ${{ env.ctest_flags }} --verbose --timeout 180 --no-tests=error -R '^AmuleApiEcPasswordIntegrationTest$'
+        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '^(AmuleApiRestartIntegration|AllSearch(Integration|ClientCapability)|ChatCaptchaIntegration|PathDefaultsIntegration|LogfilePathIntegration|KadIndexLifecycleEC|ShareWatcherMoveIntegration|UploadRefill(Compressed)?Integration|KnownHistoryIntegration|KadDistributionEC|KadPopulatedDistributionEC|Kad(Populated)?LookupEC|CompletedFileDelete(Integration|Capability)|SharedMembershipIntegration|AmuleApiEcPasswordIntegration)Test$'
 
   # Configures with the oldest CMake that CMakeLists.txt declares, so the floor stays
   # true. Configure only: the build itself does not depend on the CMake version.
@@ -568,10 +559,6 @@ jobs:
         run: |
           ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}' &&
           ctest ${{ env.ctest_flags }} --timeout 60 -R '${{ env.ctest_slow_unit_tests }}'
-      - name: password setup smoke tests
-        run: |
-          ctest ${{ env.ctest_flags }} --verbose --timeout 180 --no-tests=error -R '^AmuleApiPasswordInputTest$' &&
-          ctest ${{ env.ctest_flags }} --verbose --timeout 180 --no-tests=error -R '^AmuleApiEcPasswordIntegrationTest$'
 
   build_cmake_windows_mingw_w64:
     name: Build CMake mingw-w64 (${{ matrix.build_type }})
@@ -679,10 +666,6 @@ jobs:
           export AMULE_ICON_TEST_DUMP_DIR="$(cygpath -w "$PWD/build/hang-dumps")"
           ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}' &&
           ctest ${{ env.ctest_flags }} --timeout 60 -R '${{ env.ctest_slow_unit_tests }}'
-      - name: password setup smoke tests
-        run: |
-          ctest ${{ env.ctest_flags }} --verbose --timeout 180 --no-tests=error -R '^AmuleApiPasswordInputTest$' &&
-          ctest ${{ env.ctest_flags }} --verbose --timeout 180 --no-tests=error -R '^AmuleApiEcPasswordIntegrationTest$'
       # The test binary is needed to symbolize the dump.
       - uses: actions/upload-artifact@v7
         if: failure() && hashFiles('build/hang-dumps/*.dmp') != ''

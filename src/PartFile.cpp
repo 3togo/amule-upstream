@@ -26,6 +26,7 @@
 #include <wx/wx.h>
 
 #include "PartFile.h"            // Interface declarations.
+#include "BlockReservation.h"    // Needed for selecting unreserved block intervals
 #include "PartFileWriteThread.h" // Needed for PB_READY etc.
 #include "PartMetWriter.h"       // Needed for CPartMetWriter
 #include "PartFileHashThread.h"  // Needed for QueueHashCheck
@@ -1087,7 +1088,6 @@ bool CPartFile::SavePartFile(bool now)
 	req.content.assign(file.GetRawBuffer(), file.GetRawBuffer() + file.GetLength());
 	req.metPath = m_fullname;
 	req.tmpPath = m_fullname.AppendExt(".tmp");
-	req.bakPath = m_fullname.AppendExt(PARTMET_BAK_EXT);
 	req.partPath = m_PartPath;
 	req.dir = GetFilePath();
 
@@ -1483,6 +1483,9 @@ bool CPartFile::IsAlreadyRequested(uint64 start, uint64 end)
 
 bool CPartFile::GetNextEmptyBlockInPart(uint16 partNumber, Requested_Block_Struct *result)
 {
+	if (partNumber >= GetPartCount() || GetPartSize(partNumber) == 0) {
+		return false;
+	}
 	// Find start of this part
 	uint64 partStart = (PARTSIZE * partNumber);
 	uint64 start = partStart;
@@ -1525,12 +1528,17 @@ bool CPartFile::GetNextEmptyBlockInPart(uint16 partNumber, Requested_Block_Struc
 		if (end > partEnd) {
 			end = partEnd;
 		}
-		// If this gap has not already been requested, we have found a valid entry
-		if (!IsAlreadyRequested(start, end)) {
+		// eMule ref: CPartFile::ShrinkToAvoidAlreadyRequested()
+		const auto available = FindUnreservedBlock(CBlockRange{ start, end },
+			m_requestedblocks_list,
+			[](const Requested_Block_Struct *block) {
+				return CBlockRange{ block->StartOffset, block->EndOffset };
+			});
+		if (available) {
 			// Was this block to be returned
 			if (result != NULL) {
-				result->StartOffset = start;
-				result->EndOffset = end;
+				result->StartOffset = available->start;
+				result->EndOffset = available->end;
 				md4cpy(result->FileID, GetFileHash().GetHash());
 				result->transferred = 0;
 			}
@@ -2702,6 +2710,14 @@ void CPartFile::Delete()
 			AddDebugLogLineN(logPartFile, "\tRemoved .seeds");
 		} else {
 			AddDebugLogLineC(logPartFile, CFormat("Failed to delete '%s'") % SEEDSName);
+		}
+	}
+
+	// WaitForMetSave above ensures the writer cannot recreate these after cleanup.
+	for (const char *ext : { ".tmp", ".bak.tmp" }) {
+		const CPath temporary = m_fullname.AppendExt(ext);
+		if (temporary.FileExists() && !CPath::RemoveFile(temporary)) {
+			AddDebugLogLineC(logPartFile, CFormat("Failed to delete '%s'") % temporary);
 		}
 	}
 
