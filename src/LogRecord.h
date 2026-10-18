@@ -47,13 +47,13 @@ inline const char *LogLevelName(LogLevel level)
 	case LogLevel::Debug:
 		return "DEBUG";
 	case LogLevel::Info:
-		return "INFO";
+		return "INFO ";
 	case LogLevel::Warning:
-		return "WARN";
+		return "WARN ";
 	case LogLevel::Error:
 		return "ERROR";
 	}
-	return "INFO";
+	return "INFO ";
 }
 
 struct CLogRecord
@@ -94,12 +94,13 @@ inline wxString FormatLogLines(const CLogRecord &record)
 	if (text.IsEmpty()) {
 		return "\n";
 	}
-	const wxDateTime utc = record.timestamp.ToUTC();
-	const wxString prefix = utc.Format("%Y-%m-%dT%H:%M:%S") +
-				wxString::Format(".%03uZ ", static_cast<unsigned>(utc.GetMillisecond())) +
-				LogLevelName(record.level) + " [" + record.category + "] ";
+	const wxString prefix =
+		record.timestamp.Format("%Y-%m-%dT%H:%M:%S") +
+		wxString::Format(".%03u", static_cast<unsigned>(record.timestamp.GetMillisecond())) +
+		record.timestamp.Format("%z") + " " + LogLevelName(record.level) + " " +
+		(record.category.IsEmpty() ? wxString() : "[" + record.category + "] ");
 	wxString result;
-	wxStringTokenizer tokens(text, "\n");
+	wxStringTokenizer tokens(text, "\n", wxTOKEN_RET_EMPTY);
 	while (tokens.HasMoreTokens()) {
 		result += prefix + tokens.GetNextToken() + "\n";
 	}

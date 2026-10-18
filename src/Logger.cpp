@@ -136,7 +136,7 @@ void CLogger::AddLogLine(const wxString &DEBUG_ONLY(file),
 #ifdef CLIENT_GUI
 		"remote-GUI";
 #else
-		"core";
+		"";
 #endif
 	// handle Debug messages
 	if (type != logStandard) {
@@ -254,7 +254,7 @@ void CLogger::DoLines(const CLogRecord &record, bool critical, bool toStdout, bo
 		DoLine(marker + "\n", toStdout, toGUI);
 		return;
 	}
-	wxStringTokenizer tokens(lines, "\n");
+	wxStringTokenizer tokens(lines, "\n", wxTOKEN_RET_EMPTY);
 	while (tokens.HasMoreTokens()) {
 		DoLine(marker + tokens.GetNextToken() + "\n", toStdout, toGUI);
 	}

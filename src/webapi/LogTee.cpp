@@ -191,13 +191,15 @@ std::string CLineStamper::Feed(const char *buf, std::size_t n)
 				continue;
 			}
 			// CLoggerConsole now emits complete timestamped records. Probe only the
-			// fixed UTC prefix, retaining it across arbitrary pipe-read boundaries.
-			static constexpr char pattern[] = "0000-00-00T00:00:00.000Z ";
+			// local-time prefix with numeric UTC offset across arbitrary read boundaries.
+			static constexpr char pattern[] = "0000-00-00T00:00:00.000+0000 ";
 			if (m_prefix.empty()) {
 				m_pendingStamp = m_clock();
 			}
 			const char expected = pattern[m_prefix.size()];
-			if (expected == '0' ? (buf[i] >= '0' && buf[i] <= '9') : buf[i] == expected) {
+			if (expected == '0' ? (buf[i] >= '0' && buf[i] <= '9')
+					    : (expected == '+' ? (buf[i] == '+' || buf[i] == '-')
+							       : buf[i] == expected)) {
 				m_prefix += buf[i++];
 				if (m_prefix.size() != sizeof(pattern) - 1) {
 					continue;

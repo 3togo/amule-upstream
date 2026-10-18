@@ -3,12 +3,21 @@
 Core logs and the console logger use UTF-8 text with an explicit severity:
 
 ```text
-2026-10-18T09:42:31.123Z INFO [core] Disconnected from eD2k
-2026-10-18T09:42:31.124Z WARN [wx] A warning
+2026-10-18T17:42:31.123+0800 INFO  Disconnected from eD2k
+2026-10-18T17:42:31.124+0800 WARN  [wx] A warning
 ```
 
-The timestamp is UTC with milliseconds and is captured before the core logger
-queues a worker-thread message. Each physical message line receives a prefix.
+The timestamp uses the emitting process's local time with milliseconds and a
+numeric UTC offset (`+0800` in this example). This keeps desktop times familiar
+and makes server logs unambiguous, including across daylight-saving transitions.
+Millisecond precision distinguishes bursts of messages within the same second.
+The instant is captured before the core logger queues a worker-thread message.
+Remote clients display the server's time and offset. Each physical message line,
+including interior blank lines, receives a prefix. An entirely blank record keeps
+the legacy blank-line behavior. Severity names occupy five columns; ordinary core
+messages have no subsystem tag. Named debug categories and explicit subsystems
+retain their tags.
+
 The levels are TRACE, DEBUG, INFO, WARN and ERROR. This change does not add a
 runtime level threshold or enable debug traces in release builds.
 
@@ -35,9 +44,22 @@ file/line details in legacy messages.
 The amuleapi descriptor tee still timestamps arbitrary stdout/stderr, including
 startup messages and crash output. Its direct diagnostics and wxLogStderr target
 retain their current format; migrating them is separate work. The tee recognizes
-the shared UTC prefix across pipe-read boundaries to avoid double timestamps on
-console logger records, while preserving raw-output capture and the crash
-descriptor. Rotation, the EC protocol and crash output remain unchanged.
+the shared local-time prefix with its numeric offset across pipe-read boundaries
+to avoid double timestamps on console logger records, while preserving
+raw-output capture and the crash descriptor. Rotation, the EC protocol and crash output remain unchanged.
 
 Runtime severity/category controls, classifying legacy status messages, optional
 JSON Lines output, and core logfile rotation can be introduced separately.
+
+## Review sequence for 3.2.0
+
+This format is a candidate for agreement in #1441, not a settled interface. It
+changes GUI, status-bar, Web UI, EC/API and file output, and belongs to 3.2.0.
+The proposed sequence is to review severity/format independently, then add
+runtime debug categories in Release with a benchmark against the current Release
+build with every category disabled. That follow-up must keep message construction
+behind the category check, preserve existing debug-only diagnostic blocks, and
+measure the disabled path before enabling it in production. It should include
+thread-safe category controls and their preferences/EC integration. This PR makes
+no claim about the performance of runtime categories. Maintainer agreement on
+this sequence remains pending.

@@ -94,7 +94,7 @@ std::string LocalLogStamp();
 
 // Prefixes each line with a timestamp as the bytes stream past. Stateful because a line can
 // span two reads. A line is stamped when its first byte arrives; blank lines are not stamped,
-// matching amuled. An existing UTC millisecond record prefix is passed through.
+// matching amuled. An existing local-time millisecond record prefix with UTC offset is passed through.
 class CLineStamper
 {
 public:

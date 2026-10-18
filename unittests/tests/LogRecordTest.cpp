@@ -23,6 +23,9 @@
 //
 
 #include <muleunit/test.h>
+#include "config.h"
+// Exercise the production macros rather than the unit-test no-op replacements.
+#undef MULEUNIT
 #include "Logger.h"
 #include <memory>
 
@@ -42,13 +45,16 @@ std::string Text(const wxString &text)
 {
 	return std::string(text.utf8_str());
 }
+std::string Stamp()
+{
+	return Text(FixedTime().Format("%Y-%m-%dT%H:%M:%S")) + ".123" + Text(FixedTime().Format("%z")) + " ";
+}
 } // namespace
 
-TEST(LogRecord, FormatsUtcMillisecondsAndUtf8)
+TEST(LogRecord, FormatsLocalMillisecondsAndUtf8)
 {
 	const CLogRecord record(LogLevel::Warning, "FileIO", wxString::FromUTF8("café"), FixedTime());
-	ASSERT_EQUALS(
-		std::string("1970-01-01T00:00:00.123Z WARN [FileIO] café\n"), Text(FormatLogLines(record)));
+	ASSERT_EQUALS(Stamp() + "WARN  [FileIO] café\n", Text(FormatLogLines(record)));
 }
 
 TEST(LogRecord, EverySeverityHasAnExplicitName)
@@ -56,22 +62,51 @@ TEST(LogRecord, EverySeverityHasAnExplicitName)
 	const LogLevel levels[] = {
 		LogLevel::Trace, LogLevel::Debug, LogLevel::Info, LogLevel::Warning, LogLevel::Error
 	};
-	const char *names[] = { "TRACE", "DEBUG", "INFO", "WARN", "ERROR" };
+	const char *names[] = { "TRACE", "DEBUG", "INFO ", "WARN ", "ERROR" };
 	for (unsigned i = 0; i < 5; ++i) {
-		const CLogRecord record(levels[i], "core", "message", FixedTime());
-		ASSERT_EQUALS(std::string("1970-01-01T00:00:00.123Z ") + names[i] + " [core] message\n",
-			Text(FormatLogLines(record)));
+		const CLogRecord record(levels[i], "", "message", FixedTime());
+		ASSERT_EQUALS(Stamp() + names[i] + " message\n", Text(FormatLogLines(record)));
 	}
 }
 
 TEST(LogRecord, PrefixesEveryPhysicalLine)
 {
-	const CLogRecord record(LogLevel::Info, "core", "first\nsecond\n", FixedTime());
-	ASSERT_EQUALS(std::string("1970-01-01T00:00:00.123Z INFO [core] first\n"
-				  "1970-01-01T00:00:00.123Z INFO [core] second\n"),
-		Text(FormatLogLines(record)));
+	const CLogRecord record(LogLevel::Info, "", "first\nsecond\n", FixedTime());
+	ASSERT_EQUALS(Stamp() + "INFO  first\n" + Stamp() + "INFO  second\n", Text(FormatLogLines(record)));
 	ASSERT_EQUALS(std::string("\n"),
-		Text(FormatLogLines(CLogRecord(LogLevel::Info, "core", " \n\t", FixedTime()))));
+		Text(FormatLogLines(CLogRecord(LogLevel::Info, "", " \n\t", FixedTime()))));
+}
+
+TEST(LogRecord, PreservesInteriorBlankLines)
+{
+	const CLogRecord record(LogLevel::Info, "", "first\n\nthird", FixedTime());
+	ASSERT_EQUALS(Stamp() + "INFO  first\n" + Stamp() + "INFO  \n" + Stamp() + "INFO  third\n",
+		Text(FormatLogLines(record)));
+}
+
+TEST(LogRecord, DebugMacrosAreSingleStatements)
+{
+	bool alternate = false;
+	if (false)
+		AddDebugLogLineN(logGeneral, "unreachable");
+	else
+		alternate = true;
+	ASSERT_TRUE(alternate);
+	alternate = false;
+	if (false)
+		AddDebugLogLineF(logGeneral, "unreachable");
+	else
+		alternate = true;
+	ASSERT_TRUE(alternate);
+}
+
+TEST(LogRecord, DisabledDebugMacrosDoNotEvaluateMessages)
+{
+	theLogger.SetVerbose(false);
+	int evaluations = 0;
+	AddDebugLogLineN(logGeneral, (++evaluations, wxString("unused")));
+	AddDebugLogLineF(logGeneral, (++evaluations, wxString("unused")));
+	ASSERT_EQUALS(0, evaluations);
 }
 
 TEST(LogRecord, MarkersEncodeVisibilityRatherThanSeverity)
@@ -91,8 +126,7 @@ TEST(LogRecord, EventCloneRetainsEmissionTimeAndIndependentStorage)
 	record.message = "changed after queueing";
 	record.category = "changed";
 	record.timestamp = wxDateTime::UNow();
-	ASSERT_EQUALS(std::string("1970-01-01T00:00:00.123Z ERROR [FileIO] original\n"),
-		Text(FormatLogLines(copy.Record())));
+	ASSERT_EQUALS(Stamp() + "ERROR [FileIO] original\n", Text(FormatLogLines(copy.Record())));
 	ASSERT_TRUE(!copy.IsCritical());
 	ASSERT_TRUE(copy.ToStdout());
 	ASSERT_TRUE(copy.ToGUI());

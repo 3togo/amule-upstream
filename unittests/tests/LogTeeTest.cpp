@@ -406,23 +406,30 @@ TEST(LogTee, StamperOutputIndependentOfReadBoundaries)
 
 TEST(LogTee, StructuredRecordIsNotTimestampedTwice)
 {
-	const std::string input = "1970-01-01T00:00:00.123Z ERROR [console] café\n";
-	for (std::size_t split = 0; split <= input.size(); ++split) {
+	for (const std::string offset : { "+0800", "-0430", "+0000" }) {
+		const std::string input = "1970-01-01T00:00:00.123" + offset + " INFO  café\n";
+		for (std::size_t split = 0; split <= input.size(); ++split) {
+			FakeClock clock;
+			CLineStamper stamper(clock.Get());
+			std::string out = stamper.Feed(input.data(), split);
+			out += stamper.Feed(input.data() + split, input.size() - split);
+			out += stamper.Flush();
+			ASSERT_EQUALS(input, out);
+		}
 		FakeClock clock;
 		CLineStamper stamper(clock.Get());
-		std::string out = stamper.Feed(input.data(), split);
-		out += stamper.Feed(input.data() + split, input.size() - split);
-		out += stamper.Flush();
-		ASSERT_EQUALS(input, out);
+		ASSERT_EQUALS(input, FeedInChunks(stamper, input, 1));
 	}
-	FakeClock clock;
-	CLineStamper stamper(clock.Get());
-	ASSERT_EQUALS(input, FeedInChunks(stamper, input, 1));
 }
 
 TEST(LogTee, TimestampProbeDoesNotLoseRawOutput)
 {
-	for (const std::string input : { "2026", "2026-10-18T00:00:00.123X raw\n", "123\n", "1\r\n" }) {
+	for (const std::string input : { "2026",
+		     "2026-10-18T00:00:00.123X raw\n",
+		     "2026-10-18T00:00:00.123+08",
+		     "2026-10-18T00:00:00.123*0800 raw\n",
+		     "123\n",
+		     "1\r\n" }) {
 		FakeClock clock;
 		CLineStamper stamper(clock.Get());
 		std::string out = FeedInChunks(stamper, input, 1);
@@ -439,7 +446,7 @@ TEST(LogTee, TeePreservesStructuredRecordsAndFlushesIncompleteProbe)
 	const std::string outPath = TmpPath("_structured.out");
 	const std::string errPath = TmpPath("_structured.err");
 	Cleanup(path);
-	const std::string record = "1970-01-01T00:00:00.123Z ERROR [console] message\n";
+	const std::string record = "1970-01-01T00:00:00.123+0800 ERROR [console] message\n";
 	bool installed = false;
 	{
 		CConsoleCapture capture(outPath, errPath);

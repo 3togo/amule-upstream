@@ -399,13 +399,16 @@ public:
 	} while (false)
 #else
 // New call sites can express severity without requesting a status-bar update.
-#define AddLogLineWarning(string) theLogger.Log(LogLevel::Warning, "core", string)
-#define AddLogLineError(string) theLogger.Log(LogLevel::Error, "core", string)
+#define AddLogLineWarning(string) theLogger.Log(LogLevel::Warning, "", string)
+#define AddLogLineError(string) theLogger.Log(LogLevel::Error, "", string)
 // Macros for 'N'on critical logging
 #ifdef __DEBUG__
 #define AddDebugLogLineN(type, string) \
-	if (theLogger.IsEnabled(type)) \
-	theLogger.AddLogLine(__TFILE__, __LINE__, false, type, string)
+	do { \
+		if (theLogger.IsEnabled(type)) { \
+			theLogger.AddLogLine(__TFILE__, __LINE__, false, type, string); \
+		} \
+	} while (false)
 #else
 #define AddDebugLogLineN(type, string) \
 	do { \
@@ -420,8 +423,11 @@ public:
 // Macros for logging to logfile only
 #ifdef __DEBUG__
 #define AddDebugLogLineF(type, string) \
-	if (theLogger.IsEnabled(type)) \
-	theLogger.AddLogLine(__TFILE__, __LINE__, false, type, string, false, false)
+	do { \
+		if (theLogger.IsEnabled(type)) { \
+			theLogger.AddLogLine(__TFILE__, __LINE__, false, type, string, false, false); \
+		} \
+	} while (false)
 #else
 #define AddDebugLogLineF(type, string) \
 	do { \
