@@ -158,7 +158,7 @@ turns red into blue/black over hours.
 ## Re-verify requested shared files
 
 In aMule or amulegui, open **Preferences → Files → Uploads** and set
-**Re-verify requested shared files every N days (0 = off)**. The same setting
+**Re-verify requested shared files every N days**; 0 turns it off. The same setting
 is available under **Files → Uploads** in the WebUI, or through the amuleapi
 `files.shared_file_reverify_days` preference. The default is `0` (off) in all
 interfaces. The interval is stored as an unsigned 32-bit number, with a supported
