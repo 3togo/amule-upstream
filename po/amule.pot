@@ -5132,15 +5132,15 @@ msgid "Add new shared files with auto priority"
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Re-verify requested shared files every"
+msgid "Verify local data of requested shared files every"
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Check requested completed shared files in the background. Uploads continue during checks. 0 turns automatic checks off."
+msgid "Re-read requested complete files in the background and compare them with their stored MD4/AICH hashes, as Verify Local Data does. Corrupt parts stop being shared. Uploads continue during the check."
 msgstr ""
 
-#: src/muuli_wdr.cpp src/OtherFunctions.cpp
-msgid "days"
+#: src/muuli_wdr.cpp
+msgid "days (0 = off)"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -6172,6 +6172,10 @@ msgstr ""
 
 #: src/OtherFunctions.cpp
 msgid "hours"
+msgstr ""
+
+#: src/OtherFunctions.cpp
+msgid "days"
 msgstr ""
 
 #. TRANSLATORS:
