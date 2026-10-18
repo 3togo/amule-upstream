@@ -14,6 +14,8 @@ from AllSearchIntegrationTest import (C, connect_daemon, free_ports,
 from DaemonConfig import write_amule_conf
 
 STAMP = r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z'
+# Legacy macros include a source basename and line number in Debug builds.
+SOURCE = r'(?:[^()\r\n]+\(\d+\): )?'
 
 
 def run(binary):
@@ -41,7 +43,7 @@ def run(binary):
                     # C still means status-bar visibility, and retains INFO severity.
                     marker = '!' if status else ' '
                     pattern = re.compile(re.escape(marker) + STAMP
-                                         + r' INFO \[core\] ' + re.escape(message))
+                                         + r' INFO \[core\] ' + SOURCE + re.escape(message))
                     disk = (root / 'logfile').read_text(encoding='utf-8')
                     match = next((line for line in disk.splitlines() if pattern.fullmatch(line)), None)
                     assert match is not None, disk
