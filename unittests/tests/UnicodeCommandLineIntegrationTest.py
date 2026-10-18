@@ -27,9 +27,16 @@ def main():
             profile = str(root) + (os.sep if index == 2 else '')
             config_args = ([f'--config-dir={profile}'] if index == 1 else ['-c', profile])
             link = 'ed2k://|file|file д 漢 😀.bin|1|0123456789ABCDEF0123456789ABCDEF|/'
-            result = subprocess.run(
-                [binary, *config_args, '--log-file', str(blocked_log), link],
-                cwd=base, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=15)
+            print(f'Unicode arguments case {index + 1}: starting ({ascii(profile)})', flush=True)
+            try:
+                result = subprocess.run(
+                    [binary, *config_args, '--log-file', str(blocked_log), link],
+                    cwd=base, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=15)
+            except subprocess.TimeoutExpired as error:
+                output = (error.output or b'').decode('utf-8', errors='replace')
+                raise AssertionError(
+                    f'Unicode arguments case {index + 1}: daemon exceeded 15 seconds\n{output}'
+                ) from error
             output = result.stdout.decode('utf-8', errors='replace')
             assert result.returncode != 0, output
             assert 'ERROR: invalid log file path' in output, output
