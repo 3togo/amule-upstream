@@ -138,7 +138,8 @@ env:
   # CredentialsTest and AmuleApiConfigTest run the production 210,000-iteration PBKDF2.
   # IntegrationFixtureUnitTest also needs room for Python startup and temporary-file I/O
   # on Windows runners. UnicodeCommandLineIntegrationTest launches three daemon processes,
-  # each with a 15 s watchdog. Give these tests 60 s; fast unit tests keep their 10 s budget.
+  # each with a 15 s watchdog. AmuleApiPasswordInputTest exercises setup and native
+  # terminal input without a daemon. Give these tests 60 s; fast unit tests keep their 10 s budget.
   # Keep the budgets here rather than in TIMEOUT properties, which would also cap distro
   # builds that run ctest with no limit.
   ctest_slow_unit_tests: '^(CredentialsTest|AmuleApiConfigTest|IntegrationFixtureUnitTest|UnicodeCommandLineIntegrationTest|AmuleApiPasswordInputTest)$'

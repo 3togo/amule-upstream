@@ -194,7 +194,7 @@ private:
 	bool UsesConnectorConfigFile() const override { return false; }
 	// No -P/--password: it would put the EC secret in argv, where ps exposes it to every local
 	// user. amuleapi gets the credential from the token the core writes when it spawns us, or
-	// from [EC]/PasswordMD5 (or legacy Password) in amuleapi.conf.
+	// from [EC]/PasswordMD5 (or plaintext Password) in amuleapi.conf.
 	bool UsesEcPasswordOption() const override { return false; }
 
 	// amuleapi keeps its settings in amuleapi.conf and never reads or writes

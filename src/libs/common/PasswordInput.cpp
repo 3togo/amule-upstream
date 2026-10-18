@@ -19,7 +19,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
 #include "PasswordInput.h"
@@ -163,12 +163,26 @@ bool ReadTerminalLine(std::string &line)
 			return false;
 		}
 		if (c == L'\r' || c == L'\n') {
-			line = std::string(wxString(wide).utf8_str());
+			const auto utf8 = wxString(wide).utf8_str();
+			if (!wide.empty() && utf8.length() == 0) {
+				return false;
+			}
+			if (utf8.length() == 0) {
+				line.clear();
+			} else {
+				line.assign(utf8.data(), utf8.length());
+			}
 			return true;
 		}
 		if (c == L'\b') {
 			if (!wide.empty()) {
+				const wchar_t last = wide.back();
 				wide.pop_back();
+				// A supplementary character occupies two UTF-16 code units.
+				if (last >= 0xDC00 && last <= 0xDFFF && !wide.empty() &&
+					wide.back() >= 0xD800 && wide.back() <= 0xDBFF) {
+					wide.pop_back();
+				}
 			}
 		} else {
 			wide += c;

@@ -424,14 +424,16 @@ TEST(AmuleApiConfig, ExplicitEcDigestIsNotHashedAgain)
 {
 	CAmuleApiConfig cfg;
 	ASSERT_TRUE(LoadHandWrittenConf("ec-md5", "[EC]\nPasswordMD5=ABCDEF0123456789ABCDEF0123456789", cfg));
+	ASSERT_TRUE(cfg.ValidateEcPassword());
 	ASSERT_TRUE(cfg.EcCfg().password.empty());
 	ASSERT_EQUALS(std::string("ABCDEF0123456789ABCDEF0123456789"), cfg.EcCfg().password_md5);
 }
 
-TEST(AmuleApiConfig, LegacyHexPlaintextRemainsPlaintext)
+TEST(AmuleApiConfig, HexPlaintextRemainsPlaintext)
 {
 	CAmuleApiConfig cfg;
 	ASSERT_TRUE(LoadHandWrittenConf("ec-plain", "[EC]\nPassword=abcdef0123456789abcdef0123456789", cfg));
+	ASSERT_TRUE(cfg.ValidateEcPassword());
 	ASSERT_EQUALS(std::string("abcdef0123456789abcdef0123456789"), cfg.EcCfg().password);
 	ASSERT_TRUE(cfg.EcCfg().password_md5.empty());
 }
@@ -439,8 +441,9 @@ TEST(AmuleApiConfig, LegacyHexPlaintextRemainsPlaintext)
 TEST(AmuleApiConfig, ConflictingEcSecretsAreRejected)
 {
 	CAmuleApiConfig cfg;
-	ASSERT_FALSE(LoadHandWrittenConf(
+	ASSERT_TRUE(LoadHandWrittenConf(
 		"ec-conflict", "[EC]\nPassword=plain\nPasswordMD5=abcdef0123456789abcdef0123456789", cfg));
+	ASSERT_FALSE(cfg.ValidateEcPassword());
 	ASSERT_TRUE(cfg.LastError().find("cannot both be nonempty") != std::string::npos);
 }
 
@@ -449,8 +452,9 @@ TEST(AmuleApiConfig, MalformedEcDigestIsRejected)
 	for (const char *digest :
 		{ "short", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", "abcdef0123456789abcdef01234567890" }) {
 		CAmuleApiConfig cfg;
-		ASSERT_FALSE(
+		ASSERT_TRUE(
 			LoadHandWrittenConf("ec-invalid", std::string("[EC]\nPasswordMD5=") + digest, cfg));
+		ASSERT_FALSE(cfg.ValidateEcPassword());
 		ASSERT_TRUE(cfg.LastError().find("32 hexadecimal") != std::string::npos);
 	}
 }

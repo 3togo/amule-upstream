@@ -85,16 +85,8 @@ EOF does not. Choose exactly one password setter per invocation.
 .B_untranslated [ \-\-set\-ec\-pass\-stdin ]
 Read the existing EC password from stdin (hidden on a terminal, without
 confirmation), write its MD5 digest to [EC]/PasswordMD5 in amuleapi.conf,
-remove the legacy plaintext [EC]/Password key, and exit. Other settings are
-preserved; INI formatting and comments may change. Empty input is rejected.
-The digest remains sufficient to authenticate and must be kept secret.
-Configurations containing both nonempty fields, or an invalid digest, are
-rejected without changing the stored credentials. To migrate a configuration
-with both fields nonempty, first remove PasswordMD5 to keep the legacy
-plaintext Password entry, then
-run this command and enter the existing core EC password. The core's password
-is unchanged. Use the same \fB\-\-config\-dir\fR for setup and normal startup
-when using a custom profile.
+remove the plaintext [EC]/Password key, and exit. Other settings are preserved;
+INI formatting and comments may change. Empty input is rejected.
 .TP
 \fB[ \-\-set\-admin\-pass\fR=\fI<plain>\fR \fB]\fR
 Set the admin password to \fI<plain>\fR, storing it salted and
@@ -136,19 +128,11 @@ Settings file: HTTP address and port, the connection to amuled, login
 rate limits and event\-stream sizing. The QUICKSTART document shipped with
 the source has the full reference.
 .IP
-Use only one nonempty EC password field. Legacy \fB[EC]/Password\fR always
-means plaintext, even for a password consisting of 32 hexadecimal characters;
-amuleapi computes its MD5 locally. \fB[EC]/PasswordMD5\fR must contain exactly
-32 hexadecimal characters and supplies the digest without hashing it again
-at the configuration step.
-.IP
-If both fields are nonempty, configuration loading fails before any EC
-connection, even if they represent the same password. Neither takes
-precedence; an empty entry does not conflict. Migrate with
-\fB\-\-set\-ec\-pass\-stdin\fR, which atomically writes PasswordMD5 and removes
-Password. When manually copying a digest from remote.conf into PasswordMD5,
-also remove Password from amuleapi.conf. The digest remains sufficient to
-authenticate and must be kept secret.
+For standalone use, set the EC password with \fB\-\-set\-ec\-pass\-stdin\fR,
+or copy its MD5 digest from [EC]/Password in remote.conf to [EC]/PasswordMD5
+here. Plaintext [EC]/Password is also supported. Set only one: amuleapi refuses
+to start if both are nonempty or PasswordMD5 is not 32 hexadecimal characters.
+The digest logs in to amuled just like the password, so keep this file private.
 .TP
 \fI~/.aMule/amuleapi\-jwt\-secret\fR
 Key used to sign login tokens. Created on first launch. Deleting it signs
@@ -157,7 +141,7 @@ out everyone.
 \fI~/.aMule/amuleapi\-passwords\fR
 The admin and guest passwords, stored so they cannot be read back, only
 replaced. This is the only place they are kept. Set them with
-\fB\-\-set\-admin\-pass\fR / \fB\-\-set\-guest\-pass\fR, from the REST API, or
+\fB\-\-set\-admin\-pass\-stdin\fR / \fB\-\-set\-guest\-pass\-stdin\fR, from the REST API, or
 from the Remote Controls preferences in \fBamule\fR(1). A change applies at
 the next login and signs out anyone already logged in.
 .TP
@@ -166,7 +150,7 @@ Short\-lived login token, written by \fBamule\fR(1) / \fBamuled\fR(1) when
 they start amuleapi themselves. Created fresh each time, read once and
 deleted straight away, so an auto\-started amuleapi needs no EC password of
 its own. Started by hand, amuleapi finds no token and uses
-\fB[EC]/PasswordMD5\fR (or legacy plaintext \fB[EC]/Password\fR) from \fIamuleapi.conf\fR instead. There is no
+\fB[EC]/PasswordMD5\fR (or plaintext \fB[EC]/Password\fR) from \fIamuleapi.conf\fR instead. There is no
 \fB\-\-password\fR option: a password given on the command line is visible
 through \fBps\fR(1) for the lifetime of the process, and can persist
 in shell history, service unit files and wrapper scripts.

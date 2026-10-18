@@ -193,7 +193,7 @@ void CamuleapiApp::OnInitCmdLine(wxCmdLineParser &parser)
 	parser.AddSwitch("",
 		"set-ec-pass-stdin",
 		_("Read the EC password from stdin (hidden on a terminal), write PasswordMD5 and remove "
-		  "legacy Password, then exit."));
+		  "plaintext Password, then exit."));
 	parser.AddSwitch("", "foreground", _("Stay in the foreground; default."), wxCMD_LINE_PARAM_OPTIONAL);
 	AddLogFileOptions(parser);
 	// No --daemon: operators wanting fork-into-background wrap amuleapi in
@@ -365,7 +365,7 @@ bool CamuleapiApp::LoadAmuleapiConfig()
 {
 	const wxString config_dir = m_cliConfigDirOverride.IsEmpty() ? m_configDir : m_cliConfigDirOverride;
 
-	if (!m_apiConfig.Load(config_dir)) {
+	if (!m_apiConfig.Load(config_dir) || !m_apiConfig.ValidateEcPassword()) {
 		Show(CFormat("amuleapi: failed to load config: %s\n") %
 			wxString::FromUTF8(m_apiConfig.LastError().c_str()));
 		return false;
@@ -393,7 +393,6 @@ bool CamuleapiApp::LoadAmuleapiConfig()
 	} else if (!m_apiConfig.EcCfg().password.empty()) {
 		const wxString plain = wxString::FromUTF8(m_apiConfig.EcCfg().password.c_str());
 		m_password.Decode(MD5Sum(plain).GetHash());
-		Show("amuleapi: legacy plaintext [EC]/Password; migrate with --set-ec-pass-stdin.\n");
 	}
 
 	// Ephemeral EC token, if the aMule core that spawned us left one. Both sides derive the
@@ -458,7 +457,7 @@ int CamuleapiApp::RunSetEcPass()
 		std::cerr << "amuleapi: --set-ec-pass-stdin failed: " << m_apiConfig.LastError() << '\n';
 		return 1;
 	}
-	Show("amuleapi: EC PasswordMD5 updated; legacy Password removed.\n");
+	Show("amuleapi: EC PasswordMD5 updated; plaintext Password removed.\n");
 	return 0;
 }
 

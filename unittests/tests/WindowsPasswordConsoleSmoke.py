@@ -99,6 +99,9 @@ def run(binary, config_dir, scenario):
                     record.kind = 1  # KEY_EVENT
                     if character in ('\x03', '\x1a'):
                         virtual_key, control = (0x43 if character == '\x03' else 0x5A), 0x8
+                    elif 0xD800 <= ord(character) <= 0xDFFF:
+                        # Inject UTF-16 units directly, as ReadConsoleW receives them.
+                        virtual_key, control = 0, 0
                     else:
                         mapping = user.VkKeyScanW(character)
                         assert mapping != -1, 'unmappable console test key'
@@ -115,11 +118,23 @@ def run(binary, config_dir, scenario):
             type_keys('\x03')  # ReadConsoleW receives Ctrl-C while processed input is off.
         elif scenario == 'eof':
             type_keys('\x1a')  # Explicit Windows end-of-input control character.
+        elif scenario == 'invalid-surrogate':
+            type_keys('\ud83d\r')
         else:
-            type_keys(secret.decode() + '\r')
+            emoji = '\ud83d\ude00'
+            first = secret.decode()
+            second = first if scenario != 'mismatch' else 'other-secret'
+            if scenario == 'emoji-delete':
+                first += emoji + '\b'
+            elif scenario == 'emoji-keep':
+                first += emoji
+                second += emoji
+            type_keys(first + '\r')
             prompt(b'Confirm password: ')
-            type_keys(('terminal-secret' if scenario == 'success' else 'other-secret') + '\r')
+            type_keys(second + '\r')
         result = process.wait(timeout=10)
+        if scenario == 'invalid-surrogate':
+            assert result == 1, ('invalid UTF-16 must fail cleanly', result)
         reader.join(timeout=5)
         assert not reader.is_alive(), 'stderr reader did not finish'
         assert mode() == before, 'console input mode was not restored'

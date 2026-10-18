@@ -115,28 +115,65 @@ class PasswordInputTest(unittest.TestCase):
             self.assertIn(b'exactly one', result.stderr)
             self.assertEqual(list(self.root.iterdir()), [])
 
-    def test_bad_config_is_failure_for_setup(self):
+    def test_setup_repairs_bad_ec_fields_and_role_setup_ignores_them(self):
         conf = self.root / 'amuleapi.conf'
+        token = self.root / 'amuleapi-ec-token'
         for content in ('[EC]\nPasswordMD5=invalid\n',
                         '[EC]\nPassword=plain\nPasswordMD5=' + 'a' * 32 + '\n'):
             conf.write_text(content)
             conf.chmod(0o600)
-            self.assertNotEqual(self.run_cli('--set-admin-pass-stdin').returncode, 0)
-            self.assertEqual(conf.read_text(), content)
+            token.write_text('must-not-be-consumed\n')
+            for setter in ('--set-admin-pass-stdin', '--set-guest-pass-stdin',
+                           '--set-admin-pass=literal', '--set-guest-pass=literal'):
+                self.assert_ok(self.run_cli(setter))
+                self.assertEqual(conf.read_text(), content)
+            self.assert_ok(self.run_cli('--set-ec-pass-stdin'))
+            cfg = configparser.ConfigParser()
+            cfg.read(conf)
+            self.assertEqual(cfg['EC']['PasswordMD5'], hashlib.md5(b'secret').hexdigest())
+            self.assertNotIn('Password', cfg['EC'])
+            self.assertEqual(token.read_text(), 'must-not-be-consumed\n')
+
+    def test_startup_rejects_bad_ec_fields_without_consuming_token(self):
+        conf = self.root / 'amuleapi.conf'
+        token = self.root / 'amuleapi-ec-token'
+        for fields, diagnostic in (('PasswordMD5=invalid', b'32 hexadecimal'),
+                ('Password=plain\nPasswordMD5=' + 'a' * 32, b'cannot both be nonempty')):
+            conf.write_text('[EC]\n' + fields + '\n')
+            conf.chmod(0o600)
+            token.write_text('a' * 32 + '\n')
+            token.chmod(0o600)
+            result = self.run_cli('--no-log-file')
+            self.assertIn(diagnostic, result.stdout + result.stderr)
+            self.assertEqual(token.read_text(), 'a' * 32 + '\n')
+
+    @unittest.skipUnless(os.name == 'nt', 'native UTF-16 console input is Windows only')
+    def test_terminal_utf16_backspace_and_invalid_surrogates(self):
+        for scenario in ('emoji-delete', 'emoji-keep', 'invalid-surrogate'):
+            before = self.credentials() if (self.root / 'amuleapi-passwords').exists() else None
+            result = self.windows_terminal(scenario)
+            if scenario == 'invalid-surrogate':
+                self.assertEqual(result, 1)
+                self.assertEqual(self.credentials(), before)
+            else:
+                self.assertEqual(result, 0)
+
+    def windows_terminal(self, scenario):
+        startup = subprocess.STARTUPINFO()
+        startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup.wShowWindow = subprocess.SW_HIDE
+        result = subprocess.run([sys.executable,
+            str(Path(__file__).with_name('WindowsPasswordConsoleSmoke.py')),
+            BINARY, str(self.root), scenario], capture_output=True, timeout=30,
+            creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startup)
+        self.assert_ok(result)
+        return json.loads(result.stdout)['returncode']
 
     def terminal(self, first, second=None, cancel=False, eof=False):
         if os.name == 'nt':
             scenario = 'cancel' if cancel else ('eof' if eof else
                        ('success' if first == second else 'mismatch'))
-            startup = subprocess.STARTUPINFO()
-            startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startup.wShowWindow = subprocess.SW_HIDE
-            result = subprocess.run([sys.executable,
-                str(Path(__file__).with_name('WindowsPasswordConsoleSmoke.py')),
-                BINARY, str(self.root), scenario], capture_output=True, timeout=30,
-                creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startup)
-            self.assert_ok(result)
-            return json.loads(result.stdout)['returncode']
+            return self.windows_terminal(scenario)
         import termios
         master, slave = os.openpty()
         self.addCleanup(os.close, master)

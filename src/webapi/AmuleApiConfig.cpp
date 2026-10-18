@@ -258,16 +258,6 @@ bool CAmuleApiConfig::LoadAmuleapiConf(const wxString &path)
 	if (cfg.Read("/EC/PasswordMD5", &s)) {
 		m_ec.password_md5 = std::string(s.utf8_str());
 	}
-	if (!m_ec.password.empty() && !m_ec.password_md5.empty()) {
-		m_lastError = "[EC]/Password and [EC]/PasswordMD5 cannot both be nonempty; remove one";
-		return false;
-	}
-	std::vector<unsigned char> decoded;
-	if (!m_ec.password_md5.empty() &&
-		(m_ec.password_md5.size() != 32 || !HexDecode(m_ec.password_md5, decoded))) {
-		m_lastError = "[EC]/PasswordMD5 must contain exactly 32 hexadecimal characters";
-		return false;
-	}
 	if (cfg.Read("/EC/Encryption", &n)) {
 		m_ec.encryption = (n != 0);
 	}
@@ -306,6 +296,22 @@ bool CAmuleApiConfig::LoadAmuleapiConf(const wxString &path)
 		m_streaming.max_concurrent_file_responses = static_cast<unsigned>(n);
 	}
 
+	return true;
+}
+
+bool CAmuleApiConfig::ValidateEcPassword()
+{
+	m_lastError.clear();
+	if (!m_ec.password.empty() && !m_ec.password_md5.empty()) {
+		m_lastError = "[EC]/Password and [EC]/PasswordMD5 cannot both be nonempty; remove one";
+		return false;
+	}
+	std::vector<unsigned char> decoded;
+	if (!m_ec.password_md5.empty() &&
+		(m_ec.password_md5.size() != 32 || !HexDecode(m_ec.password_md5, decoded))) {
+		m_lastError = "[EC]/PasswordMD5 must contain exactly 32 hexadecimal characters";
+		return false;
+	}
 	return true;
 }
 
