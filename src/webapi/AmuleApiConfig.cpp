@@ -180,7 +180,7 @@ bool CAmuleApiConfig::LoadAmuleapiConf(const wxString &path)
 			       "TokenLockoutSeconds=300\n"
 			       "\n"
 			       "[Metrics]\n"
-			       "Enabled=0\n"
+			       "Enabled=1\n"
 			       "Token=\n"
 			       "\n"
 			       "[Streaming]\n"
@@ -285,7 +285,7 @@ bool CAmuleApiConfig::LoadAmuleapiConf(const wxString &path)
 		m_auth.token_lockout_seconds = static_cast<unsigned>(n);
 	}
 
-	// Metrics are opt-in on every load, including when a reused config object reads
+	// Restore defaults on every load, including when a reused config object reads
 	// a profile without a Metrics section. Never retain a previous scrape credential.
 	m_metrics = Metrics{};
 	if (cfg.Read("/Metrics/Enabled", &n)) {
@@ -294,7 +294,7 @@ bool CAmuleApiConfig::LoadAmuleapiConf(const wxString &path)
 	if (cfg.Read("/Metrics/Token", &s)) {
 		m_metrics.token = std::string(s.utf8_str());
 	}
-	if (m_metrics.enabled) {
+	if (m_metrics.IsActive()) {
 		// RFC 6750 b64token alphabet: a printable token that survives a bearer header
 		// unchanged. Require a useful minimum length; generate 32 random bytes in practice.
 		const auto &token = m_metrics.token;

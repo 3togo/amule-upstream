@@ -98,8 +98,10 @@ public:
 
 	struct Metrics
 	{
-		bool enabled = false;
+		// Local to amuleapi; other EC clients never enable metrics implicitly.
+		bool enabled = true;
 		std::string token; // Dedicated scrape credential; never authorizes API operations.
+		bool IsActive() const { return enabled && !token.empty(); }
 	};
 
 	struct Streaming

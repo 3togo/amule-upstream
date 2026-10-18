@@ -482,27 +482,34 @@ TEST(AmuleApiConfig, EcSetupMigratesPlaintextAndPreservesSettings)
 	ASSERT_TRUE(text.Find("Password=") == wxNOT_FOUND);
 }
 
-TEST(AmuleApiConfig, MetricsDisabledByDefault)
+TEST(AmuleApiConfig, MetricsDefaultEnabledButInactiveWithoutToken)
 {
 	CAmuleApiConfig cfg;
 	ASSERT_TRUE(cfg.Load(MakeTmpDir("metrics-default")));
-	ASSERT_FALSE(cfg.MetricsCfg().enabled);
+	ASSERT_TRUE(cfg.MetricsCfg().enabled);
+	ASSERT_FALSE(cfg.MetricsCfg().IsActive());
 	ASSERT_TRUE(cfg.MetricsCfg().token.empty());
 }
 
 TEST(AmuleApiConfig, MetricsRequireDedicatedValidToken)
 {
 	CAmuleApiConfig missing;
-	ASSERT_FALSE(LoadHandWrittenConf("metrics-missing", "[Metrics]\nEnabled=1\nToken=", missing));
+	ASSERT_TRUE(LoadHandWrittenConf("metrics-missing", "[Metrics]\nEnabled=1\nToken=", missing));
+	ASSERT_FALSE(missing.MetricsCfg().IsActive());
 	CAmuleApiConfig invalid;
 	ASSERT_FALSE(LoadHandWrittenConf("metrics-invalid",
 		"[Metrics]\nEnabled=1\nToken=" + std::string(32, ' ') + "bad token",
 		invalid));
 	CAmuleApiConfig valid;
 	const std::string token(64, 'a');
-	ASSERT_TRUE(LoadHandWrittenConf("metrics-valid", "[Metrics]\nEnabled=1\nToken=" + token, valid));
+	ASSERT_TRUE(LoadHandWrittenConf("metrics-valid", "[Metrics]\nToken=" + token, valid));
 	ASSERT_TRUE(valid.MetricsCfg().enabled);
 	ASSERT_EQUALS(token, valid.MetricsCfg().token);
+	ASSERT_TRUE(valid.MetricsCfg().IsActive());
+	CAmuleApiConfig disabled;
+	ASSERT_TRUE(LoadHandWrittenConf(
+		"metrics-explicit-disabled", "[Metrics]\nEnabled=0\nToken=" + token, disabled));
+	ASSERT_FALSE(disabled.MetricsCfg().IsActive());
 }
 
 TEST(AmuleApiConfig, ReloadWithoutMetricsSectionDisablesPreviousCredential)
@@ -512,6 +519,7 @@ TEST(AmuleApiConfig, ReloadWithoutMetricsSectionDisablesPreviousCredential)
 		"metrics-reload-enabled", "[Metrics]\nEnabled=1\nToken=" + std::string(64, 'b'), cfg));
 	ASSERT_TRUE(cfg.MetricsCfg().enabled);
 	ASSERT_TRUE(LoadHandWrittenConf("metrics-reload-disabled", "", cfg));
-	ASSERT_FALSE(cfg.MetricsCfg().enabled);
+	ASSERT_TRUE(cfg.MetricsCfg().enabled);
+	ASSERT_FALSE(cfg.MetricsCfg().IsActive());
 	ASSERT_TRUE(cfg.MetricsCfg().token.empty());
 }

@@ -1826,8 +1826,9 @@ CHttpServer::Response CApiDispatcher::HandleHealth(const CHttpServer::Request &)
 CHttpServer::Response CApiDispatcher::HandleMetrics(const CHttpServer::Request &req)
 {
 	const auto &config = m_config.MetricsCfg();
-	if (!config.enabled)
-		return ErrorResponse(404, "not_found", "metrics are disabled");
+	if (!config.IsActive())
+		return ErrorResponse(
+			404, "not_found", "metrics are disabled or no metrics token is configured");
 	if (req.method != "GET" && req.method != "HEAD")
 		return MethodNotAllowed("GET, HEAD", "only GET or HEAD on /metrics");
 	const auto decision = m_metricsRateLimiter.Check(req.remote_addr);

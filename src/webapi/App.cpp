@@ -670,7 +670,7 @@ void CamuleapiApp::TextShell(const wxString & /*prompt*/)
 			m_state.ResetLists();
 		}
 		webapi::MetricsSnapshot metrics;
-		auto *candidate = m_apiConfig.MetricsCfg().enabled ? &metrics : nullptr;
+		auto *candidate = m_apiConfig.MetricsCfg().IsActive() ? &metrics : nullptr;
 		const bool ok = webapi::RefresherTick(*this, m_state, candidate);
 		if (ok) {
 			m_state.MarkTickSuccess(candidate);

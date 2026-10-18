@@ -65,7 +65,7 @@ def stop(proc):
 
 
 @contextmanager
-def api_fixture(binary, root, ec_port, enabled=True):
+def api_fixture(binary, root, ec_port, enabled=True, configured=True):
     root.mkdir()
     env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8')
     with (root / 'api.log').open('w') as log:
@@ -78,9 +78,10 @@ def api_fixture(binary, root, ec_port, enabled=True):
         text = config.read_text().replace('Password=', 'Password=regression', 1)
         text = text.replace('StaticRoot=', f'StaticRoot={static}', 1)
         text = text.replace('BasePath=', 'BasePath=/amule', 1)
-        if enabled:
-            text = text.replace('[Metrics]\nEnabled=0\nToken=',
-                                '[Metrics]\nEnabled=1\nToken=' + TOKEN)
+        # Enabled is omitted for the default-on case, as in an existing profile.
+        metrics = '[Metrics]\n' + ('' if enabled else 'Enabled=0\n')
+        text = text.replace('[Metrics]\nEnabled=1\nToken=',
+                            metrics + 'Token=' + (TOKEN if configured else ''))
         config.write_text(text)
         port = free_ports(1)[0]
         base = f'http://127.0.0.1:{port}'
@@ -205,6 +206,11 @@ def fake_core_checks(binary, root):
                 assert request(base, '/metrics')[0] == 404
                 assert request(base, '/amule/metrics')[0] == 404
                 print('PASS: disabled metrics stays 404 with SPA fallback and BasePath')
+            with api_fixture(binary, root / 'unconfigured', core.server_address[1], configured=False) as (base, _):
+                assert request(base, '/metrics')[0] == 404
+                assert request(base, '/amule/metrics', TOKEN)[0] == 404
+                assert request(base, '/api/v1/health')[0] == 200
+                print('PASS: default-on without a token starts normally and exposes no metrics')
         finally:
             core.release.set()
             core.shutdown()

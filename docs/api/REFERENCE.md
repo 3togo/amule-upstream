@@ -3457,12 +3457,15 @@ Corrections that cannot be made additively wait for `/api/v2/`. There is no alia
 
 Optional Prometheus text 0.0.4 exposition, outside the `/api/v1` namespace.
 `BasePath` applies as for the API. Also supports `HEAD`; other methods return
-405. Disabled by default (`[Metrics]/Enabled=0`), returning 404 even when static
-frontend fallback is enabled.
+405. Enabled by default in amuleapi (`[Metrics]/Enabled=1`), but inactive until a
+metrics token is configured. Explicitly disabled or unconfigured endpoints return
+404 even when static frontend fallback is enabled. Other EC clients do not enable
+or request metrics; this is an amuleapi-local configuration, not an EC capability.
 
-Enable with `[Metrics]/Enabled=1` and a dedicated `[Metrics]/Token` (32–256
-characters from the RFC 6750 bearer-token alphabet). An empty or invalid token
-prevents startup when metrics are enabled. Send `Authorization: Bearer <token>`;
+Configure a dedicated `[Metrics]/Token` (32–256 characters from the RFC 6750
+bearer-token alphabet). An empty or absent token leaves the endpoint inactive and
+allows normal startup. A nonempty invalid token prevents startup when metrics are
+enabled. Set `[Metrics]/Enabled=0` to explicitly disable the endpoint. Send `Authorization: Bearer <token>`;
 JWTs and session cookies are not accepted. Missing or invalid tokens return 401
 with `WWW-Authenticate: Bearer realm="metrics"`. A separate per-address limiter
 locks out metrics after 30 failures in 60 seconds for 300 seconds, returning 429
@@ -3478,7 +3481,7 @@ newline. No library or protocol extension is required.
 Each scrape copies a compact snapshot published after a successful refresh. It
 makes **no EC requests**, reads no files, and does not walk file/client maps.
 Download counts are aggregated during refresh, only when metrics
-are enabled. Labels are bounded; no filenames, hashes, addresses, or client/server
+are active (enabled with a token). Labels are bounded; no filenames, hashes, addresses, or client/server
 identifiers appear. Samples have no explicit Prometheus timestamps.
 
 | Metric | Type / labels | Meaning |

@@ -352,9 +352,9 @@ left off after a dropped connection — see
 
 ## Prometheus metrics (proof of concept)
 
-Metrics are disabled by default. Enable the dedicated read-only endpoint in
-`amuleapi.conf`, generate a random token (for example, `openssl rand -hex 32`), and
-restart amuleapi:
+Metrics default to enabled in amuleapi. Configure the dedicated read-only endpoint
+by generating a random token (for example, `openssl rand -hex 32`), adding it to
+`amuleapi.conf`, and restarting amuleapi:
 
 ```ini
 [Metrics]
@@ -362,7 +362,11 @@ Enabled=1
 Token=REPLACE_WITH_YOUR_RANDOM_64_CHARACTER_HEX_TOKEN
 ```
 
-An enabled endpoint requires a 32–256 character bearer token. Keep the config and
+Without a token, amuleapi starts normally and `/metrics` returns 404; no metrics
+aggregation runs. Set `Enabled=0` to explicitly disable metrics even with a token.
+This setting is local to amuleapi: other EC clients do not request or enable metrics.
+
+An active endpoint requires a 32–256 character bearer token. Keep the config and
 the scraper's token file private. This credential only grants access to metrics;
 API session cookies and JWTs cannot authenticate a scrape. Rotation requires
 changing the configuration and restarting amuleapi. Remote scrapes should use the
