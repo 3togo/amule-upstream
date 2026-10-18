@@ -614,13 +614,13 @@ bool CPath::RenameFile(const CPath &src, const CPath &dst, bool overwrite)
 	return ::wxRenameFile(src.m_filesystem, dst.m_filesystem, overwrite);
 }
 
-bool CPath::ReplaceFileContents(const CPath &src, const CPath &dst)
+bool CPath::ReplaceFile(const CPath &src, const CPath &dst)
 {
 	// wxRenameFile falls back to copying after a failed rename, which can remove or truncate
-	// the existing destination before failing. Metadata replacement must leave it intact.
+	// the existing destination before failing. Replacement must leave it intact.
 #ifdef __WINDOWS__
 	// Unlike POSIX rename, MoveFileExW can replace a file with a directory. Reject
-	// directory sources so an invalid metadata source cannot destroy the live file.
+	// directory sources so an invalid source cannot destroy the destination file.
 	const DWORD attributes = ::GetFileAttributesW(src.m_filesystem.wc_str());
 	if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY)) {
 		return false;

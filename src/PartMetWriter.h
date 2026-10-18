@@ -41,7 +41,6 @@ struct CPartMetSaveRequest
 	std::vector<uint8> content;
 	CPath metPath;
 	CPath tmpPath;
-	CPath bakPath;
 	CPath partPath;
 	//! Where the free space is checked.
 	CPath dir;
@@ -74,8 +73,7 @@ CPartMetSaveResult WritePartMet(CPartMetSaveRequest &req);
 //! File operations used to commit a completed temporary metadata file.
 struct CPartMetFileOps
 {
-	using Transfer = std::function<bool(const CPath &, const CPath &, bool)>;
-	Transfer copy;
+	std::function<bool(const CPath &, const wxString &)> backup;
 	std::function<bool(const CPath &, const CPath &)> replace;
 };
 

@@ -53,7 +53,7 @@ CPath Bak()
 
 void RemoveAll()
 {
-	for (const CPath &path : { Part(), Met(), Tmp(), Bak() }) {
+	for (const CPath &path : { Part(), Met(), Tmp(), Bak(), Bak().AppendExt(".tmp") }) {
 		if (path.FileExists()) {
 			CPath::RemoveFile(path);
 		}
@@ -66,7 +66,6 @@ CPartMetSaveRequest Request(uint8 marker)
 	req.content = { marker, 0, 0, 0, 0, 0xAB };
 	req.metPath = Met();
 	req.tmpPath = Tmp();
-	req.bakPath = Bak();
 	req.partPath = Part();
 	req.dir = CPath(".");
 	return req;
@@ -207,7 +206,7 @@ TEST(WritePartMet, BackupFailurePreservesLiveMetadata)
 		tmp.WriteUInt8(2);
 	}
 	unsigned calls = 0;
-	const CPartMetFileOps ops = { [](const CPath &, const CPath &, bool) { return false; },
+	const CPartMetFileOps ops = { [](const CPath &, const wxString &) { return false; },
 		[&calls](const CPath &, const CPath &) {
 			++calls;
 			return false;
@@ -232,15 +231,15 @@ TEST(WritePartMet, FailedInstallPreservesLiveMetadataAndCanRetry)
 		CFile tmp(Tmp(), CFile::write);
 		tmp.WriteUInt8(2);
 	}
-	const CPartMetFileOps failing = { CFile::CloneFile, [&req](const CPath &src, const CPath &dst) {
+	const CPartMetFileOps failing = { CPath::BackupFile, [&req](const CPath &src, const CPath &dst) {
 						 return dst.GetRaw() != req.metPath.GetRaw() &&
-							CPath::ReplaceFileContents(src, dst);
+							CPath::ReplaceFile(src, dst);
 					 } };
 	ASSERT_EQUALS(CPartMetSaveResult::Failed, InstallPartMet(req, failing).status);
 	ASSERT_EQUALS(1, ReadAll(Met())[0]);
 	ASSERT_EQUALS(1, ReadAll(Bak())[0]);
 	ASSERT_EQUALS(2, ReadAll(Tmp())[0]);
-	const CPartMetFileOps working = { CFile::CloneFile, CPath::ReplaceFileContents };
+	const CPartMetFileOps working = { CPath::BackupFile, CPath::ReplaceFile };
 	ASSERT_EQUALS(CPartMetSaveResult::Saved, InstallPartMet(req, working).status);
 	ASSERT_EQUALS(2, ReadAll(Met())[0]);
 	ASSERT_EQUALS(1, ReadAll(Bak())[0]);
@@ -260,13 +259,13 @@ TEST(WritePartMet, LiveMetadataRemainsDiscoverableBetweenBackupAndInstall)
 		tmp.WriteUInt8(2);
 	}
 	bool livePresent = false;
-	const CPartMetFileOps ops = { CFile::CloneFile,
+	const CPartMetFileOps ops = { CPath::BackupFile,
 		[&livePresent, &req](const CPath &src, const CPath &dst) {
 			if (dst.GetRaw() == req.metPath.GetRaw()) {
 				livePresent = Met().FileExists() && ReadAll(Met())[0] == 1 &&
 					      ReadAll(Bak())[0] == 1;
 			}
-			return CPath::ReplaceFileContents(src, dst);
+			return CPath::ReplaceFile(src, dst);
 		} };
 	ASSERT_EQUALS(CPartMetSaveResult::Saved, InstallPartMet(req, ops).status);
 	ASSERT_TRUE(livePresent);
@@ -282,7 +281,7 @@ TEST(WritePartMet, FirstInstallFailureDoesNotReportSaved)
 		tmp.WriteUInt8(2);
 	}
 	auto req = Request(2);
-	const CPartMetFileOps ops = { CFile::CloneFile, [](const CPath &, const CPath &) { return false; } };
+	const CPartMetFileOps ops = { CPath::BackupFile, [](const CPath &, const CPath &) { return false; } };
 	ASSERT_EQUALS(CPartMetSaveResult::Failed, InstallPartMet(req, ops).status);
 	ASSERT_FALSE(Met().FileExists());
 	ASSERT_EQUALS(2, ReadAll(Tmp())[0]);
@@ -299,13 +298,25 @@ TEST(WritePartMet, FailedNativeReplacementCannotTruncateTheDestination)
 	// Directory sources must be rejected, including on Windows where MoveFileExW can
 	// replace a regular file with a directory. A copy/delete fallback can also destroy it.
 	ASSERT_TRUE(CPath::MakeDir(Tmp()));
-	const bool replaced = CPath::ReplaceFileContents(Tmp(), Met());
+	const bool replaced = CPath::ReplaceFile(Tmp(), Met());
 	const auto data = ReadAll(Met());
 	CPath::RemoveDir(Tmp());
 	RemoveAll();
 	ASSERT_FALSE(replaced);
 	ASSERT_EQUALS(1u, data.size());
 	ASSERT_EQUALS(7, data[0]);
+}
+
+TEST(WritePartMet, MissingReplacementSourcePreservesTheDestination)
+{
+	RemoveAll();
+	{
+		CFile file(Met(), CFile::write);
+		file.WriteUInt8(7);
+	}
+	ASSERT_FALSE(CPath::ReplaceFile(Tmp(), Met()));
+	ASSERT_EQUALS(7, ReadAll(Met())[0]);
+	RemoveAll();
 }
 
 TEST(WritePartMet, FailedBackupInstallPreservesBothPreviousVersions)
@@ -322,7 +333,7 @@ TEST(WritePartMet, FailedBackupInstallPreservesBothPreviousVersions)
 		CFile tmp(Tmp(), CFile::write);
 		tmp.WriteUInt8(3);
 	}
-	const CPartMetFileOps ops = { CFile::CloneFile, [](const CPath &, const CPath &) { return false; } };
+	const CPartMetFileOps ops = { CPath::BackupFile, [](const CPath &, const CPath &) { return false; } };
 	ASSERT_EQUALS(CPartMetSaveResult::Failed, InstallPartMet(second, ops).status);
 	ASSERT_EQUALS(2, ReadAll(Met())[0]);
 	ASSERT_EQUALS(1, ReadAll(Bak())[0]);
@@ -348,6 +359,29 @@ TEST(WritePartMet, BackupSymlinkCannotTruncateTheLiveMetadata)
 	ASSERT_FALSE(std::filesystem::is_symlink(Bak().GetRaw().ToStdString()));
 	RemoveAll();
 }
+TEST(WritePartMet, StagedBackupLinkCannotOverwriteItsTarget)
+{
+	// Check both a live target and a dangling link: BackupFile must receive a
+	// fresh staging path instead of following a left-over link from an earlier run.
+	for (bool dangling : { false, true }) {
+		RemoveAll();
+		{
+			CFile part(Part(), CFile::write);
+		}
+		auto first = Request(1);
+		ASSERT_EQUALS(CPartMetSaveResult::Saved, WritePartMet(first).status);
+		const CPath target = dangling ? Bak() : Met();
+		std::filesystem::create_symlink(
+			target.GetRaw().ToStdString(), Bak().AppendExt(".tmp").GetRaw().ToStdString());
+		auto second = Request(2);
+		ASSERT_EQUALS(CPartMetSaveResult::Saved, WritePartMet(second).status);
+		ASSERT_EQUALS(2, ReadAll(Met())[0]);
+		ASSERT_EQUALS(1, ReadAll(Bak())[0]);
+		ASSERT_FALSE(std::filesystem::is_symlink(Bak().GetRaw().ToStdString()));
+		ASSERT_FALSE(std::filesystem::exists(Bak().AppendExt(".tmp").GetRaw().ToStdString()));
+		RemoveAll();
+	}
+}
 #endif
 
 TEST(WritePartMet, RealBackupFailurePropagatesThroughTheWriter)
@@ -359,8 +393,8 @@ TEST(WritePartMet, RealBackupFailurePropagatesThroughTheWriter)
 	auto first = Request(1);
 	ASSERT_EQUALS(CPartMetSaveResult::Saved, WritePartMet(first).status);
 	auto second = Request(2);
-	// A regular file cannot be used as a parent directory, on any supported platform.
-	second.bakPath = Part().JoinPaths(CPath("unusable-backup"));
+	// A directory in the staging location must fail without damaging either file.
+	ASSERT_TRUE(CPath::MakeDir(Bak().AppendExt(".tmp")));
 	CPartMetWriter writer;
 	auto slot = std::make_shared<CPartMetSaveSlot>();
 	writer.Queue(slot, second, Gen(2));
@@ -371,6 +405,7 @@ TEST(WritePartMet, RealBackupFailurePropagatesThroughTheWriter)
 	ASSERT_EQUALS(CPartMetSaveResult::Failed, results[0].second.status);
 	ASSERT_EQUALS(1, ReadAll(Met())[0]);
 	ASSERT_EQUALS(2, ReadAll(Tmp())[0]);
+	ASSERT_TRUE(CPath::RemoveDir(Bak().AppendExt(".tmp")));
 	RemoveAll();
 }
 

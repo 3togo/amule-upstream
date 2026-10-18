@@ -28,6 +28,11 @@
 #include "../../Types.h"
 #include "Format.h"
 
+// windows.h defines an object-like macro that would rename CPath::ReplaceFile.
+#ifdef ReplaceFile
+#undef ReplaceFile
+#endif
+
 /**
  * Wraps a path/filename much as wxFileName does, but also handles "broken"
  * filenames: they print meaningfully while the real file stays reachable.
@@ -169,8 +174,12 @@ public:
 	 */
 	static bool RenameFile(const CPath &src, const CPath &dst, bool overwrite = false);
 
-	/** Replaces dst with src on the same volume, with no copy/delete fallback on failure. */
-	static bool ReplaceFileContents(const CPath &src, const CPath &dst);
+	/**
+	 * Replaces the directory entry dst with src on the same volume.
+	 * Creates dst if absent; leaves an existing destination intact on failure.
+	 * Does not fall back to copying or flushing file data to stable storage.
+	 */
+	static bool ReplaceFile(const CPath &src, const CPath &dst);
 
 	/** Makes a backup of a file, by copying the original file to 'src' + 'appendix' */
 	static bool BackupFile(const CPath &src, const wxString &appendix);

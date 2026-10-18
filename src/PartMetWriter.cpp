@@ -20,7 +20,8 @@
 
 #include "PartMetWriter.h" // Interface declarations
 
-#include <wx/filefn.h> // Needed for wxInvalidOffset
+#include <wx/filefn.h>   // Needed for wxInvalidOffset
+#include <wx/filename.h> // Needed for wxFileName::Exists (including dangling symlinks)
 
 #include "CFile.h"            // Needed for CFile, CIOFailureException
 #include <common/MuleDebug.h> // Needed for CMuleException
@@ -86,7 +87,7 @@ CPartMetSaveResult WritePartMet(CPartMetSaveRequest &req)
 		CPath::RemoveFile(req.tmpPath);
 		return { CPartMetSaveResult::Failed, "Incomplete part.met.tmp file" };
 	}
-	return InstallPartMet(req, { CFile::CloneFile, CPath::ReplaceFileContents });
+	return InstallPartMet(req, { CPath::BackupFile, CPath::ReplaceFile });
 }
 
 CPartMetSaveResult InstallPartMet(const CPartMetSaveRequest &req, const CPartMetFileOps &ops)
@@ -96,8 +97,14 @@ CPartMetSaveResult InstallPartMet(const CPartMetSaveRequest &req, const CPartMet
 	if (req.metPath.FileExists()) {
 		// Stage the backup too: copying straight over .bak could truncate an earlier backup,
 		// or follow a backup symlink into the live file. Replace its directory entry instead.
-		const CPath stagedBackup = req.bakPath.AppendExt(".tmp");
-		if (!ops.copy(req.metPath, stagedBackup, true) || !ops.replace(stagedBackup, req.bakPath)) {
+		const CPath stagedBackup = req.metPath.AppendExt(".bak.tmp");
+		// CopyFile on Windows follows destination symlinks. Unlink an old staging
+		// entry first, including dangling links, so it cannot overwrite live data.
+		if (wxFileName::Exists(stagedBackup.GetRaw()) && !CPath::RemoveFile(stagedBackup)) {
+			return { CPartMetSaveResult::Failed, "Failed to remove stale part.met.bak.tmp file" };
+		}
+		if (!ops.backup(req.metPath, ".bak.tmp") ||
+			!ops.replace(stagedBackup, req.metPath.AppendExt(".bak"))) {
 			if (stagedBackup.FileExists()) {
 				CPath::RemoveFile(stagedBackup);
 			}
