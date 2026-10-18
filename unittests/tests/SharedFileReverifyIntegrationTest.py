@@ -31,7 +31,7 @@ def get_interval(ec):
 def set_interval(ec, value):
     op, tags = ec.call(C['EC_OP_SET_PREFERENCES'], [
         tag(C['EC_TAG_PREFS_FILES'], children=[
-            tag(C['EC_TAG_FILES_SHARED_REVERIFY_DAYS'], struct.pack('!I', value), 4)])])
+            tag(C['EC_TAG_FILES_SHARED_REVERIFY_DAYS'], struct.pack('!Q', value), 5)])])
     assert op == C['EC_OP_NOOP'], (op, tags)
 
 
@@ -170,24 +170,29 @@ def run(binary, root):
     # Disabled by default: a valid upload must not create verification results.
     with daemon(binary, root, None) as (proc, ec, port):
         assert get_interval(ec) == 0, 'default must be off over EC'
-        for value in (7, 0xFFFFFFFF, 0):
+        for value in (7, 3650, 0):
             set_interval(ec, value)
-            assert get_interval(ec) == value, 'EC preference did not round-trip uint32'
+            assert get_interval(ec) == value, 'EC preference did not round-trip supported interval'
         file_hash = records(ec)['damaged.bin'][C['EC_TAG_PARTFILE_HASH']]
         with peer(port, file_hash, 0) as sock:
             request(sock, file_hash, PART)
             receive(sock, file_hash, content, PART)
         assert all(not date(record) for record in records(ec).values())
-        set_interval(ec, 0xFFFFFFFF)
+        set_interval(ec, 7)
+        for invalid in (3651, 0xFFFFFFFF, 0x100000007):
+            set_interval(ec, invalid)
+            assert get_interval(ec) == 7, 'invalid EC interval modified the setting'
+        set_interval(ec, 3650)
     saved = configparser.ConfigParser()
     saved.read(root / 'amule.conf')
-    assert saved.getint('eMule', 'SharedFileReverifyDays') == 0xFFFFFFFF
+    assert saved.getint('eMule', 'SharedFileReverifyDays') == 3650
 
-    # The unsigned config path must not wrap on reload, or turn legacy negatives into years.
-    with daemon(binary, root, 0xFFFFFFFF) as (proc, ec, port):
-        assert get_interval(ec) == 0xFFFFFFFF
-    with daemon(binary, root, -1) as (proc, ec, port):
-        assert get_interval(ec) == 0
+    with daemon(binary, root, 3650) as (proc, ec, port):
+        assert get_interval(ec) == 3650
+    # Invalid signed or wide config values must not wrap into a valid enabled interval.
+    for invalid in (-1, 3651, 0x100000007):
+        with daemon(binary, root, invalid) as (proc, ec, port):
+            assert get_interval(ec) == 0
 
     print("Checking silent corruption and healthy-part uploads", flush=True)
     # Preserve size and mtime: startup must still share the original identity.

@@ -2433,7 +2433,7 @@ Returns every preference category amuled carries over EC. The `general` and `con
 ```
 
 `files.shared_file_reverify_days` is a read/write unsigned 32-bit interval in days
-(0–4294967295), default `0` (off). A valid block request for an overdue completed
+(0–3650), default `0` (off). A valid block request for an overdue completed
 shared file queues background verification. Unrequested files and incomplete
 downloads are skipped; uploads continue while a check runs.
 

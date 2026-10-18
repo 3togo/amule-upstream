@@ -55,7 +55,6 @@
 #ifndef AMULE_DAEMON
 #include <wx/translation.h> // Needed for wxTranslations
 #include <wx/valgen.h>
-#include <wx/valnum.h>
 #include "LanguageList.h"
 #include "muuli_wdr.h"
 #include "StatisticsDlg.h"
@@ -420,70 +419,6 @@ public:
 
 	/** Saves the string to the specified wxConfig object. */
 	virtual void SaveToFile(wxConfigBase *cfg) { cfg->Write(GetKey(), m_value); }
-};
-
-// Unlike Cfg_Int's signed widget staging value, this preserves the full uint32 range.
-class Cfg_UInt32 : public Cfg_Str
-{
-public:
-	Cfg_UInt32(const wxString &keyname, uint32 &value)
-	: Cfg_Str(keyname, m_text, "0")
-	, m_realValue(value)
-	{
-	}
-
-	void LoadFromFile(wxConfigBase *cfg) override
-	{
-		Cfg_Str::LoadFromFile(cfg);
-		wxULongLong_t value = 0;
-		m_realValue = m_text.IsNumber() && m_text.ToULongLong(&value) && value <= 0xFFFFFFFFu
-				      ? static_cast<uint32>(value)
-				      : 0;
-	}
-
-	void SaveToFile(wxConfigBase *cfg) override
-	{
-		m_text = wxString::Format("%u", m_realValue);
-		Cfg_Str::SaveToFile(cfg);
-	}
-
-#ifndef AMULE_DAEMON
-	bool ConnectToWidget(int id, wxWindow *parent = nullptr) override
-	{
-		if (!Cfg_Str::ConnectToWidget(id, parent)) {
-			return false;
-		}
-		wxIntegerValidator<uint32> validator(&m_realValue);
-		m_widget->SetValidator(validator);
-		return true;
-	}
-
-	bool TransferFromWindow() override
-	{
-		if (!m_widget || !m_widget->GetValidator()->Validate(m_widget->GetParent())) {
-			return false;
-		}
-		const uint32 previous = m_realValue;
-		const bool ok = m_widget->GetValidator()->TransferFromWindow();
-		SetChanged(ok && previous != m_realValue);
-		return ok;
-	}
-
-	bool TransferToWindow() override { return m_widget && m_widget->GetValidator()->TransferToWindow(); }
-
-	bool ResetToDefault() override
-	{
-		const uint32 previous = m_realValue;
-		m_realValue = 0;
-		const bool ok = TransferToWindow();
-		m_realValue = previous;
-		return ok;
-	}
-#endif
-
-private:
-	wxString m_text;
-	uint32 &m_realValue;
 };
 
 /** Cfg class for encrypting strings, for example passwords. */
@@ -1269,7 +1204,7 @@ void CPreferences::BuildItemList(const wxString &appdir)
 
 	NewCfgItem(IDC_ICH, (new Cfg_Bool("/eMule/ICH", s_ICH, true)));
 	NewCfgItem(IDC_SHAREDFILEREVERIFYDAYS,
-		new Cfg_UInt32("/eMule/SharedFileReverifyDays", s_sharedFileReverifyDays));
+		MkCfg_Int("/eMule/SharedFileReverifyDays", s_sharedFileReverifyDays, 0));
 	NewCfgItem(IDC_AICHTRUST, (new Cfg_Bool("/eMule/AICHTrust", s_AICHTrustEveryHash, false)));
 	NewCfgItem(IDC_CHECKDISKSPACE, (new Cfg_Bool("/eMule/CheckDiskspace", s_checkDiskspace, true)));
 	NewCfgItem(IDC_MINDISKSPACE, (MkCfg_Int("/eMule/MinFreeDiskSpace", s_uMinFreeDiskSpace, 500)));
@@ -1697,6 +1632,13 @@ void CPreferences::LoadAllItems(wxConfigBase *cfg)
 	for (; it_b != s_MiscList.end(); ++it_b) {
 		(*it_b)->LoadFromFile(cfg);
 	}
+
+	// Validate before unsigned narrowing: a negative or oversized hand-edited interval
+	// must not wrap into a valid enabled value. Invalid configuration defaults to off.
+	long reverifyDays = 0;
+	cfg->Read("/eMule/SharedFileReverifyDays", &reverifyDays, 0);
+	s_sharedFileReverifyDays =
+		reverifyDays >= 0 && reverifyDays <= 3650 ? static_cast<uint32>(reverifyDays) : 0;
 
 	// Drop the amuleapi credential digests an early 3.1.0 development build wrote here.
 	// They are no longer read -- amuleapi-passwords is the only store -- and an unsalted MD5

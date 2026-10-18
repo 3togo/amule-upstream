@@ -101,6 +101,38 @@ private:
 	int m_value;
 };
 
+// Poll cancellation concurrently, then hold the worker so the replacement stays queued.
+class CCancelledTask : public CThreadTask
+{
+public:
+	CCancelledTask(wxSemaphore &started, wxSemaphore &release, wxSemaphore &done, bool &cancelled)
+	: CThreadTask("Order", "running-verify", ETP_Low)
+	, m_started(started)
+	, m_release(release)
+	, m_done(done)
+	, m_cancelled(cancelled)
+	{
+	}
+
+protected:
+	void Entry() override
+	{
+		m_started.Post();
+		while (!TestDestroy()) {
+			wxThread::Sleep(1);
+		}
+		m_cancelled = true;
+		m_release.Wait();
+		m_done.Post();
+	}
+
+private:
+	wxSemaphore &m_started;
+	wxSemaphore &m_release;
+	wxSemaphore &m_done;
+	bool &m_cancelled;
+};
+
 // Always release the worker if an assertion unwinds the test.
 class CReleaseWorker
 {
@@ -172,6 +204,19 @@ TEST(ThreadScheduler, QueueOwnershipAndTypeLimitsAcrossSchedulerLifecycle)
 	ASSERT_EQUALS(wxSEMA_NO_ERROR, done.WaitTimeout(5000));
 	ASSERT_EQUALS(wxSEMA_NO_ERROR, done.WaitTimeout(5000));
 	ASSERT_TRUE((order == std::vector<int>{ 4, 2, 1 }));
+
+	bool cancelled = false;
+	ASSERT_TRUE(CThreadScheduler::AddTask(new CCancelledTask(started, release, done, cancelled)));
+	ASSERT_EQUALS(wxSEMA_NO_ERROR, started.WaitTimeout(5000));
+	ASSERT_TRUE(CThreadScheduler::AddTask(new COrderedTask(order, done, 7, ETP_High, "running-verify"),
+		CThreadScheduler::Overwrite::LowerPriority));
+	ASSERT_FALSE(CThreadScheduler::AddTask(new COrderedTask(order, done, 8, ETP_High, "running-verify"),
+		CThreadScheduler::Overwrite::LowerPriority));
+	release.Post();
+	ASSERT_EQUALS(wxSEMA_NO_ERROR, done.WaitTimeout(5000));
+	ASSERT_EQUALS(wxSEMA_NO_ERROR, done.WaitTimeout(5000));
+	ASSERT_TRUE(cancelled);
+	ASSERT_TRUE((order == std::vector<int>{ 4, 2, 1, 7 }));
 
 	CThreadScheduler::Terminate();
 	ASSERT_EQUALS(0, s_liveTasks);

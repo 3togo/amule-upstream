@@ -254,7 +254,12 @@ public:
 	static bool IsICHEnabled() { return s_ICH; }
 	// Request-triggered verification interval in days; zero disables automatic checks.
 	static uint32 GetSharedFileReverifyDays() { return s_sharedFileReverifyDays; }
-	static void SetSharedFileReverifyDays(uint32 days) { s_sharedFileReverifyDays = days; }
+	static void SetSharedFileReverifyDays(uint32 days)
+	{
+		if (days <= 3650) {
+			s_sharedFileReverifyDays = days;
+		}
+	}
 	static void SetICHEnabled(bool val) { s_ICH = val; }
 	static bool IsTrustingEveryHash() { return s_AICHTrustEveryHash; }
 	static void SetTrustingEveryHash(bool val) { s_AICHTrustEveryHash = val; }

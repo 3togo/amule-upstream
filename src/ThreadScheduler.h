@@ -26,6 +26,7 @@
 #ifndef THREADSCHEDULER_H
 #define THREADSCHEDULER_H
 
+#include <atomic>
 #include <deque>
 #include <map>
 
@@ -200,7 +201,7 @@ private:
 	//! The owner (scheduler), used when calling TestDestroy.
 	CMuleThread *m_owner;
 	//! Specifies if the specific task should be aborted.
-	bool m_abort;
+	std::atomic<bool> m_abort;
 
 	friend class CThreadScheduler;
 };

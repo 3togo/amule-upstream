@@ -3728,7 +3728,6 @@ TEST(PrefsSchema, AnUnboundedNumericRowIsADeliberateChoice)
 	// the core during that audit.
 	static const char *const kKnownUnbounded[] = {
 		"files.min_free_space_mebibytes",
-		"files.shared_file_reverify_days",
 		"remote_controls.webserver.refresh_seconds",
 	};
 	const webapi::PrefField *schema = webapi::PrefSchema();
@@ -3867,7 +3866,7 @@ TEST(Refresher, PendingCaptchaSurvivesHistoryEvictionAndExpiresWithoutMessage)
 	ASSERT_TRUE(changes.empty());
 }
 
-TEST(PrefsSchema, SharedFileReverifyDefaultsOffAndPreservesUint32)
+TEST(PrefsSchema, SharedFileReverifyDefaultsOffAndUsesBoundedUint32)
 {
 	webapi::PreferencesSnapshot prefs;
 	ASSERT_EQUALS(static_cast<std::uint32_t>(0), prefs.files.shared_file_reverify_days);
@@ -3883,12 +3882,12 @@ TEST(PrefsSchema, SharedFileReverifyDefaultsOffAndPreservesUint32)
 	ASSERT_TRUE(field->type == webapi::PrefType::Uint32);
 	ASSERT_TRUE(field->access == webapi::PrefAccess::ReadWrite);
 	ASSERT_EQUALS(static_cast<std::uint32_t>(0), field->min);
-	ASSERT_EQUALS(static_cast<std::uint32_t>(0xFFFFFFFFu), field->max);
+	ASSERT_EQUALS(static_cast<std::uint32_t>(3650u), field->max);
 	CECPacket response(EC_OP_SET_PREFERENCES);
 	CECEmptyTag files(EC_TAG_PREFS_FILES);
-	files.AddTag(CECTag(EC_TAG_FILES_SHARED_REVERIFY_DAYS, static_cast<uint32>(0xFFFFFFFFu)));
+	files.AddTag(CECTag(EC_TAG_FILES_SHARED_REVERIFY_DAYS, static_cast<uint32>(3650u)));
 	response.AddTag(files);
 	std::vector<webapi::CategorySnapshot> categories;
 	webapi::ParsePreferencesFromPacket(&response, prefs, categories);
-	ASSERT_EQUALS(static_cast<std::uint32_t>(0xFFFFFFFFu), prefs.files.shared_file_reverify_days);
+	ASSERT_EQUALS(static_cast<std::uint32_t>(3650u), prefs.files.shared_file_reverify_days);
 }
