@@ -55,6 +55,13 @@ enum ETaskPriority
 class CThreadScheduler
 {
 public:
+	enum class Overwrite
+	{
+		Never,
+		Always,
+		LowerPriority
+	};
+
 	/** Starts execution of queued tasks. */
 	static void Start();
 
@@ -69,13 +76,14 @@ public:
 	 *
 	 * Before queueing, the task is checked against the existing ones by type and description; a
 	 * matching task already present discards this object. It is also discarded if the scheduler
-	 * has been terminated. With `overwrite`, any existing duplicate is dropped, and terminated
-	 * if already running.
+	 * has been terminated. With `Always`, any existing duplicate is dropped, and terminated
+	 * if already running. `LowerPriority` replaces only a lower-priority duplicate; an
+	 * equal- or higher-priority task keeps its progress.
 	 *
 	 * @see Start
 	 * @see Terminate
 	 */
-	static bool AddTask(CThreadTask *task, bool overwrite = false);
+	static bool AddTask(CThreadTask *task, Overwrite overwrite = Overwrite::Never);
 
 	/** Takes ownership, but queues only if no task of this type is queued or running.
 	 * The check and insertion are atomic. Useful for opportunistic background work.
@@ -101,7 +109,7 @@ public:
 	static size_t GetPendingCount(const wxString &type = wxEmptyString);
 
 private:
-	static bool AddTaskInternal(CThreadTask *task, bool overwrite, bool uniqueType);
+	static bool AddTaskInternal(CThreadTask *task, Overwrite overwrite, bool uniqueType);
 
 	CThreadScheduler();
 	~CThreadScheduler();
@@ -110,7 +118,7 @@ private:
 	size_t GetTaskCount() const;
 
 	/** Tries to add the given task to the queue, returning true on success. */
-	bool DoAddTask(CThreadTask *task, bool overwrite);
+	bool DoAddTask(CThreadTask *task, Overwrite overwrite);
 
 	/** Creates the actual scheduler thread if none exist. */
 	void CreateSchedulerThread();

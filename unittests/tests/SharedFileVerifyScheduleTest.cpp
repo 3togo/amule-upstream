@@ -29,11 +29,10 @@
 using namespace muleunit;
 DECLARE_SIMPLE(SharedFileVerifySchedule)
 
-TEST(SharedFileVerifySchedule, DisabledAndNegativeIntervalsNeverRun)
+TEST(SharedFileVerifySchedule, ZeroDisablesChecks)
 {
 	CSharedFileVerifySchedule schedule;
 	ASSERT_FALSE(schedule.IsDue(0, 0, 1000000, 0));
-	ASSERT_FALSE(schedule.IsDue(-1, 0, 1000000, 0));
 }
 
 TEST(SharedFileVerifySchedule, NeverVerifiedAndExactDueBoundary)
@@ -73,7 +72,7 @@ TEST(SharedFileVerifySchedule, WallClockRollbackCannotCauseARequestStorm)
 TEST(SharedFileVerifySchedule, LargeIntervalsDoNotOverflow)
 {
 	CSharedFileVerifySchedule schedule;
-	const int days = std::numeric_limits<int>::max();
+	const uint32 days = std::numeric_limits<uint32>::max();
 	const uint64 seconds = static_cast<uint64>(days) * 86400;
 	ASSERT_FALSE(schedule.IsDue(days, 1, seconds, 0));
 	ASSERT_TRUE(schedule.IsDue(days, 1, seconds + 1, 0));

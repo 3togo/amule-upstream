@@ -413,7 +413,7 @@ void CKnownFile::VerifyLocalData() const
 	}
 	// Replace a queued automatic check so this explicit request runs at high priority
 	// and reports success. A running duplicate is stopped and restarted as manual too.
-	CThreadScheduler::AddTask(new CVerifyLocalDataTask(this), true);
+	CThreadScheduler::AddTask(new CVerifyLocalDataTask(this), CThreadScheduler::Overwrite::LowerPriority);
 }
 
 // Live upload activity summarised from m_ClientUploadList (issue #466). Core-only: the list is
@@ -430,7 +430,7 @@ uint32 CKnownFile::GetUploadDatarate() const
 
 void CKnownFile::MaybeScheduleVerification()
 {
-	const int days = thePrefs::GetSharedFileReverifyDays();
+	const uint32 days = thePrefs::GetSharedFileReverifyDays();
 	if (days <= 0 || IsPartFile()) {
 		return;
 	}

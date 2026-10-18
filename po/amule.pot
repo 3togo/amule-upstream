@@ -5132,6 +5132,14 @@ msgid "Add new shared files with auto priority"
 msgstr ""
 
 #: src/muuli_wdr.cpp
+msgid "Re-verify requested shared files every N days (0 = off)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Check requested completed shared files in the background. Uploads continue during checks. Zero disables automatic checks."
+msgstr ""
+
+#: src/muuli_wdr.cpp
 msgid "Intelligent Corruption Handling (I.C.H.)"
 msgstr ""
 

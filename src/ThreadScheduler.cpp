@@ -95,14 +95,14 @@ void CThreadScheduler::Terminate()
 	AddDebugLogLineN(logThreads, "Scheduler terminated");
 }
 
-bool CThreadScheduler::AddTask(CThreadTask *task, bool overwrite)
+bool CThreadScheduler::AddTask(CThreadTask *task, Overwrite overwrite)
 {
 	return AddTaskInternal(task, overwrite, false);
 }
 
 bool CThreadScheduler::AddTaskIfNoneOfType(CThreadTask *task)
 {
-	return AddTaskInternal(task, false, true);
+	return AddTaskInternal(task, Overwrite::Never, true);
 }
 
 bool CThreadScheduler::HasTaskOfType(const wxString &type)
@@ -115,7 +115,7 @@ bool CThreadScheduler::HasTaskOfType(const wxString &type)
 	return existing != s_scheduler->m_taskDescs.end() && !existing->second.empty();
 }
 
-bool CThreadScheduler::AddTaskInternal(CThreadTask *task, bool overwrite, bool uniqueType)
+bool CThreadScheduler::AddTaskInternal(CThreadTask *task, Overwrite overwrite, bool uniqueType)
 {
 	wxMutexLocker lock(s_lock);
 
@@ -259,7 +259,7 @@ size_t CThreadScheduler::GetPendingCount(const wxString &type)
 	return count;
 }
 
-bool CThreadScheduler::DoAddTask(CThreadTask *task, bool overwrite)
+bool CThreadScheduler::DoAddTask(CThreadTask *task, Overwrite overwrite)
 {
 	// GetTick is too lowres, so we just use a counter to ensure that
 	// the sorted order will match the order in which the tasks were added.
@@ -273,7 +273,9 @@ bool CThreadScheduler::DoAddTask(CThreadTask *task, bool overwrite)
 		AddDebugLogLineN(logThreads, "Task scheduled: " + task->GetType() + " - " + task->GetDesc());
 		m_tasks.push_back(CEntryPair(task, taskAge++));
 		m_tasksDirty = true;
-	} else if (overwrite) {
+	} else if (overwrite == Overwrite::Always ||
+		   (overwrite == Overwrite::LowerPriority &&
+			   task->GetPriority() > map[task->GetDesc()]->GetPriority())) {
 		AddDebugLogLineN(
 			logThreads, "Task overwritten: " + task->GetType() + " - " + task->GetDesc());
 

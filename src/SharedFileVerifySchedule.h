@@ -32,9 +32,9 @@
 class CSharedFileVerifySchedule
 {
 public:
-	bool IsDue(int days, uint32 verifiedDate, uint64 now, uint64 uptimeMs) const
+	bool IsDue(uint32 days, uint32 verifiedDate, uint64 now, uint64 uptimeMs) const
 	{
-		if (days <= 0) {
+		if (days == 0) {
 			return false;
 		}
 		const uint64 interval = static_cast<uint64>(days) * 86400;

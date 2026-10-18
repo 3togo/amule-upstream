@@ -124,7 +124,7 @@ private:
 TEST(ThreadScheduler, QueueOwnershipAndTypeLimitsAcrossSchedulerLifecycle)
 {
 	ASSERT_TRUE(CThreadScheduler::AddTask(new CCountedTask()));
-	ASSERT_TRUE(CThreadScheduler::AddTask(new CCountedTask(), true));
+	ASSERT_TRUE(CThreadScheduler::AddTask(new CCountedTask(), CThreadScheduler::Overwrite::Always));
 
 	ASSERT_EQUALS(1, s_liveTasks);
 	// An empty type never dereferences entries, so a dangling one is still counted.
@@ -153,9 +153,17 @@ TEST(ThreadScheduler, QueueOwnershipAndTypeLimitsAcrossSchedulerLifecycle)
 	// A manual Verify replaces an automatic check of the same file while the worker is
 	// busy. Its high priority and manual reporting metadata (value 4) must both survive.
 	ASSERT_TRUE(CThreadScheduler::AddTask(new COrderedTask(order, done, 3, ETP_Low, "verify-file")));
-	ASSERT_TRUE(
-		CThreadScheduler::AddTask(new COrderedTask(order, done, 4, ETP_High, "verify-file"), true));
+	ASSERT_TRUE(CThreadScheduler::AddTask(new COrderedTask(order, done, 4, ETP_High, "verify-file"),
+		CThreadScheduler::Overwrite::LowerPriority));
 	ASSERT_EQUALS(static_cast<size_t>(1), CThreadScheduler::GetPendingCount("Order"));
+	// Repeating manual Verify must preserve the queued manual task and its reporting metadata.
+	ASSERT_FALSE(CThreadScheduler::AddTask(new COrderedTask(order, done, 5, ETP_High, "verify-file"),
+		CThreadScheduler::Overwrite::LowerPriority));
+	ASSERT_FALSE(CThreadScheduler::AddTask(new COrderedTask(order, done, 6, ETP_Low, "verify-file"),
+		CThreadScheduler::Overwrite::LowerPriority));
+	// A running task also keeps its work when another request has equal priority.
+	ASSERT_FALSE(CThreadScheduler::AddTask(
+		new CBlockedTask(started, release), CThreadScheduler::Overwrite::LowerPriority));
 	// New normal-priority hashing must pass an older opportunistic low-priority check.
 	ASSERT_TRUE(CThreadScheduler::AddTask(new COrderedTask(order, done, 1, ETP_Low)));
 	ASSERT_TRUE(CThreadScheduler::AddTask(new COrderedTask(order, done, 2, ETP_Normal)));

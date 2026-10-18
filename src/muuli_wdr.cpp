@@ -1836,6 +1836,12 @@ wxSizer *PreferencesFilesTab( wxWindow *parent, bool call_fit, bool set_sizer )
 
     wxCheckBox *item21 = new wxCheckBox( item20, IDC_UAP, _("Add new shared files with auto priority"), wxDefaultPosition, wxDefaultSize, 0 );
     item19->Add( item21, wxSizerFlags().CenterVertical().Border(wxRIGHT, 0) );
+    wxBoxSizer *reverifySizer = new wxBoxSizer( wxHORIZONTAL );
+    reverifySizer->Add( new wxStaticText( item20, -1, _("Re-verify requested shared files every N days (0 = off)") ), wxSizerFlags().CenterVertical().Border(wxRIGHT, 5) );
+    wxTextCtrl *reverifyDays = new wxTextCtrl( item20, IDC_SHAREDFILEREVERIFYDAYS, "0", wxDefaultPosition, wxSize(100, -1) );
+    reverifyDays->SetToolTip( _("Check requested completed shared files in the background. Uploads continue during checks. Zero disables automatic checks.") );
+    reverifySizer->Add( reverifyDays, wxSizerFlags().CenterVertical() );
+    item19->Add( reverifySizer, wxSizerFlags().Expand() );
     item0->Add( item19, wxSizerFlags().Expand().CenterVertical().Border(wxLEFT|wxRIGHT|wxBOTTOM, 0) );
 
     // Intelligent Corruption Handling -- an advanced option, placed after the

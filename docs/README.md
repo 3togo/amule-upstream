@@ -157,10 +157,13 @@ turns red into blue/black over hours.
 
 ## Re-verify requested shared files
 
-To re-verify shared files every N days, stop aMule (or `amuled`), set
-`SharedFileReverifyDays=N` in the existing `[eMule]` section of
-`~/.aMule/amule.conf`, then restart. The default is `0` (off); negative values
-also disable checks. This setting currently has no GUI or remote-control toggle.
+In aMule or amulegui, open **Preferences → Files → Uploads** and set
+**Re-verify requested shared files every N days (0 = off)**. The same setting
+is available under **Files → Uploads** in the WebUI, or through the amuleapi
+`files.shared_file_reverify_days` preference. The default is `0` (off) in all
+interfaces. The interval is an unsigned 32-bit number of days (0–4294967295).
+For offline configuration, it is stored as `SharedFileReverifyDays` under
+`[eMule]` in `amule.conf`.
 
 A valid block request for a completed file triggers a background Verify Local
 Data check when its last completed check is at least N days old, or it has never

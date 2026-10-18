@@ -3724,10 +3724,11 @@ TEST(PrefsSchema, AnUnboundedNumericRowIsADeliberateChoice)
 {
 	// The forcing function. A new numeric row that leaves its ceiling at the full uint32 range
 	// fails here until someone puts it on this list, which is the review conversation the eight
-	// fields in #1174 never had. Both entries below were resolved to genuine uint32 members in
+	// fields in #1174 never had. The entries below were resolved to genuine uint32 members in
 	// the core during that audit.
 	static const char *const kKnownUnbounded[] = {
 		"files.min_free_space_mebibytes",
+		"files.shared_file_reverify_days",
 		"remote_controls.webserver.refresh_seconds",
 	};
 	const webapi::PrefField *schema = webapi::PrefSchema();
@@ -3864,4 +3865,30 @@ TEST(Refresher, PendingCaptchaSurvivesHistoryEvictionAndExpiresWithoutMessage)
 	ASSERT_TRUE(cache[0].pending_captcha_image.empty());
 	poll(0, false);
 	ASSERT_TRUE(changes.empty());
+}
+
+TEST(PrefsSchema, SharedFileReverifyDefaultsOffAndPreservesUint32)
+{
+	webapi::PreferencesSnapshot prefs;
+	ASSERT_EQUALS(static_cast<std::uint32_t>(0), prefs.files.shared_file_reverify_days);
+	const webapi::PrefField *field = nullptr;
+	for (std::size_t i = 0; i < webapi::PrefSchemaSize(); ++i) {
+		const auto &candidate = webapi::PrefSchema()[i];
+		if (std::string(candidate.category) == "files" &&
+			std::string(candidate.key) == "shared_file_reverify_days") {
+			field = &candidate;
+		}
+	}
+	ASSERT_TRUE(field != nullptr);
+	ASSERT_TRUE(field->type == webapi::PrefType::Uint32);
+	ASSERT_TRUE(field->access == webapi::PrefAccess::ReadWrite);
+	ASSERT_EQUALS(static_cast<std::uint32_t>(0), field->min);
+	ASSERT_EQUALS(static_cast<std::uint32_t>(0xFFFFFFFFu), field->max);
+	CECPacket response(EC_OP_SET_PREFERENCES);
+	CECEmptyTag files(EC_TAG_PREFS_FILES);
+	files.AddTag(CECTag(EC_TAG_FILES_SHARED_REVERIFY_DAYS, static_cast<uint32>(0xFFFFFFFFu)));
+	response.AddTag(files);
+	std::vector<webapi::CategorySnapshot> categories;
+	webapi::ParsePreferencesFromPacket(&response, prefs, categories);
+	ASSERT_EQUALS(static_cast<std::uint32_t>(0xFFFFFFFFu), prefs.files.shared_file_reverify_days);
 }

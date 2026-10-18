@@ -155,6 +155,21 @@ def run(binary, root):
     print("Checking uploads with automatic verification disabled", flush=True)
     # Disabled by default: a valid upload must not create verification results.
     with daemon(binary, root, None) as (proc, ec, port):
+        def get_interval():
+            op, tags = ec.call(C['EC_OP_GET_PREFERENCES'], [
+                tag(C['EC_TAG_SELECT_PREFS'], struct.pack('!I', C['EC_PREFS_FILES']), 4)])
+            return tags[C['EC_TAG_PREFS_FILES']][1][C['EC_TAG_FILES_SHARED_REVERIFY_DAYS']][0]
+
+        def set_interval(value):
+            op, tags = ec.call(C['EC_OP_SET_PREFERENCES'], [
+                tag(C['EC_TAG_PREFS_FILES'], children=[
+                    tag(C['EC_TAG_FILES_SHARED_REVERIFY_DAYS'], struct.pack('!I', value), 4)])])
+            assert op == C['EC_OP_NOOP'], (op, tags)
+
+        assert get_interval() == 0, 'default must be off over EC'
+        for value in (7, 0xFFFFFFFF, 0):
+            set_interval(value)
+            assert get_interval() == value, 'EC preference did not round-trip uint32'
         file_hash = records(ec)['damaged.bin'][C['EC_TAG_PARTFILE_HASH']]
         with peer(port, file_hash, 0) as sock:
             request(sock, file_hash, PART)
