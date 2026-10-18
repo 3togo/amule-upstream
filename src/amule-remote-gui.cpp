@@ -3472,6 +3472,13 @@ void CKnownFilesRem::ProcessItemUpdatePartfile(const CEC_PartFile_Tag *tag, CPar
 		if (theApp->amuledlg) {
 			theApp->amuledlg->m_sharedfileswnd->sharedfilesctrl->ShowFile(file);
 		}
+	} else if (!file->IsShared() && theApp->sharedfiles->count(file->ECID())) {
+		// Losing the shared role does not remove the completed transfer row or its
+		// proxy object. Only detach it from the shared list and view.
+		if (theApp->amuledlg) {
+			theApp->amuledlg->m_sharedfileswnd->sharedfilesctrl->RemoveFile(file);
+		}
+		theApp->sharedfiles->erase(file->ECID());
 	}
 	// An incremental tag can omit status. Do not let the proxy's default PS_EMPTY
 	// establish a baseline before the daemon has sent a real status. All metadata,
