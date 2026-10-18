@@ -139,7 +139,7 @@ def run(daemon_binary, api_binary):
                 assert status == 200, (status, result)
                 guest = result['token']
                 base = f'http://127.0.0.1:{downloads.server_port}'
-                secret_url = base.replace('http://', 'http://USER-1874:PASS-1874@') + '/failure.mmdb?license_key=LICENSE-KEY-1874&token=TOKEN-1874#FRAGMENT-1874'
+                secret_url = base.replace('http://', 'http://USER-1874:PASS-1874@') + '/failure-PATH-1874.mmdb?license_key=LICENSE-KEY-1874&token=TOKEN-1874#FRAGMENT-1874'
                 patch = {'geoip': {'source': 'custom', 'custom_update_url': secret_url,
                                   'maxmind_license': 'MAXMIND-1874'},
                          'connection': {'proxy_user': 'PROXY-USER-1874'},
@@ -177,10 +177,10 @@ def run(daemon_binary, api_binary):
                     assert request('POST', '/geoip/update', token=admin)[0] == 202
                     until(lambda: 'Failed to download' in request(
                         'GET', '/preferences', token=guest)[1]['geoip']['last_update_status'])
-                    assert '/failure.mmdb?license_key=LICENSE-KEY-1874&token=TOKEN-1874' in DownloadHandler.paths
-                    until(lambda: 'failure.mmdb' in events_file.read_text())
+                    assert '/failure-PATH-1874.mmdb?license_key=LICENSE-KEY-1874&token=TOKEN-1874' in DownloadHandler.paths
+                    until(lambda: 'Failed to download geoip.mmdb from ' + base in events_file.read_text())
                     failure_status = request('GET', '/preferences', token=guest)[1]['geoip']['last_update_status']
-                    assert failure_status.endswith(base + '/failure.mmdb'), failure_status
+                    assert failure_status.endswith(base), failure_status
                     for route, category, key, path in [
                             ('/servers_update', 'servers', 'update_url', '/server.met?token=SERVER-1874'),
                             ('/ipfilter/update', 'security', 'ipfilter_update_url', '/filter?token=FILTER-1874')]:
@@ -198,13 +198,20 @@ def run(daemon_binary, api_binary):
                     until(lambda: 'Downloaded ' in '\n'.join(request(
                         'GET', '/logs/amule', token=guest)[1]['lines']))
                     until(lambda: 'Downloaded ' in events_file.read_text())
+                    failure_prefix = 'HTTP download failed for ' + base + ': '
+                    previous_failures = request('GET', '/logs/amule', token=guest)[1]['lines']
                     disconnect_url = base + '/disconnect.mmdb?token=CONNECTION-1874'
                     assert request('PATCH', '/preferences', {
                         'geoip': {'custom_update_url': disconnect_url}}, admin)[0] == 200
                     assert request('POST', '/geoip/update', token=admin)[0] == 202
                     until(lambda: '/disconnect.mmdb?token=CONNECTION-1874' in DownloadHandler.paths)
                     until(lambda: request('GET', '/preferences', token=guest)[1]['geoip'][
-                        'last_update_status'].endswith(base + '/disconnect.mmdb'))
+                        'last_update_status'].endswith(base))
+                    failure_line = until(lambda: next((line for line in request(
+                        'GET', '/logs/amule', token=guest)[1]['lines']
+                        if failure_prefix in line and line not in previous_failures), None))
+                    assert failure_line.split(failure_prefix, 1)[1].strip(), failure_line
+                    print('PASS: backend download failure reason is preserved')
                     oversize_url = base + '/oversize.mmdb?token=OVERSIZE-1874'
                     assert request('PATCH', '/preferences', {
                         'geoip': {'custom_update_url': oversize_url}}, admin)[0] == 200
@@ -212,11 +219,11 @@ def run(daemon_binary, api_binary):
                     until(lambda: '/oversize.mmdb?token=OVERSIZE-1874' in DownloadHandler.paths)
                     until(lambda: 'larger than 256 MiB' in events_file.read_text())
                     until(lambda: request('GET', '/preferences', token=guest)[1]['geoip'][
-                        'last_update_status'].endswith(base + '/oversize.mmdb'))
+                        'last_update_status'].endswith(base))
                     subscriber.terminate()
                     subscriber.wait(timeout=5)
                     processes.remove(subscriber)
-                sensitive = ['USER-1874', 'PASS-1874', 'FRAGMENT-1874', 'LICENSE-KEY-1874', 'TOKEN-1874', 'MAXMIND-1874',
+                sensitive = ['USER-1874', 'PASS-1874', 'FRAGMENT-1874', 'LICENSE-KEY-1874', 'TOKEN-1874', 'MAXMIND-1874', 'PATH-1874',
                              'PROXY-USER-1874', 'SERVER-1874', 'FILTER-1874',
                              'KAD-1874', 'SUCCESS-1874', 'CONNECTION-1874', 'OVERSIZE-1874']
                 surfaces = [failure_status, json.dumps(request('GET', '/preferences', token=guest)[1]),

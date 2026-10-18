@@ -30,8 +30,8 @@
 #include <curl/curl.h>
 #endif
 
-#include "DownloadUrl.h"
 #include "HTTPDownload.h"           // Interface declarations
+#include "DownloadUrl.h"            // Needed for DownloadUrlForLog, DownloadErrorForLog
 #include <common/StringFunctions.h> // Needed for unicode2char
 #include "OtherFunctions.h"         // Needed for CastChild
 #include "Logger.h"                 // Needed for AddLogLine*
@@ -550,9 +550,10 @@ void CHTTPDownloadThread::OnStateEvent(wxWebRequestEvent &evt)
 		break;
 	}
 
-	// Backend error text can echo the original URL, including redirect credentials.
+	// Keep the backend reason while hiding request and redirect URL credentials.
 	case wxWebRequest::State_Failed: {
-		AddLogLineC(CFormat(_("HTTP download failed for %s")) % DownloadUrlForLog(m_url));
+		AddLogLineC(CFormat(_("HTTP download failed for %s: %s")) % DownloadUrlForLog(m_url) %
+			    DownloadErrorForLog(evt.GetErrorDescription()));
 		FinishAndDestroy(HTTP_Error);
 		break;
 	}

@@ -26,7 +26,7 @@
 #include <wx/stdpaths.h> // Needed for GetDataDir
 #include <wx/ffile.h>
 
-#include "DownloadUrl.h"
+#include "DownloadUrl.h" // Needed for DownloadUrlForLog
 
 #include "IPFilter.h"               // Interface declarations.
 #include "IPFilterScanner.h"        // Interface for flexer

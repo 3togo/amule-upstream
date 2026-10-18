@@ -3198,7 +3198,7 @@ msgstr ""
 
 #: src/HTTPDownload.cpp
 #, c-format
-msgid "HTTP download failed for %s"
+msgid "HTTP download failed for %s: %s"
 msgstr ""
 
 #: src/HTTPDownload.cpp

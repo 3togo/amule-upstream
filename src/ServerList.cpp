@@ -25,7 +25,7 @@
 
 #include <wx/wx.h>
 
-#include "DownloadUrl.h"
+#include "DownloadUrl.h" // Needed for DownloadUrlForLog
 
 #include "ServerList.h" // Interface declarations.
 

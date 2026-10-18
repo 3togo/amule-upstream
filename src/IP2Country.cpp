@@ -29,7 +29,7 @@
 
 #include "Preferences.h" // For thePrefs
 #include "CFile.h"       // For CPath
-#include "DownloadUrl.h"
+#include "DownloadUrl.h" // Needed for DownloadUrlForLog
 #include "HTTPDownload.h"
 #include "Logger.h"               // For AddLogLineM()
 #include <common/Format.h>        // For CFormat()
