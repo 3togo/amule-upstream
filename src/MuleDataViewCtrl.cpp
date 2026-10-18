@@ -504,17 +504,19 @@ void CMuleDataViewCtrl::FitColumnWidths(int column)
 
 	Freeze();
 	for (unsigned i = 0; i < RealColumnCount(); ++i) {
-		if ((column >= 0 && i != static_cast<unsigned>(column)) || IsColumnHidden(i)) {
+		const int columnIndex = static_cast<int>(i);
+		if ((column >= 0 && columnIndex != column) || IsColumnHidden(columnIndex)) {
 			continue;
 		}
 		wxDataViewColumn *col = GetColumn(i);
 		const int headerWidth = GetTextExtent(col->GetTitle()).x + FromDIP(28);
-		int width = rows.empty() ? std::max(headerWidth, m_columnStore.GetColumnDefaultWidth(i))
-					 : headerWidth;
+		int width = rows.empty()
+				    ? std::max(headerWidth, m_columnStore.GetColumnDefaultWidth(columnIndex))
+				    : headerWidth;
 		// Bars (and custom client cells using bar specs) have no textual natural width.
 		// Keep their useful default rather than feeding their current width back into a fit.
 		if (dynamic_cast<CMuleBarRenderer *>(col->GetRenderer())) {
-			width = std::max(width, m_columnStore.GetColumnDefaultWidth(i));
+			width = std::max(width, m_columnStore.GetColumnDefaultWidth(columnIndex));
 		} else {
 			for (size_t sample = 0; sample < samples; ++sample) {
 				const size_t row =
