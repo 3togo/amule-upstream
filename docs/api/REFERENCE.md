@@ -2434,7 +2434,7 @@ Returns every preference category amuled carries over EC. The `general` and `con
 
 Booleans are plain JSON `true`/`false` regardless of how amuled encodes them on the wire. **Passwords are never returned** — the webserver admin/guest and amuleapi passwords are write-only (see PATCH). `general.user_hash` is the node's own identity hash, not a password.
 
-**Admin-only fields.** `connection.proxy_user`, `geoip.maxmind_license`, `geoip.custom_update_url`, `servers.update_url`, `security.ipfilter_update_url` and `kad.update_url` are returned to admin sessions only, because these values may contain credentials or access tokens. Guest responses omit these keys. Admins read and set them as usual. Download URLs in daemon logs and `geoip.last_update_status` omit user info, query strings and fragments.
+**Admin-only fields.** `connection.proxy_user`, `geoip.maxmind_license`, `geoip.custom_update_url`, `servers.update_url`, `servers.update_urls`, `security.ipfilter_update_url` and `kad.update_url` are returned to admin sessions only, because these values may contain credentials or access tokens. Guest responses omit these keys. Admins read and set them as usual. Download URLs in daemon logs and `geoip.last_update_status` omit user info, query strings and fragments.
 
 `connection.extended_udp_port_enabled` is positive-sense: `true` means the extended UDP port (Kad / global search) is on. `security.shared_files_visibility` is a 3-state enum string, not a bool: `"everybody"` / `"friends"` / `"nobody"`.
 

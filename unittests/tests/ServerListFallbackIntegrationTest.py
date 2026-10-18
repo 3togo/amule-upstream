@@ -23,6 +23,7 @@ SERVER_MET = b'\xe0' + struct.pack('<I', 1) + bytes([203, 0, 113, 7]) + struct.p
 EXISTING = SERVER_MET.replace(bytes([203, 0, 113, 7]), bytes([203, 0, 113, 9]))
 TRUNCATED = b'\xe0' + struct.pack('<I', 2) + bytes([203, 0, 113, 8]) + struct.pack('<HI', 4661, 0)
 GOOD = (200, SERVER_MET)
+SECOND = (200, SERVER_MET.replace(bytes([203, 0, 113, 7]), bytes([203, 0, 113, 10])))
 FAIL = (503, b'unavailable')
 
 
@@ -166,6 +167,14 @@ def run(binary, root, responses, sources, expected, *, url=None, startup=False,
             assert bytes([203, 0, 113, 9]) in data, data
         if success:
             assert bytes([203, 0, 113, 7]) in data, data
+            expected_ips = {9} if not startup else set()
+            for path in expected:
+                status, body = responses.get(path, FAIL)
+                if status == 200 and body in (GOOD[1], SECOND[1]):
+                    expected_ips.add(body[8])
+            assert int.from_bytes(data[1:5], 'little') == len(expected_ips), (expected_ips, data)
+            for last in expected_ips:
+                assert bytes([203, 0, 113, last]) in data, data
         assert (source_file.read_bytes() if source_file.exists() else None) == expected_source_file
         # A one-off request must never reintroduce the retired config key.
         assert 'Ed2kServersUrl=' not in (root / 'amule.conf').read_text()
@@ -240,6 +249,10 @@ def editor_case(binary, api_binary, root):
         op, _ = ec.call(C['EC_OP_SET_PREFERENCES'], [tag(C['EC_TAG_PREFS_SERVERS'], children=[bad])])
         assert op == C['EC_OP_FAILED'], op
         assert source_file.read_text().splitlines() == many
+        for invalid in ['', 'http:///missing-host', 'http://host/a\x00hidden', 'http://host/list\nother']:
+            request('POST', '/servers/update', {'url': invalid}, expected=400)
+        op, _ = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'], [integer(C['EC_TAG_SERVERS_UPDATE_URL'], 1)])
+        assert op == C['EC_OP_FAILED'], op
         # A write failure is reported to API clients, preserving the existing filesystem object.
         source_file.unlink()
         source_file.mkdir()
@@ -267,6 +280,39 @@ def editor_case(binary, api_binary, root):
             stop_daemon(proc)
 
 
+def migration_cases(binary, root):
+    default = 'https://upd.emule-security.org/server.met'
+    cases = [
+        ('fresh-default', None, None, default + '\n'),
+        ('keep-empty', default, '', ''),
+        ('keep-comments', default, '# custom sources\nhttp://existing.example/list\n',
+         '# custom sources\nhttp://existing.example/list\n'),
+        ('custom-first', 'https://custom.example/list', 'http://existing.example/list\n',
+         'https://custom.example/list\nhttp://existing.example/list\n'),
+        ('custom-deduplicated', 'https://custom.example/list',
+         'http://existing.example/list\nhttps://custom.example/list\n',
+         'https://custom.example/list\nhttp://existing.example/list\n'),
+    ]
+    for name, legacy, contents, expected in cases:
+        folder = root / name
+        folder.mkdir()
+        (folder / 'Incoming').mkdir()
+        (folder / 'Temp').mkdir()
+        source_file = folder / 'addresses.dat'
+        if contents is not None:
+            source_file.write_text(contents)
+        ports = free_ports(3, udp_indices=(2,), peer_index=1)
+        # ED2K is disabled, so checking the shipped default never contacts the Internet.
+        write_amule_conf(folder, ports[0], Port=ports[1], UDPPort=ports[2], Ed2kServersUrl=legacy)
+        proc, ec = start(binary, folder, ports)
+        try:
+            assert source_file.read_text() == expected, (name, source_file.read_text())
+            assert 'Ed2kServersUrl=' not in (folder / 'amule.conf').read_text()
+        finally:
+            ec.sock.close()
+            stop_daemon(proc)
+
+
 def main():
     binary = str(Path(sys.argv[1]).resolve())
     api_binary = str(Path(sys.argv[2]).resolve()) if len(sys.argv) > 2 else None
@@ -280,7 +326,7 @@ def main():
 
             if api_binary:
                 editor_case(binary, api_binary, root / 'editors')
-                case('api-merge-all', {'/first': GOOD, '/last': GOOD}, ['/first', '/last'],
+                case('api-merge-all', {'/first': GOOD, '/last': SECOND}, ['/first', '/last'],
                      ['/first', '/last'], api_binary=api_binary)
                 case('api-explicit-once', {'/alternate': GOOD}, ['/backup'], ['/alternate'],
                      url='/alternate', api_binary=api_binary)
@@ -288,14 +334,15 @@ def main():
                      url='/alternate', success=False, api_binary=api_binary)
                 return
 
-            case('merge-after-success', {'/first': GOOD, '/last': GOOD}, ['/first', '/last'], ['/first', '/last'])
+            migration_cases(binary, root)
+            case('merge-after-success', {'/first': GOOD, '/last': SECOND}, ['/first', '/last'], ['/first', '/last'])
             case('first-run', {'/backup': GOOD}, ['/primary', '/backup'], ['/primary', '/backup'], startup=True)
             case('http-failure', {'/backup': GOOD}, ['/primary', '/backup'], ['/primary', '/backup'])
             case('invalid-download', {'/primary': (200, b'invalid'), '/backup': GOOD},
                  ['/primary', '/backup'], ['/primary', '/backup'])
             case('truncated-download', {'/primary': (200, TRUNCATED), '/backup': GOOD},
                  ['/primary', '/backup'], ['/primary', '/backup'])
-            case('ordered-merge', {'/first': GOOD, '/last': GOOD},
+            case('ordered-merge', {'/first': GOOD, '/last': SECOND},
                  ['/first', '/second', '/last', '/unused'], ['/first', '/second', '/last', '/unused'])
             case('all-fail', {}, ['/first', '/last'], ['/first', '/last'], success=False)
             case('truncated-only', {'/backup': (200, TRUNCATED)}, ['/backup'], ['/backup'], success=False)
@@ -322,7 +369,7 @@ def main():
             case('cancel-auto-on-shutdown', {}, ['/primary', '/backup'], ['/primary'],
                  success=False, cancel=True, automatic=True)
     retry_port_collisions(attempt)
-    print('4 API/EC source-list scenarios passed' if api_binary else '22 server-list scenarios passed')
+    print('4 API/EC source-list scenarios passed' if api_binary else '22 server-list and 5 migration scenarios passed')
 
 
 if __name__ == '__main__':

@@ -240,6 +240,8 @@ void CServerWnd::OnBnClickedUpdateservermetfromurl(wxCommandEvent &evt)
 {
 	wxString strURL = evt.GetId() == ID_UPDATELIST ? wxString()
 						       : CastChild(IDC_SERVERLISTURL, wxTextCtrl)->GetValue();
+	if (evt.GetId() != ID_UPDATELIST && strURL.empty())
+		return;
 	UpdateServerMetFromURL(strURL);
 }
 

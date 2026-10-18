@@ -6800,6 +6800,10 @@ CHttpServer::Response CApiDispatcher::HandleServerUpdateFromUrl(const CHttpServe
 	if (!ResolveFetchUrl(req, kSpec, nullptr, url, rejection)) {
 		return rejection;
 	}
+	if (!url.empty() && (url.find('\0') != std::string::npos ||
+				    !ServerListSources::IsValid(wxString::FromUTF8(url.c_str())))) {
+		return ErrorResponse(400, "bad_request", "url must be a valid HTTP or HTTPS URL");
+	}
 	return UrlFetchOp(m_app, m_state, kSpec, url);
 }
 

@@ -483,7 +483,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr ""
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr ""
 
@@ -2253,6 +2253,20 @@ msgstr[1] ""
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr ""
 
+#: src/EditServerListDlg.cpp
+msgid "Edit server list"
+msgstr ""
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Add here URL's to download server.met files.\n"
+"Only one url on each line."
+msgstr ""
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+msgid "Could not save the server list sources. Check the URLs and file permissions."
+msgstr ""
+
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
 msgstr ""
@@ -2486,6 +2500,10 @@ msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Client could not be swapped to that file."
+msgstr ""
+
+#: src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -6916,16 +6934,6 @@ msgid "Reset to defaults"
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr ""
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-
-#: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
 msgstr ""
 
@@ -7495,31 +7503,13 @@ msgid "A server list download is already in progress."
 msgstr ""
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr ""
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Trying the backup server list from %s"
-msgstr ""
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Finished downloading the server list from %s"
-msgstr ""
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
-msgstr ""
-
-#: src/ServerList.cpp
 #, c-format
 msgid "Start downloading server list from %s"
 msgstr ""
 
 #: src/ServerList.cpp
 #, c-format
-msgid "Failed to download the server list from %s"
+msgid "Finished downloading the server list from %s"
 msgstr ""
 
 #: src/ServerList.cpp
@@ -7727,6 +7717,26 @@ msgstr ""
 
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "One-off URL"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Update server list"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Edit list…"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Download once"
 msgstr ""
 
 #: src/ServerWnd.cpp

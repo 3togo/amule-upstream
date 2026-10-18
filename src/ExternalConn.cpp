@@ -3947,7 +3947,13 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		}
 	} break;
 	case EC_OP_SERVER_UPDATE_FROM_URL: {
-		wxString url = request->GetFirstTagSafe()->GetStringData();
+		const CECTag *urlTag = request->GetFirstTagSafe();
+		if (request->GetTagCount() > 1 || (request->GetTagCount() && !urlTag->IsString())) {
+			response = new CECPacket(EC_OP_FAILED);
+			response->AddTag(CECTag(EC_TAG_STRING, _("Invalid URL")));
+			break;
+		}
+		wxString url = urlTag->GetStringData();
 
 		// An empty URL updates the configured list; explicit URLs are never saved.
 
