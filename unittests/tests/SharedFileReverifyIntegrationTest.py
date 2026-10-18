@@ -179,7 +179,7 @@ def run(binary, root):
             receive(sock, file_hash, content, PART)
         assert all(not date(record) for record in records(ec).values())
         set_interval(ec, 7)
-        for invalid in (3651, 0xFFFFFFFF, 0x100000007):
+        for invalid in (3651, 0xFFFFFFFF, 0x100000009):
             set_interval(ec, invalid)
             assert get_interval(ec) == 7, 'invalid EC interval modified the setting'
         set_interval(ec, 3650)

@@ -1756,7 +1756,6 @@ add_test (NAME SharedFileVerifyScheduleTest COMMAND SharedFileVerifyScheduleTest
 target_include_directories (SharedFileVerifyScheduleTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (SharedFileVerifyScheduleTest muleunit mulecommon)
 
-
 add_executable (MediaProbeParseTest
 	MediaProbeParseTest.cpp
 	${CMAKE_SOURCE_DIR}/src/MediaProbe.cpp
