@@ -814,7 +814,7 @@ msgid "ERROR: aMule daemon cannot be used when external connections are disabled
 msgstr ""
 
 #: src/amuled.cpp
-msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
+msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPasswordVerifier\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
 msgstr ""
 
 #: src/amuled.cpp
@@ -2266,6 +2266,10 @@ msgid "External connections disabled due to empty password!"
 msgstr ""
 
 #: src/ExternalConn.cpp
+msgid "External connections disabled due to invalid ECPasswordVerifier!"
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
 msgstr ""
 
@@ -2291,11 +2295,19 @@ msgid "Unknown version"
 msgstr ""
 
 #: src/ExternalConn.cpp
+msgid "An EC client of version 3.2.0 or later is required."
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "Incorrect EC version ID, there might be binary incompatibility. Use core and remote from same snapshot."
 msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "You cannot connect to a release version from an arbitrary development snapshot! *sigh* possible crash prevented"
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "Invalid SRP handshake or EC verifier."
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2309,22 +2321,6 @@ msgstr ""
 #: src/ExternalConn.cpp
 #, c-format
 msgid "Too many failed connection attempts; try again in %d seconds."
-msgstr ""
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: invalid hash specified as EC password."
-msgstr ""
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: the client offered an encrypted External Connection but sent no usable key."
-msgstr ""
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: this aMule requires an encrypted External Connection, and the client did not negotiate one."
-msgstr ""
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: the client could not confirm the encrypted session."
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2486,6 +2482,10 @@ msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Client could not be swapped to that file."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "Could not update EC password verifier."
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2754,10 +2754,6 @@ msgid "Print program version."
 msgstr ""
 
 #: src/ExternalConnector.cpp
-msgid "Do not encrypt the External Connect session. Encryption is on by default whenever the remote aMule supports it; turning it off leaves everything after the login readable and modifiable by anyone on the path."
-msgstr ""
-
-#: src/ExternalConnector.cpp
 msgid "Force ZLIB compression regardless of dialed-IP locality (useful when the server is reachable over a VPN tunnel that resolves to a LAN IP)."
 msgstr ""
 
@@ -2767,6 +2763,10 @@ msgstr ""
 
 #: src/ExternalConnector.cpp
 msgid "Do not write a log file; print to the console only."
+msgstr ""
+
+#: src/ExternalConnector.cpp
+msgid "The daemon verifier cannot be used as a client password. Configure the client password separately.\n"
 msgstr ""
 
 #: src/FileDetailDialog.cpp
@@ -3816,6 +3816,10 @@ msgid "Invalid password, not a MD5 hash!"
 msgstr ""
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
+msgid "Could not generate SRP credentials."
+msgstr ""
+
+#: src/libs/ec/cpp/RemoteConnect.cpp
 #, c-format
 msgid "Could not resolve %s to an IPv4 address."
 msgstr ""
@@ -3833,15 +3837,11 @@ msgid "EC connection failed. Empty reply."
 msgstr ""
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "Could not set up connection encryption. Connection closed."
+msgid "Invalid SRP handshake or unsupported profile. Connection closed."
 msgstr ""
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "The core did not negotiate an encrypted connection. It may be an older aMule without encryption support, or the connection may have been tampered with. To connect without encryption, turn it off in the connection settings."
-msgstr ""
-
-#: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "External Connection: Bad reply, handshake failed. Connection closed."
+msgid "An EC daemon of version 3.2.0 or later is required."
 msgstr ""
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
@@ -5502,10 +5502,6 @@ msgid "Password"
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Require encrypted connections (rejects clients that cannot encrypt)"
-msgstr ""
-
-#: src/muuli_wdr.cpp
 msgid "aMule API server parameters"
 msgstr ""
 
@@ -6008,10 +6004,6 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Remember those settings"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Encrypt the connection (recommended)"
 msgstr ""
 
 #: src/muuli_wdr.cpp

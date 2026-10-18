@@ -1,13 +1,13 @@
 // Copyright (c) 2026 aMule Team. GPL-2.0-or-later.
 #include "ECSRP.h"
+
+// Use the shared include prefix and scoped Crypto++ deprecation handling.
+#define CRYPTOPP_INC_NEED_SRP
+#include "../../../CryptoPP_Inc.h"
+
 #include "ECCrypt.h"
 #include "ECPacket.h"
 
-#include <cryptopp/integer.h>
-#include <cryptopp/nbtheory.h>
-#include <cryptopp/scrypt.h>
-#include <cryptopp/sha.h>
-#include <cryptopp/hmac.h>
 #include <stdexcept>
 
 namespace ECSRP
