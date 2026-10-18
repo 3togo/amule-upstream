@@ -34,6 +34,7 @@ class InputRecord(ctypes.Structure):
 
 def run(binary, config_dir, scenario):
     kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    user = ctypes.WinDLL('user32', use_last_error=True)
     kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
                                   wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
     kernel.CreateFileW.restype = wintypes.HANDLE
@@ -44,8 +45,8 @@ def run(binary, config_dir, scenario):
     kernel.WriteConsoleInputW.argtypes = [wintypes.HANDLE, ctypes.POINTER(InputRecord),
                                         wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
     kernel.WriteConsoleInputW.restype = wintypes.BOOL
-    kernel.VkKeyScanW.argtypes = [wintypes.WCHAR]
-    kernel.VkKeyScanW.restype = wintypes.SHORT
+    user.VkKeyScanW.argtypes = [wintypes.WCHAR]
+    user.VkKeyScanW.restype = wintypes.SHORT
     assert ctypes.sizeof(KeyEvent) == 16 and ctypes.sizeof(InputRecord) == 20
 
     def checked(result):
@@ -99,7 +100,7 @@ def run(binary, config_dir, scenario):
                     if character in ('\x03', '\x1a'):
                         virtual_key, control = (0x43 if character == '\x03' else 0x5A), 0x8
                     else:
-                        mapping = kernel.VkKeyScanW(character)
+                        mapping = user.VkKeyScanW(character)
                         assert mapping != -1, 'unmappable console test key'
                         virtual_key = mapping & 0xFF
                         control = 0x10 if mapping & 0x100 else 0  # SHIFT_PRESSED
