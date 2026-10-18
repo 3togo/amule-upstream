@@ -359,6 +359,26 @@ TEST(WritePartMet, BackupSymlinkCannotTruncateTheLiveMetadata)
 	ASSERT_FALSE(std::filesystem::is_symlink(Bak().GetRaw().ToStdString()));
 	RemoveAll();
 }
+TEST(WritePartMet, TemporaryLinkCannotOverwriteItsTarget)
+{
+	for (bool dangling : { false, true }) {
+		RemoveAll();
+		{
+			CFile part(Part(), CFile::write);
+		}
+		auto first = Request(1);
+		ASSERT_EQUALS(CPartMetSaveResult::Saved, WritePartMet(first).status);
+		const CPath target = dangling ? Bak() : Met();
+		std::filesystem::create_symlink(target.GetRaw().ToStdString(), Tmp().GetRaw().ToStdString());
+		auto second = Request(2);
+		ASSERT_EQUALS(CPartMetSaveResult::Saved, WritePartMet(second).status);
+		ASSERT_EQUALS(2, ReadAll(Met())[0]);
+		ASSERT_EQUALS(1, ReadAll(Bak())[0]);
+		ASSERT_FALSE(std::filesystem::is_symlink(Met().GetRaw().ToStdString()));
+		RemoveAll();
+	}
+}
+
 TEST(WritePartMet, StagedBackupLinkCannotOverwriteItsTarget)
 {
 	// Check both a live target and a dangling link: BackupFile must receive a

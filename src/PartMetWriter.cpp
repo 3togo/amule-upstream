@@ -50,6 +50,12 @@ CPartMetSaveResult WritePartMet(CPartMetSaveRequest &req)
 		req.content.at(1 + i) = static_cast<uint8>(mtime >> (8 * i));
 	}
 
+	// A stale temporary entry can be a symlink or hard link to the live metadata.
+	// Unlink it before opening for write, rather than truncating its target.
+	if (wxFileName::Exists(req.tmpPath.GetRaw()) && !CPath::RemoveFile(req.tmpPath)) {
+		return { CPartMetSaveResult::Failed, "Failed to remove stale part.met.tmp file" };
+	}
+
 	CFile file;
 	try {
 		file.Open(req.tmpPath, CFile::write);

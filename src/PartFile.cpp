@@ -2654,7 +2654,7 @@ void CPartFile::Delete()
 	}
 
 	// WaitForMetSave above ensures the writer cannot recreate these after cleanup.
-	for (const char *ext : { ".tmp", PARTMET_BAK_EXT ".tmp" }) {
+	for (const char *ext : { ".tmp", ".bak.tmp" }) {
 		const CPath temporary = m_fullname.AppendExt(ext);
 		if (temporary.FileExists() && !CPath::RemoveFile(temporary)) {
 			AddDebugLogLineC(logPartFile, CFormat("Failed to delete '%s'") % temporary);
