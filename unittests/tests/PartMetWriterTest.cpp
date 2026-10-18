@@ -233,13 +233,13 @@ TEST(WritePartMet, FailedInstallPreservesLiveMetadataAndCanRetry)
 	}
 	const CPartMetFileOps failing = { CPath::BackupFile, [&req](const CPath &src, const CPath &dst) {
 						 return dst.GetRaw() != req.metPath.GetRaw() &&
-							CPath::ReplaceFile(src, dst);
+							CPath::ReplaceEntry(src, dst);
 					 } };
 	ASSERT_EQUALS(CPartMetSaveResult::Failed, InstallPartMet(req, failing).status);
 	ASSERT_EQUALS(1, ReadAll(Met())[0]);
 	ASSERT_EQUALS(1, ReadAll(Bak())[0]);
 	ASSERT_EQUALS(2, ReadAll(Tmp())[0]);
-	const CPartMetFileOps working = { CPath::BackupFile, CPath::ReplaceFile };
+	const CPartMetFileOps working = { CPath::BackupFile, CPath::ReplaceEntry };
 	ASSERT_EQUALS(CPartMetSaveResult::Saved, InstallPartMet(req, working).status);
 	ASSERT_EQUALS(2, ReadAll(Met())[0]);
 	ASSERT_EQUALS(1, ReadAll(Bak())[0]);
@@ -265,7 +265,7 @@ TEST(WritePartMet, LiveMetadataRemainsDiscoverableBetweenBackupAndInstall)
 				livePresent = Met().FileExists() && ReadAll(Met())[0] == 1 &&
 					      ReadAll(Bak())[0] == 1;
 			}
-			return CPath::ReplaceFile(src, dst);
+			return CPath::ReplaceEntry(src, dst);
 		} };
 	ASSERT_EQUALS(CPartMetSaveResult::Saved, InstallPartMet(req, ops).status);
 	ASSERT_TRUE(livePresent);
@@ -298,7 +298,7 @@ TEST(WritePartMet, FailedNativeReplacementCannotTruncateTheDestination)
 	// Directory sources must be rejected, including on Windows where MoveFileExW can
 	// replace a regular file with a directory. A copy/delete fallback can also destroy it.
 	ASSERT_TRUE(CPath::MakeDir(Tmp()));
-	const bool replaced = CPath::ReplaceFile(Tmp(), Met());
+	const bool replaced = CPath::ReplaceEntry(Tmp(), Met());
 	const auto data = ReadAll(Met());
 	CPath::RemoveDir(Tmp());
 	RemoveAll();
@@ -314,7 +314,7 @@ TEST(WritePartMet, MissingReplacementSourcePreservesTheDestination)
 		CFile file(Met(), CFile::write);
 		file.WriteUInt8(7);
 	}
-	ASSERT_FALSE(CPath::ReplaceFile(Tmp(), Met()));
+	ASSERT_FALSE(CPath::ReplaceEntry(Tmp(), Met()));
 	ASSERT_EQUALS(7, ReadAll(Met())[0]);
 	RemoveAll();
 }

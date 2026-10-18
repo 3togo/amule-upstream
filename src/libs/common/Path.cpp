@@ -614,7 +614,7 @@ bool CPath::RenameFile(const CPath &src, const CPath &dst, bool overwrite)
 	return ::wxRenameFile(src.m_filesystem, dst.m_filesystem, overwrite);
 }
 
-bool CPath::ReplaceFile(const CPath &src, const CPath &dst)
+bool CPath::ReplaceEntry(const CPath &src, const CPath &dst)
 {
 	// wxRenameFile falls back to copying after a failed rename, which can remove or truncate
 	// the existing destination before failing. Replacement must leave it intact.
