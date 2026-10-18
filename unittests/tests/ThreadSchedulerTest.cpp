@@ -173,6 +173,7 @@ TEST(ThreadScheduler, QueueOwnershipAndTypeLimitsAcrossSchedulerLifecycle)
 	ASSERT_FALSE(CThreadScheduler::HasTaskOfType("Absent"));
 	wxSemaphore started, release, done;
 	std::vector<int> order;
+	bool cancelled = false;
 	CReleaseWorker cleanup(release);
 	ASSERT_TRUE(CThreadScheduler::AddTaskIfNoneOfType(new CBlockedTask(started, release)));
 	CThreadScheduler::Start();
@@ -205,7 +206,6 @@ TEST(ThreadScheduler, QueueOwnershipAndTypeLimitsAcrossSchedulerLifecycle)
 	ASSERT_EQUALS(wxSEMA_NO_ERROR, done.WaitTimeout(5000));
 	ASSERT_TRUE((order == std::vector<int>{ 4, 2, 1 }));
 
-	bool cancelled = false;
 	ASSERT_TRUE(CThreadScheduler::AddTask(new CCancelledTask(started, release, done, cancelled)));
 	ASSERT_EQUALS(wxSEMA_NO_ERROR, started.WaitTimeout(5000));
 	ASSERT_TRUE(CThreadScheduler::AddTask(new COrderedTask(order, done, 7, ETP_High, "running-verify"),
