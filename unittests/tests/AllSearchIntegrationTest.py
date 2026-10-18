@@ -78,14 +78,9 @@ def parse_tags(data, offset, count):
 class EC:
     def __init__(self, port, host="127.0.0.1", password="regression"):
         self.sock = socket.create_connection((host, port), timeout=60)
-        op, tags = self.call(C['EC_OP_AUTH_REQ'], [string(C['EC_TAG_CLIENT_NAME'], 'AllSearch regression'), string(C['EC_TAG_CLIENT_VERSION'], '1'),
-                               tag(C['EC_TAG_PROTOCOL_VERSION'], struct.pack('!H', C['EC_CURRENT_PROTOCOL_VERSION']), 3), tag(C['EC_TAG_CAN_MULTI_SEARCH']), tag(C['EC_TAG_CAN_SEARCH_LIST']), tag(C['EC_TAG_CAN_PARTIAL_SEARCH'])])
-        assert op == C['EC_OP_AUTH_SALT'], (op, tags)
-        salt = tags[C['EC_TAG_PASSWD_SALT']][0]
-        password_hash = hashlib.md5(password.encode()).hexdigest()
-        salt_hash = hashlib.md5(f'{salt:X}'.encode()).hexdigest()
-        proof = hashlib.md5((password_hash + salt_hash).encode()).digest()
-        op, tags = self.call(C['EC_OP_AUTH_PASSWD'], [tag(C['EC_TAG_PASSWD_HASH'], proof, 9)])
+        from ECWire import authenticate
+        caps = [tag(C[name]) for name in ('EC_TAG_CAN_MULTI_SEARCH', 'EC_TAG_CAN_SEARCH_LIST', 'EC_TAG_CAN_PARTIAL_SEARCH')]
+        self.sock, op, tags = authenticate(self.sock, hashlib.md5(password.encode()).digest(), capabilities=caps)
         assert op == C['EC_OP_AUTH_OK'] and C['EC_TAG_CAN_SEARCH_ALL'] in tags, (op, tags)
 
     def call(self, op, tags=()):

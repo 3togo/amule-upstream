@@ -957,9 +957,6 @@ bool PrefsUnifiedDlg::TransferToWindow()
 		IDC_EC_INTERFACETEXT,
 		IDC_EXT_CONN_TCP_PORT,
 		IDC_EXT_CONN_TCPPORTTEXT,
-		IDC_EXT_CONN_PASSWD,
-		IDC_EXT_CONN_PASSWDTEXT,
-		IDC_EXT_CONN_REQUIRE_ENCRYPTION,
 		// ffprobe "Browse" (local file picker) and "Detect" (auto-detects on the GUI host, not
 		// the daemon) cannot target the daemon filesystem. The enable toggle + path field are
 		// EC-wired and stay visible.
@@ -1246,7 +1243,7 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 	// the way out, so the dialog closed with the user's intent discarded and the message
 	// already dismissed. Keep the dialog open on the password field instead. Wording
 	// unchanged so existing translations still apply.
-	if (thePrefs::AcceptExternalConnections() && thePrefs::ECPassword().IsEmpty()) {
+	if (thePrefs::AcceptExternalConnections() && thePrefs::ECPasswordVerifier().IsEmpty()) {
 		wxMessageBox(_("You have enabled external connections but have not specified a "
 			       "password.\nExternal connections cannot be enabled unless a valid "
 			       "password is specified."),
@@ -1334,7 +1331,8 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 	// this list: amuleapi re-reads amuleapi-passwords on every login, so a password change
 	// is live. Skip the prompt when external connections will not be usable, so we do not
 	// tell the user to restart for a service that will not run.
-	const bool ecUsable = thePrefs::AcceptExternalConnections() && !thePrefs::ECPassword().IsEmpty();
+	const bool ecUsable =
+		thePrefs::AcceptExternalConnections() && !thePrefs::ECPasswordVerifier().IsEmpty();
 	if (ecUsable && (CfgChanged(IDC_ENABLE_AMULEAPI) || CfgChanged(IDC_AMULEAPI_PORT) ||
 				CfgChanged(IDC_AMULEAPI_BIND))) {
 		restart_needed = true;

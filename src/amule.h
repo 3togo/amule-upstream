@@ -26,6 +26,7 @@
 #ifndef AMULE_H
 #define AMULE_H
 
+#include "libs/ec/cpp/ECSRP.h"
 #include <wx/app.h>      // Needed for wxApp
 #include <wx/datetime.h> // Needed for wxDateTime (ED2K/Kad "Connected since")
 #include <wx/intl.h>     // Needed for wxLocale
@@ -612,7 +613,6 @@ protected:
 	// credential -- the challenge hashes it directly -- so a compromised network-facing daemon
 	// holding it would hold the equivalent of the user's EC password. Empty when we did not
 	// spawn amuleapi, in which case no token is accepted at all.
-	wxString m_ecToken;
 
 	// Uptime-ms deadline after which the token file is removed whether or not the child read
 	// it: a child that dies before reading would leave a live secret at rest. 0 = nothing
@@ -628,7 +628,9 @@ public:
 
 	// The ephemeral EC credential handed to the spawned amuleapi, empty when none was issued.
 	// The EC server's authentication path accepts it alongside the configured password.
-	const wxString &GetEcToken() const { return m_ecToken; }
+	const ECSRP::Verifier &GetEcTokenVerifier();
+	ECSRP::Verifier m_ecTokenVerifier;
+	ECSRP::Verifier m_ecDummyTokenVerifier;
 
 #ifdef ENABLE_VERSION_CHECK
 	// Result of the last completed version check, relayed over EC to

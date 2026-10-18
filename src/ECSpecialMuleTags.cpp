@@ -28,6 +28,7 @@
 
 #include "config.h" // Needed for ENABLE_VERSION_CHECK
 #include "Preferences.h"
+#include <stdexcept>
 #include "amule.h"
 #include "IP2Country.h"     // For CIP2Country status (#440 remote GeoIP config)
 #include "SharedFileList.h" // for EnableDirectoryWatcher on the apply path
@@ -296,14 +297,22 @@ CEC_Prefs_Packet::CEC_Prefs_Packet(
 			rc_prefs.AddTag(guestTag);
 		}
 		// Read-only: Apply() has no counterpart, as the listener only rereads these on restart.
+#ifdef CLIENT_GUI
+		if (!thePrefs::PendingECPass().IsEmpty() && thePrefs::PendingECPass() != "********") {
+			CMD4Hash digest;
+			if (digest.Decode(thePrefs::PendingECPass()))
+				rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_PASSWD, digest));
+			thePrefs::ClearPendingECPass();
+		}
+#endif
 		rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_ENABLED, thePrefs::AcceptExternalConnections()));
 		rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_ADDRESS, thePrefs::GetECAddress()));
 		rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_INTERFACE, thePrefs::GetECNetworkInterface()));
 		rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_PORT, thePrefs::ECPort()));
 		rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_UPNP, thePrefs::GetUPnPECEnabled()));
+		rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_REQUIRE_ENCRYPTION, true));
 		rc_prefs.AddTag(
-			CECTag(EC_TAG_EXTERNALCONN_REQUIRE_ENCRYPTION, thePrefs::ECRequireEncryption()));
-		rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_PASSWD_SET, !thePrefs::ECPassword().IsEmpty()));
+			CECTag(EC_TAG_EXTERNALCONN_PASSWD_SET, !thePrefs::ECPasswordVerifier().IsEmpty()));
 		AddTag(rc_prefs);
 	}
 
@@ -734,6 +743,17 @@ void CEC_Prefs_Packet::Apply() const
 	}
 
 	if ((thisTab = GetTagByName(EC_TAG_PREFS_REMOTECTRL)) != NULL) {
+#ifdef CLIENT_GUI
+		if ((oneTag = thisTab->GetTagByName(EC_TAG_EXTERNALCONN_PASSWD_SET)) != nullptr) {
+			thePrefs::LoadECVerifier(oneTag->GetInt() ? "set" : "");
+		}
+#else
+		if ((oneTag = thisTab->GetTagByName(EC_TAG_EXTERNALCONN_PASSWD)) != nullptr) {
+			if (!oneTag->IsMD4() || !thePrefs::SetECPass(oneTag->GetMD4Data().Encode())) {
+				throw std::runtime_error("Could not update EC password verifier");
+			}
+		}
+#endif
 		ApplyBoolean(use_tag, thisTab, thePrefs::SetWSIsEnabled, EC_TAG_WEBSERVER_AUTORUN);
 		if ((oneTag = thisTab->GetTagByName(EC_TAG_WEBSERVER_PORT)) != NULL) {
 			thePrefs::SetWSPort(oneTag->GetInt());

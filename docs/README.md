@@ -114,7 +114,7 @@ If you want aMule running on a NAS, VPS, or always-on home server, use
 amuled                                # interactive once; Ctrl-C
 $EDITOR ~/.aMule/amule.conf           # set [ExternalConn]
                                       # AcceptExternalConnections=1
-                                      # ECPassword=<md5 of your password>
+                                      # ECPasswordVerifier=<generated verifier>
 
 # Then run it daemonised
 amuled --full-daemon

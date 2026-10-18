@@ -241,7 +241,6 @@ BasePath=                 ; path prefix behind a proxy, e.g. /amule
 Host=127.0.0.1            ; where amuled is
 Port=4712
 Password=                 ; only needed when you start amuleapi yourself
-Encryption=1              ; encrypt the link to amuled
 
 [Auth]
 LoginFailureWindowSeconds=60

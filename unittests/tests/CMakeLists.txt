@@ -2956,3 +2956,19 @@ if (ENABLE_INTEGRATION_TESTS AND ENABLE_IP2COUNTRY AND BUILD_DAEMON AND BUILD_AM
 				$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>)
 	endif ()
 endif ()
+
+add_executable (ECSRPTest ECSRPTest.cpp ${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp)
+target_include_directories (ECSRPTest PRIVATE ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
+target_link_libraries (ECSRPTest PRIVATE ec mulecommon)
+add_test (NAME ECSRPTest COMMAND ECSRPTest)
+
+add_executable (ECAsyncProbe ECAsyncProbe.cpp ${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp ${CMAKE_SOURCE_DIR}/src/NetworkFunctions.cpp)
+target_include_directories (ECAsyncProbe PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
+target_link_libraries (ECAsyncProbe PRIVATE ec mulesocket mulecommon)
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULECMD AND Python3_Interpreter_FOUND)
+	add_test (NAME ECSRPIntegrationTest COMMAND ${Python3_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/ECSRPIntegrationTest.py
+		$<TARGET_FILE:amuled> $<TARGET_FILE:amulecmd> $<TARGET_FILE:ECAsyncProbe>)
+	set_tests_properties (ECSRPIntegrationTest PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+endif()

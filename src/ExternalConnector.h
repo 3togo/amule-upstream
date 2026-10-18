@@ -270,7 +270,7 @@ protected:
 	// for, and only the client knows what address it dialed, so the decision has to live here
 	// rather than in the daemon -- the same reasoning the ZLIB locality hint already follows.
 	// This is the opt-OUT, reachable as --disable-ec-encryption or /EC/Encryption=0.
-	bool m_ECEncryption;
+	bool m_ECTokenCredential = false;
 	// Advertise the multi-search EC capability (EC_TAG_CAN_MULTI_SEARCH) so the daemon
 	// addresses searches by ID and several can run at once. Off by default; only a connector
 	// that reads EC_TAG_SEARCH_ID back and handles per-ID results (amulecmd) sets it true.

@@ -23,7 +23,8 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
-#include "amule.h" // Interface declarations.
+#include "amule.h"
+#include "libs/ec/cpp/ECCrypt.h" // Interface declarations.
 
 #include "BrowseManager.h"
 
@@ -342,7 +343,7 @@ int CamuleApp::OnExit()
 	s_exitDone = true;
 	m_amuleApiStopping = true;
 	m_amuleApiRestart.Cancel();
-	if (!m_ecToken.IsEmpty() || m_ecTokenFileExpiryMs) {
+	if (m_ecTokenVerifier.Valid() || m_ecTokenFileExpiryMs) {
 		ClearAmuleApiToken();
 	}
 
@@ -830,7 +831,8 @@ bool CamuleApp::OnInit()
 	// Configure EC for amuled when invoked with ec-config
 	if (ec_config) {
 		AddLogLineNS(_("\nEC configuration"));
-		thePrefs::SetECPass(GetPassword(false).Encode());
+		if (!thePrefs::SetECPass(GetPassword(false).Encode()))
+			return false;
 		thePrefs::EnableExternalConnections(true);
 		AddLogLineNS(_("Password set and external connections enabled."));
 	}
@@ -1511,18 +1513,26 @@ void CamuleApp::StartAmuleApi(bool startup)
 		// A failure here is not fatal -- amuleapi still has its own configured EC password --
 		// but it is worth saying, because that fallback is the credential we are trying to
 		// stop using.
-		m_ecToken = wxString::FromUTF8(webcommon::GenerateEcToken().c_str());
+		std::string ecToken = webcommon::GenerateEcToken();
+		try {
+			m_ecTokenVerifier = ECSRP::Verifier::Create(ecToken);
+		} catch (const std::exception &) {
+			ecToken.clear();
+			m_ecTokenVerifier = m_ecDummyTokenVerifier;
+		}
 		const std::string tokenPath =
 			webcommon::EcTokenFilePath(std::string(thePrefs::GetConfigDir().utf8_str()));
-		if (webcommon::WriteFileAtomic0600(tokenPath, std::string(m_ecToken.utf8_str()) + "\n")) {
+		if (!ecToken.empty() && m_ecTokenVerifier.Valid() &&
+			webcommon::WriteFileAtomic0600(tokenPath, ecToken + "\n")) {
 			m_ecTokenFileExpiryMs = theStats::GetUptimeMillis() + EC_TOKEN_FILE_TTL_MS;
 		} else {
 			AddLogLineC(CFormat(_("Could not write the amuleapi EC token to %s; "
 					      "amuleapi will fall back to its configured password.")) %
 				    wxString::FromUTF8(tokenPath.c_str()));
-			m_ecToken.Clear();
+			m_ecTokenVerifier = m_ecDummyTokenVerifier;
 		}
 
+		ECCrypt::SecureWipe(reinterpret_cast<uint8_t *>(ecToken.data()), ecToken.size());
 		// No --amule-config-file here, unlike amuleweb above: amuleapi takes the ephemeral
 		// token written just now instead of reading the hashed EC password out of amule.conf.
 		// It finds the token through the config dir passed below, which is also where its
@@ -1607,7 +1617,7 @@ void CamuleApp::StartAmuleApi(bool startup)
 
 bool CamuleApp::ClearAmuleApiToken()
 {
-	m_ecToken.Clear();
+	m_ecTokenVerifier = m_ecDummyTokenVerifier;
 	m_ecTokenFileExpiryMs = 0;
 	const wxString tokenPath = wxString::FromUTF8(
 		webcommon::EcTokenFilePath(std::string(thePrefs::GetConfigDir().utf8_str())).c_str());
@@ -3853,3 +3863,15 @@ wxDEFINE_EVENT(wxEVT_CORE_FINISHED_HTTP_DOWNLOAD, wxEvent);
 wxDEFINE_EVENT(wxEVT_CORE_SOURCE_DNS_DONE, wxEvent);
 wxDEFINE_EVENT(wxEVT_CORE_UDP_DNS_DONE, wxEvent);
 wxDEFINE_EVENT(wxEVT_CORE_SERVER_DNS_DONE, wxEvent); // File_checked_for_headers
+
+const ECSRP::Verifier &CamuleApp::GetEcTokenVerifier()
+{
+	if (!m_ecDummyTokenVerifier.Valid()) {
+		auto random = ECCrypt::RandomBytes(16);
+		m_ecDummyTokenVerifier = ECSRP::Verifier::Create(ECSRP::Hex(random));
+		ECCrypt::SecureWipe(random);
+	}
+	if (!m_ecTokenVerifier.Valid())
+		m_ecTokenVerifier = m_ecDummyTokenVerifier;
+	return m_ecTokenVerifier;
+}

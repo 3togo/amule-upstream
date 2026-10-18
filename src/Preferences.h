@@ -572,8 +572,6 @@ public:
 	 * client knows what it dialed, and this side's peer-IP view misclassifies tunnels. Candidate
 	 * for defaulting on once encryption-capable clients are the norm.
 	 */
-	static bool ECRequireEncryption() { return s_ECRequireEncryption; }
-	static void SetECRequireEncryption(bool val) { s_ECRequireEncryption = val; }
 	static void EnableExternalConnections(bool val) { s_AcceptExternalConnections = val; }
 	static const wxString &GetECAddress() { return s_ECAddr; }
 	static const wxString &GetECNetworkInterface() { return s_ECNetworkInterface; }
@@ -585,8 +583,11 @@ public:
 	static uint32 ECAuthFailureThreshold() { return s_ECAuthFailureThreshold; }
 	static uint32 ECAuthLockoutSeconds() { return s_ECAuthLockoutSeconds; }
 	static void SetECPort(uint32 val) { s_ECPort = val; }
-	static const wxString &ECPassword() { return s_ECPassword; }
-	static void SetECPass(const wxString &pass) { s_ECPassword = pass; }
+	static const wxString &ECPasswordVerifier() { return s_ECPasswordVerifier; }
+	static bool SetECPass(const wxString &pass);
+	static const wxString &PendingECPass() { return s_ECPasswordInput; }
+	static void ClearPendingECPass() { s_ECPasswordInput = "********"; }
+	static void LoadECVerifier(const wxString &verifier) { s_ECPasswordVerifier = verifier; }
 	static bool IsTransmitOnlyUploadingClients() { return s_TransmitOnlyUploadingClients; }
 
 	// Fast ED2K Links Handler Toggling
@@ -1080,14 +1081,14 @@ protected:
 
 	// Kry - external connections
 	static bool s_AcceptExternalConnections;
-	static bool s_ECRequireEncryption;
 	static wxString s_ECAddr;
 	static wxString s_ECNetworkInterface;
 	static uint32 s_ECPort;
 	static uint32 s_ECAuthFailureWindowSeconds;
 	static uint32 s_ECAuthFailureThreshold;
 	static uint32 s_ECAuthLockoutSeconds;
-	static wxString s_ECPassword;
+	static wxString s_ECPasswordVerifier;
+	static wxString s_ECPasswordInput;
 	static bool s_TransmitOnlyUploadingClients;
 
 	// Kry - IPFilter
