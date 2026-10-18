@@ -296,8 +296,8 @@ TEST(WritePartMet, FailedNativeReplacementCannotTruncateTheDestination)
 		CFile file(Met(), CFile::write);
 		file.WriteUInt8(7);
 	}
-	// Renaming a directory over a regular file must fail. A copy/delete fallback can
-	// destroy that destination while trying to copy the directory's nonexistent contents.
+	// Directory sources must be rejected, including on Windows where MoveFileExW can
+	// replace a regular file with a directory. A copy/delete fallback can also destroy it.
 	ASSERT_TRUE(CPath::MakeDir(Tmp()));
 	const bool replaced = CPath::ReplaceFileContents(Tmp(), Met());
 	const auto data = ReadAll(Met());
