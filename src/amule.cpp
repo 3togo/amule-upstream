@@ -1291,15 +1291,15 @@ bool CamuleApp::OnInit()
 			// The first-run wizard already collected the user's bootstrap choices (and
 			// UPnP / port settings, which were applied before ReinitializeNetwork ran).
 			// Act on them now that the server list and sockets exist.
-			if (wizardWantsServerMet) {
+			if (wizardWantsServerMet && !thePrefs::AutoServerlist()) {
 				serverlist->UpdateServerMetFromURL(wxEmptyString);
 			}
 			if (wizardWantsNodesDat) {
 				UpdateNotesDat(thePrefs::GetKadNodesUrl());
 			}
 		} else {
-			const bool needServerMet =
-				!serverlist->GetServerCount() && thePrefs::GetNetworkED2K();
+			const bool needServerMet = !serverlist->GetServerCount() &&
+						   thePrefs::GetNetworkED2K() && !thePrefs::AutoServerlist();
 			const bool needNodesDat = thePrefs::GetNetworkKademlia() &&
 						  !wxFileExists(thePrefs::GetConfigDir() + "nodes.dat");
 
@@ -1352,7 +1352,8 @@ bool CamuleApp::OnInit()
 			}
 		}
 #else
-		const bool needServerMet = !serverlist->GetServerCount() && thePrefs::GetNetworkED2K();
+		const bool needServerMet = !serverlist->GetServerCount() && thePrefs::GetNetworkED2K() &&
+					   !thePrefs::AutoServerlist();
 		const bool needNodesDat = thePrefs::GetNetworkKademlia() &&
 					  !wxFileExists(thePrefs::GetConfigDir() + "nodes.dat");
 		if (needServerMet) {

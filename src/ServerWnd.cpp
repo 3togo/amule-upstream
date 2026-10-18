@@ -134,10 +134,15 @@ CServerWnd::CServerWnd(wxWindow *pParent /*=NULL*/, int splitter_pos)
 
 	auto *sourceField = CastChild(IDC_SERVERLISTURL, wxTextCtrl);
 	sourceField->SetToolTip(_("Download this server.met URL once without saving it."));
-	FindWindow(ID_UPDATELIST)->SetToolTip(_("Update server list"));
+
 	if (auto *label = FindWindowByName("serverListLabel", this))
 		label->SetLabel(_("One-off URL"));
 	auto *sourceRow = sourceField->GetContainingSizer();
+	auto *oldUpdate = FindWindow(ID_UPDATELIST);
+	sourceRow->Detach(oldUpdate);
+	oldUpdate->Destroy();
+	sourceRow->Insert(
+		0, new wxButton(this, ID_UPDATELIST, _("Update server list")), wxSizerFlags().Center());
 	auto *editSources = new wxButton(this, wxID_ANY, _("Edit list…"));
 	sourceRow->Insert(1, editSources, wxSizerFlags().Center().Border(wxLEFT, 5));
 	editSources->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { EditServerListSources(this); });

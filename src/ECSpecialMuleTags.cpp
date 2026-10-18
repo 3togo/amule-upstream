@@ -327,8 +327,9 @@ CEC_Prefs_Packet::CEC_Prefs_Packet(
 		if (thePrefs::AutoServerlist()) {
 			srv_prefs.AddTag(CECEmptyTag(EC_TAG_SERVERS_AUTO_UPDATE));
 		}
+		const auto urls = thePrefs::GetServerListURLs();
 		CECEmptyTag sources(EC_TAG_SERVERS_URL_LIST);
-		for (const auto &url : thePrefs::GetServerListURLs()) {
+		for (const auto &url : urls) {
 			sources.AddTag(CECTag(EC_TAG_STRING, url));
 		}
 		srv_prefs.AddTag(sources);
@@ -353,7 +354,7 @@ CEC_Prefs_Packet::CEC_Prefs_Packet(
 		if (thePrefs::IsManualHighPrio()) {
 			srv_prefs.AddTag(CECEmptyTag(EC_TAG_SERVERS_MANUAL_HIGH_PRIO));
 		}
-		srv_prefs.AddTag(CECTag(EC_TAG_SERVERS_UPDATE_URL, thePrefs::GetEd2kServersUrl()));
+		srv_prefs.AddTag(CECTag(EC_TAG_SERVERS_UPDATE_URL, urls.empty() ? wxString() : urls[0]));
 		AddTag(srv_prefs);
 	}
 

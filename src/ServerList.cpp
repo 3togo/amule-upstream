@@ -867,8 +867,8 @@ bool CServerList::DownloadFinished(uint32 result)
 		loaded = LoadServerMet(temporary, false);
 		if (loaded) {
 			SaveServerMet();
-			AddLogLineN(
-				CFormat(_("Finished downloading the server list from %s")) % DownloadUrlForLog(m_serverMetURL));
+			AddLogLineN(CFormat(_("Finished downloading the server list from %s")) %
+				    DownloadUrlForLog(m_serverMetURL));
 		}
 		CPath::RemoveFile(temporary);
 	}
@@ -881,7 +881,8 @@ bool CServerList::DownloadFinished(uint32 result)
 		return loaded;
 	}
 	if (!loaded && result != HTTP_Skipped) {
-		AddLogLineC(CFormat(_("Failed to download %s from %s")) % "server.met" % DownloadUrlForLog(m_serverMetURL));
+		AddLogLineC(CFormat(_("Failed to download %s from %s")) % "server.met" %
+			    DownloadUrlForLog(m_serverMetURL));
 	}
 	StartNextServerMetDownload();
 	return loaded;
