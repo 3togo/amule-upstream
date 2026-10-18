@@ -2867,3 +2867,20 @@ target_include_directories (RC4Test PRIVATE
 	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
 target_link_libraries (RC4Test muleunit mulecommon CRYPTOPP::CRYPTOPP)
 add_test (NAME RC4Test COMMAND RC4Test)
+
+# Password setup is offline: no daemon, HTTP listener or public network access.
+if (BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
+	add_test (NAME AmuleApiPasswordInputTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiPasswordInputTest.py
+			$<TARGET_FILE:amuleapi>
+	)
+	set_tests_properties (AmuleApiPasswordInputTest PROPERTIES TIMEOUT 90)
+endif ()
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
+	add_test (NAME AmuleApiEcPasswordIntegrationTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiEcPasswordIntegrationTest.py
+			$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
+	)
+	set_tests_properties (AmuleApiEcPasswordIntegrationTest PROPERTIES TIMEOUT 180)
+endif ()

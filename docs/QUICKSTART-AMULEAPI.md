@@ -32,7 +32,7 @@ HttpPort=4713
 ```
 
 ```sh
-amuleapi --set-admin-pass=mySecret123
+amuleapi --set-admin-pass-stdin
 ```
 
 The password command writes its file and exits. It needs no path, because
@@ -44,23 +44,34 @@ An admin password is required before you can bind anything other than
 
 ## Running it yourself
 
-If you start amuleapi by hand, put the EC password in its own config file,
-`amuleapi.conf`:
-
-```ini
-[EC]
-Password=your-ec-password
-```
-
-then just:
+If you start amuleapi by hand, save its EC credential with:
 
 ```sh
-amuleapi
+amuleapi --set-ec-pass-stdin
 ```
 
-There is no `--password` option. A password on the command line is visible
-to every user on the machine through `ps`, and amuleapi has two safer
-routes: the token when aMule starts it, and this file when you don't.
+Enter the existing amuled EC password at the hidden prompt. This writes its
+MD5 digest to `[EC]/PasswordMD5` in `amuleapi.conf`, removes any legacy
+plaintext `[EC]/Password`, and exits. Then start `amuleapi` normally.
+You can also copy the digest from `[EC]/Password` in `remote.conf` into
+`[EC]/PasswordMD5` in `amuleapi.conf`.
+
+Legacy `Password` entries still mean plaintext, even if they contain exactly
+32 hexadecimal characters. No guessing or automatic conversion happens on
+load. Two nonempty password fields are rejected; remove one before starting
+or running setup. An invalid nonempty digest is also rejected. The setup
+command preserves other settings, but may rewrite INI formatting and comments.
+
+The digest is sufficient to authenticate to EC: keep it secret, just like the
+original password. Its benefit is avoiding disclosure of the original password
+and matching the other EC client configs. Admin/guest passwords use separate
+salted, stretched verifiers; their storage format is unchanged.
+
+There is no `--password` option: EC credentials in a long-running process's
+arguments remain visible through `ps` and `/proc`, and can persist in shell
+history, service unit files and wrapper scripts. Use the core's one-off token
+or the owner-only config file instead. The setup commands exit after writing;
+use their stdin forms to avoid putting secrets in arguments and history.
 
 `--host` and `--port` point at amuled (default `127.0.0.1:4712`). amuleapi's
 own HTTP port is separate — `4713` by default, and that is the one REST
@@ -75,12 +86,29 @@ Two roles: **admin** (full control) and **guest** (read-only, off unless you
 give it a password). Set them from the preferences panel, or:
 
 ```sh
-amuleapi --set-admin-pass=mySecret123
-amuleapi --set-guest-pass=readOnlyPass
+amuleapi --set-admin-pass-stdin
+amuleapi --set-guest-pass-stdin
 ```
 
-An empty guest password turns guest access off. Passwords are stored so they
-cannot be read back, only replaced — which is why the preference fields open
+On a terminal these commands hide input and ask you to confirm the new
+password. With redirected stdin they read one UTF-8 line without confirmation
+(CRLF and a final line without a newline are accepted). For automation, pipe
+from your secret provider, for example:
+
+```sh
+printf '%s\n' "$PW" | amuleapi --set-admin-pass-stdin
+```
+
+Do not type the secret assignment into your shell history. The existing
+`--set-admin-pass=<plain>` and `--set-guest-pass=<plain>` forms remain available
+for compatibility, including a literal `-` password, but expose secrets in
+process arguments and potentially shell history. Choose one setter per command.
+
+An empty line for `--set-guest-pass-stdin` turns guest access off; EOF or failed
+input leaves it unchanged. Empty admin/EC input is rejected by the new stdin
+commands. An empty guest password with `--set-guest-pass=` also turns guest
+access off. Passwords are stored so they cannot be read back, only replaced —
+which is why the preference fields open
 blank, and why leaving one empty keeps the current password. Changes apply at
 the next login, with no restart.
 
@@ -240,7 +268,7 @@ BasePath=                 ; path prefix behind a proxy, e.g. /amule
 [EC]
 Host=127.0.0.1            ; where amuled is
 Port=4712
-Password=                 ; only needed when you start amuleapi yourself
+PasswordMD5=              ; EC digest; set with --set-ec-pass-stdin
 Encryption=1              ; encrypt the link to amuled
 
 [Auth]
