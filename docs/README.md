@@ -186,9 +186,10 @@ To avoid repeated disk reads and log messages on every request, an automatic
 attempt is retried no sooner than N days later during the same session, even
 if it could not finish. Restarting permits another attempt when no recent
 completed result exists. Manual Verify Local Data remains available at any time
-and replaces an existing check of the same file at high priority, with manual
-result reporting. If the previous check is running, it is stopped between parts
-and the manual check starts again.
+and replaces an automatic check of the same file at high priority, with manual
+result reporting. A running automatic check stops between parts and restarts as
+a manual check. Repeating a manual request keeps the existing manual check and
+its progress.
 
 
 ## Common file types
