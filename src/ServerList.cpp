@@ -25,6 +25,8 @@
 
 #include <wx/wx.h>
 
+#include "DownloadUrl.h" // Needed for DownloadUrlForLog
+
 #include "ServerList.h" // Interface declarations.
 #include "ServerListSources.h"
 
@@ -831,7 +833,7 @@ void CServerList::StartNextServerMetDownload()
 {
 	if (m_serverMetSourceIndex < m_serverMetSources.size()) {
 		const wxString source = m_serverMetSources[m_serverMetSourceIndex++];
-		AddLogLineN(CFormat(_("Start downloading server list from %s")) % source);
+		AddLogLineN(CFormat(_("Start downloading server list from %s")) % DownloadUrlForLog(source));
 		StartServerMetDownload(source, m_serverMetShowDialog);
 	} else {
 		m_serverMetSources.clear();
@@ -866,7 +868,7 @@ bool CServerList::DownloadFinished(uint32 result)
 		if (loaded) {
 			SaveServerMet();
 			AddLogLineN(
-				CFormat(_("Finished downloading the server list from %s")) % m_serverMetURL);
+				CFormat(_("Finished downloading the server list from %s")) % DownloadUrlForLog(m_serverMetURL));
 		}
 		CPath::RemoveFile(temporary);
 	}
@@ -879,7 +881,7 @@ bool CServerList::DownloadFinished(uint32 result)
 		return loaded;
 	}
 	if (!loaded && result != HTTP_Skipped) {
-		AddLogLineC(CFormat(_("Failed to download %s from %s")) % "server.met" % m_serverMetURL);
+		AddLogLineC(CFormat(_("Failed to download %s from %s")) % "server.met" % DownloadUrlForLog(m_serverMetURL));
 	}
 	StartNextServerMetDownload();
 	return loaded;
@@ -887,7 +889,7 @@ bool CServerList::DownloadFinished(uint32 result)
 
 void CServerList::AutoDownloadFinished(uint32 result)
 {
-	// Kept for the HTTP event dispatcher; all new sequences use HTTP_ServerMet.
+	// Automatic updates merge the same sources without the manual connect action.
 	DownloadFinished(result);
 }
 

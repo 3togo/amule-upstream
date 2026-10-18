@@ -196,6 +196,15 @@ msgstr "Şimdi tekrar başlat"
 msgid "Later"
 msgstr "Daha sonra"
 
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+msgid "The connected core does not support deleting complete files from disk."
+msgstr ""
+
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+#, fuzzy
+msgid "Delete from disk"
+msgstr "Kad üzerinden al"
+
 #: src/GuiEvents.cpp
 #, c-format
 msgid ""
@@ -219,26 +228,6 @@ msgid ""
 "%s\n"
 "The files are deleted and no longer shared. This cannot be undone."
 msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy
-msgid "Delete from disk"
-msgstr "Kad üzerinden al"
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Skipped deleting '%s': the selected file has changed."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Deleted '%s' from disk."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy, c-format
-msgid "Could not delete '%s' from disk."
-msgstr "Kategori silinemedi: %s"
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -332,6 +321,22 @@ msgid "Now, exiting main app..."
 msgstr "Ana uygulamadan çıkılıyor…"
 
 #: src/amule.cpp
+msgid "Saving window settings..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving client credits..."
+msgstr ""
+"\n"
+"Yazılım oluşturuluyor…\n"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Stopping helper applications..."
+msgstr "Uygulamadan çıkar."
+
+#: src/amule.cpp
 #, c-format
 msgid "Terminating amuleweb instance with pid '%d' ... "
 msgstr "Amuleweb oturumu pid `%d' ile sonlandırılıyor… "
@@ -361,12 +366,31 @@ msgid "aMule OnExit: Terminating core."
 msgstr "aMule Çıkışında: Çekirdek imha ediliyor."
 
 #: src/amule.cpp
+#, fuzzy
+msgid "Saving search results..."
+msgstr "Arama Sonucu"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving downloads and shared files..."
+msgstr "Paylaşılan dosyalar yeniden yükleniyor…"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Flushing download buffers..."
+msgstr "İndirilen dosyanın karma değeri hesaplanıyor: %s"
+
+#: src/amule.cpp
 msgid "aMule shutdown completed."
 msgstr "aMule kapatılma işlemi tamamlandı."
 
 #: src/amule.cpp
 msgid "Memory debug results for aMule exit:"
 msgstr "aMule çıkışı için hafıza hata raporlama sonuçları:"
+
+#: src/amule.cpp
+msgid "Finishing shutdown..."
+msgstr ""
 
 #: src/amule.cpp
 #, fuzzy, c-format
@@ -682,6 +706,28 @@ msgstr ""
 #, c-format
 msgid "Disk space preallocation for file '%s' failed: %s"
 msgstr "%s dosyası için diskte yer ayırma başarısız oldu: %s"
+
+#: src/amule.cpp
+msgid "Stopping network services..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving source seeds..."
+msgstr "Kaynak Girdileri"
+
+#: src/amule.cpp
+msgid "Stopping background downloads and workers..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Closing connections..."
+msgstr " bağlanıyor…"
+
+#: src/amule.cpp
+msgid "Saving known files and statistics..."
+msgstr ""
 
 #: src/amule.cpp
 msgid "ERROR: can't open logfile"
@@ -1260,6 +1306,10 @@ msgstr "Kategori silinemedi: %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "'%s' dizini '%s' sınıfı için oluşturulamadı. '%s' dizini kullanılıyor."
+
+#: src/amule-remote-gui.cpp
+msgid "The core did not confirm deleting the file. Refresh and try again."
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 #, c-format
@@ -2369,6 +2419,11 @@ msgid "Unauthorized access attempt from %s. Connection closed."
 msgstr "%s üzerinden yetkilendirilmemiş giriş denemesi. Bağlantı kesildi."
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid partfile command target."
+msgstr "Geçersiz dosya adı."
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote PartFile command failed: FileHash not found: %s"
 msgstr "Uzak Parça Dosyası komutu başarısız: Dosya Adreslemesi bulunamadı: %s"
@@ -2382,6 +2437,10 @@ msgstr "Dosya adreslemesi bulunamadı: %s"
 #, fuzzy, c-format
 msgid "Cannot cancel a finished download: %s"
 msgstr "Aktarım tamamlandı: %s"
+
+#: src/ExternalConn.cpp
+msgid "The selected download has changed or is completing. Refresh and try again."
+msgstr ""
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
@@ -2474,6 +2533,11 @@ msgstr "Sürüm kontrolü sınırlandırıldı; kısa bir süre sonra tekrar den
 #: src/ExternalConn.cpp
 msgid "Version check is not available on this daemon."
 msgstr "Bu daemon üzerinde sürüm kontrolü mevcut değildir."
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid complete-file deletion target."
+msgstr "Geçersiz dosya adı."
 
 #: src/ExternalConn.cpp
 msgid "File not found."
@@ -3828,6 +3892,15 @@ msgid "Hashing"
 msgstr "Adresleniyor"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Allocating"
+msgstr "Ayrılıyor"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
+#: src/TransferWnd.cpp
+msgid "Stopped"
+msgstr "Durduruldu"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
 msgid "Completing"
 msgstr "Tamamlanıyor"
 
@@ -3844,6 +3917,10 @@ msgstr "Duraklatıldı"
 #: src/TransferWnd.cpp
 msgid "Erroneous"
 msgstr "Hatalı"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Insufficient disk space"
+msgstr "Yetersiz disk alanı"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
 #: src/TransferWnd.cpp
@@ -4014,6 +4091,14 @@ msgstr[1] "%u başka paylaşılan dosya artık mevcut değil (tek tek listelenme
 msgid "Close"
 msgstr "Kapat"
 
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit column to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit visible columns to contents"
+msgstr ""
+
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
 msgstr "Kes"
@@ -4041,7 +4126,7 @@ msgstr "Tümünü Seç"
 msgid "KiB/s"
 msgstr "KiB/s"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Unlimited"
 msgstr "Sınırsız"
 
@@ -4112,11 +4197,11 @@ msgstr "UDP port: Hazır değil"
 msgid "Client Information"
 msgstr "Yazılım Bilgisi"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Upload limit"
 msgstr "Gönderim sınırı"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Download limit"
 msgstr "Aktarım sınırı"
 
@@ -4914,12 +4999,26 @@ msgid "Video Player"
 msgstr "Ortam Çalıcısı"
 
 #: src/muuli_wdr.cpp
-msgid "Bandwidth limits"
-msgstr "Bağlantı sınırları"
+msgid "Line capacities"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Upload"
 msgstr "Gönderme"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth limits"
+msgstr "Bağlantı sınırları"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable download limit"
+msgstr "Aktarım sınırı"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable upload limit"
+msgstr "Gönderim sınırı"
 
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
@@ -5016,6 +5115,30 @@ msgid ""
 "A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
 "\n"
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
+
+#: src/muuli_wdr.cpp src/PeerCapabilities.h
+msgid "IPv6"
+msgstr "IPv6"
+
+#: src/muuli_wdr.cpp
+msgid "Address families:"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 only"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 and IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Takes effect after restarting aMule."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Advertise my IPv6 address to other peers"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5291,14 +5414,6 @@ msgid "Connections Graph Scale: 100 "
 msgstr "Bağlantı Grafik Ölçüsü: 100 "
 
 #: src/muuli_wdr.cpp
-msgid "Download graph scale:"
-msgstr "İndirme grafik ölçüsü:"
-
-#: src/muuli_wdr.cpp
-msgid "Upload graph scale:"
-msgstr "Gönderme grafik ölçüsü:"
-
-#: src/muuli_wdr.cpp
 msgid "Colors: "
 msgstr "Renkler: "
 
@@ -5409,6 +5524,26 @@ msgstr "Sunucu bağlantısı yenileme sıklığı: devre dışı"
 #: src/muuli_wdr.cpp
 msgid "Disable computer's timed standby mode"
 msgstr "Bilgisayarın devre dışı kalma kipini etkisiz hale getir"
+
+#: src/muuli_wdr.cpp
+msgid "Appearance: "
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow system"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Light mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Dark mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Appearance changes take effect after restarting aMule."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Skin to use: "
@@ -6206,10 +6341,6 @@ msgstr "diğerleri"
 msgid "Incomplete"
 msgstr "Tamamlanmamış"
 
-#: src/OtherFunctions.cpp src/PartFile.cpp src/TransferWnd.cpp
-msgid "Stopped"
-msgstr "Durduruldu"
-
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Video"
 msgstr "Görüntü"
@@ -6532,14 +6663,6 @@ msgid "ICH: Recovered corrupted part %i for %s -> Saved bytes: %s"
 msgstr "ICH: Bozulan %i parçası %s dosyasındaydı ve kurtarıldı -> Kaydedilen miktar: %s bayt"
 
 #: src/PartFile.cpp
-msgid "Allocating"
-msgstr "Ayrılıyor"
-
-#: src/PartFile.cpp
-msgid "Insufficient disk space"
-msgstr "Yetersiz disk alanı"
-
-#: src/PartFile.cpp
 #, c-format
 msgid "ERROR: Failed to open partfile '%s'"
 msgstr "HATA: Parça dosyası '%s' açılamıyor"
@@ -6551,10 +6674,6 @@ msgstr "Genişletilmiş kaynak değişimi"
 #: src/PeerCapabilities.h
 msgid "NAT traversal (uTP)"
 msgstr "NAT geçişi (uTP)"
-
-#: src/PeerCapabilities.h
-msgid "IPv6"
-msgstr "IPv6"
 
 #: src/PeerCapabilities.h
 msgid "Buddy info pull"
@@ -6585,37 +6704,46 @@ msgstr "TCP portu numarası, UDP soketi TCP+3 olduğundan 65532' den yüksek ola
 msgid "Default port will be used (%d)"
 msgstr "Varsayılan port kullanılacak (%d)"
 
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Connection"
-msgstr "Bağlantı"
+#: src/BandwidthLimitSlider.h
+msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
+msgstr ""
 
-#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
-msgid "Directories"
-msgstr "Dizinler"
-
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Servers"
-msgstr "Sunucular"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Security"
-msgstr "Güvenlik"
+#: src/BandwidthLimitSlider.h
+#, fuzzy, c-format
+msgid "KiB/s (%.2f MiB/s)"
+msgstr "%.1f MiB/s"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Interface"
 msgstr "Arayüz"
 
-#: src/PrefsUnifiedDlg.cpp
-msgid "IP2Country"
-msgstr "IP2Country"
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Connection"
+msgstr "Bağlantı"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Proxy"
 msgstr "Vekil sunucu"
 
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Servers"
+msgstr "Sunucular"
+
+#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
+msgid "Directories"
+msgstr "Dizinler"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Events"
+msgstr "Olaylar"
+
 #: src/PrefsUnifiedDlg.cpp
 msgid "Filters"
 msgstr "Süzgeçler"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Security"
+msgstr "Güvenlik"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Remote Controls"
@@ -6626,12 +6754,12 @@ msgid "Online Signature"
 msgstr "Çevrimiçi İmza"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Advanced"
-msgstr "Gelişmiş"
+msgid "IP2Country"
+msgstr "IP2Country"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Events"
-msgstr "Olaylar"
+msgid "Advanced"
+msgstr "Gelişmiş"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Debugging"
@@ -6742,6 +6870,11 @@ msgstr "- UDP Portu değişti.\n"
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect port changed.\n"
 msgstr "- Dışarıdan bağlantı portu değişti.\n"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "- Address families changed.\n"
+msgstr "- Ağ arayüz bağlaması değişti.\n"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect acceptance changed.\n"
@@ -7968,6 +8101,20 @@ msgstr[0] "Ortam üst verileri %u paylaşılan dosya için tekrar çıkarılıyo
 msgstr[1] "Ortam üst verileri %u paylaşılan dosya için tekrar çıkarılıyor"
 
 #: src/SharedFileList.cpp
+msgid "The selected file has changed or is not a complete file."
+msgstr ""
+
+#: src/SharedFileList.cpp
+#, fuzzy, c-format
+msgid "Could not delete '%s' from disk."
+msgstr "Kategori silinemedi: %s"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Deleted '%s' from disk."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Now sharing file: %s"
 msgstr "Artık paylaşılan dosya: %s"
@@ -8205,6 +8352,11 @@ msgstr "Dosya Adı"
 #: src/SourceListCtrl.cpp
 msgid "A4AF"
 msgstr "A4AF"
+
+#: src/SplashScreen.cpp
+#, fuzzy
+msgid "Closing aMule"
+msgstr "aMule'yi Göster"
 
 #: src/Statistics.cpp
 #, c-format
@@ -9985,6 +10137,12 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Download graph scale:"
+#~ msgstr "İndirme grafik ölçüsü:"
+
+#~ msgid "Upload graph scale:"
+#~ msgstr "Gönderme grafik ölçüsü:"
 
 #, c-format
 #~ msgid "Failed to rename %s file, aborting update."

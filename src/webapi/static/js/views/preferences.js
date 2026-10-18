@@ -127,7 +127,7 @@ const TABS = [
       { key: "update_list_at_startup", type: "bool" },
       { key: "update_list_from_server", type: "bool" },
       { key: "update_list_from_client", type: "bool" },
-      { key: "update_urls", type: "textarea" },
+      { key: "update_urls", type: "textarea", adminOnly: true },
       { key: "update_list", type: "button",
         action: { path: "servers_update",
                   titleKey: "prefs_action_servers_update",

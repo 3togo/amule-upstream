@@ -86,6 +86,7 @@
 #include "AdvertisedIPv6.h"         // Needed for AdvertisedIPv6ForPeers
 #include "IPv6ChangeNotification.h" // Needed for OP_CHANGE_CLIENT_IP policy
 #endif
+#include "ChatState.h"         // Needed for ChatStateAfterFailedConnect
 #include "ContactDialPolicy.h" // Needed for DecideContactRoute
 #include "Logger.h"
 #include "DataToText.h" // Needed for GetSoftName()
@@ -180,7 +181,7 @@ void CUpDownClient::Init()
 #endif
 	m_bAddNextConnect = false;
 	m_dialingIPv6 = false;
-	m_preserveIPv4IdentityOnHello = false;
+	m_preserveIdentityOnHello = false;
 	m_preparedDialAddress = CNetworkAddress::Absent();
 	m_dialledIPv6Address = CNetworkAddress::Absent();
 	m_unansweredIPv6Address = CNetworkAddress::Absent();
@@ -731,12 +732,13 @@ bool CUpDownClient::ProcessHelloTypePacket(const CMemFile &data)
 			// lets a single unverified peer decide what this client believes its own address to
 			// be. emule-qt ignores the integer form, and this follows emule-qt.
 			//
-			// Even the hash form is not believed on one peer's word. The tracker takes only an
-			// address this machine holds, so peers can never make us adopt a foreign one, and
+			// Even the hash form is not believed on one peer's word. The tracker adopts only an
+			// address this machine holds, so peers can never make us advertise a foreign one, and
 			// counts one vote per /48 of a peer that reached us over IPv6 from outside the
 			// claimed address's /48, keyed on where the packet came from rather than on a
 			// self-declared user hash. Votes for any of our addresses in one /64 add up, within a
-			// time window. Nothing consumes the result yet.
+			// time window. Claims for a /64 we do not hold are counted the same way as evidence
+			// that can veto advertising ours.
 			if (temptag.IsHash() && m_socket != nullptr) {
 				const std::uint8_t *claimed = temptag.GetHash().GetHash();
 				if (ObservedPublicIPv6().AddClaim(
@@ -747,6 +749,11 @@ bool CUpDownClient::ProcessHelloTypePacket(const CMemFile &data)
 								.TruncatedToPrefix(64)
 								.ToWxString());
 				}
+#ifdef ENABLE_IPV6
+				// A claim can form or end a veto. Act on it now: the hello answer that would
+				// otherwise re-evaluate it is not sent when this hello is itself the answer.
+				AdvertisedIPv6ForPeers();
+#endif
 			}
 			break;
 
@@ -782,7 +789,7 @@ bool CUpDownClient::ProcessHelloTypePacket(const CMemFile &data)
 	}
 
 	if (m_socket) {
-		if (!m_preserveIPv4IdentityOnHello) {
+		if (!m_preserveIdentityOnHello) {
 			SetUserAddress(m_socket->GetPeerAddress());
 		}
 	} else {
@@ -844,6 +851,9 @@ bool CUpDownClient::ProcessHelloTypePacket(const CMemFile &data)
 	}
 
 	ReGetClientSoft();
+
+	// ConnectionEstablished() refreshes this only after the hello, too late for the history.
+	RefreshObfuscationState();
 
 	// Everything worth remembering about this peer is populated by now: the name came out of
 	// the hello tags above, the address from the connection, and ReGetClientSoft() has just
@@ -1474,12 +1484,13 @@ bool CUpDownClient::Disconnected(const wxString &DEBUG_ONLY(strReason), bool bFr
 		theApp->uploadqueue->RemoveFromUploadQueue(this);
 	}
 
-	// An advertised IPv6 supplements a known IPv4 peer rather than replacing it. Remember a
-	// failed promoted target so later attempts use IPv4; native IPv6 peers retain their old path.
-	const bool failedPromotedIPv6 =
-		IsPromotedIPv6Dial(m_dialledIPv6Address, GetConnectAddress()) &&
-		(GetUploadState() == US_CONNECTING || GetDownloadState() == DS_CONNECTING);
-	if (failedPromotedIPv6) {
+	// An advertised IPv6 supplements the address a peer is known by rather than replacing it.
+	// Remember a failed advertised target so later attempts use that address. ConnectionEstablished()
+	// clears m_dialingIPv6 once the hellos are through, so it still being set means this dial never
+	// got that far.
+	const bool failedAdvertisedIPv6 =
+		IsUnansweredAdvertisedDial(m_dialingIPv6, m_dialledIPv6Address, GetConnectAddress());
+	if (failedAdvertisedIPv6) {
 		m_unansweredIPv6Address = m_dialledIPv6Address;
 	}
 	if (m_dialingIPv6 && GetUploadState() == US_CONNECTING) {
@@ -1545,7 +1556,7 @@ bool CUpDownClient::Disconnected(const wxString &DEBUG_ONLY(strReason), bool bFr
 
 	switch (m_nDownloadState) {
 	case DS_CONNECTING:
-		if (failedPromotedIPv6) {
+		if (failedAdvertisedIPv6) {
 			SetDownloadState(DS_ONQUEUE);
 			bDelete = false;
 			break;
@@ -1569,11 +1580,12 @@ bool CUpDownClient::Disconnected(const wxString &DEBUG_ONLY(strReason), bool bFr
 	if (GetChatState() != MS_NONE) {
 		bDelete = false;
 		m_pendingMessage.Clear();
+		SetChatState(ChatStateAfterFailedConnect(GetChatState()));
 		Notify_ChatConnResult(false, GetChatPeer(), "");
 	}
 
 	m_dialingIPv6 = false;
-	m_preserveIPv4IdentityOnHello = false;
+	m_preserveIdentityOnHello = false;
 	m_preparedDialAddress = CNetworkAddress::Absent();
 	m_dialledIPv6Address = CNetworkAddress::Absent();
 
@@ -1641,7 +1653,7 @@ CNetworkAddress CUpDownClient::GetDialAddress() const
 CNetworkAddress CUpDownClient::ContactAddress() const
 {
 	// A prepared target is the one this attempt will really dial, so filter and ban checks must
-	// see it rather than the IPv4 identity retained for protocol bookkeeping.
+	// see it rather than the identity retained for protocol bookkeeping.
 	if (m_preparedDialAddress.IsPresent()) {
 		return m_preparedDialAddress;
 	}
@@ -1673,22 +1685,29 @@ bool CUpDownClient::IsRedialAllowed() const
 	       PeerAddressing::CanOpenConnection(contactAddress, IsConnected());
 }
 
-EContactRoute CUpDownClient::ContactRoute() const
+SContactFacts CUpDownClient::ContactFactsFor(const CNetworkAddress &address) const
 {
 	SContactFacts facts;
-	facts.contactAddress = ContactAddress();
+	facts.contactAddress = address;
 	facts.socketConnected = IsConnected();
 #ifdef ENABLE_IPV6
 	facts.ipv6Built = true;
 #endif
 	facts.familyPermitted = AddressFamilyPolicy::Permits(facts.contactAddress);
 	facts.proxyEnabled = thePrefs::GetProxyData()->m_proxyEnable;
-	return DecideContactRoute(facts);
+	return facts;
+}
+
+EContactRoute CUpDownClient::ContactRoute() const
+{
+	return DecideContactRoute(ContactFactsFor(ContactAddress()));
 }
 
 bool CUpDownClient::IsCallableIPv6Contact() const
 {
-	return ContactRoute() == EContactRoute::DialIPv6 && GetDialAddress() != m_unansweredIPv6Address;
+	// Asked of the target TryToContact() will freeze and dial. ContactAddress() is the IPv4 identity
+	// for a greeted LowID, which would hide an advertised IPv6 behind a callback that is not needed.
+	return IsDialableWithoutCallback(ContactFactsFor(GetDialAddress()), m_unansweredIPv6Address);
 }
 
 // Re-check the standing reasons to refuse this peer, disconnecting it on a hit:
@@ -2066,8 +2085,9 @@ bool CUpDownClient::Connect()
 				CFormat("Trying to connect to [%s]:%u") % connectAddress.ToWxString() %
 					static_cast<unsigned int>(GetUserPort()));
 			m_dialingIPv6 = true;
-			m_preserveIPv4IdentityOnHello =
-				IsPromotedIPv6Dial(connectAddress, GetConnectAddress());
+			// A peer reached at its advertised IPv6 keeps the identity it is known by, so that
+			// address stays the fallback if the advertised one later stops answering.
+			m_preserveIdentityOnHello = IsAdvertisedIPv6Dial(connectAddress, GetConnectAddress());
 			m_dialledIPv6Address = connectAddress;
 			m_preparedDialAddress = CNetworkAddress::Absent();
 			m_socket->ConnectIPv6(connectAddress, GetUserPort(), false);
@@ -2080,7 +2100,7 @@ bool CUpDownClient::Connect()
 		AddDebugLogLineN(logClient,
 			"Trying to connect to " + Uint32_16toStringIP_Port(GetConnectIP(), GetUserPort()));
 		m_dialingIPv6 = false;
-		m_preserveIPv4IdentityOnHello = false;
+		m_preserveIdentityOnHello = false;
 		m_preparedDialAddress = CNetworkAddress::Absent();
 		m_dialledIPv6Address = CNetworkAddress::Absent();
 		m_socket->Connect(tmp, false);
@@ -2127,12 +2147,17 @@ void CUpDownClient::SendSharedFilesRequest()
 #endif
 }
 
+void CUpDownClient::RefreshObfuscationState()
+{
+	m_hasbeenobfuscatinglately = m_socket && m_socket->IsConnected() && m_socket->IsObfusicating();
+}
+
 void CUpDownClient::ConnectionEstablished()
 {
 	// Kry - First thing, check if this client was just used to retrieve info. That is some
 	// debug thing for myself -- check the connection_reason definition.
 
-	m_hasbeenobfuscatinglately = (m_socket && m_socket->IsConnected() && m_socket->IsObfusicating());
+	RefreshObfuscationState();
 	m_dialingIPv6 = false;
 	m_preparedDialAddress = CNetworkAddress::Absent();
 	m_dialledIPv6Address = CNetworkAddress::Absent();

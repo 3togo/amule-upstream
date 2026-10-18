@@ -197,6 +197,15 @@ msgstr "Taaskäivita kohe"
 msgid "Later"
 msgstr "Hiljem"
 
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+msgid "The connected core does not support deleting complete files from disk."
+msgstr ""
+
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+#, fuzzy
+msgid "Delete from disk"
+msgstr "Hangi Kad-ist"
+
 #: src/GuiEvents.cpp
 #, c-format
 msgid ""
@@ -220,26 +229,6 @@ msgid ""
 "%s\n"
 "The files are deleted and no longer shared. This cannot be undone."
 msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy
-msgid "Delete from disk"
-msgstr "Hangi Kad-ist"
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Skipped deleting '%s': the selected file has changed."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Deleted '%s' from disk."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy, c-format
-msgid "Could not delete '%s' from disk."
-msgstr "Ajutiste tõmmatavate failide kataloog"
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -326,6 +315,22 @@ msgid "Now, exiting main app..."
 msgstr "Ok, lahkun põhiprogrammist..."
 
 #: src/amule.cpp
+msgid "Saving window settings..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving client credits..."
+msgstr ""
+"\n"
+"Loon klienti ....\n"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Stopping helper applications..."
+msgstr "Lahkub rakendusest."
+
+#: src/amule.cpp
 #, c-format
 msgid "Terminating amuleweb instance with pid '%d' ... "
 msgstr "Lõpetan amuleweb'i eksemplari, protsessi id '%d' ... "
@@ -355,12 +360,31 @@ msgid "aMule OnExit: Terminating core."
 msgstr "aMule OnExit: Peatan tuuma."
 
 #: src/amule.cpp
+#, fuzzy
+msgid "Saving search results..."
+msgstr "Otsingu tulemus"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving downloads and shared files..."
+msgstr "Jagatud failide uuestilaadimine..."
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Flushing download buffers..."
+msgstr "Kustutan faili: %s"
+
+#: src/amule.cpp
 msgid "aMule shutdown completed."
 msgstr "aMule seiskamine lõpetatud."
 
 #: src/amule.cpp
 msgid "Memory debug results for aMule exit:"
 msgstr "aMule väljumise mälu veajälituse tulemus:"
+
+#: src/amule.cpp
+msgid "Finishing shutdown..."
+msgstr ""
 
 #: src/amule.cpp
 #, fuzzy, c-format
@@ -679,6 +703,28 @@ msgstr ""
 #, c-format
 msgid "Disk space preallocation for file '%s' failed: %s"
 msgstr "Kettaruumi eraldamine faili '%s' jaoks ebaõnnestus: %s"
+
+#: src/amule.cpp
+msgid "Stopping network services..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving source seeds..."
+msgstr "Allikaid"
+
+#: src/amule.cpp
+msgid "Stopping background downloads and workers..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Closing connections..."
+msgstr " ühendub..."
+
+#: src/amule.cpp
+msgid "Saving known files and statistics..."
+msgstr ""
 
 #: src/amule.cpp
 msgid "ERROR: can't open logfile"
@@ -1260,6 +1306,10 @@ msgstr "Ajutiste tõmmatavate failide kataloog"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Ei suuda luua kataloogi '%s' '%s' kategooria jaoks, säilitan '%s' kataloogi."
+
+#: src/amule-remote-gui.cpp
+msgid "The core did not confirm deleting the file. Refresh and try again."
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 #, c-format
@@ -2377,6 +2427,11 @@ msgid "Unauthorized access attempt from %s. Connection closed."
 msgstr "Autoriseerimata pääsukatse %s. Ühendus suletud."
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid partfile command target."
+msgstr "Vigane failinimi."
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote PartFile command failed: FileHash not found: %s"
 msgstr "Kaug OsaFaili käsk ebaõnnestus: Faili kontrollsummat ei leidnud: %s"
@@ -2390,6 +2445,10 @@ msgstr "Faili '%s' kontrollsummat ei leitud"
 #, fuzzy, c-format
 msgid "Cannot cancel a finished download: %s"
 msgstr "Faili '%s' tõmbamine lõpetatud"
+
+#: src/ExternalConn.cpp
+msgid "The selected download has changed or is completing. Refresh and try again."
+msgstr ""
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
@@ -2482,6 +2541,11 @@ msgstr "Versioonikontroll on piiratud; proovi varsti uuesti."
 #: src/ExternalConn.cpp
 msgid "Version check is not available on this daemon."
 msgstr "Versioonikontroll ei ole selle deemoni jaoks saadaval."
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid complete-file deletion target."
+msgstr "Vigane failinimi."
 
 #: src/ExternalConn.cpp
 msgid "File not found."
@@ -3841,6 +3905,15 @@ msgid "Hashing"
 msgstr "Räsin"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Allocating"
+msgstr "Eraldamine"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
+#: src/TransferWnd.cpp
+msgid "Stopped"
+msgstr "Peatatud"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
 msgid "Completing"
 msgstr "Lõpetatud"
 
@@ -3857,6 +3930,10 @@ msgstr "Peatatud"
 #: src/TransferWnd.cpp
 msgid "Erroneous"
 msgstr "Vigane"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Insufficient disk space"
+msgstr "Ebapiisav kettaruum"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
 #: src/TransferWnd.cpp
@@ -4028,6 +4105,14 @@ msgstr[1] ""
 msgid "Close"
 msgstr "Sulge"
 
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit column to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit visible columns to contents"
+msgstr ""
+
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
 msgstr "Lõika"
@@ -4055,7 +4140,7 @@ msgstr "Vali kõik"
 msgid "KiB/s"
 msgstr ""
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Unlimited"
 msgstr "Piiramatu"
 
@@ -4126,11 +4211,11 @@ msgstr "UDP port: Pole valmis"
 msgid "Client Information"
 msgstr "Kliendi informatsioon"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Upload limit"
 msgstr "Saatmise limiit"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Download limit"
 msgstr "Tõmbamise limiit"
 
@@ -4932,12 +5017,26 @@ msgid "Video Player"
 msgstr "Video mängija"
 
 #: src/muuli_wdr.cpp
-msgid "Bandwidth limits"
-msgstr "Ribalaiuse piirid"
+msgid "Line capacities"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Upload"
 msgstr "Saatmine"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth limits"
+msgstr "Ribalaiuse piirid"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable download limit"
+msgstr "Tõmbamise limiit"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable upload limit"
+msgstr "Saatmise limiit"
 
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
@@ -5034,6 +5133,30 @@ msgid ""
 "A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
 "\n"
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
+
+#: src/muuli_wdr.cpp src/PeerCapabilities.h
+msgid "IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Address families:"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 only"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 and IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Takes effect after restarting aMule."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Advertise my IPv6 address to other peers"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5308,14 +5431,6 @@ msgid "Connections Graph Scale: 100 "
 msgstr "Ühenduse graafiku skaala: 100"
 
 #: src/muuli_wdr.cpp
-msgid "Download graph scale:"
-msgstr "Tõmbamise graafiku skaala:"
-
-#: src/muuli_wdr.cpp
-msgid "Upload graph scale:"
-msgstr "Saatmise graafiku skaala:"
-
-#: src/muuli_wdr.cpp
 #, fuzzy
 msgid "Colors: "
 msgstr "Värvid: "
@@ -5427,6 +5542,26 @@ msgstr "Serveriühenduse värskenadamise intervall: Ei kasuta"
 #: src/muuli_wdr.cpp
 msgid "Disable computer's timed standby mode"
 msgstr "Keela arvuti ajastatud uinumine"
+
+#: src/muuli_wdr.cpp
+msgid "Appearance: "
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow system"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Light mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Dark mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Appearance changes take effect after restarting aMule."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Skin to use: "
@@ -6225,10 +6360,6 @@ msgstr "kõik teised"
 msgid "Incomplete"
 msgstr "Poolik"
 
-#: src/OtherFunctions.cpp src/PartFile.cpp src/TransferWnd.cpp
-msgid "Stopped"
-msgstr "Peatatud"
-
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Video"
 msgstr "Film"
@@ -6557,14 +6688,6 @@ msgid "ICH: Recovered corrupted part %i for %s -> Saved bytes: %s"
 msgstr "ICH: Taastatud riknenud osa %i %s jaoks -> Päästsin: %s baiti"
 
 #: src/PartFile.cpp
-msgid "Allocating"
-msgstr "Eraldamine"
-
-#: src/PartFile.cpp
-msgid "Insufficient disk space"
-msgstr "Ebapiisav kettaruum"
-
-#: src/PartFile.cpp
 #, c-format
 msgid "ERROR: Failed to open partfile '%s'"
 msgstr "VIGA: Osafaili '%s' avamine ebaõnnestus"
@@ -6576,10 +6699,6 @@ msgstr "Allikate Vahetus"
 
 #: src/PeerCapabilities.h
 msgid "NAT traversal (uTP)"
-msgstr ""
-
-#: src/PeerCapabilities.h
-msgid "IPv6"
 msgstr ""
 
 #: src/PeerCapabilities.h
@@ -6612,37 +6731,46 @@ msgstr "TCP port ei saa olla suuerm kui 65532, sest serveri UDP soket on TCP+3"
 msgid "Default port will be used (%d)"
 msgstr "Kasutan vaikimisi porti (%d)"
 
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Connection"
-msgstr "Ühendus"
+#: src/BandwidthLimitSlider.h
+msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
+msgstr ""
 
-#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
-msgid "Directories"
-msgstr "Kataloogid"
-
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Servers"
-msgstr "Serverid"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Security"
-msgstr "Turvalisus"
+#: src/BandwidthLimitSlider.h
+#, c-format
+msgid "KiB/s (%.2f MiB/s)"
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Interface"
 msgstr "Liides"
 
-#: src/PrefsUnifiedDlg.cpp
-msgid "IP2Country"
-msgstr "IP2Country"
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Connection"
+msgstr "Ühendus"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Proxy"
 msgstr "Puhverserver"
 
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Servers"
+msgstr "Serverid"
+
+#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
+msgid "Directories"
+msgstr "Kataloogid"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Events"
+msgstr "Sündmused"
+
 #: src/PrefsUnifiedDlg.cpp
 msgid "Filters"
 msgstr "Filtrid"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Security"
+msgstr "Turvalisus"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Remote Controls"
@@ -6653,12 +6781,12 @@ msgid "Online Signature"
 msgstr "Online Allkiri"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Advanced"
-msgstr "Muud"
+msgid "IP2Country"
+msgstr "IP2Country"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Events"
-msgstr "Sündmused"
+msgid "Advanced"
+msgstr "Muud"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Debugging"
@@ -6769,6 +6897,11 @@ msgstr "- UDP port muudetud.\n"
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect port changed.\n"
 msgstr "- Välisühenduse port on muutunud.\n"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "- Address families changed.\n"
+msgstr "- Võrguliidese sidumine muutus.\n"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect acceptance changed.\n"
@@ -8004,6 +8137,20 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: src/SharedFileList.cpp
+msgid "The selected file has changed or is not a complete file."
+msgstr ""
+
+#: src/SharedFileList.cpp
+#, fuzzy, c-format
+msgid "Could not delete '%s' from disk."
+msgstr "Ajutiste tõmmatavate failide kataloog"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Deleted '%s' from disk."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, fuzzy, c-format
 msgid "Now sharing file: %s"
 msgstr "VIGA: tekkis %s faili salvestamisel: %s"
@@ -8244,6 +8391,11 @@ msgstr "Kaugfaili nimi"
 #: src/SourceListCtrl.cpp
 msgid "A4AF"
 msgstr "A4AF"
+
+#: src/SplashScreen.cpp
+#, fuzzy
+msgid "Closing aMule"
+msgstr "Näita aMule"
 
 #: src/Statistics.cpp
 #, c-format
@@ -10013,6 +10165,12 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Download graph scale:"
+#~ msgstr "Tõmbamise graafiku skaala:"
+
+#~ msgid "Upload graph scale:"
+#~ msgstr "Saatmise graafiku skaala:"
 
 #, c-format
 #~ msgid "Failed to rename %s file, aborting update."

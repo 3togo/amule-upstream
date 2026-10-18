@@ -42,6 +42,7 @@ class CSearchFile;
 class CMemFile;
 class CFileDataIO;
 class CED2KFileLink;
+class CNetworkAddress;
 struct CPartMetGen;
 
 // #define BUFFER_SIZE_LIMIT	500000 // Max bytes before forcing a flush
@@ -172,11 +173,14 @@ public:
 		uint16 serverport,
 		uint8 *pdebug_lowiddropped = NULL,
 		bool ed2kID = true);
+	// loginIPv6: the IPv6 our login advertised, if any; only then may sentinel records appear.
+	// Server UDP answers never carry one: aMule's server UDP is IPv4 only.
 	void AddSources(CMemFile &sources,
 		uint32 serverip,
 		uint16 serverport,
 		unsigned origin,
-		bool bWithObfuscationAndHash);
+		bool bWithObfuscationAndHash,
+		const CNetworkAddress *loginIPv6 = nullptr);
 #ifdef CLIENT_GUI
 	uint8 GetStatus() const { return status; }
 	uint8 GetStatus(bool /*ignorepause = false*/) const { return status; }
@@ -374,7 +378,17 @@ private:
 	void CreatePartFile(bool isImporting = false);
 	void Init();
 
+	//! Probes the file's directory: blocks on a busy or hung mount. Off the main thread, or at
+	//! startup and shutdown.
 	bool CheckFreeDiskSpace(uint64 neededSpace = 0);
+	//! The same rule from CFreeSpaceThread's sample; false without a recent one taken since the
+	//! file was paused for space.
+	bool CachedFreeSpaceAllows() const;
+	//! Puts the writes the write thread refused for lack of space back in the buffer. True if
+	//! there were any.
+	bool PutBackRefusedWrites();
+	//! Logs the warning and pauses the file as insufficient.
+	void PauseForSpace();
 
 	bool IsCorruptedPart(uint16 partnumber);
 
@@ -398,6 +412,8 @@ private:
 	bool m_paused;
 	bool m_stopped;
 	bool m_insufficient;
+	//! When the file was last paused for lack of space (GetTickCount64).
+	uint64 m_insufficientSince = 0;
 	uint8 m_iDownPriority;
 	bool m_bAutoDownPriority;
 	uint8 status;

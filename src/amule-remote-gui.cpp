@@ -567,11 +567,6 @@ bool CamuleRemoteGuiApp::OnInit()
 	// takes ownership of the pointer; wx tears the providers down at app exit.
 	wxArtProvider::Push(new CamuleArtProvider());
 
-	// Must happen before any window exists; the connect dialog below is the first one
-	// amulegui creates. Without this amulegui stayed light on Windows while the
-	// monolithic amule, which has always asked, went dark.
-	FollowSystemAppearance();
-
 	// Get theApp
 	theApp = &wxGetApp();
 
@@ -2260,6 +2255,48 @@ void CSharedFilesRem::Reload(bool, bool)
 	m_conn->SendPacket(&req);
 }
 
+class CDeleteCompleteHandler : public CECPacketHandlerBase
+{
+	void HandlePacket(const CECPacket *packet) override
+	{
+		if (packet->GetOpCode() != EC_OP_NOOP) {
+			const CECTag *message = packet->GetTagByName(EC_TAG_STRING);
+			const wxString error = message && message->IsString()
+						       ? message->GetStringData()
+						       : _("The core did not confirm deleting the file. "
+							   "Refresh and try again.");
+			AddLogLineC(error);
+			wxTheApp->CallAfter([error]() {
+				wxMessageBox(error, _("Delete from disk"), wxOK | wxICON_ERROR);
+			});
+		}
+		delete this;
+	}
+	void AbortPendingRequest() override { delete this; }
+};
+
+bool CSharedFilesRem::CanDeleteFileFromDisk() const
+{
+	return m_conn->ServerSupportsDeleteComplete();
+}
+
+void CSharedFilesRem::DeleteFileFromDisk(
+	const CMD4Hash &hash, uint32 ecid, const wxString &directory, const wxString &name)
+{
+	if (!CanDeleteFileFromDisk()) {
+		wxMessageBox(_("The connected core does not support deleting complete files from disk."),
+			_("Delete from disk"),
+			wxOK | wxICON_ERROR);
+		return;
+	}
+	CECPacket request(EC_OP_KNOWNFILE_DELETE);
+	request.AddTag(CECTag(EC_TAG_KNOWNFILE, hash));
+	request.AddTag(CECTag(EC_TAG_ECID, ecid));
+	request.AddTag(CECTag(EC_TAG_KNOWNFILE_PATH, directory));
+	request.AddTag(CECTag(EC_TAG_PARTFILE_NAME, name));
+	m_conn->SendRequest(new CDeleteCompleteHandler(), &request);
+}
+
 bool CSharedFilesRem::RenameFile(CKnownFile *file, const CPath &newName)
 {
 	// We use the printable name, as the filename originated from user input,
@@ -2603,7 +2640,10 @@ void CKnownFilesRem::ProcessItemUpdate(const CEC_SharedFile_Tag *tag, CKnownFile
 	// showed N/A for anything not downloading.
 	DecodeMediaTags(tag, file);
 
-	if (file->IsPartFile()) {
+	// Completed transfer rows still arrive as PARTFILE tags. IsPartFile() becomes
+	// false at completion and would skip later shared-role updates for those rows.
+	// Check both the tag and the object: each cast below relies on one of them.
+	if (tag->GetTagName() == EC_TAG_PARTFILE && file->IsCPartFile()) {
 		ProcessItemUpdatePartfile(
 			static_cast<const CEC_PartFile_Tag *>(tag), static_cast<CPartFile *>(file));
 	}
@@ -3435,6 +3475,13 @@ void CKnownFilesRem::ProcessItemUpdatePartfile(const CEC_PartFile_Tag *tag, CPar
 		if (theApp->amuledlg) {
 			theApp->amuledlg->m_sharedfileswnd->sharedfilesctrl->ShowFile(file);
 		}
+	} else if (!file->IsShared() && theApp->sharedfiles->count(file->ECID())) {
+		// Losing the shared role does not remove the completed transfer row or its
+		// proxy object. Only detach it from the shared list and view.
+		if (theApp->amuledlg) {
+			theApp->amuledlg->m_sharedfileswnd->sharedfilesctrl->RemoveFile(file);
+		}
+		theApp->sharedfiles->erase(file->ECID());
 	}
 	// An incremental tag can omit status. Do not let the proxy's default PS_EMPTY
 	// establish a baseline before the daemon has sent a real status. All metadata,

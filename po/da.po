@@ -197,6 +197,15 @@ msgstr "Genstart nu"
 msgid "Later"
 msgstr "Senere"
 
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+msgid "The connected core does not support deleting complete files from disk."
+msgstr ""
+
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+#, fuzzy
+msgid "Delete from disk"
+msgstr "Hent fra Kad"
+
 #: src/GuiEvents.cpp
 #, c-format
 msgid ""
@@ -220,26 +229,6 @@ msgid ""
 "%s\n"
 "The files are deleted and no longer shared. This cannot be undone."
 msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy
-msgid "Delete from disk"
-msgstr "Hent fra Kad"
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Skipped deleting '%s': the selected file has changed."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Deleted '%s' from disk."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy, c-format
-msgid "Could not delete '%s' from disk."
-msgstr "Du prøver allerede at downloade denne fil %s"
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -325,6 +314,22 @@ msgid "Now, exiting main app..."
 msgstr "Afslutter nu hovedprogrammet..."
 
 #: src/amule.cpp
+msgid "Saving window settings..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving client credits..."
+msgstr ""
+"\n"
+"Opretter klient...\n"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Stopping helper applications..."
+msgstr "Afslutter programmet."
+
+#: src/amule.cpp
 #, c-format
 msgid "Terminating amuleweb instance with pid '%d' ... "
 msgstr "Afslutter amuleweb-instans med pid '%d' ... "
@@ -354,12 +359,31 @@ msgid "aMule OnExit: Terminating core."
 msgstr "aMule OnExit: Afslutter kerne."
 
 #: src/amule.cpp
+#, fuzzy
+msgid "Saving search results..."
+msgstr "Søgeresultat"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving downloads and shared files..."
+msgstr "Genindlæser delte filer..."
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Flushing download buffers..."
+msgstr "Hasher"
+
+#: src/amule.cpp
 msgid "aMule shutdown completed."
 msgstr "aMule-nedlukning gennemført."
 
 #: src/amule.cpp
 msgid "Memory debug results for aMule exit:"
 msgstr "Resultater af hukommelsesfejlfinding for aMule-afslutning:"
+
+#: src/amule.cpp
+msgid "Finishing shutdown..."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -679,6 +703,28 @@ msgstr ""
 #, c-format
 msgid "Disk space preallocation for file '%s' failed: %s"
 msgstr "Reservation af diskplads til filen '%s' fejlede: %s"
+
+#: src/amule.cpp
+msgid "Stopping network services..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving source seeds..."
+msgstr "Kildeseeds"
+
+#: src/amule.cpp
+msgid "Stopping background downloads and workers..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Closing connections..."
+msgstr " forbinder..."
+
+#: src/amule.cpp
+msgid "Saving known files and statistics..."
+msgstr ""
 
 #: src/amule.cpp
 msgid "ERROR: can't open logfile"
@@ -1260,6 +1306,10 @@ msgstr "Du prøver allerede at downloade denne fil %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Kan ikke oprette mappen '%s' til kategorien '%s', beholder mappen '%s'."
+
+#: src/amule-remote-gui.cpp
+msgid "The core did not confirm deleting the file. Refresh and try again."
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 #, c-format
@@ -2377,6 +2427,11 @@ msgid "Unauthorized access attempt from %s. Connection closed."
 msgstr "Uautoriseret adgangsforsøg fra %s. Forbindelse lukket."
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid partfile command target."
+msgstr "Ugyldigt filnavn."
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote PartFile command failed: FileHash not found: %s"
 msgstr "PartFile-fjernkommando fejlede: FileHash ikke fundet: %s"
@@ -2390,6 +2445,10 @@ msgstr "FileHash ikke fundet: %s"
 #, fuzzy, c-format
 msgid "Cannot cancel a finished download: %s"
 msgstr "Færdig med at downloade: %s"
+
+#: src/ExternalConn.cpp
+msgid "The selected download has changed or is completing. Refresh and try again."
+msgstr ""
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
@@ -2482,6 +2541,11 @@ msgstr "Versionskontrol er begrænset; prøv igen om lidt."
 #: src/ExternalConn.cpp
 msgid "Version check is not available on this daemon."
 msgstr "Versionskontrol er ikke tilgængelig på denne dæmon."
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid complete-file deletion target."
+msgstr "Ugyldigt filnavn."
 
 #: src/ExternalConn.cpp
 msgid "File not found."
@@ -3835,6 +3899,15 @@ msgid "Hashing"
 msgstr "Hasher"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Allocating"
+msgstr "Allokerer"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
+#: src/TransferWnd.cpp
+msgid "Stopped"
+msgstr "stoppet"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
 msgid "Completing"
 msgstr "Færdiggør"
 
@@ -3851,6 +3924,10 @@ msgstr "Pause"
 #: src/TransferWnd.cpp
 msgid "Erroneous"
 msgstr "Beskadiget"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Insufficient disk space"
+msgstr "Utilstrækkelig diskplads"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
 #: src/TransferWnd.cpp
@@ -4022,6 +4099,14 @@ msgstr[1] ""
 msgid "Close"
 msgstr "Luk"
 
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit column to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit visible columns to contents"
+msgstr ""
+
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
 msgstr "Klip"
@@ -4049,7 +4134,7 @@ msgstr "Vælg alle"
 msgid "KiB/s"
 msgstr ""
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Unlimited"
 msgstr "Ubegrænset"
 
@@ -4120,11 +4205,11 @@ msgstr "UDP-port: Ikke klar"
 msgid "Client Information"
 msgstr "Klientoplysninger"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Upload limit"
 msgstr "Uploadgrænse"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Download limit"
 msgstr "Downloadgrænse"
 
@@ -4943,12 +5028,26 @@ msgid "Video Player"
 msgstr "Video Afspiller"
 
 #: src/muuli_wdr.cpp
-msgid "Bandwidth limits"
-msgstr "Båndbreddegrænser"
+msgid "Line capacities"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Upload"
 msgstr "Upload"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth limits"
+msgstr "Båndbreddegrænser"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable download limit"
+msgstr "Downloadgrænse"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable upload limit"
+msgstr "Uploadgrænse"
 
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
@@ -5044,6 +5143,30 @@ msgid ""
 "A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
 "\n"
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
+
+#: src/muuli_wdr.cpp src/PeerCapabilities.h
+msgid "IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Address families:"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 only"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 and IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Takes effect after restarting aMule."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Advertise my IPv6 address to other peers"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5317,14 +5440,6 @@ msgid "Connections Graph Scale: 100 "
 msgstr "Forbindelsesgrafskala: 100 "
 
 #: src/muuli_wdr.cpp
-msgid "Download graph scale:"
-msgstr "Downloadgrafskala:"
-
-#: src/muuli_wdr.cpp
-msgid "Upload graph scale:"
-msgstr "Uploadgrafskala:"
-
-#: src/muuli_wdr.cpp
 msgid "Colors: "
 msgstr "Farver: "
 
@@ -5435,6 +5550,26 @@ msgstr "Interval for genopfriskning af serverforbindelse: Deaktiver"
 #: src/muuli_wdr.cpp
 msgid "Disable computer's timed standby mode"
 msgstr "Deaktiver computerens tidsstyrede dvaletilstand"
+
+#: src/muuli_wdr.cpp
+msgid "Appearance: "
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow system"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Light mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Dark mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Appearance changes take effect after restarting aMule."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Skin to use: "
@@ -6233,10 +6368,6 @@ msgstr "alt andet"
 msgid "Incomplete"
 msgstr "Mangelfuld"
 
-#: src/OtherFunctions.cpp src/PartFile.cpp src/TransferWnd.cpp
-msgid "Stopped"
-msgstr "stoppet"
-
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Video"
 msgstr "Video"
@@ -6559,14 +6690,6 @@ msgid "ICH: Recovered corrupted part %i for %s -> Saved bytes: %s"
 msgstr "ICH: Gendannede beskadiget del %i for %s -> Sparede byte: %s"
 
 #: src/PartFile.cpp
-msgid "Allocating"
-msgstr "Allokerer"
-
-#: src/PartFile.cpp
-msgid "Insufficient disk space"
-msgstr "Utilstrækkelig diskplads"
-
-#: src/PartFile.cpp
 #, c-format
 msgid "ERROR: Failed to open partfile '%s'"
 msgstr "FEJL: Kunne ikke åbne partfil '%s'"
@@ -6577,10 +6700,6 @@ msgstr ""
 
 #: src/PeerCapabilities.h
 msgid "NAT traversal (uTP)"
-msgstr ""
-
-#: src/PeerCapabilities.h
-msgid "IPv6"
 msgstr ""
 
 #: src/PeerCapabilities.h
@@ -6612,37 +6731,46 @@ msgstr "TCP-porten kan ikke være højere end 65532, fordi serverens UDP-socket 
 msgid "Default port will be used (%d)"
 msgstr "Standardporten vil blive brugt (%d)"
 
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Connection"
-msgstr "Forbindelse"
+#: src/BandwidthLimitSlider.h
+msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
+msgstr ""
 
-#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
-msgid "Directories"
-msgstr "Mapper"
-
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Servers"
-msgstr "Servere"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Security"
-msgstr "Sikkerhed"
+#: src/BandwidthLimitSlider.h
+#, c-format
+msgid "KiB/s (%.2f MiB/s)"
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Interface"
 msgstr "Grænseflade"
 
-#: src/PrefsUnifiedDlg.cpp
-msgid "IP2Country"
-msgstr "IP2Country"
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Connection"
+msgstr "Forbindelse"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Proxy"
 msgstr "Proxy"
 
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Servers"
+msgstr "Servere"
+
+#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
+msgid "Directories"
+msgstr "Mapper"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Events"
+msgstr "Hændelser"
+
 #: src/PrefsUnifiedDlg.cpp
 msgid "Filters"
 msgstr "Filtre"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Security"
+msgstr "Sikkerhed"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Remote Controls"
@@ -6653,12 +6781,12 @@ msgid "Online Signature"
 msgstr "Onlinesignatur"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Advanced"
-msgstr "Avanceret"
+msgid "IP2Country"
+msgstr "IP2Country"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Events"
-msgstr "Hændelser"
+msgid "Advanced"
+msgstr "Avanceret"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Debugging"
@@ -6769,6 +6897,11 @@ msgstr "- UDP-port ændret.\n"
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect port changed.\n"
 msgstr "- Ekstern forbindelsesport ændret.\n"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "- Address families changed.\n"
+msgstr "- Binding til netværksinterface ændret.\n"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect acceptance changed.\n"
@@ -8000,6 +8133,20 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: src/SharedFileList.cpp
+msgid "The selected file has changed or is not a complete file."
+msgstr ""
+
+#: src/SharedFileList.cpp
+#, fuzzy, c-format
+msgid "Could not delete '%s' from disk."
+msgstr "Du prøver allerede at downloade denne fil %s"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Deleted '%s' from disk."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, fuzzy, c-format
 msgid "Now sharing file: %s"
 msgstr "Fejl ved forbindelse til %s (%s:%i): %d"
@@ -8238,6 +8385,11 @@ msgstr "Fjernt filnavn"
 #: src/SourceListCtrl.cpp
 msgid "A4AF"
 msgstr "A4AF"
+
+#: src/SplashScreen.cpp
+#, fuzzy
+msgid "Closing aMule"
+msgstr "Vis aMule"
 
 #: src/Statistics.cpp
 #, c-format
@@ -10011,6 +10163,12 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Download graph scale:"
+#~ msgstr "Downloadgrafskala:"
+
+#~ msgid "Upload graph scale:"
+#~ msgstr "Uploadgrafskala:"
 
 #, c-format
 #~ msgid "Failed to rename %s file, aborting update."

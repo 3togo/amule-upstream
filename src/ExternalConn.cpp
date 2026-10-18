@@ -86,11 +86,14 @@ class CKnownFile_Encoder
 	// whose file is still listed. Encoders left carrying an older stamp have lost their
 	// file and are swept.
 	uint64 m_seenEpoch;
+	// Shared membership is independent of presence in the completed-download list.
+	uint64 m_sharedEpoch;
 
 	// Whether `Get_EC_Response_GetUpdate` has already sent this file to the client
 	// carrying its identifying fields. False on a freshly-built encoder, which is what
 	// makes a re-created encoder re-send full detail without the caller having to erase
-	// anything.
+	// anything. Also cleared when encoder-local shared membership changes, which need
+	// not advance the file's own EC generation.
 	//
 	// Deliberately specific to that one response path rather than a general "the client
 	// has this file": a path that has never sent the identity must not take the
@@ -105,6 +108,7 @@ protected:
 public:
 	CKnownFile_Encoder(const CKnownFile *file = nullptr)
 	: m_seenEpoch(0)
+	, m_sharedEpoch(0)
 	, m_sentOnUpdatePath(false)
 	{
 		m_file = file;
@@ -116,16 +120,19 @@ public:
 
 	virtual void ResetEncoder() { m_enc_data.ResetEncoder(); }
 
-	virtual void SetShared() {}
+	virtual void SetShared(bool) {}
 	virtual bool IsShared() { return true; }
 	virtual bool IsPartFile_Encoder() { return false; }
 	const CKnownFile *GetFile() { return m_file; }
 
 	uint64 GetSeenEpoch() const { return m_seenEpoch; }
 	void SetSeenEpoch(uint64 epoch) { m_seenEpoch = epoch; }
+	uint64 GetSharedEpoch() const { return m_sharedEpoch; }
+	void SetSharedEpoch(uint64 epoch) { m_sharedEpoch = epoch; }
 
 	bool WasSentOnUpdatePath() const { return m_sentOnUpdatePath; }
 	void MarkSentOnUpdatePath() { m_sentOnUpdatePath = true; }
+	void InvalidateUpdatePath() { m_sentOnUpdatePath = false; }
 };
 
 /*!
@@ -171,7 +178,14 @@ public:
 	// Encoder may reset history if full info requested
 	virtual void ResetEncoder();
 
-	virtual void SetShared() { m_shared = true; }
+	virtual void SetShared(bool shared)
+	{
+		if (m_shared != shared) {
+			m_shared = shared;
+			// List membership can change without changing the file's EC generation.
+			InvalidateUpdatePath();
+		}
+	}
 	virtual bool IsShared() { return m_shared; }
 	virtual bool IsPartFile_Encoder() { return true; }
 };
@@ -331,10 +345,9 @@ void CFileEncoderMap::UpdateEncoders(IDSet *freshEcids)
 			it->second->SetSeenEpoch(epoch);
 		}
 	}
-	// Merge before the shares pass, not after both. A partfile appears in both lists,
-	// and the check below asks whether this reconcile has already reached it -- which it
-	// answers with find(). Leaving the new entries unmerged would hide them from that
-	// lookup and build a second encoder for the same ECID.
+	// Merge before the shares pass, not after both. A partfile appears in both lists.
+	// Leaving the new entries unmerged would hide them from find() below and build a
+	// second encoder for the same ECID.
 	FlushPending();
 	// Shares
 	std::vector<CKnownFile *> shares;
@@ -342,22 +355,17 @@ void CFileEncoderMap::UpdateEncoders(IDSet *freshEcids)
 	for (uint32 i = shares.size(); i--;) {
 		uint32 id = shares[i]->ECID();
 		iterator it = find(id);
-		// Check if it is already there. Carrying this epoch means the downloads loop
-		// above already reached it, which is what the old `curr_files.count(id)`
-		// tested; the IsCPartFile() is just a speedup.
-		if (shares[i]->IsCPartFile() && it != end() && it->second->GetSeenEpoch() == epoch) {
-			it->second->SetShared();
-			continue;
-		}
 		if (it == end()) {
 			CKnownFile_Encoder *enc = new CKnownFile_Encoder(shares[i]);
 			enc->SetSeenEpoch(epoch);
+			enc->SetSharedEpoch(epoch);
 			m_pending.emplace_back(id, enc);
 			if (freshEcids) {
 				freshEcids->insert(id);
 			}
 		} else {
 			it->second->SetSeenEpoch(epoch);
+			it->second->SetSharedEpoch(epoch);
 		}
 	}
 	FlushPending();
@@ -371,6 +379,9 @@ void CFileEncoderMap::UpdateEncoders(IDSet *freshEcids)
 			delete it->second;
 			continue;
 		}
+		// Compare final membership once, after both passes. Clearing then setting the
+		// flag would invalidate unchanged shared downloads on every reconciliation.
+		it->second->SetShared(it->second->GetSharedEpoch() == epoch);
 		if (out != it) {
 			*out = *it;
 		}
@@ -412,6 +423,12 @@ public:
 	virtual void WriteDoneAndQueueEmpty();
 
 	void ResetLog() { m_LoggerAccess.Reset(); }
+
+	void CancelNotifications()
+	{
+		m_notificationDrain.Cancel();
+		m_notificationTimer.Cancel();
+	}
 
 	// True once this connection advertised EC_TAG_CAN_CHAT -- it speaks the
 	// chat session ops and may be sent EC_OP_CHAT_SESSIONS replies.
@@ -839,8 +856,7 @@ const CECPacket *CECServerSocket::OnPacketReceived(const CECPacket *packet, uint
 
 void CECServerSocket::OnLost()
 {
-	m_notificationDrain.Cancel();
-	m_notificationTimer.Cancel();
+	CancelNotifications();
 	AddLogLineN(_("External connection closed."));
 	theApp->ECServerHandler->m_ec_notifier->Remove_EC_Client(this);
 	DestroySocket();
@@ -975,6 +991,13 @@ void ExternalConn::RemoveSocket(CECServerSocket *s)
 	socket_list.erase(s);
 }
 
+void ExternalConn::CancelNotificationDrains()
+{
+	for (auto *socket : socket_list) {
+		socket->CancelNotifications();
+	}
+}
+
 void ExternalConn::KillAllSockets()
 {
 	AddDebugLogLineN(logGeneral,
@@ -982,6 +1005,7 @@ void ExternalConn::KillAllSockets()
 	SocketSet::iterator it = socket_list.begin();
 	while (it != socket_list.end()) {
 		CECServerSocket *s = *(it++);
+		s->CancelNotifications();
 		s->Close();
 		s->Destroy();
 	}
@@ -1329,6 +1353,7 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 				// that does not see the echo must not send the request -- against a daemon
 				// that predates it the unknown opcode asserts.
 				response->AddTag(CECEmptyTag(EC_TAG_CAN_CLIENT_HISTORY));
+				response->AddTag(CECEmptyTag(EC_TAG_CAN_DELETE_COMPLETE));
 				if (m_chatActive) {
 					// Confirm the chat session ops so the client starts
 					// polling EC_OP_GET_CHAT_SESSIONS.
@@ -2237,7 +2262,13 @@ static CECPacket *Get_EC_Response_PartFile_Cmd(const CECPacket *request)
 	for (CECPacket::const_iterator it1 = request->begin(); it1 != request->end(); ++it1) {
 		const CECTag &hashtag = *it1;
 
-		wxASSERT(hashtag.GetTagName() == EC_TAG_PARTFILE);
+		if (hashtag.GetTagName() != EC_TAG_PARTFILE || !hashtag.IsMD4()) {
+			delete response;
+			response = new CECPacket(EC_OP_FAILED);
+			response->AddTag(
+				CECTag(EC_TAG_STRING, wxTRANSLATE("Invalid partfile command target.")));
+			break;
+		}
 
 		CMD4Hash hash = hashtag.GetMD4Data();
 		CPartFile *pfile = theApp->downloadqueue->GetFileByID(hash);
@@ -2290,10 +2321,10 @@ static CECPacket *Get_EC_Response_PartFile_Cmd(const CECPacket *request)
 				pfile->SetDownPriority(prio);
 			}
 		} break;
-		case EC_OP_PARTFILE_DELETE:
-			// Finished downloads stay in the queue until cleared, so "cancel all" and a
-			// category cancel reach them too. Skip them and cancel the rest.
-			if (pfile->GetStatus() == PS_COMPLETE || pfile->GetStatus() == PS_COMPLETING) {
+		case EC_OP_PARTFILE_DELETE: {
+			// Legacy multi-file cancel skips finished entries and still cancels
+			// active entries later in the same packet.
+			if (pfile->IsCompleted() || pfile->GetStatus() == PS_COMPLETING) {
 				if (!response) {
 					response = new CECPacket(EC_OP_FAILED);
 					response->AddTag(CECTag(EC_TAG_STRING,
@@ -2303,11 +2334,29 @@ static CECPacket *Get_EC_Response_PartFile_Cmd(const CECPacket *request)
 				}
 				break;
 			}
+			const CECTag *expectedId = hashtag.GetTagByName(EC_TAG_ECID);
+			const CECTag *expectedName = hashtag.GetTagByName(EC_TAG_PARTFILE_NAME);
+			const CECTag *expectedDir = hashtag.GetTagByName(EC_TAG_KNOWNFILE_PATH);
+			if ((expectedId && (!expectedId->IsInt() || expectedId->GetInt() != pfile->ECID())) ||
+				(expectedName && (!expectedName->IsString() ||
+							 expectedName->GetStringData() !=
+								 pfile->GetFileName().GetPrintable())) ||
+				(expectedDir && (!expectedDir->IsString() ||
+							expectedDir->GetStringData() !=
+								pfile->GetFilePath().GetPrintable()))) {
+				delete response;
+				response = new CECPacket(EC_OP_FAILED);
+				response->AddTag(CECTag(EC_TAG_STRING,
+					wxTRANSLATE("The selected download has changed or is completing. "
+						    "Refresh and try again.")));
+				return response;
+			}
 			if (thePrefs::StartNextFile() && (pfile->GetStatus() != PS_PAUSED)) {
 				theApp->downloadqueue->StartNextFile(pfile);
 			}
 			pfile->Delete();
 			break;
+		}
 
 		case EC_OP_PARTFILE_SET_CAT: {
 			// A completing download reads its category's path, so an index past the list
@@ -3740,6 +3789,30 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 	case EC_OP_SHARED_SET_PRIO:
 		response = Get_EC_Response_Set_SharedFile_Prio(request);
 		break;
+	case EC_OP_KNOWNFILE_DELETE: {
+		const CECTag *hash = request->GetTagByName(EC_TAG_KNOWNFILE);
+		const CECTag *ecid = request->GetTagByName(EC_TAG_ECID);
+		const CECTag *directory = request->GetTagByName(EC_TAG_KNOWNFILE_PATH);
+		const CECTag *name = request->GetTagByName(EC_TAG_PARTFILE_NAME);
+		wxString error;
+		bool ok = false;
+		if (!hash || !hash->IsMD4() || !ecid || !ecid->IsInt() || !ecid->GetInt() ||
+			ecid->GetInt() > UINT32_MAX || !directory || !directory->IsString() || !name ||
+			!name->IsString()) {
+			error = _("Invalid complete-file deletion target.");
+		} else {
+			ok = theApp->sharedfiles->DeleteFileFromDisk(hash->GetMD4Data(),
+				     ecid->GetInt(),
+				     directory->GetStringData(),
+				     name->GetStringData(),
+				     error) == CSharedFileList::DeleteFileResult::Deleted;
+		}
+		response = new CECPacket(ok ? EC_OP_NOOP : EC_OP_FAILED);
+		if (!ok) {
+			response->AddTag(CECTag(EC_TAG_STRING, error));
+		}
+		break;
+	}
 	case EC_OP_RENAME_FILE: {
 		CMD4Hash fileHash = request->GetTagByNameSafe(EC_TAG_KNOWNFILE)->GetMD4Data();
 		wxString newName = request->GetTagByNameSafe(EC_TAG_PARTFILE_NAME)->GetStringData();

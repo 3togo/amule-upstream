@@ -350,12 +350,11 @@ int CamuleApp::OnExit()
 		AddLogLineNS(_("Now, exiting main app..."));
 	}
 
-	// Flush wx's pending-delete queue before tearing down wxConfig: CamuleGuiApp::ShutDown
-	// calls amuledlg->Destroy(), which is lazy. On the CMD+Q path the event loop drains
-	// that queue naturally before OnExit runs; on the macOS Dock right-click -> Quit path
-	// CamuleGuiApp::OnEndSession reaches OnExit directly, so without an explicit drain here
-	// the CamuleDlg destructor chain never runs against a live wxConfig, and whatever it
-	// still persists from there is silently lost.
+	ReportShutdownStatus(_("Saving window settings..."));
+
+	// CamuleGuiApp::ShutDown calls OnExit directly with amuledlg->Destroy()
+	// still pending. Run the dialog destructor while wxConfig is still alive,
+	// before deleting the core objects that its controls may reference.
 	DeletePendingObjects();
 
 	// From the wxConfigBase docs: this object must be deleted, usually in wxApp::OnExit,
@@ -363,8 +362,12 @@ int CamuleApp::OnExit()
 	// DontCreateOnDemand() was called.
 	delete wxConfigBase::Set((wxConfigBase *)NULL);
 
+	ReportShutdownStatus(_("Saving client credits..."));
+
 	// Save credits
 	clientcredits->SaveList();
+
+	ReportShutdownStatus(_("Stopping helper applications..."));
 
 	// Kill amuleweb if running
 	if (webserver_pid) {
@@ -407,6 +410,8 @@ int CamuleApp::OnExit()
 	delete serverlist;
 	serverlist = NULL;
 
+	ReportShutdownStatus(_("Saving search results..."));
+
 	// Persist search results for the next startup, while downloadqueue / knownfiles /
 	// canceledfiles -- needed to recompute download status on the next load -- and
 	// searchlist itself are all still alive. Must run before the delete below.
@@ -424,6 +429,8 @@ int CamuleApp::OnExit()
 
 	delete chatsessions;
 	chatsessions = nullptr;
+
+	ReportShutdownStatus(_("Saving downloads and shared files..."));
 
 	// Destroying CDownloadQueue calls destructor for CPartFile
 	// calling CSharedFileList::SafeAddKFile occasionally.
@@ -504,6 +511,7 @@ int CamuleApp::OnExit()
 	delete partMetWriter;
 	partMetWriter = nullptr;
 
+	ReportShutdownStatus(_("Flushing download buffers..."));
 	delete downloadqueue;
 	downloadqueue = NULL;
 
@@ -556,6 +564,8 @@ int CamuleApp::OnExit()
 	delete wxLog::SetActiveTarget(oldLog);
 #endif
 
+	ReportShutdownStatus(_("Finishing shutdown..."));
+
 	StopTickTimer();
 
 	// wxWebSession's destructor is unsafe to run at wx module cleanup time on every
@@ -574,6 +584,12 @@ int CamuleApp::OnExit()
 	//
 	//   Windows (wxWebSessionWinHTTP): not observed to crash, but the same class of
 	//     cleanup-time race is plausible.
+
+#ifndef AMULE_DAEMON
+	// The monolithic GUI calls OnExit before leaving the main loop so the
+	// splash survives wx's top-level-window cleanup until persistence finishes.
+	theApp->FinishShutdownStatus();
+#endif
 	ReleaseSingleInstance();
 	std::_Exit(0);
 
@@ -613,7 +629,7 @@ static bool ServerMetHasServers(const wxString &path)
 
 #ifdef ENABLE_IPV6
 // Logged directly because the network summary is only logged when ReinitializeNetwork() fails, and
-// this setting has no widget to show its effect.
+// the preferences widget shows the stored setting rather than the families actually in effect.
 static void LogAddressFamilies(const wxString &listenerHost)
 {
 	const long setting = thePrefs::GetAddressFamiliesSetting();
@@ -1060,7 +1076,7 @@ bool CamuleApp::OnInit()
 	// paths straight away so the panels have a figure without waiting for the first core
 	// tick.
 	freeSpaceThread = new CFreeSpaceThread();
-	freeSpaceThread->SetPaths(thePrefs::GetTempDir(), thePrefs::GetIncomingDir());
+	freeSpaceThread->SetPaths(thePrefs::GetTempDir(), thePrefs::GetIncomingDir(), {});
 
 	m_AsioService = new CAsioService;
 
@@ -1946,7 +1962,12 @@ void RefreshLocalPublicIPv6Addresses()
 	// noticed at all.
 	ObservedPublicIPv6().SetLocalAddresses(local, ::GetTickCount64());
 #ifdef ENABLE_IPV6
-	s_advertisedIPv6Choice = ChooseAdvertisedIPv6(interfaces, thePrefs::GetNetworkInterface());
+	const std::optional<CNetworkAddress> choice =
+		ChooseAdvertisedIPv6(interfaces, thePrefs::GetNetworkInterface());
+	if (choice != s_advertisedIPv6Choice) {
+		ObservedPublicIPv6().ForgetVerdicts();
+	}
+	s_advertisedIPv6Choice = choice;
 #endif
 }
 
@@ -1960,9 +1981,8 @@ std::optional<CNetworkAddress> AdvertisedIPv6ForPeers()
 {
 	SAdvertisedIPv6Facts facts;
 	facts.choice = s_advertisedIPv6Choice;
-	facts.prefixCorroborated =
-		s_advertisedIPv6Choice &&
-		ObservedPublicIPv6().IsPrefixCorroborated(*s_advertisedIPv6Choice, ::GetTickCount64());
+	facts.contradicted = s_advertisedIPv6Choice &&
+			     ObservedPublicIPv6().IsPrefixVetoed(*s_advertisedIPv6Choice, ::GetTickCount64());
 	facts.declaredReachable = thePrefs::GetAdvertiseIPv6();
 	facts.ipv6Built = true;
 	facts.familyPermitted = AddressFamilyPolicy::PermitsIPv6();
@@ -1983,6 +2003,9 @@ std::optional<CNetworkAddress> AdvertisedIPv6ForPeers()
 		if (advertised) {
 			AddLogLineN(CFormat("Advertising our IPv6 address %s to peers") %
 				    advertised->ToWxString());
+		} else if (facts.contradicted) {
+			AddLogLineN("No longer advertising an IPv6 address to peers: they see us arriving "
+				    "from a prefix this host does not hold");
 		} else {
 			AddLogLineN("No longer advertising an IPv6 address to peers");
 		}
@@ -1990,6 +2013,7 @@ std::optional<CNetworkAddress> AdvertisedIPv6ForPeers()
 			theApp->clientlist->MarkIPv6ChangeNotificationPending();
 			s_lastNotifiedIPv6 = advertised;
 		}
+		SetSocketAdvertisedIPv6(advertised.value_or(CNetworkAddress::Absent()));
 		s_lastAdvertisedIPv6 = advertised;
 	}
 	return advertised;
@@ -2444,7 +2468,9 @@ void CamuleApp::OnCoreTimer(CTimerEvent &WXUNUSED(evt))
 		// the tree does, and a wxString read concurrently with an assignment is a race
 		// whatever the value.
 		if (freeSpaceThread) {
-			freeSpaceThread->SetPaths(thePrefs::GetTempDir(), thePrefs::GetIncomingDir());
+			freeSpaceThread->SetPaths(thePrefs::GetTempDir(),
+				thePrefs::GetIncomingDir(),
+				downloadqueue->GetPartFileDirs());
 		}
 		clientcredits->Process();
 		clientlist->Process();
@@ -2500,6 +2526,12 @@ void CamuleApp::OnCoreTimer(CTimerEvent &WXUNUSED(evt))
 	if (msCur - msPrevIfaces >= 5 * 60 * 1000) {
 		msPrevIfaces = msCur;
 		RefreshLocalPublicIPv6Addresses();
+#ifdef ENABLE_IPV6
+		// Evaluating the advertised address is what republishes Kad sources and marks peers
+		// for OP_CHANGE_CLIENT_IP. Left to the next hello, a node with only idle connections
+		// would not act on an address change or a veto until one arrives.
+		AdvertisedIPv6ForPeers();
+#endif
 	}
 
 	if (msCur - msPrevSave >= 60000) {
@@ -3052,6 +3084,14 @@ void CamuleApp::OnNotifyEvent(CMuleGUIEvent &evt)
 #endif
 }
 
+void CamuleApp::ReportShutdownStatus(const wxString &status)
+{
+	AddDebugLogLineN(logGeneral, status);
+#ifndef AMULE_DAEMON
+	theApp->UpdateShutdownStatus(status);
+#endif
+}
+
 void CamuleApp::ShutDown()
 {
 	// Just in case
@@ -3063,11 +3103,18 @@ void CamuleApp::ShutDown()
 	// Signal the hashing thread to terminate
 	m_app_state = APP_STATE_SHUTTINGDOWN;
 
+	// Native timers overriding Notify() bypass the splash event filter on GTK.
+	// Stop EC continuations before the first restricted repaint can dispatch them.
+	ECServerHandler->CancelNotificationDrains();
+
+	ReportShutdownStatus(_("Stopping network services..."));
+
 	// Stop ASIO thread
-	AddDebugLogLineN(logGeneral, "Terminate ASIO thread.");
 	m_AsioService->Stop();
 
 	StopKad();
+
+	ReportShutdownStatus(_("Saving source seeds..."));
 
 	// Kry - Save the sources seeds on app exit
 	if (thePrefs::GetSrcSeedsOn()) {
@@ -3075,6 +3122,8 @@ void CamuleApp::ShutDown()
 	}
 
 	OnlineSig(true); // Added By Bouc7
+
+	ReportShutdownStatus(_("Stopping background downloads and workers..."));
 
 	// Exit HTTP downloads
 	CHTTPDownloadThread::StopAll();
@@ -3084,6 +3133,8 @@ void CamuleApp::ShutDown()
 
 	AddDebugLogLineN(logGeneral, "Terminate upload thread.");
 	uploadBandwidthThrottler->EndThread();
+
+	ReportShutdownStatus(_("Closing connections..."));
 
 	// Close sockets to avoid new clients coming in
 	if (listensocket) {
@@ -3104,6 +3155,8 @@ void CamuleApp::ShutDown()
 		}
 	}
 #endif
+
+	ReportShutdownStatus(_("Saving known files and statistics..."));
 
 	// saving data & stuff
 	if (knownfiles) {

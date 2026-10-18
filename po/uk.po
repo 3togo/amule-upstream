@@ -197,6 +197,15 @@ msgstr "Перезапустити зараз"
 msgid "Later"
 msgstr "Пізніше"
 
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+msgid "The connected core does not support deleting complete files from disk."
+msgstr ""
+
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+#, fuzzy
+msgid "Delete from disk"
+msgstr "Отримати з Kad"
+
 #: src/GuiEvents.cpp
 #, c-format
 msgid ""
@@ -220,26 +229,6 @@ msgid ""
 "%s\n"
 "The files are deleted and no longer shared. This cannot be undone."
 msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy
-msgid "Delete from disk"
-msgstr "Отримати з Kad"
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Skipped deleting '%s': the selected file has changed."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Deleted '%s' from disk."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy, c-format
-msgid "Could not delete '%s' from disk."
-msgstr "Тека для тимчасових звантажуваних файлів"
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -327,6 +316,22 @@ msgid "Now, exiting main app..."
 msgstr "Тепер, виходимо з головної програми..."
 
 #: src/amule.cpp
+msgid "Saving window settings..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving client credits..."
+msgstr ""
+"\n"
+"Створюється клієнт...\n"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Stopping helper applications..."
+msgstr "Вийти з програми."
+
+#: src/amule.cpp
 #, c-format
 msgid "Terminating amuleweb instance with pid '%d' ... "
 msgstr "Зупиняю екземпляр amuleweb з pid '%d' ... "
@@ -356,12 +361,31 @@ msgid "aMule OnExit: Terminating core."
 msgstr "aMule OnExit: Завершується core."
 
 #: src/amule.cpp
+#, fuzzy
+msgid "Saving search results..."
+msgstr "Здобутки пошуку"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving downloads and shared files..."
+msgstr "Перезавантаження спільних файлів..."
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Flushing download buffers..."
+msgstr "Видаляється файл: %s"
+
+#: src/amule.cpp
 msgid "aMule shutdown completed."
 msgstr "Завершення роботи aMule закінчене."
 
 #: src/amule.cpp
 msgid "Memory debug results for aMule exit:"
 msgstr "Наслідки зневадження пам'яті для виходу aMule:"
+
+#: src/amule.cpp
+msgid "Finishing shutdown..."
+msgstr ""
 
 #: src/amule.cpp
 #, fuzzy, c-format
@@ -680,6 +704,28 @@ msgstr ""
 #, c-format
 msgid "Disk space preallocation for file '%s' failed: %s"
 msgstr "Не вдалося виділити місце на диску для файлу '%s': %s"
+
+#: src/amule.cpp
+msgid "Stopping network services..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving source seeds..."
+msgstr "Поширювачі джерел"
+
+#: src/amule.cpp
+msgid "Stopping background downloads and workers..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Closing connections..."
+msgstr " з'єднується..."
+
+#: src/amule.cpp
+msgid "Saving known files and statistics..."
+msgstr ""
 
 #: src/amule.cpp
 msgid "ERROR: can't open logfile"
@@ -1261,6 +1307,10 @@ msgstr "Тека для тимчасових звантажуваних файл
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Не вдалося створити теку '%s' для категорії '%s', залишено теку '%s'."
+
+#: src/amule-remote-gui.cpp
+msgid "The core did not confirm deleting the file. Refresh and try again."
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 #, c-format
@@ -2396,6 +2446,11 @@ msgid "Unauthorized access attempt from %s. Connection closed."
 msgstr "Спроба несанкціонованого доступу з %s. З'єднання закрито."
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid partfile command target."
+msgstr "Недопустима назва файлу."
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote PartFile command failed: FileHash not found: %s"
 msgstr "Віддалена PartFile-команда не вдалася: хеш файлу не знайдено: %s"
@@ -2409,6 +2464,10 @@ msgstr "Хеш файлу не знайдений: %s"
 #, fuzzy, c-format
 msgid "Cannot cancel a finished download: %s"
 msgstr "Завершене звантаження: %s"
+
+#: src/ExternalConn.cpp
+msgid "The selected download has changed or is completing. Refresh and try again."
+msgstr ""
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
@@ -2501,6 +2560,11 @@ msgstr "Перевірку версії обмежено; спробуйте щ�
 #: src/ExternalConn.cpp
 msgid "Version check is not available on this daemon."
 msgstr "Перевірка версії недоступна на цьому демоні."
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid complete-file deletion target."
+msgstr "Недопустима назва файлу."
 
 #: src/ExternalConn.cpp
 msgid "File not found."
@@ -3865,6 +3929,15 @@ msgid "Hashing"
 msgstr "Обчислюється хеш"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Allocating"
+msgstr "Виділяється"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
+#: src/TransferWnd.cpp
+msgid "Stopped"
+msgstr "Зупинені"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
 msgid "Completing"
 msgstr "Завершується"
 
@@ -3881,6 +3954,10 @@ msgstr "Призупинений"
 #: src/TransferWnd.cpp
 msgid "Erroneous"
 msgstr "Помилковий"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Insufficient disk space"
+msgstr "Не вистачає місця на диску"
 
 # файл
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
@@ -4057,6 +4134,14 @@ msgstr[2] ""
 msgid "Close"
 msgstr "Закрити"
 
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit column to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit visible columns to contents"
+msgstr ""
+
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
 msgstr "Вирізати"
@@ -4084,7 +4169,7 @@ msgstr "Вибрати всі"
 msgid "KiB/s"
 msgstr ""
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Unlimited"
 msgstr "Безмежно"
 
@@ -4155,11 +4240,11 @@ msgstr "Порт UDP: не готовий"
 msgid "Client Information"
 msgstr "Інформація клієнта"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Upload limit"
 msgstr "Обмеження вивантаження"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Download limit"
 msgstr "Обмеження звантаження"
 
@@ -4964,12 +5049,26 @@ msgid "Video Player"
 msgstr "Відеопрогравач"
 
 #: src/muuli_wdr.cpp
-msgid "Bandwidth limits"
-msgstr "Обмеження ширини смуги"
+msgid "Line capacities"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Upload"
 msgstr "Вивантаження"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth limits"
+msgstr "Обмеження ширини смуги"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable download limit"
+msgstr "Обмеження звантаження"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable upload limit"
+msgstr "Обмеження вивантаження"
 
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
@@ -5066,6 +5165,30 @@ msgid ""
 "A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
 "\n"
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
+
+#: src/muuli_wdr.cpp src/PeerCapabilities.h
+msgid "IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Address families:"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 only"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 and IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Takes effect after restarting aMule."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Advertise my IPv6 address to other peers"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5340,14 +5463,6 @@ msgid "Connections Graph Scale: 100 "
 msgstr "Шкала графіку з'єднань: 100"
 
 #: src/muuli_wdr.cpp
-msgid "Download graph scale:"
-msgstr "Шкала графіку звантаження"
-
-#: src/muuli_wdr.cpp
-msgid "Upload graph scale:"
-msgstr "Шкала графіку вивантаження"
-
-#: src/muuli_wdr.cpp
 #, fuzzy
 msgid "Colors: "
 msgstr "Кольори: "
@@ -5459,6 +5574,26 @@ msgstr "Час оновлення з'єднання з сервером: вим�
 #: src/muuli_wdr.cpp
 msgid "Disable computer's timed standby mode"
 msgstr "Вимкнути режим очікування комп’ютера за таймером"
+
+#: src/muuli_wdr.cpp
+msgid "Appearance: "
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow system"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Light mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Dark mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Appearance changes take effect after restarting aMule."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Skin to use: "
@@ -6264,10 +6399,6 @@ msgstr "всі інші"
 msgid "Incomplete"
 msgstr "Незавершені"
 
-#: src/OtherFunctions.cpp src/PartFile.cpp src/TransferWnd.cpp
-msgid "Stopped"
-msgstr "Зупинені"
-
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Video"
 msgstr "Відео"
@@ -6598,14 +6729,6 @@ msgid "ICH: Recovered corrupted part %i for %s -> Saved bytes: %s"
 msgstr "Р.О.П.: відновлено зіпсовану частину %i для %s -> Збережено байт: %s"
 
 #: src/PartFile.cpp
-msgid "Allocating"
-msgstr "Виділяється"
-
-#: src/PartFile.cpp
-msgid "Insufficient disk space"
-msgstr "Не вистачає місця на диску"
-
-#: src/PartFile.cpp
 #, c-format
 msgid "ERROR: Failed to open partfile '%s'"
 msgstr "ПОМИЛКА: не вдалося відкрити частковий файл '%s'"
@@ -6617,10 +6740,6 @@ msgstr "Обмін джерелами"
 
 #: src/PeerCapabilities.h
 msgid "NAT traversal (uTP)"
-msgstr ""
-
-#: src/PeerCapabilities.h
-msgid "IPv6"
 msgstr ""
 
 #: src/PeerCapabilities.h
@@ -6653,37 +6772,46 @@ msgstr "Порт TCP не може бути більшим ніж 65532, оск�
 msgid "Default port will be used (%d)"
 msgstr "Буде використовуватися порт за замовчуванням (%d)"
 
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Connection"
-msgstr "З'єднання"
+#: src/BandwidthLimitSlider.h
+msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
+msgstr ""
 
-#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
-msgid "Directories"
-msgstr "Теки"
-
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Servers"
-msgstr "Сервери"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Security"
-msgstr "Безпека"
+#: src/BandwidthLimitSlider.h
+#, c-format
+msgid "KiB/s (%.2f MiB/s)"
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Interface"
 msgstr "Зовнішній вигляд"
 
-#: src/PrefsUnifiedDlg.cpp
-msgid "IP2Country"
-msgstr "IP2Country"
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Connection"
+msgstr "З'єднання"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Proxy"
 msgstr "Проксі"
 
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Servers"
+msgstr "Сервери"
+
+#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
+msgid "Directories"
+msgstr "Теки"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Events"
+msgstr "Події"
+
 #: src/PrefsUnifiedDlg.cpp
 msgid "Filters"
 msgstr "Фільтри"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Security"
+msgstr "Безпека"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Remote Controls"
@@ -6694,12 +6822,12 @@ msgid "Online Signature"
 msgstr "Онлайн-підпис"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Advanced"
-msgstr "Розширені"
+msgid "IP2Country"
+msgstr "IP2Country"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Events"
-msgstr "Події"
+msgid "Advanced"
+msgstr "Розширені"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Debugging"
@@ -6810,6 +6938,11 @@ msgstr "- UDP-порт змінено.\n"
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect port changed.\n"
 msgstr "- Змінено порт зовнішнього з'єднання.\n"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "- Address families changed.\n"
+msgstr "- Прив'язку мережевого інтерфейсу змінено.\n"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect acceptance changed.\n"
@@ -8059,6 +8192,20 @@ msgstr[1] ""
 msgstr[2] ""
 
 #: src/SharedFileList.cpp
+msgid "The selected file has changed or is not a complete file."
+msgstr ""
+
+#: src/SharedFileList.cpp
+#, fuzzy, c-format
+msgid "Could not delete '%s' from disk."
+msgstr "Тека для тимчасових звантажуваних файлів"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Deleted '%s' from disk."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, fuzzy, c-format
 msgid "Now sharing file: %s"
 msgstr "Помилка під час збереження файлу known.met: %s"
@@ -8311,6 +8458,11 @@ msgstr "Віддалена назва файлу"
 #: src/SourceListCtrl.cpp
 msgid "A4AF"
 msgstr "A4AF"
+
+#: src/SplashScreen.cpp
+#, fuzzy
+msgid "Closing aMule"
+msgstr "Показати aMule"
 
 #: src/Statistics.cpp
 #, c-format
@@ -10092,6 +10244,12 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Download graph scale:"
+#~ msgstr "Шкала графіку звантаження"
+
+#~ msgid "Upload graph scale:"
+#~ msgstr "Шкала графіку вивантаження"
 
 #, c-format
 #~ msgid "Failed to rename %s file, aborting update."

@@ -25,6 +25,8 @@
 
 #include "PrefsUnifiedDlg.h"
 #include "DialogLayout.h"
+#include "BandwidthLimitSlider.h"
+#include "PrefsPageRows.h"
 
 #include <common/Constants.h>
 #include <common/Macros.h> // Needed for itemsof()
@@ -33,6 +35,7 @@
 
 #include <wx/artprov.h> // wxArtProvider::GetBitmapBundle for the page icons
 #include <wx/bmpbndl.h> // wxBitmapBundle for DPI-aware page icons
+#include <wx/config.h>
 #include <wx/colordlg.h>
 #include <wx/combobox.h> // network-interface drop-down (bind-to-interface)
 #include <wx/dataview.h> // the page sidebar (m_PrefsIcons)
@@ -200,6 +203,9 @@ wxBEGIN_EVENT_TABLE(PrefsUnifiedDlg, wxDialog)
 	EVT_BUTTON(IDC_GEOIP_UPDATE_NOW, PrefsUnifiedDlg::OnGeoIPUpdateNow)
 	EVT_CHECKBOX(IDC_SHOW_COUNTRY_FLAGS, PrefsUnifiedDlg::OnGeoIPMasterToggle)
 #endif
+#ifdef ENABLE_IPV6
+	EVT_CHOICE(IDC_ADDRESSFAMILIES, PrefsUnifiedDlg::OnAddressFamiliesChange)
+#endif
 	EVT_CHOICE(IDC_COLORSELECTOR, PrefsUnifiedDlg::OnColorCategorySelected)
 	EVT_DATAVIEW_SELECTION_CHANGED(ID_PREFSLISTCTRL, PrefsUnifiedDlg::OnPrefsPageChange)
 
@@ -254,7 +260,10 @@ struct PrefsPage
 };
 
 PrefsPage pages[] = { { wxTRANSLATE("General"), PreferencesGeneralTab, 13, "prefs_general" },
+	{ wxTRANSLATE("Interface"), PreferencesGuiTweaksTab, 19, "prefs_interface" },
 	{ wxTRANSLATE("Connection"), PreferencesConnectionTab, 14, "prefs_connection" },
+	{ wxTRANSLATE("Proxy"), PreferencesProxyTab, 24, "prefs_proxy" },
+	{ wxTRANSLATE("Servers"), PreferencesServerTab, 15, "prefs_servers" },
 	{ wxTRANSLATE("Directories"), PreferencesDirectoriesTab, 17, "prefs_directories" },
 #ifdef CLIENT_GUI
 	// Remote-only (issue #843): mapping a daemon's path space onto this machine's has no
@@ -262,24 +271,18 @@ PrefsPage pages[] = { { wxTRANSLATE("General"), PreferencesGeneralTab, 13, "pref
 	// Directories, the other page about paths.
 	{ wxTRANSLATE("Path Mappings"), PreferencesPathMappingTab, 17, "prefs_pathmapping" },
 #endif
-	{ wxTRANSLATE("Servers"), PreferencesServerTab, 15, "prefs_servers" },
 	{ wxTRANSLATE("Files"), PreferencesFilesTab, 16, "prefs_files" },
-	{ wxTRANSLATE("Security"), PreferencesSecurityTab, 22, "prefs_security" },
-	{ wxTRANSLATE("Interface"), PreferencesGuiTweaksTab, 19, "prefs_interface" },
-#ifdef GEOIP_GUI
-	// Inserted between Interface and Statistics so the GeoIP / country-flag settings sit
-	// next to the related display option. Hidden from the page list when ENABLE_IP2COUNTRY
-	// is off, so users who built without libmaxminddb do not see a panel that cannot
-	// function.
-	{ wxTRANSLATE("IP2Country"), PreferencesIP2CountryTab, 13, "prefs_ip2country" },
-#endif
+	{ wxTRANSLATE("Events"), PreferencesEventsTab, 5, "prefs_events" },
 	{ wxTRANSLATE("Statistics"), PreferencesStatisticsTab, 10, "prefs_statistics" },
-	{ wxTRANSLATE("Proxy"), PreferencesProxyTab, 24, "prefs_proxy" },
 	{ wxTRANSLATE("Filters"), PreferencesFilteringTab, 23, "prefs_filters" },
+	{ wxTRANSLATE("Security"), PreferencesSecurityTab, 22, "prefs_security" },
 	{ wxTRANSLATE("Remote Controls"), PreferencesRemoteControlsTab, 11, "prefs_remote" },
 	{ wxTRANSLATE("Online Signature"), PreferencesOnlineSigTab, 21, "prefs_onlinesig" },
-	{ wxTRANSLATE("Advanced"), PreferencesaMuleTweaksTab, 12, "prefs_advanced" },
-	{ wxTRANSLATE("Events"), PreferencesEventsTab, 5, "prefs_events" }
+#ifdef GEOIP_GUI
+	// Hidden when ENABLE_IP2COUNTRY is off: builds without libmaxminddb cannot use it.
+	{ wxTRANSLATE("IP2Country"), PreferencesIP2CountryTab, 13, "prefs_ip2country" },
+#endif
+	{ wxTRANSLATE("Advanced"), PreferencesaMuleTweaksTab, 12, "prefs_advanced" }
 #ifdef __DEBUG__
 	,
 	{ wxTRANSLATE("Debugging"), PreferencesDebug, 25, "prefs_debug" }
@@ -596,10 +599,13 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 	// amulegui: drop the IP2Country page from the menu when the connected core has no
 	// GeoIP support -- a 3.1+ core built without ENABLE_IP2COUNTRY, or a pre-3.1 core that
 	// does not know the capability at all. Mirrors how monolithic amule omits the page at
-	// compile time. Must run before EnableServerTab, which may delete the earlier server
-	// tab and shift this index; the page widget stays built but becomes unreachable.
+	// compile time. The page widget stays built but becomes unreachable.
 	if (!thePrefs::IsGeoIPSupported() && m_IndexIP2CountryTab >= 0) {
-		m_PrefsIcons->DeleteItem(m_IndexIP2CountryTab);
+		const int row =
+			PrefsPageRows::Find(ShownPages(), static_cast<unsigned>(m_IndexIP2CountryTab));
+		if (row >= 0) {
+			m_PrefsIcons->DeleteItem(row);
+		}
 		m_IndexIP2CountryTab = -1;
 	}
 #endif
@@ -680,13 +686,29 @@ void PrefsUnifiedDlg::EnableServerTab(bool enable)
 		wxVector<wxVariant> values;
 		values.push_back(wxVariant(wxDataViewIconText(
 			wxGetTranslation(pages[m_IndexServerTab].m_title), m_pageIcons[m_IndexServerTab])));
-		m_PrefsIcons->InsertItem(m_IndexServerTab, values, (wxUIntPtr)m_IndexServerTab);
+		m_PrefsIcons->InsertItem(
+			PrefsPageRows::InsertionRow(ShownPages(), static_cast<unsigned>(m_IndexServerTab)),
+			values,
+			(wxUIntPtr)m_IndexServerTab);
 		m_ServerTabVisible = true;
 	} else if (!enable && m_ServerTabVisible) {
 		// turn server widget off
-		m_PrefsIcons->DeleteItem(m_IndexServerTab);
+		const int row = PrefsPageRows::Find(ShownPages(), static_cast<unsigned>(m_IndexServerTab));
+		if (row >= 0) {
+			m_PrefsIcons->DeleteItem(row);
+		}
 		m_ServerTabVisible = false;
 	}
+}
+
+std::vector<unsigned> PrefsUnifiedDlg::ShownPages() const
+{
+	std::vector<unsigned> shown;
+	for (int row = 0; row < m_PrefsIcons->GetItemCount(); ++row) {
+		shown.push_back(
+			static_cast<unsigned>(m_PrefsIcons->GetItemData(m_PrefsIcons->RowToItem(row))));
+	}
+	return shown;
 }
 
 Cfg_Base *PrefsUnifiedDlg::GetCfg(int id)
@@ -712,6 +734,8 @@ bool PrefsUnifiedDlg::TransferToWindow()
 				     it->first % it->second->GetKey());
 		}
 	}
+
+	InitializeBandwidthLimitSliders(this);
 
 #ifdef CLIENT_GUI
 	// Cfg transfer can re-enable command fields from saved checkbox values.
@@ -754,6 +778,16 @@ bool PrefsUnifiedDlg::TransferToWindow()
 	m_ShareSelector->SetSharedDirectories(&theApp->glob_prefs->shareddir_explicit_list);
 	m_ShareSelector->SetRecursiveSharedDirectories(&theApp->glob_prefs->shareddir_recursive_list);
 #endif
+
+	if (auto *appearance = wxDynamicCast(FindWindow(IDC_APPEARANCE), wxChoice)) {
+		const long choice = wxConfigBase::Get()->ReadLong(
+			"/GUI/Appearance", static_cast<long>(CamuleGuiBase::AppearanceChoice::System));
+		const long first = static_cast<long>(CamuleGuiBase::AppearanceChoice::System);
+		const long last = static_cast<long>(CamuleGuiBase::AppearanceChoice::Dark);
+		appearance->SetSelection(choice >= first && choice <= last
+						 ? static_cast<int>(choice)
+						 : static_cast<int>(CamuleGuiBase::AppearanceChoice::System));
+	}
 
 	// Autostart checkbox: state lives in the OS, never aMule.conf, so read live
 	// each time the dialog opens. The thePrefs Cfg machinery does not know it.
@@ -997,6 +1031,21 @@ bool PrefsUnifiedDlg::TransferToWindow()
 #endif
 #endif
 
+#ifdef ENABLE_IPV6
+#ifdef CLIENT_GUI
+	// A daemon that sent no address-families tag is old or lacks ENABLE_IPV6: nothing to edit.
+	if (wxWindow *box = FindWindow(IDC_ADDRESSFAMILIESBOX)) {
+		// A wxStaticBox's containing sizer is its own wxStaticBoxSizer, which ShowItems() hides
+		// together with the box.
+		if (wxSizer *boxSizer = box->GetContainingSizer()) {
+			boxSizer->ShowItems(thePrefs::GetAddressFamiliesTagSupported());
+			RefreshPreferencesPage(box);
+		}
+	}
+#endif
+	UpdateAddressFamiliesControls();
+#endif
+
 #ifdef __DEBUG__
 	// Set debugging toggles
 	int count = theLogger.GetDebugCategoryCount();
@@ -1115,6 +1164,19 @@ void PrefsUnifiedDlg::UpdateMessageFilterControls()
 	FindWindow(IDC_MSGFILTER_WORD)->Enable(selective);
 	FindWindow(IDC_MSGWORD)->Enable(selective && CastChild(IDC_MSGFILTER_WORD, wxCheckBox)->IsChecked());
 }
+
+#ifdef ENABLE_IPV6
+void PrefsUnifiedDlg::OnAddressFamiliesChange(wxCommandEvent &WXUNUSED(event))
+{
+	UpdateAddressFamiliesControls();
+}
+
+void PrefsUnifiedDlg::UpdateAddressFamiliesControls()
+{
+	const bool dualStack = CastChild(IDC_ADDRESSFAMILIES, wxChoice)->GetSelection() == 1;
+	FindWindow(IDC_ADVERTISEIPV6)->Enable(dualStack);
+}
+#endif
 
 void PrefsUnifiedDlg::SetCredentialStateLabel(int id, bool isSet)
 {
@@ -1235,6 +1297,12 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 		restart_needed = true;
 		restart_needed_msg += _("- External connect port changed.\n");
 	}
+#ifdef ENABLE_IPV6
+	if (CfgChanged(IDC_ADDRESSFAMILIES)) {
+		restart_needed = true;
+		restart_needed_msg += _("- Address families changed.\n");
+	}
+#endif
 	if (CfgChanged(IDC_EXT_CONN_ACCEPT)) {
 		restart_needed = true;
 		restart_needed_msg += _("- External connect acceptance changed.\n");
@@ -1306,6 +1374,15 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 	// commit above, so this ends up persisted alongside the rest.
 	HarvestPathMappingList();
 #endif
+
+	// This belongs to the local GUI, including amulegui's remote.conf. It must
+	// never be sent to the daemon with the EC preferences.
+	if (auto *appearance = wxDynamicCast(FindWindow(IDC_APPEARANCE), wxChoice)) {
+		if (appearance->GetSelection() != wxNOT_FOUND) {
+			wxConfigBase::Get()->Write(
+				"/GUI/Appearance", static_cast<long>(appearance->GetSelection()));
+		}
+	}
 
 	// save the preferences on ok
 	theApp->glob_prefs->Save();
@@ -2588,6 +2665,7 @@ void PrefsUnifiedDlg::OnRateLimitChanged(wxSpinEvent &event)
 			}
 		}
 	}
+	SyncBandwidthLimitSliders(this);
 }
 
 void PrefsUnifiedDlg::OnTCPClientPortChange(wxSpinEvent &WXUNUSED(event))
