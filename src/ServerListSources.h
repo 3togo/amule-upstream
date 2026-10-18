@@ -7,7 +7,9 @@
 
 #include <wx/arrstr.h>
 #include <wx/uri.h>
-#include <common/TextFile.h>
+#include <wx/ffile.h>
+#include <wx/filefn.h>
+#include <wx/tokenzr.h>
 
 namespace ServerListSources
 {
@@ -25,13 +27,21 @@ inline bool IsValid(const wxString &url)
 // take effect without restarting. Never create or rewrite the user's file.
 inline wxArrayString Read(const wxString &path)
 {
-	CTextFile file;
 	wxArrayString sources;
-	if (file.Open(path, CTextFile::read)) {
-		for (const auto &url : file.ReadLines()) {
-			if (IsValid(url) && sources.Index(url) == wxNOT_FOUND) {
-				sources.Add(url);
-			}
+	if (!wxFileExists(path)) {
+		return sources;
+	}
+	wxFFile file(path, "rb");
+	wxString contents;
+	if (!file.IsOpened() || !file.ReadAll(&contents, wxConvUTF8)) {
+		return sources;
+	}
+	wxStringTokenizer lines(contents, "\r\n");
+	while (lines.HasMoreTokens()) {
+		wxString url = lines.GetNextToken();
+		url.Trim().Trim(false);
+		if (IsValid(url) && sources.Index(url) == wxNOT_FOUND) {
+			sources.Add(url);
 		}
 	}
 	return sources;

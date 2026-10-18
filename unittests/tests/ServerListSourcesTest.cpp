@@ -4,6 +4,7 @@
 
 #include <muleunit/test.h>
 #include <ServerListSources.h>
+#include <common/TextFile.h>
 #include <wx/filename.h>
 #include <wx/filefn.h>
 
@@ -72,4 +73,14 @@ TEST(ServerListSources, RejectsLineInjectionAndWhitespace)
 	ASSERT_FALSE(ServerListSources::IsValid("https://example.com/a b"));
 	ASSERT_FALSE(ServerListSources::IsValid("https://example.com/\t"));
 	ASSERT_TRUE(ServerListSources::IsValid("HTTPS://example.com/a%20b?token=value"));
+}
+
+TEST(ServerListSources, DirectoryDoesNotHangTheReader)
+{
+	SourceFile file;
+	ASSERT_TRUE(wxRemoveFile(file.path));
+	ASSERT_TRUE(wxMkdir(file.path));
+	ASSERT_TRUE(ServerListSources::Read(file.path).empty());
+	ASSERT_TRUE(wxRmdir(file.path));
+	file.Write("");
 }

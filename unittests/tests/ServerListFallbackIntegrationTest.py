@@ -15,9 +15,9 @@ import time
 from urllib.error import URLError, HTTPError
 from urllib.request import ProxyHandler, Request, build_opener
 
-from AllSearchIntegrationTest import C, free_ports, stop_daemon, string, tag, integer, retry_port_collisions
+from AllSearchIntegrationTest import C, connect_daemon, free_ports, log_snapshot, stop_daemon, string, tag, integer, retry_port_collisions
 from DaemonConfig import EC_PASSWORD, write_amule_conf
-from KnownHistoryIntegrationTest import start
+from KnownHistoryIntegrationTest import start as start_ed2k
 
 SERVER_MET = b'\xe0' + struct.pack('<I', 1) + bytes([203, 0, 113, 7]) + struct.pack('<HI', 4661, 0)
 EXISTING = SERVER_MET.replace(bytes([203, 0, 113, 7]), bytes([203, 0, 113, 9]))
@@ -25,6 +25,22 @@ TRUNCATED = b'\xe0' + struct.pack('<I', 2) + bytes([203, 0, 113, 8]) + struct.pa
 GOOD = (200, SERVER_MET)
 SECOND = (200, SERVER_MET.replace(bytes([203, 0, 113, 7]), bytes([203, 0, 113, 10])))
 FAIL = (503, b'unavailable')
+
+
+def start(binary, root, ports, *, ed2k=True):
+    if ed2k:
+        return start_ed2k(binary, root, ports)
+    env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8')
+    env.pop('LD_PRELOAD', None)
+    snapshot = log_snapshot(root / 'logfile')
+    with (root / 'console.log').open('a') as console:
+        proc = subprocess.Popen([binary, '-c', str(root), '--disable-fatal'], env=env,
+                                stdout=console, stderr=subprocess.STDOUT)
+    try:
+        return proc, connect_daemon(proc, ports[0], root, ports[1], ports[2], snapshot=snapshot)
+    except BaseException:
+        stop_daemon(proc)
+        raise
 
 
 def wait_for(proc, predicate, root):
@@ -64,7 +80,12 @@ def start_api(binary, root, ec_port):
             try:
                 status, data = api_post(endpoint, '/auth/login', {'password': 'fallback-test'})
                 assert status == 200, data
-                return proc, endpoint, json.loads(data)['token']
+                token = json.loads(data)['token']
+                ready = Request(endpoint + '/preferences', headers={'Authorization': 'Bearer ' + token})
+                with build_opener(ProxyHandler({})).open(ready, timeout=2) as response:
+                    assert response.status == 200
+                    response.read()
+                return proc, endpoint, token
             except (URLError, HTTPError):
                 if proc.poll() is not None or time.monotonic() > deadline:
                     raise AssertionError((root / 'console.log').read_text(errors='replace'))
@@ -153,12 +174,13 @@ def run(binary, root, responses, sources, expected, *, url=None, startup=False,
         else:
             wait_for(proc, lambda: len(requests) >= len(expected), root)
             if expected:
-                last_url = base + expected[-1]
-                wait_for(proc, lambda: last_url in (root / 'logfile').read_text(errors='replace') and
-                         (('Finished downloading the server list from ' + last_url) in
-                          (root / 'logfile').read_text(errors='replace') or
-                          ('Failed to download server.met from ' + last_url) in
-                          (root / 'logfile').read_text(errors='replace') or skipped), root)
+                # URL diagnostics intentionally reveal only the origin, never its path/query.
+                def completed():
+                    log = (root / 'logfile').read_text(errors='replace')
+                    return (log.count('Finished downloading the server list from ' + base) +
+                            log.count('Failed to download server.met from ' + base) +
+                            log.count('Skipped download of server.met')) >= len(expected)
+                wait_for(proc, completed, root)
             time.sleep(0.3)
         assert requests == expected, requests
         data = (root / 'server.met').read_bytes() if (root / 'server.met').exists() else b''
@@ -203,7 +225,7 @@ def editor_case(binary, api_binary, root):
     ports = free_ports(3, udp_indices=(2,), peer_index=1)
     write_amule_conf(root, ports[0], Port=ports[1], UDPPort=ports[2],
                      Ed2kServersUrl='https://upd.emule-security.org/server.met')
-    proc, ec = start(binary, root, ports)
+    proc, ec = start(binary, root, ports, ed2k=False)
     api_proc = None
     try:
         assert source_file.read_text() == original
@@ -225,7 +247,8 @@ def editor_case(binary, api_binary, root):
             return request('GET', '/preferences')['servers']
 
         urls = ['https://one.example/list', 'http://two.example/list']
-        request('PATCH', '/preferences', {'servers': {'update_urls': urls}})
+        request('PATCH', '/preferences', {'servers': {'update_urls': urls + [urls[0]],
+                                                      'update_url': 'https://ignored.example/list'}})
         wait_for(proc, lambda: prefs()['update_urls'] == urls, root)
         assert prefs()['update_url'] == urls[0]
         assert source_file.read_text().splitlines() == urls
@@ -258,6 +281,8 @@ def editor_case(binary, api_binary, root):
         source_file.mkdir()
         request('PATCH', '/preferences', {'servers': {'update_urls': urls}}, expected=400)
         assert source_file.is_dir()
+        # Reading preferences with an unreadable source path must also remain responsive.
+        wait_for(proc, lambda: prefs()['update_urls'] == [], root)
         source_file.rmdir()
         source_file.write_text('\n'.join(many) + '\n')
         request('PATCH', '/preferences', {'servers': {'update_urls': []}})
@@ -268,7 +293,7 @@ def editor_case(binary, api_binary, root):
         ec.sock.close()
         ec = None
         stop_daemon(proc)
-        proc, ec = start(binary, root, ports)
+        proc, ec = start(binary, root, ports, ed2k=False)
         assert source_file.read_text() == ''
     finally:
         if api_proc:
@@ -304,7 +329,7 @@ def migration_cases(binary, root):
         ports = free_ports(3, udp_indices=(2,), peer_index=1)
         # ED2K is disabled, so checking the shipped default never contacts the Internet.
         write_amule_conf(folder, ports[0], Port=ports[1], UDPPort=ports[2], Ed2kServersUrl=legacy)
-        proc, ec = start(binary, folder, ports)
+        proc, ec = start(binary, folder, ports, ed2k=False)
         try:
             assert source_file.read_text() == expected, (name, source_file.read_text())
             assert 'Ed2kServersUrl=' not in (folder / 'amule.conf').read_text()
@@ -337,6 +362,8 @@ def main():
             migration_cases(binary, root)
             case('merge-after-success', {'/first': GOOD, '/last': SECOND}, ['/first', '/last'], ['/first', '/last'])
             case('first-run', {'/backup': GOOD}, ['/primary', '/backup'], ['/primary', '/backup'], startup=True)
+            case('first-run-merges-all', {'/first': GOOD, '/last': SECOND}, ['/first', '/last'],
+                 ['/first', '/last'], startup=True)
             case('http-failure', {'/backup': GOOD}, ['/primary', '/backup'], ['/primary', '/backup'])
             case('invalid-download', {'/primary': (200, b'invalid'), '/backup': GOOD},
                  ['/primary', '/backup'], ['/primary', '/backup'])
@@ -369,7 +396,7 @@ def main():
             case('cancel-auto-on-shutdown', {}, ['/primary', '/backup'], ['/primary'],
                  success=False, cancel=True, automatic=True)
     retry_port_collisions(attempt)
-    print('4 API/EC source-list scenarios passed' if api_binary else '22 server-list and 5 migration scenarios passed')
+    print('4 API/EC source-list scenarios passed' if api_binary else '23 server-list and 5 migration scenarios passed')
 
 
 if __name__ == '__main__':
