@@ -34,7 +34,7 @@ void HandleNotification(const CMuleNotiferBase &event)
 } // namespace MuleNotify
 int main(int argc, char **argv)
 {
-	if (argc != 2)
+	if (argc != 2 && argc != 3)
 		return 2;
 	wxInitializer init;
 	if (!init.IsOk())
@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 	CAsioService service;
 	if (!connection.ConnectToCore("127.0.0.1",
 		    std::stoi(argv[1]),
-		    MD5Sum("regression").GetHash(),
+		    MD5Sum(argc == 3 ? wxString::FromUTF8(argv[2]) : wxString("regression")).GetHash(),
 		    "amulegui async regression",
 		    "1"))
 		return 1;

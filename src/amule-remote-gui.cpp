@@ -64,6 +64,7 @@
 #include "DataToText.h"       // Needed for GetSoftName()
 #include "DownloadListCtrl.h" // Needed for CDownloadListCtrl
 #include "ECPrefsDiff.h"      // Needed for MakePrefsDiffPacket
+#include "ECClientPassword.h"
 #include "Friend.h"
 #include "GetTickCount.h" // Needed for GetTickCount64
 #include "GuiEvents.h"
@@ -1682,12 +1683,36 @@ void CPreferencesRem::ApplyRefresh(const CECPacket *packet)
 	}
 }
 
+void CamuleRemoteGuiApp::CommitECPasswordChange(const wxString &digest)
+{
+	wxConfigBase *cfg = wxConfigBase::Get();
+	if (!ECClientPassword::Commit(*cfg, m_ecHost, m_ecPort, m_ecPass, digest))
+		AddLogLineC(_("The EC password changed on the daemon, but the saved client password "
+			      "could not be updated."));
+}
+
 class CPrefsSetHandler : public CECPacketHandlerBase
 {
+	wxString m_ecPassword;
+
+public:
+	explicit CPrefsSetHandler(const wxString &ecPassword)
+	: m_ecPassword(ecPassword)
+	{
+	}
+
 	void AbortPendingRequest() override { delete this; }
 
 	void HandlePacket(const CECPacket *packet) override
 	{
+		if (packet->GetOpCode() == EC_OP_NOOP && !m_ecPassword.IsEmpty()) {
+			theApp->CommitECPasswordChange(m_ecPassword);
+			thePrefs::LoadECVerifier("set");
+			// A late reply must not discard a newer edit. Failed/aborted requests
+			// retain the pending input so an explicit retry can send it again.
+			if (thePrefs::PendingECPass() == m_ecPassword)
+				thePrefs::ClearPendingECPass();
+		}
 		if (packet->GetOpCode() == EC_OP_FAILED) {
 			const CECTag *tag = packet->GetTagByName(EC_TAG_STRING);
 			const wxString message =
@@ -1708,14 +1733,26 @@ class CPrefsSetHandler : public CECPacketHandlerBase
 	}
 };
 
-void CPreferencesRem::SendChangesToRemote()
+void CPreferencesRem::SendChangesToRemote(bool includeECPassword)
 {
 	auto current = std::make_unique<CEC_Prefs_Packet>(
 		m_exchange_send_selected_prefs, EC_DETAIL_UPDATE, EC_DETAIL_FULL);
 	if (m_remoteState) {
 		const std::unique_ptr<CECPacket> changes = MakePrefsDiffPacket(*m_remoteState, *current);
+		wxString ecPassword;
+		CMD4Hash digest;
+		if (includeECPassword && thePrefs::PendingECPass() != "********" &&
+			digest.Decode(thePrefs::PendingECPass())) {
+			ecPassword = thePrefs::PendingECPass();
+			auto *remote = changes->GetTagByName(EC_TAG_PREFS_REMOTECTRL);
+			if (!remote) {
+				changes->AddTag(CECEmptyTag(EC_TAG_PREFS_REMOTECTRL));
+				remote = changes->GetTagByName(EC_TAG_PREFS_REMOTECTRL);
+			}
+			remote->AddTag(CECTag(EC_TAG_EXTERNALCONN_PASSWD, digest));
+		}
 		if (changes->GetTagCount() > 0) {
-			m_conn->SendRequest(new CPrefsSetHandler(), changes.get());
+			m_conn->SendRequest(new CPrefsSetHandler(ecPassword), changes.get());
 		}
 	}
 	m_remoteState = std::move(current);

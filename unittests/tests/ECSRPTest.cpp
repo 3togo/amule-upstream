@@ -2,6 +2,7 @@
 #include "ECSRP.h"
 #include "ECSRPVector.h"
 #include "ECSRPConfig.h"
+#include "ECClientPassword.h"
 #include <wx/fileconf.h>
 #include "ECCrypt.h"
 #include "ECPacket.h"
@@ -53,9 +54,39 @@ public:
 int main()
 {
 	try {
+		// Confirmed remote rotations update reconnect state while respecting the
+		// user's save-password choice and credentials saved for other endpoints.
+		for (int scenario = 0; scenario < 6; ++scenario) {
+			FaultConfig cfg;
+			cfg.Write("/EC/Host", scenario == 1 ? "other-host" : "localhost");
+			cfg.Write("/EC/Port", scenario == 2 ? 4713L : 4712L);
+			if (scenario != 3)
+				cfg.Write("/EC/Password", scenario == 5 ? "unrelated" : "old");
+			if (scenario == 4)
+				cfg.failAt = 1;
+			wxString session = "old";
+			Check(ECClientPassword::Commit(cfg, "localhost", 4712, session, "new") ==
+					(scenario != 4),
+				"saved client credential failure was hidden");
+			Check(session == "new", "reconnect kept the old password after rotation");
+			Check(cfg.calls == ((scenario == 0 || scenario == 4) ? 1 : 0),
+				"rotation changed an unrelated or unsaved credential");
+			if (scenario == 1 || scenario == 2)
+				Check(cfg.Read("/EC/Password", wxString()) == "old",
+					"rotation overwrote another endpoint's password");
+			if (scenario == 3)
+				Check(!cfg.HasEntry("/EC/Password"), "rotation enabled password saving");
+			if (scenario == 0)
+				Check(cfg.Read("/EC/Password", wxString()) == "new",
+					"remembered password was not updated");
+			if (scenario == 5)
+				Check(cfg.Read("/EC/Password", wxString()) == "unrelated",
+					"rotation overwrote a separately saved credential");
+		}
 		// RFC 5054 Appendix B. These exercise the same arithmetic as production,
 		// with the RFC's SHA-1 and 1024-bit group instead of EC's v1 profile.
 		Arithmetic rfc;
+		rfc.generator = 2;
 		rfc.sha1 = true;
 		rfc.modulus = "EEAF0AB9ADB38DD69C33F80AFA8FC5E86072618775FF3C0B9EA2314C9C256576"
 			      "D674DF7496EA81D3383B4813D692C6E0E0D5D8E250B98BE48E495C1D6089DAD1"
@@ -86,6 +117,9 @@ int main()
 				 "C346D7E474B29EDE8A469FFECA686E5A");
 		Check(rfc.Public(x) == v, "RFC verifier");
 		Check(rfc.Public(a) == A, "RFC A");
+		auto sha256Group = rfc;
+		sha256Group.sha1 = false;
+		Check(sha256Group.Public(a) == A, "changing the hash changed the group generator");
 		Check(rfc.ServerPublic(v, b) == B, "RFC B");
 		Check(rfc.ClientSecret(A, B, a, x) == S, "RFC client S");
 		Check(rfc.ServerSecret(A, B, b, v) == S, "RFC server S");

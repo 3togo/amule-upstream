@@ -30,6 +30,7 @@ struct Verifier
 struct Arithmetic
 {
 	std::string modulus;
+	unsigned int generator = 5;
 	bool sha1 = false;
 	Arithmetic();
 	Bytes Public(const Bytes &exponent) const;

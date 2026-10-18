@@ -135,7 +135,7 @@ public:
 	// refresh it before it is shown, and send only what the user changed.
 	void RefreshFromRemote(std::function<void()> then = nullptr);
 	void ApplyRefresh(const CECPacket *packet);
-	void SendChangesToRemote();
+	void SendChangesToRemote(bool includeECPassword = false);
 	//! Sends one preferences category holding only the given tags.
 	void SendPartialToRemote(const CECTag &category);
 
@@ -1044,6 +1044,8 @@ class CamuleRemoteGuiApp : public wxApp, public CamuleGuiBase, public CamuleAppC
 
 public:
 	void RequestKadContactDistribution();
+	// Called only after the daemon acknowledges a password change.
+	void CommitECPasswordChange(const wxString &digest);
 	void Startup();
 
 	/// The main window came back from the taskbar/tray. If a reconnect has been running

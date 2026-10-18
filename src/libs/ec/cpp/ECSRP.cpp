@@ -68,7 +68,7 @@ Integer Scrambling(const Arithmetic &g, const Bytes &A, const Bytes &B)
 }
 Integer Generator(const Arithmetic &g)
 {
-	return Integer(g.sha1 ? 2 : 5);
+	return Integer(g.generator);
 }
 Integer Multiplier(const Arithmetic &g)
 {

@@ -89,6 +89,12 @@ unpersisted verifier. Interrupted cleanup is retried on restart, using the
 already committed verifier and salt. A present malformed/unsupported verifier
 never falls back to ECPassword. CLI, local preferences and authenticated remote
 preferences generate a fresh salt and verifier for a changed password.
+The local dialog commits the password only after validation and cancellable
+work. Remote preference snapshots never consume or retain a pending EC digest;
+the edit is sent explicitly at commit and cleared only on acknowledgement.
+Confirmed changes update the GUI's reconnect credential and, only if the active
+credential was already saved for that endpoint, its saved client password.
+Failed requests preserve the pending edit for retry; cancelling discards it.
 
 Config backups and saved client digests are not revoked by deleting the live
 key. A downgrade has no ECPassword and requires setting a password again with

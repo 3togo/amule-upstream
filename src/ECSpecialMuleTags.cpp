@@ -297,14 +297,6 @@ CEC_Prefs_Packet::CEC_Prefs_Packet(
 			rc_prefs.AddTag(guestTag);
 		}
 		// Read-only: Apply() has no counterpart, as the listener only rereads these on restart.
-#ifdef CLIENT_GUI
-		if (!thePrefs::PendingECPass().IsEmpty() && thePrefs::PendingECPass() != "********") {
-			CMD4Hash digest;
-			if (digest.Decode(thePrefs::PendingECPass()))
-				rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_PASSWD, digest));
-			thePrefs::ClearPendingECPass();
-		}
-#endif
 		rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_ENABLED, thePrefs::AcceptExternalConnections()));
 		rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_ADDRESS, thePrefs::GetECAddress()));
 		rc_prefs.AddTag(CECTag(EC_TAG_EXTERNALCONN_INTERFACE, thePrefs::GetECNetworkInterface()));

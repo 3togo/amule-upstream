@@ -586,7 +586,10 @@ public:
 	static const wxString &ECPasswordVerifier() { return s_ECPasswordVerifier; }
 	static bool SetECPass(const wxString &pass);
 	static const wxString &PendingECPass() { return s_ECPasswordInput; }
-	static void ClearPendingECPass() { s_ECPasswordInput = "********"; }
+	static void ClearPendingECPass()
+	{
+		s_ECPasswordInput = s_ECPasswordVerifier.IsEmpty() ? "" : "********";
+	}
 	static void LoadECVerifier(const wxString &verifier) { s_ECPasswordVerifier = verifier; }
 	static bool IsTransmitOnlyUploadingClients() { return s_TransmitOnlyUploadingClients; }
 

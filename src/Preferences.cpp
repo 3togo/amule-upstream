@@ -450,11 +450,11 @@ public:
 };
 
 // The UI holds a placeholder, never a copy of the daemon verifier or old digest.
-class Cfg_ECPassword : public Cfg_Str_Encrypted
+class Cfg_ECPassword : public Cfg_Str
 {
 public:
 	Cfg_ECPassword(wxString &input)
-	: Cfg_Str_Encrypted("/ExternalConnect/ECPasswordVerifier", input)
+	: Cfg_Str("/ExternalConnect/ECPasswordVerifier", input)
 	{
 	}
 	void LoadFromFile(wxConfigBase *cfg) override
@@ -470,17 +470,23 @@ public:
 	}
 	void SaveToFile(wxConfigBase *) override {}
 #ifndef AMULE_DAEMON
+	bool TransferToWindow() override
+	{
+		const bool ok = Cfg_Str::TransferToWindow();
+		if (auto *field = wxDynamicCast(m_widget, wxTextCtrl))
+			field->DiscardEdits();
+		return ok;
+	}
 	bool TransferFromWindow() override
 	{
-		if (!Cfg_Str_Encrypted::TransferFromWindow())
+		if (!Cfg_Str::TransferFromWindow())
 			return false;
-		if (HasChanged()) {
-#ifndef CLIENT_GUI
-			if (!CPreferences::SetECPass(m_value))
-				return false;
-			m_value = CPreferences::ECPasswordVerifier().IsEmpty() ? "" : "********";
-#endif
-		}
+		// Typing the displayed mask is still a legitimate password edit. Value
+		// comparison alone cannot distinguish that from leaving the field alone.
+		const auto *field = wxDynamicCast(m_widget, wxTextCtrl);
+		SetChanged(HasChanged() || (m_value == "********" && field && field->IsModified()));
+		if (HasChanged() && !m_value.IsEmpty())
+			m_value = MD5Sum(m_value).GetHash();
 		return true;
 	}
 #endif

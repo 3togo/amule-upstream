@@ -135,6 +135,15 @@ def main(daemon,cmd,async_probe):
                         assert relay.error is None,relay.error
                         assert len(relay.observed)==32
                     print('PASS: old client, missing token, split X25519 MITM rejected')
+                    # A malformed edit must report failure and leave the existing
+                    # credential usable, rather than closing or rekeying the daemon.
+                    editor = EC(port)
+                    try:
+                        malformed = tag(C['EC_TAG_PREFS_REMOTECTRL'], children=[
+                            tag(C['EC_TAG_EXTERNALCONN_PASSWD'], b'not-a-digest\0', 6)])
+                        assert editor.call(C['EC_OP_SET_PREFERENCES'], [malformed])[0] == C['EC_OP_FAILED']
+                    finally:
+                        editor.sock.close()
                     def change_password(old, new):
                         editor=EC(port,password=old)
                         try:
@@ -147,6 +156,16 @@ def main(daemon,cmd,async_probe):
                         _,op,_=W.authenticate(sock,hashlib.md5(b'regression').digest(),
                             before_proof=lambda: change_password('regression','rotated'))
                         assert op==C['EC_OP_AUTH_FAIL'],'in-flight old password accepted after rotation'
+                    for args in ([cmd, '-h', '127.0.0.1', '-p', str(port), '-P', 'rotated', '-c', 'status'],
+                                 [async_probe, str(port), 'rotated']):
+                        out = subprocess.run(args, env=env, capture_output=True, text=True, timeout=20)
+                        assert 'Succeeded!' in out.stdout + out.stderr, out
+                    rotated = next(line for line in (root/'amule.conf').read_text().splitlines()
+                                   if line.startswith('ECPasswordVerifier='))
+                    change_password('rotated', 'rotated')
+                    again = next(line for line in (root/'amule.conf').read_text().splitlines()
+                                 if line.startswith('ECPasswordVerifier='))
+                    assert again != rotated, 'explicit password update reused the previous salt/verifier'
                     change_password('rotated','regression')
                     saved=next(line for line in (root/'amule.conf').read_text().splitlines()
                                if line.startswith('ECPasswordVerifier='))
