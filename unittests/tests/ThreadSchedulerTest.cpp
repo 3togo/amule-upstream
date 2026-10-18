@@ -200,13 +200,14 @@ TEST(ThreadScheduler, QueueOwnershipAndTypeLimitsAcrossSchedulerLifecycle)
 	// New normal-priority hashing must pass an older opportunistic low-priority check.
 	ASSERT_TRUE(CThreadScheduler::AddTask(new COrderedTask(order, done, 1, ETP_Low)));
 	ASSERT_TRUE(CThreadScheduler::AddTask(new COrderedTask(order, done, 2, ETP_Normal)));
+	// Keep this worker alive for the cancellation phase instead of racing idle-thread exit.
+	ASSERT_TRUE(CThreadScheduler::AddTask(new CCancelledTask(started, release, done, cancelled)));
 	release.Post();
 	ASSERT_EQUALS(wxSEMA_NO_ERROR, done.WaitTimeout(5000));
 	ASSERT_EQUALS(wxSEMA_NO_ERROR, done.WaitTimeout(5000));
 	ASSERT_EQUALS(wxSEMA_NO_ERROR, done.WaitTimeout(5000));
 	ASSERT_TRUE((order == std::vector<int>{ 4, 2, 1 }));
 
-	ASSERT_TRUE(CThreadScheduler::AddTask(new CCancelledTask(started, release, done, cancelled)));
 	ASSERT_EQUALS(wxSEMA_NO_ERROR, started.WaitTimeout(5000));
 	ASSERT_TRUE(CThreadScheduler::AddTask(new COrderedTask(order, done, 7, ETP_High, "running-verify"),
 		CThreadScheduler::Overwrite::LowerPriority));
