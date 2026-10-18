@@ -84,3 +84,29 @@ TEST(ServerListSources, DirectoryDoesNotHangTheReader)
 	ASSERT_TRUE(wxRmdir(file.path));
 	file.Write("");
 }
+
+TEST(ServerListSources, LegacyCommentEncodingDoesNotHideValidURLs)
+{
+	SourceFile file;
+	{
+		wxFFile raw(file.path, "wb");
+		const char contents[] = "# caf\xe9\nhttps://example.com/list\n";
+		ASSERT_EQUALS(sizeof(contents) - 1, raw.Write(contents, sizeof(contents) - 1));
+	}
+	const auto sources = ServerListSources::Read(file.path);
+	ASSERT_EQUALS(size_t(1), sources.size());
+	ASSERT_EQUALS(wxString("https://example.com/list"), sources[0]);
+}
+
+TEST(ServerListSources, ReadsUTF8BOM)
+{
+	SourceFile file;
+	{
+		wxFFile raw(file.path, "wb");
+		const char contents[] = "\xef\xbb\xbfhttps://example.com/list\n";
+		ASSERT_EQUALS(sizeof(contents) - 1, raw.Write(contents, sizeof(contents) - 1));
+	}
+	const auto sources = ServerListSources::Read(file.path);
+	ASSERT_EQUALS(size_t(1), sources.size());
+	ASSERT_EQUALS(wxString("https://example.com/list"), sources[0]);
+}

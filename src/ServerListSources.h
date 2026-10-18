@@ -8,6 +8,7 @@
 #include <wx/arrstr.h>
 #include <wx/uri.h>
 #include <wx/ffile.h>
+#include <wx/convauto.h>
 #include <wx/filefn.h>
 #include <wx/tokenzr.h>
 
@@ -33,7 +34,7 @@ inline wxArrayString Read(const wxString &path)
 	}
 	wxFFile file(path, "rb");
 	wxString contents;
-	if (!file.IsOpened() || !file.ReadAll(&contents, wxConvUTF8)) {
+	if (!file.IsOpened() || !file.ReadAll(&contents, wxConvAuto())) {
 		return sources;
 	}
 	wxStringTokenizer lines(contents, "\r\n");
