@@ -1039,6 +1039,13 @@ add_test (NAME ServerLoginIPv6Test COMMAND ServerLoginIPv6Test)
 target_include_directories (ServerLoginIPv6Test PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (ServerLoginIPv6Test muleunit mulecommon)
 
+# Whether to send OP_IPV6_UPDATE on a server connection and its 16-byte payload, without the
+# application.
+add_executable (ServerIPv6UpdateTest ServerIPv6UpdateTest.cpp)
+add_test (NAME ServerIPv6UpdateTest COMMAND ServerIPv6UpdateTest)
+target_include_directories (ServerIPv6UpdateTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (ServerIPv6UpdateTest muleunit mulecommon)
+
 # Canonical address matching for upload-queue UDP lookups, without the application.
 add_executable (UploadQueueAddressPolicyTest
 	UploadQueueAddressPolicyTest.cpp
@@ -1740,7 +1747,7 @@ target_link_libraries (ChatSessionStoreTest
 	mulecommon
 )
 
-# Queue bookkeeping only; the scheduler is never started, so no task runs.
+# Queue bookkeeping and the one-per-type limit for queued and running tasks.
 add_executable (ThreadSchedulerTest
 	ThreadSchedulerTest.cpp
 	${CMAKE_SOURCE_DIR}/src/ThreadScheduler.cpp
@@ -1756,6 +1763,11 @@ target_link_libraries (ThreadSchedulerTest
 	muleunit
 	mulecommon
 )
+
+add_executable (SharedFileVerifyScheduleTest SharedFileVerifyScheduleTest.cpp)
+add_test (NAME SharedFileVerifyScheduleTest COMMAND SharedFileVerifyScheduleTest)
+target_include_directories (SharedFileVerifyScheduleTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (SharedFileVerifyScheduleTest muleunit mulecommon)
 
 add_executable (MediaProbeParseTest
 	MediaProbeParseTest.cpp
@@ -2622,6 +2634,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 		add_test (NAME ServerListSourcesIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/ServerListSourcesIntegrationTest.py $<TARGET_FILE:amuled>
+		)
+		add_test (NAME SharedFileReverifyIntegrationTest
+			COMMAND ${Python3_EXECUTABLE} -u
+				${CMAKE_CURRENT_SOURCE_DIR}/SharedFileReverifyIntegrationTest.py $<TARGET_FILE:amuled>
 		)
 		add_test (NAME KnownHistoryIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}

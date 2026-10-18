@@ -2016,6 +2016,9 @@ std::optional<CNetworkAddress> AdvertisedIPv6ForPeers()
 		}
 		SetSocketAdvertisedIPv6(advertised.value_or(CNetworkAddress::Absent()));
 		s_lastAdvertisedIPv6 = advertised;
+		if (theApp->serverconnect) {
+			theApp->serverconnect->UpdateAdvertisedIPv6(advertised);
+		}
 	}
 	return advertised;
 }
@@ -2747,7 +2750,7 @@ void CamuleApp::OnHashingDrained(wxThreadEvent &WXUNUSED(evt))
 	// drop, a duplicate: a request while a save is pending replaces it, and one while a save is
 	// running queues another after it, so nothing registered during that write is left out.
 	// Save() never checks the abort flag this sets on a running save, so it still completes.
-	CThreadScheduler::AddTask(new CKnownFileSaveTask(), true);
+	CThreadScheduler::AddTask(new CKnownFileSaveTask(), CThreadScheduler::Overwrite::Always);
 
 	// Make sure the AICH hashes are up to date. No orphan-prune: a file hashed after this batch
 	// may still be waiting to be registered when this runs, and pruning would delete its freshly
