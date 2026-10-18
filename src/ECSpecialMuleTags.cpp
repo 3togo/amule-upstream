@@ -843,7 +843,7 @@ void CEC_Prefs_Packet::Apply() const
 		ApplyBoolean(use_tag, thisTab, thePrefs::SetAllocFullFile, EC_TAG_FILES_ALLOC_FULL_SIZE);
 		ApplyBoolean(
 			use_tag, thisTab, thePrefs::SetCheckDiskspaceEnabled, EC_TAG_FILES_CHECK_FREE_SPACE);
-		if ((oneTag = thisTab->GetTagByName(EC_TAG_FILES_SHARED_REVERIFY_DAYS)) != NULL) {
+		if ((oneTag = thisTab->GetTagByName(EC_TAG_FILES_SHARED_REVERIFY_DAYS)) != nullptr) {
 			thePrefs::SetSharedFileReverifyDays(oneTag->GetInt());
 		}
 		if ((oneTag = thisTab->GetTagByName(EC_TAG_FILES_MIN_FREE_SPACE)) != NULL) {

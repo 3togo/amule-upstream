@@ -448,7 +448,7 @@ public:
 	}
 
 #ifndef AMULE_DAEMON
-	bool ConnectToWidget(int id, wxWindow *parent = NULL) override
+	bool ConnectToWidget(int id, wxWindow *parent = nullptr) override
 	{
 		if (!Cfg_Str::ConnectToWidget(id, parent)) {
 			return false;

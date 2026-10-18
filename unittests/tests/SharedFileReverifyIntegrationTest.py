@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Request-triggered verification through real offline daemon uploads and EC results."""
 from contextlib import contextmanager
+import configparser
 import hashlib
 import os
 from pathlib import Path
@@ -20,6 +21,19 @@ from ShareWatcherMoveIntegrationTest import tag_list
 from UploadRefillIntegrationTest import packet, send
 
 PART = 9728000
+
+
+def get_interval(ec):
+    op, tags = ec.call(C['EC_OP_GET_PREFERENCES'], [
+        tag(C['EC_TAG_SELECT_PREFS'], struct.pack('!I', C['EC_PREFS_FILES']), 4)])
+    return tags[C['EC_TAG_PREFS_FILES']][1][C['EC_TAG_FILES_SHARED_REVERIFY_DAYS']][0]
+
+def set_interval(ec, value):
+    op, tags = ec.call(C['EC_OP_SET_PREFERENCES'], [
+        tag(C['EC_TAG_PREFS_FILES'], children=[
+            tag(C['EC_TAG_FILES_SHARED_REVERIFY_DAYS'], struct.pack('!I', value), 4)])])
+    assert op == C['EC_OP_NOOP'], (op, tags)
+
 
 
 def records(ec):
@@ -155,38 +169,25 @@ def run(binary, root):
     print("Checking uploads with automatic verification disabled", flush=True)
     # Disabled by default: a valid upload must not create verification results.
     with daemon(binary, root, None) as (proc, ec, port):
-        def get_interval():
-            op, tags = ec.call(C['EC_OP_GET_PREFERENCES'], [
-                tag(C['EC_TAG_SELECT_PREFS'], struct.pack('!I', C['EC_PREFS_FILES']), 4)])
-            return tags[C['EC_TAG_PREFS_FILES']][1][C['EC_TAG_FILES_SHARED_REVERIFY_DAYS']][0]
-
-        def set_interval(value):
-            op, tags = ec.call(C['EC_OP_SET_PREFERENCES'], [
-                tag(C['EC_TAG_PREFS_FILES'], children=[
-                    tag(C['EC_TAG_FILES_SHARED_REVERIFY_DAYS'], struct.pack('!I', value), 4)])])
-            assert op == C['EC_OP_NOOP'], (op, tags)
-
-        assert get_interval() == 0, 'default must be off over EC'
+        assert get_interval(ec) == 0, 'default must be off over EC'
         for value in (7, 0xFFFFFFFF, 0):
-            set_interval(value)
-            assert get_interval() == value, 'EC preference did not round-trip uint32'
+            set_interval(ec, value)
+            assert get_interval(ec) == value, 'EC preference did not round-trip uint32'
         file_hash = records(ec)['damaged.bin'][C['EC_TAG_PARTFILE_HASH']]
         with peer(port, file_hash, 0) as sock:
             request(sock, file_hash, PART)
             receive(sock, file_hash, content, PART)
         assert all(not date(record) for record in records(ec).values())
-        set_interval(0xFFFFFFFF)
-    import configparser
+        set_interval(ec, 0xFFFFFFFF)
     saved = configparser.ConfigParser()
     saved.read(root / 'amule.conf')
     assert saved.getint('eMule', 'SharedFileReverifyDays') == 0xFFFFFFFF
 
     # The unsigned config path must not wrap on reload, or turn legacy negatives into years.
     with daemon(binary, root, 0xFFFFFFFF) as (proc, ec, port):
-        assert get_interval() == 0xFFFFFFFF
+        assert get_interval(ec) == 0xFFFFFFFF
     with daemon(binary, root, -1) as (proc, ec, port):
-        assert get_interval() == 0
-
+        assert get_interval(ec) == 0
 
     print("Checking silent corruption and healthy-part uploads", flush=True)
     # Preserve size and mtime: startup must still share the original identity.
@@ -195,8 +196,8 @@ def run(binary, root):
         output.write(bytes([content[0] ^ 0xff]))
     os.utime(damaged, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
     with daemon(binary, root, 0) as (proc, ec, port):
-        set_interval(7)
-        assert get_interval() == 7
+        set_interval(ec, 7)
+        assert get_interval(ec) == 7
         assert records(ec)['damaged.bin'][C['EC_TAG_PARTFILE_HASH']] == file_hash
         with peer(port, file_hash, 1) as sock:
             request(sock, file_hash, PART, length=300001)

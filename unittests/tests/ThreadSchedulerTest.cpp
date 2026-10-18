@@ -55,7 +55,7 @@ class CBlockedTask : public CThreadTask
 {
 public:
 	CBlockedTask(wxSemaphore &started, wxSemaphore &release)
-	: CThreadTask("Running", "blocked")
+	: CThreadTask("Running", "blocked", ETP_High)
 	, m_started(started)
 	, m_release(release)
 	{
