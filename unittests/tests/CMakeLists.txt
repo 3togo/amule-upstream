@@ -3043,3 +3043,8 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_WEBSERVER AND Python3_In
 		${CMAKE_CURRENT_SOURCE_DIR}/ECSRPWebIntegrationTest.py ${ec_srp_web_args})
 	set_tests_properties (ECSRPWebIntegrationTest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
+
+add_executable (WindowGeometryTest WindowGeometryTest.cpp)
+target_include_directories (WindowGeometryTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (WindowGeometryTest muleunit mulecommon)
+add_test (NAME WindowGeometryTest COMMAND WindowGeometryTest)
