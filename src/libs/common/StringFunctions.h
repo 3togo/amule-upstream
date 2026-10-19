@@ -238,6 +238,14 @@ wxString UnescapeHTML(const wxString &str);
 wxString RestoreEncodedPipes(const wxString &link);
 
 /**
+ * Heuristically repairs filename text whose UTF-8 bytes were decoded as Latin-1.
+ * Performs at most four strict decoding passes, preserving the last valid text.
+ * Names that do not match this pattern are left unchanged. Literal text that
+ * happens to match the encoding pattern cannot be distinguished from damage.
+ */
+wxString RepairDoubleEncodedUTF8(const wxString &name);
+
+/**
  * Escapes the chars needed to make the url valid.
  */
 wxString validateURI(const wxString &url);

@@ -30,8 +30,53 @@
 #include <wx/uri.h>      // Needed for wxURI
 
 #include <cstring> // Needed for std::strlen()
+#include <string>
 
 // Implementation of the non-inlines
+
+wxString RepairDoubleEncodedUTF8(const wxString &name)
+{
+	wxString current = name;
+	for (unsigned pass = 0; pass < 4; ++pass) {
+		std::string bytes;
+		bytes.reserve(current.Length());
+		bool hasUTF8Sequence = false;
+		unsigned previous = 0;
+		for (size_t i = 0; i < current.Length(); ++i) {
+			const unsigned ch = current.GetChar(i).GetValue();
+			if (ch > 0xFF) {
+				return current;
+			}
+			// wxConvUTF8 can accept surrogate code points and values above U+10FFFF.
+			// Reject their byte patterns explicitly, including obsolete UTF-8 leads.
+			if (ch >= 0xF5 || (previous == 0xED && ch >= 0xA0 && ch <= 0xBF) ||
+				(previous == 0xF4 && ch >= 0x90 && ch <= 0xBF)) {
+				return current;
+			}
+			if (previous >= 0xC2 && previous <= 0xF4 && ch >= 0x80 && ch <= 0xBF) {
+				hasUTF8Sequence = true;
+			}
+			bytes.push_back(static_cast<char>(ch));
+			previous = ch;
+		}
+		if (!hasUTF8Sequence) {
+			break;
+		}
+		const wxString decoded(bytes.data(), wxConvUTF8, bytes.size());
+		if (decoded.IsEmpty()) {
+			break;
+		}
+		// Some wxWidgets builds also accept overlong encodings. Require the
+		// decoded text to encode back to exactly the same UTF-8 bytes.
+		const wxCharBuffer canonical = decoded.utf8_str();
+		if (canonical.length() != bytes.size() ||
+			std::memcmp(canonical.data(), bytes.data(), bytes.size()) != 0) {
+			break;
+		}
+		current = decoded;
+	}
+	return current;
+}
 
 // Conversion of a wxString so it can be used by printf() on a console.
 //

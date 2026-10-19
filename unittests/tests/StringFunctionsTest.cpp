@@ -1,9 +1,86 @@
 #include <muleunit/test.h>
 #include <common/StringFunctions.h>
+#include <string>
 
 using namespace muleunit;
 
 DECLARE_SIMPLE(StringFunctions)
+
+// Simulate one erroneous Latin-1 interpretation of the original UTF-8 bytes.
+static wxString DoubleEncodeUTF8(const wxString &text)
+{
+	const wxCharBuffer bytes = text.utf8_str();
+	return wxString(bytes.data(), wxConvISO8859_1, bytes.length());
+}
+
+TEST(StringFunctions, RepairDoubleEncodedUTF8Latin)
+{
+	for (const char *text : { "frías.mkv", "¡Maldita.avi" }) {
+		const wxString original = wxString::FromUTF8(text);
+		ASSERT_EQUALS(original, RepairDoubleEncodedUTF8(DoubleEncodeUTF8(original)));
+	}
+}
+
+TEST(StringFunctions, RepairDoubleEncodedUTF8NonLatin)
+{
+	// Cyrillic includes C1 controls in the damaged form (e.g. К -> U+00D0 U+009A).
+	for (const char *text : { "Клим.Жуков.mkv", "東京.mkv", "서울.mkv", "中国.mkv", "😀.mkv" }) {
+		const wxString original = wxString::FromUTF8(text);
+		ASSERT_EQUALS(original, RepairDoubleEncodedUTF8(DoubleEncodeUTF8(original)));
+	}
+}
+
+TEST(StringFunctions, RepairDoubleEncodedUTF8Repeated)
+{
+	const wxString original = wxString::FromUTF8("Клим.frías.mkv");
+	wxString damaged = original;
+	for (unsigned pass = 0; pass < 4; ++pass) {
+		damaged = DoubleEncodeUTF8(damaged);
+		ASSERT_EQUALS(original, RepairDoubleEncodedUTF8(damaged));
+	}
+	// Five layers must leave one layer after the four-pass limit.
+	damaged = DoubleEncodeUTF8(damaged);
+	ASSERT_EQUALS(DoubleEncodeUTF8(original), RepairDoubleEncodedUTF8(damaged));
+}
+
+TEST(StringFunctions, RepairDoubleEncodedUTF8Unchanged)
+{
+	for (const char *text :
+		{ "", "plain.ascii.mkv", "Клим.mkv", "東京.mkv", "Café.mkv", "Ñandú.mkv", "Aã£ÂÃÂ±Os" }) {
+		const wxString original = wxString::FromUTF8(text);
+		ASSERT_EQUALS(original, RepairDoubleEncodedUTF8(original));
+	}
+	// A valid sequence elsewhere must not cause a partial, lossy conversion.
+	const wxString invalid = DoubleEncodeUTF8(wxString::FromUTF8("frías")) + wxString::FromUTF8("é.mkv");
+	ASSERT_EQUALS(invalid, RepairDoubleEncodedUTF8(invalid));
+	// Whole-name repair intentionally leaves mixed correct/damaged Unicode alone.
+	const wxString mixed =
+		wxString::FromUTF8("東京 ") + DoubleEncodeUTF8(wxString::FromUTF8("frías.mkv"));
+	ASSERT_EQUALS(mixed, RepairDoubleEncodedUTF8(mixed));
+}
+
+TEST(StringFunctions, RepairDoubleEncodedUTF8RejectsInvalidSequences)
+{
+	for (const std::string &bytes : { std::string("\xC0\xAF"),
+		     std::string("\xE0\x80\xAF"),
+		     std::string("\xF0\x80\x80\xAF"),
+		     std::string("\xED\xA0\x80"),
+		     std::string("\xF4\x90\x80\x80"),
+		     std::string("\xF5\x80\x80\x80"),
+		     std::string("\xE6\x97") }) {
+		const wxString damaged(bytes.data(), wxConvISO8859_1, bytes.size());
+		ASSERT_EQUALS(damaged, RepairDoubleEncodedUTF8(damaged));
+	}
+}
+
+TEST(StringFunctions, RepairDoubleEncodedUTF8KeepsLastValidPass)
+{
+	const wxString original = wxString::FromUTF8("frías.mkv");
+	ASSERT_EQUALS(original, RepairDoubleEncodedUTF8(DoubleEncodeUTF8(original)));
+	// The recovered Latin-1 text is not valid UTF-8 bytes on a subsequent pass.
+	const wxString ambiguous = wxString::FromUTF8("Ã©é.mkv");
+	ASSERT_EQUALS(ambiguous, RepairDoubleEncodedUTF8(DoubleEncodeUTF8(ambiguous)));
+}
 
 ///////////////////////////////////////////////////////////
 // Tests for the FuzzyStrCmp function
