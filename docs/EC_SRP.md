@@ -89,7 +89,9 @@ preserves the old key and uses a derived verifier in memory for that run, with
 a console warning until migration can be saved. The temporary-file rename is
 not fsync-backed: it does not promise durability across power loss. Interrupted
 cleanup is retried on restart, using the
-already committed verifier and salt if the old digest still matches it. If a
+already committed verifier and salt if the old digest still matches it. An empty
+legacy key is also cleaned without replacing the verifier: a downgraded core
+recreates that empty key when saving unrelated settings. If a
 downgraded core changed ECPassword, re-upgrade migrates that newer digest with
 a fresh salt and logs the replacement. A present malformed/unsupported verifier
 never falls back to ECPassword. CLI and local preferences generate a fresh salt

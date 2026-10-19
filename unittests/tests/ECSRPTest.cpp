@@ -261,6 +261,24 @@ int main()
 					"restart did not clean legacy key");
 			}
 		}
+		// A 3.1 preferences save recreates ECPassword= after migration even
+		// without a password edit. It must never erase/re-salt the verifier.
+		for (int failAt : { 0, 1 }) {
+			FaultConfig emptyLegacy;
+			const wxString original = wxString::FromUTF8(verifier.Encode().c_str());
+			emptyLegacy.Write("/ExternalConnect/ECPasswordVerifier", original);
+			emptyLegacy.Write("/ExternalConnect/ECPassword", "");
+			emptyLegacy.failAt = failAt;
+			wxString retained, warning;
+			Check(LoadCredential(emptyLegacy, retained, warning), "empty legacy key disabled EC");
+			Check(retained == original && emptyLegacy.Read("/ExternalConnect/ECPasswordVerifier",
+							      wxString()) == original,
+				"empty legacy key replaced the existing verifier");
+			Check(!emptyLegacy.HasEntry("/ExternalConnect/ECPassword"),
+				"empty legacy key not cleaned in memory");
+			Check(emptyLegacy.calls == 1, "empty legacy key triggered verifier persistence");
+			Check((failAt == 1) == !warning.IsEmpty(), "cleanup warning missing or spurious");
+		}
 		FaultConfig downgrade;
 		downgrade.Write(
 			"/ExternalConnect/ECPasswordVerifier", wxString::FromUTF8(verifier.Encode().c_str()));

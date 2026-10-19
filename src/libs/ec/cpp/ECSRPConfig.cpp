@@ -113,7 +113,9 @@ bool LoadCredential(wxConfigBase &cfg, wxString &verifier, wxString &error)
 		}
 		if (cfg.HasEntry(LEGACY)) {
 			const wxString legacy = cfg.Read(LEGACY, wxString());
-			bool matches = verifier.IsEmpty() && legacy.IsEmpty();
+			// A downgraded core recreates an empty key on any preferences save.
+			// Only a non-empty digest can carry a newer password.
+			bool matches = legacy.IsEmpty();
 			try {
 				if (!verifier.IsEmpty() && !legacy.IsEmpty())
 					matches = Verifier::Decode(std::string(verifier.utf8_str()))

@@ -103,6 +103,10 @@ def main(daemon,cmd,async_probe):
         write_amule_conf(root,port,Port=peer,UDPEnable=0)
         env=dict(os.environ,HOME=scratch,XDG_CONFIG_HOME=str(root/'xdg'),LC_ALL='C.UTF-8')
         for restart in range(2):
+            if restart:
+                # Reproduce an unrelated settings save by a downgraded 3.1 core.
+                path=root/'amule.conf'
+                path.write_text(path.read_text().replace('[ExternalConnect]\n','[ExternalConnect]\nECPassword=\n'))
             with (root/'console').open('w') as log:
                 proc=subprocess.Popen([daemon,'-c',scratch] + ([] if os.name == 'nt' else ['--disable-fatal']),env=env,stdout=log,stderr=log)
                 try:
