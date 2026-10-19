@@ -31,6 +31,19 @@
 #include <cstdint>
 #include <vector>
 
+inline const wxRect *FindPrimaryWorkArea(const std::vector<wxRect> &workAreas, size_t primaryDisplay)
+{
+	if (primaryDisplay < workAreas.size() && !workAreas[primaryDisplay].IsEmpty()) {
+		return &workAreas[primaryDisplay];
+	}
+	for (const wxRect &area : workAreas) {
+		if (!area.IsEmpty()) {
+			return &area;
+		}
+	}
+	return nullptr;
+}
+
 // Preserve windows whose top edge is reachable, including those spanning monitors.
 // Otherwise recover onto the most-overlapped work area, or the primary display
 // when no work area overlaps. Use wide arithmetic for untrusted config values.
@@ -42,9 +55,12 @@ inline wxRect ConstrainWindowRect(const wxRect &saved,
 	if (workAreas.empty()) {
 		return saved;
 	}
-	const wxRect *chosen = &workAreas[primaryDisplay < workAreas.size() ? primaryDisplay : 0];
+	const wxRect *chosen = FindPrimaryWorkArea(workAreas, primaryDisplay);
 	int64_t largest = 0;
 	for (const wxRect &area : workAreas) {
+		if (area.IsEmpty()) {
+			continue;
+		}
 		const int64_t right = std::min(int64_t(saved.x) + saved.width, int64_t(area.x) + area.width);
 		const int64_t width = std::max<int64_t>(0, right - std::max(saved.x, area.x));
 		if (width > 0 && saved.y >= area.y && int64_t(saved.y) < int64_t(area.y) + area.height) {
@@ -59,11 +75,57 @@ inline wxRect ConstrainWindowRect(const wxRect &saved,
 			chosen = &area;
 		}
 	}
+	if (!chosen) {
+		return saved;
+	}
 	const int width = std::min(std::max(saved.width, minimum.x), chosen->width);
 	const int height = std::min(std::max(saved.height, minimum.y), chosen->height);
-	const int x = std::max(chosen->x, std::min(saved.x, chosen->x + chosen->width - width));
-	const int y = std::max(chosen->y, std::min(saved.y, chosen->y + chosen->height - height));
+	const int x = static_cast<int>(
+		std::clamp<int64_t>(saved.x, chosen->x, int64_t(chosen->x) + chosen->width - width));
+	const int y = static_cast<int>(
+		std::clamp<int64_t>(saved.y, chosen->y, int64_t(chosen->y) + chosen->height - height));
 	return wxRect(x, y, width, height);
+}
+
+struct CWindowRestoreOptions
+{
+	bool hasSavedPosition = false;
+	bool overridePosition = false;
+	bool overrideSize = false;
+	bool useWorkAreaForMissingSize = false;
+};
+
+// Resolve defaults and saved preferences before constraining the window. Command-line
+// components retain precedence independently, including when recovery changes the other axis.
+inline wxRect RestoreWindowRect(const wxRect &current,
+	const wxRect &saved,
+	const std::vector<wxRect> &workAreas,
+	const wxSize &minimum,
+	size_t primaryDisplay,
+	const CWindowRestoreOptions &options)
+{
+	wxRect desired = current;
+	if (!options.overrideSize) {
+		if (saved.width > 0 && saved.height > 0) {
+			desired.SetSize(saved.GetSize());
+		} else if (!options.overridePosition && options.useWorkAreaForMissingSize) {
+			const wxRect *area = FindPrimaryWorkArea(workAreas, primaryDisplay);
+			if (area) {
+				desired = *area;
+			}
+		}
+	}
+	if (!options.overridePosition && options.hasSavedPosition) {
+		desired.SetPosition(saved.GetPosition());
+	}
+	wxRect restored = ConstrainWindowRect(desired, workAreas, minimum, primaryDisplay);
+	if (options.overridePosition) {
+		restored.SetPosition(current.GetPosition());
+	}
+	if (options.overrideSize) {
+		restored.SetSize(current.GetSize());
+	}
+	return restored;
 }
 
 // Normal bounds and the visible restore state have separate lifetimes. Neither
@@ -73,7 +135,7 @@ class CWindowGeometry
 public:
 	void Remember(const wxRect &rect, bool maximized, bool iconized)
 	{
-		if (iconized) {
+		if (iconized || (!maximized && rect.IsEmpty())) {
 			return;
 		}
 		m_maximized = maximized;

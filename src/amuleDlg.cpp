@@ -1591,8 +1591,10 @@ bool CamuleDlg::LoadGUIPrefs(bool override_pos, bool override_size)
 	wxString section = "/Razor_Preferences/";
 
 	// Get window size and position
-	int x1 = config->Read(section + "MAIN_X_POS", -1);
-	int y1 = config->Read(section + "MAIN_Y_POS", -1);
+	int x1 = 0;
+	int y1 = 0;
+	const bool hasX = config->Read(section + "MAIN_X_POS", &x1);
+	const bool hasY = config->Read(section + "MAIN_Y_POS", &y1);
 	int x2 = config->Read(section + "MAIN_X_SIZE", -1);
 	int y2 = config->Read(section + "MAIN_Y_SIZE", -1);
 
@@ -1600,13 +1602,6 @@ bool CamuleDlg::LoadGUIPrefs(bool override_pos, bool override_size)
 
 	// Kry - Random usable pos for m_srv_split_pos
 	m_srv_split_pos = config->Read(section + "SRV_SPLITTER_POS", 463l);
-	wxRect desired = GetRect();
-	if (!override_size && x2 > 0 && y2 > 0) {
-		desired.SetSize(wxSize(x2, y2));
-	}
-	if (!override_pos && x1 != -1 && y1 != -1) {
-		desired.SetPosition(wxPoint(x1, y1));
-	}
 	std::vector<wxRect> workAreas;
 	size_t primaryDisplay = 0;
 	for (unsigned i = 0; i < wxDisplay::GetCount(); ++i) {
@@ -1616,21 +1611,22 @@ bool CamuleDlg::LoadGUIPrefs(bool override_pos, bool override_size)
 			primaryDisplay = i;
 		}
 	}
+	CWindowRestoreOptions options;
+	options.hasSavedPosition = hasX && hasY;
+	options.overridePosition = override_pos;
+	options.overrideSize = override_size;
 #ifdef __WXGTK__
 	// Preserve the first-run fallback for window managers without Maximize().
-	if (!override_size && !override_pos && (x2 <= 0 || y2 <= 0) && !workAreas.empty()) {
-		desired = workAreas[primaryDisplay];
-	}
+	options.useWorkAreaForMissingSize = true;
 #endif
-	const wxRect restored =
-		ConstrainWindowRect(desired, workAreas, FromDIP(wxSize(320, 240)), primaryDisplay);
-	// Explicit command-line geometry keeps its precedence over saved settings.
-	if (!override_size) {
-		SetSize(restored.GetSize());
-	}
-	if (!override_pos) {
-		Move(restored.GetPosition());
-	}
+	const wxRect restored = RestoreWindowRect(GetRect(),
+		wxRect(x1, y1, x2, y2),
+		workAreas,
+		FromDIP(wxSize(320, 240)),
+		primaryDisplay,
+		options);
+	// -1 is a real coordinate on desktops extending left or above the primary display.
+	SetSize(restored, wxSIZE_ALLOW_MINUS_ONE);
 	m_windowGeometry.Remember(GetRect(), false, false);
 #ifndef __WXGTK__
 	if (!override_size && (x2 <= 0 || y2 <= 0)) {
@@ -2203,7 +2199,8 @@ void CamuleDlg::Create_Toolbar(bool orientation)
 
 void CamuleDlg::CacheLastShownGeometry()
 {
-	m_windowGeometry.Remember(GetRect(), IsMaximized(), IsIconized());
+	// wxGTK may deliver the iconize event before IsIconized() reflects it.
+	m_windowGeometry.Remember(GetRect(), IsMaximized(), IsIconized() || m_iconized_logical);
 }
 
 void CamuleDlg::OnMainGUIMaximize(wxMaximizeEvent &evt)

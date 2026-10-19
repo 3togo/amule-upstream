@@ -86,6 +86,23 @@ TEST(WindowGeometry, ExtremeSavedCoordinatesDoNotOverflow)
 				      { area },
 				      wxSize(320, 240))));
 }
+TEST(WindowGeometry, EmptyPrimaryWorkAreaDoesNotCollapseWindow)
+{
+	const std::vector<wxRect> areas{ wxRect(), wxRect(100, 40, 1280, 720) };
+	const wxRect result = ConstrainWindowRect(wxRect(-5000, -4000, 800, 600), areas, wxSize(320, 240));
+	ASSERT_TRUE(areas[1].Contains(result));
+	ASSERT_TRUE((wxSize(800, 600)) == (result.GetSize()));
+}
+TEST(WindowGeometry, RecoveryUsesWideWorkAreaArithmetic)
+{
+	const int origin = std::numeric_limits<int>::max() - 99;
+	const wxRect result = ConstrainWindowRect(
+		wxRect(origin, -1000, 800, 600), { wxRect(origin, origin, 200, 200) }, wxSize(320, 240));
+	ASSERT_EQUALS(origin, result.x);
+	ASSERT_EQUALS(origin, result.y);
+	ASSERT_EQUALS(200, result.width);
+	ASSERT_EQUALS(200, result.height);
+}
 TEST(WindowGeometry, MaximizedAndMinimizedStatesKeepNormalBounds)
 {
 	CWindowGeometry state;
@@ -98,4 +115,101 @@ TEST(WindowGeometry, MaximizedAndMinimizedStatesKeepNormalBounds)
 	state.Remember(wxRect(50, 60, 900, 700), false, false);
 	ASSERT_FALSE(state.IsMaximized());
 	ASSERT_TRUE((wxRect(50, 60, 900, 700)) == (state.GetNormalRect()));
+}
+
+TEST(WindowGeometry, MinusOneIsAValidSavedCoordinate)
+{
+	CWindowRestoreOptions options;
+	options.hasSavedPosition = true;
+	const wxRect saved(-1, -1, 800, 600);
+	ASSERT_TRUE(saved == RestoreWindowRect(wxRect(100, 80, 900, 700),
+				     saved,
+				     { wxRect(-1920, -1080, 3840, 2160) },
+				     wxSize(320, 240),
+				     0,
+				     options));
+}
+TEST(WindowGeometry, GtkMissingSizePreservesSavedPosition)
+{
+	CWindowRestoreOptions options;
+	options.hasSavedPosition = true;
+	options.useWorkAreaForMissingSize = true;
+	const std::vector<wxRect> areas{ wxRect(0, 40, 1920, 1040), wxRect(-1280, -200, 1280, 1024) };
+	const wxRect result = RestoreWindowRect(
+		wxRect(0, 0, 800, 600), wxRect(-1100, -100, -1, -1), areas, wxSize(320, 240), 0, options);
+	ASSERT_TRUE((wxRect(-1100, -100, 1920, 1040)) == result);
+}
+TEST(WindowGeometry, GtkFirstRunUsesPrimaryWorkArea)
+{
+	CWindowRestoreOptions options;
+	options.useWorkAreaForMissingSize = true;
+	const std::vector<wxRect> areas{ wxRect(-1280, -200, 1280, 1024), wxRect(0, 40, 1920, 1040) };
+	ASSERT_TRUE(
+		areas[1] ==
+		RestoreWindowRect(
+			wxRect(0, 0, 800, 600), wxRect(0, 0, -1, -1), areas, wxSize(320, 240), 1, options));
+}
+TEST(WindowGeometry, GtkFirstRunSkipsEmptyWorkAreas)
+{
+	CWindowRestoreOptions options;
+	options.useWorkAreaForMissingSize = true;
+	const std::vector<wxRect> areas{ wxRect(), wxRect(100, 40, 1280, 720) };
+	ASSERT_TRUE(
+		areas[1] ==
+		RestoreWindowRect(
+			wxRect(0, 0, 800, 600), wxRect(0, 0, -1, -1), areas, wxSize(320, 240), 0, options));
+}
+TEST(WindowGeometry, ExplicitGeometryComponentsKeepIndependentPrecedence)
+{
+	const wxRect current(-5000, -4000, 1800, 1000);
+	const wxRect saved(5000, 4000, 800, 600);
+	const std::vector<wxRect> areas{ wxRect(100, 40, 1280, 680) };
+	CWindowRestoreOptions options;
+	options.hasSavedPosition = true;
+	options.useWorkAreaForMissingSize = true;
+	options.overridePosition = true;
+	ASSERT_TRUE((wxRect(-5000, -4000, 800, 600)) ==
+		    RestoreWindowRect(current, saved, areas, wxSize(320, 240), 0, options));
+	options.overrideSize = true;
+	ASSERT_TRUE(current == RestoreWindowRect(current, saved, areas, wxSize(320, 240), 0, options));
+	options.overridePosition = false;
+	ASSERT_TRUE((wxRect(100, 40, 1800, 1000)) ==
+		    RestoreWindowRect(current, saved, areas, wxSize(320, 240), 0, options));
+}
+TEST(WindowGeometry, MissingSavedPositionKeepsCurrentPosition)
+{
+	const wxRect current(100, 80, 800, 600);
+	ASSERT_TRUE((wxRect(100, 80, 900, 700)) == RestoreWindowRect(current,
+							   wxRect(-1, -1, 900, 700),
+							   { wxRect(0, 0, 1920, 1080) },
+							   wxSize(320, 240),
+							   0,
+							   CWindowRestoreOptions()));
+}
+TEST(WindowGeometry, UnavailableDisplaysPreserveRequestedGeometry)
+{
+	const wxRect saved(-1200, -100, 900, 700);
+	ASSERT_TRUE(saved == ConstrainWindowRect(saved, {}, wxSize(320, 240)));
+	ASSERT_TRUE(
+		saved == ConstrainWindowRect(saved, { wxRect(), wxRect(0, 0, -1, 100) }, wxSize(320, 240)));
+}
+TEST(WindowGeometry, TopEdgeOutsideWorkAreaRecovers)
+{
+	const wxRect area(0, 40, 1280, 680);
+	ASSERT_TRUE((wxRect(100, 40, 800, 600)) ==
+		    ConstrainWindowRect(wxRect(100, 39, 800, 600), { area }, wxSize(320, 240)));
+	ASSERT_TRUE((wxRect(480, 80, 800, 600)) ==
+		    ConstrainWindowRect(wxRect(1280, 80, 800, 600), { area }, wxSize(320, 240)));
+}
+TEST(WindowGeometry, InvalidNormalSampleKeepsRestoreState)
+{
+	CWindowGeometry state;
+	ASSERT_FALSE(state.IsValid());
+	state.Remember(wxRect(), false, false);
+	ASSERT_FALSE(state.IsValid());
+	state.Remember(wxRect(30, 40, 800, 600), false, false);
+	state.Remember(wxRect(0, 0, 1920, 1080), true, false);
+	state.Remember(wxRect(), false, false);
+	ASSERT_TRUE(state.IsMaximized());
+	ASSERT_TRUE((wxRect(30, 40, 800, 600)) == state.GetNormalRect());
 }
