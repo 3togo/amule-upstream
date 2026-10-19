@@ -59,9 +59,8 @@ public:
 	virtual int GetColumnCount() const = 0;
 	virtual int GetColumnWidth(int col) const = 0;
 	virtual bool SetColumnWidth(int col, int width) = 0;
-	//! Convert positive widths to/from logical units; legacy providers use identity.
-	virtual int ToLogicalWidth(int width) const { return width; }
-	virtual int FromLogicalWidth(int width) const { return width; }
+	//! Width coordinate units per DIP; providers already using DIPs use identity.
+	virtual double GetWidthScale() const { return 1.0; }
 };
 
 /**
@@ -138,9 +137,8 @@ public:
 	void SetCachedWidth(int index, int width);
 
 	/**
-	 * Writes legacy pixel widths plus a logical-width companion and its source snapshot,
-	 * preserving visibility and sort order. Older clients may still edit the legacy entry;
-	 * LoadSettings() only trusts the companion while its source snapshot matches.
+	 * Writes pixel widths and their scale, preserving visibility and sort order. Profiles
+	 * without a saved scale retain their original pixel widths on first load.
 	 * No-op if no table name has been set.
 	 */
 	void SaveSettings(const IColumnWidthProvider &widget, const CSortingList &sortOrders) const;
@@ -161,7 +159,7 @@ public:
 		IColumnWidthProvider &widget, const wxString &oldColumnOrder, CSortingList &outSortOrders);
 
 private:
-	bool RestoreWidth(IColumnWidthProvider &widget, int column, long width, bool logical);
+	bool RestoreWidth(IColumnWidthProvider &widget, int column, long width, double savedScale);
 	int GetNewColumnIndex(int oldindex, const wxString &oldColumnOrder) const;
 	bool ParseOldConfigEntries(const wxString &sortOrders,
 		const wxString &columnWidths,

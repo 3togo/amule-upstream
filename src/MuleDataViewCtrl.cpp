@@ -68,6 +68,16 @@ CMuleDataViewCtrl::CMuleDataViewCtrl(wxWindow *parent,
 
 CMuleDataViewCtrl::~CMuleDataViewCtrl() = default;
 
+double CMuleDataViewCtrl::ColumnWidthAdapter::GetWidthScale() const
+{
+#ifdef wxHAS_DPI_INDEPENDENT_PIXELS
+	// GTK3 and macOS column widths already use logical coordinates.
+	return 1.0;
+#else
+	return m_ctrl->GetDPIScaleFactor();
+#endif
+}
+
 int CMuleDataViewCtrl::ColumnWidthAdapter::GetColumnWidth(int col) const
 {
 	if (m_ctrl->IsColumnHidden(col)) {
