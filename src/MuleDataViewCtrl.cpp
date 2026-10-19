@@ -706,6 +706,7 @@ void CMuleDataViewCtrl::OnColumnMenuSelected(wxCommandEvent &evt)
 
 void CMuleDataViewCtrl::OnDPIChanged(wxDPIChangedEvent &event)
 {
+#ifndef wxHAS_DPI_INDEPENDENT_PIXELS
 	// wx rescales the native columns, but hidden columns restore their widths from this
 	// cache. Keep every cached width in the same units before idle can persist the layout.
 	for (int col = 0; col < static_cast<int>(RealColumnCount()); ++col) {
@@ -714,6 +715,7 @@ void CMuleDataViewCtrl::OnDPIChanged(wxDPIChangedEvent &event)
 			m_columnStore.SetCachedWidth(col, event.ScaleX(width));
 		}
 	}
+#endif
 	event.Skip();
 }
 
