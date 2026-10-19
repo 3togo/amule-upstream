@@ -1056,7 +1056,7 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 				wxTRANSLATE("You cannot connect to a release version from an arbitrary "
 					    "development snapshot! *sigh* possible crash prevented")));
 #endif
-		} else if (protocol != NULL && protocol->IsInt()) {
+		} else if (protocol != nullptr && protocol->IsInt()) {
 			uint16 proto_version = protocol->GetInt();
 			if (proto_version == EC_CURRENT_PROTOCOL_VERSION) {
 				response = new CECPacket(EC_OP_AUTH_SALT);

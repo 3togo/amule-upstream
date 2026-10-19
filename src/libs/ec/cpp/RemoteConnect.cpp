@@ -755,7 +755,7 @@ bool CRemoteConnect::ProcessAuthPacket(const CECPacket *reply)
 		} else {
 			m_ec_state = EC_FAIL;
 			const CECTag *reason = reply->GetTagByName(EC_TAG_STRING);
-			if (reason != NULL && reason->IsString()) {
+			if (reason != nullptr && reason->IsString()) {
 				m_server_reply = wxString(_("External Connection: Access denied because: ")) +
 						 wxGetTranslation(reason->GetStringData());
 			} else {
