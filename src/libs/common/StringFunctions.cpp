@@ -34,9 +34,44 @@
 
 // Implementation of the non-inlines
 
-wxString RepairDoubleEncodedUTF8(const wxString &name)
+namespace
+{
+// Return only a potentially valid UTF-8 sequence cut short at the end. Invalid
+// leads, continuations, overlong prefixes and invalid Unicode ranges are not cuts.
+size_t IncompleteUTF8TailLength(const std::string &bytes)
+{
+	if (bytes.empty()) {
+		return 0;
+	}
+	size_t start = bytes.size() - 1;
+	while (start > 0 && bytes.size() - start < 4 &&
+		(static_cast<unsigned char>(bytes[start]) & 0xC0) == 0x80) {
+		--start;
+	}
+	const unsigned lead = static_cast<unsigned char>(bytes[start]);
+	const size_t needed = lead >= 0xC2 && lead <= 0xDF   ? 2
+			      : lead >= 0xE0 && lead <= 0xEF ? 3
+			      : lead >= 0xF0 && lead <= 0xF4 ? 4
+							     : 0;
+	const size_t available = bytes.size() - start;
+	if (available >= needed) {
+		return 0;
+	}
+	if (available > 1) {
+		const unsigned second = static_cast<unsigned char>(bytes[start + 1]);
+		if ((lead == 0xE0 && second < 0xA0) || (lead == 0xED && second >= 0xA0) ||
+			(lead == 0xF0 && second < 0x90) || (lead == 0xF4 && second >= 0x90)) {
+			return 0;
+		}
+	}
+	return available;
+}
+} // namespace
+
+wxString RepairDoubleEncodedUTF8(const wxString &name, bool allowTruncatedTail)
 {
 	wxString current = name;
+	bool truncated = false;
 	for (unsigned pass = 0; pass < 4; ++pass) {
 		std::string bytes;
 		bytes.reserve(current.Length());
@@ -45,13 +80,13 @@ wxString RepairDoubleEncodedUTF8(const wxString &name)
 		for (size_t i = 0; i < current.Length(); ++i) {
 			const unsigned ch = current.GetChar(i).GetValue();
 			if (ch > 0xFF) {
-				return current;
+				return truncated ? current + wxUniChar(0xFFFD) : current;
 			}
 			// wxConvUTF8 can accept surrogate code points and values above U+10FFFF.
 			// Reject their byte patterns explicitly, including obsolete UTF-8 leads.
 			if (ch >= 0xF5 || (previous == 0xED && ch >= 0xA0 && ch <= 0xBF) ||
 				(previous == 0xF4 && ch >= 0x90 && ch <= 0xBF)) {
-				return current;
+				return truncated ? current + wxUniChar(0xFFFD) : current;
 			}
 			if (previous >= 0xC2 && previous <= 0xF4 && ch >= 0x80 && ch <= 0xBF) {
 				hasUTF8Sequence = true;
@@ -62,20 +97,30 @@ wxString RepairDoubleEncodedUTF8(const wxString &name)
 		if (!hasUTF8Sequence) {
 			break;
 		}
-		const wxString decoded(bytes.data(), wxConvUTF8, bytes.size());
+		const size_t tail = allowTruncatedTail ? IncompleteUTF8TailLength(bytes) : 0;
+		const size_t length = bytes.size() - tail;
+		const wxString decoded(bytes.data(), wxConvUTF8, length);
 		if (decoded.IsEmpty()) {
+			break;
+		}
+		// An ASCII prefix alone is not evidence of damaged UTF-8: ordinary
+		// Latin-1 names such as "caf\xE9" also end in a potential UTF-8 lead.
+		if (tail != 0 && decoded.Length() == length) {
 			break;
 		}
 		// Some wxWidgets builds also accept overlong encodings. Require the
 		// decoded text to encode back to exactly the same UTF-8 bytes.
 		const wxCharBuffer canonical = decoded.utf8_str();
-		if (canonical.length() != bytes.size() ||
-			std::memcmp(canonical.data(), bytes.data(), bytes.size()) != 0) {
+		if (canonical.length() != length ||
+			std::memcmp(canonical.data(), bytes.data(), length) != 0) {
 			break;
 		}
 		current = decoded;
+		truncated = truncated || tail != 0;
 	}
-	return current;
+	// Keep the loss visible, and append only after all decoding passes so the
+	// marker does not prevent recovery of another encoding layer in the prefix.
+	return truncated ? current + wxUniChar(0xFFFD) : current;
 }
 
 // Conversion of a wxString so it can be used by printf() on a console.

@@ -30,6 +30,13 @@ def load_codes():
 
 C = load_codes()
 
+# Reported search names cut at 160 bytes, after the first byte of the next
+# Cyrillic character. Send raw bytes so the real tag reader exercises its fallback.
+TRUNCATED_UTF8_PREFIXES = (
+    'oper.ru.Клим.Жуков.Столетняя.война.07.Чёрный.Принц.Орден.Подвязки.Каркассон.и.шаткий.трон.В',
+    'Разговор с Дьяволо_ Последнее предупреждение Людям Земли. Мировая Война_ Хаос_ Конец Св',
+)
+
 
 def exact(sock, n):
     data = b''
@@ -193,7 +200,7 @@ def connect_daemon(proc, port, root=None, peer_port=None, udp_port=None,
 
 
 def search_record(name, sources=10):
-    name = name.encode()
+    name = name.encode() if isinstance(name, str) else name
     tags = (b'\x02\x01\x00\x01' + struct.pack('<H', len(name)) + name
             + b'\x03\x01\x00\x02' + struct.pack('<I', 4096)
             + b'\x03\x01\x00\x15' + struct.pack('<I', sources)
@@ -330,11 +337,16 @@ def run(binary):
                                         queries.put(packet[1:])
                                         if not answer.wait(10):
                                             return
-                                        sources = 0xffffffff if b'overflow' in packet else 10
-                                        body = (b'\x33' + struct.pack('<I', 3)
-                                                + search_record('regression.bin', sources)
-                                                + search_record('variant.bin')
-                                                + search_record('variant.bin'))
+                                        if b'truncatedutf8' in packet:
+                                            index = 0 if b'truncatedutf8zero' in packet else 1
+                                            name = TRUNCATED_UTF8_PREFIXES[index].encode() + b'\xd0'
+                                            body = b'\x33' + struct.pack('<I', 1) + search_record(name)
+                                        else:
+                                            sources = 0xffffffff if b'overflow' in packet else 10
+                                            body = (b'\x33' + struct.pack('<I', 3)
+                                                    + search_record('regression.bin', sources)
+                                                    + search_record('variant.bin')
+                                                    + search_record('variant.bin'))
                                         peer.sendall(struct.pack('<BI', 0xe3, len(body)) + body)
                         except (EOFError, OSError):
                             pass
@@ -347,6 +359,23 @@ def run(binary):
                     assert b'ubuntu' in query and b'linux' in query, query
                     assert ec.progress(sid)[C['EC_TAG_SEARCH_KAD_ACTIVE']][0] == 0
                     ec.call(C['EC_OP_SEARCH_STOP'], [integer(C['EC_TAG_SEARCH_ID'], sid)])
+                    # One incomplete UTF-8 tail must not garble the entire result.
+                    # Check the name returned over EC after the production reader,
+                    # search-result constructor and serialization have all run.
+                    for word, prefix in zip(('zero', 'one'), TRUNCATED_UTF8_PREFIXES):
+                        assert len(prefix.encode() + b'\xd0') == 160
+                        sid = ec.start('truncatedutf8' + word, kind=C['EC_SEARCH_LOCAL'])
+                        queries.get(timeout=5)
+                        for _ in range(50):
+                            if ec.progress(sid)[C['EC_TAG_SEARCH_LIFECYCLE_STATE']][0] == 2:
+                                break
+                            time.sleep(0.1)
+                        results = ec.call(C['EC_OP_SEARCH_RESULTS'],
+                                          [integer(C['EC_TAG_SEARCH_ID'], sid)])[1]
+                        name = results[C['EC_TAG_SEARCHFILE']][1][C['EC_TAG_PARTFILE_NAME']][0]
+                        assert name.rstrip(b'\0').decode() == prefix + '\ufffd', name
+                        ec.call(C['EC_OP_SEARCH_STOP'], [integer(C['EC_TAG_SEARCH_ID'], sid),
+                                                       tag(C['EC_TAG_SEARCH_CLOSE'])])
                     # Both components: eD2k completion cannot finish the Kad component.
                     assert ec.call(C['EC_OP_KAD_START'])[0] == C['EC_OP_NOOP']
                     # Failed replacements and independent Kad searches must leave
@@ -530,7 +559,7 @@ def run(binary):
                     saved = (root / 'StoredSearches.met').read_bytes()
                     for name in (b'AllSearchEd2kSources', b'AllSearchKadSources'):
                         assert (name in saved) == (networks is not None), name
-                print('PASS: network fallback, query encoding, both completion orders, '
+                print('PASS: network fallback, query encoding, truncated UTF-8 filenames, both completion orders, '
                       'duplicate targets, stop/close, persistence, truncated restore, '
                       'ownership stress, clean shutdown')
             except BaseException:

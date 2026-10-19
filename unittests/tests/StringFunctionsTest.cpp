@@ -82,6 +82,86 @@ TEST(StringFunctions, RepairDoubleEncodedUTF8KeepsLastValidPass)
 	ASSERT_EQUALS(ambiguous, RepairDoubleEncodedUTF8(DoubleEncodeUTF8(ambiguous)));
 }
 
+TEST(StringFunctions, RepairTruncatedUTF8AtEverySequenceBoundary)
+{
+	const wxString prefix = wxString::FromUTF8("Клим.frías.東京.");
+	const wxString expected = prefix + wxUniChar(0xFFFD);
+	for (const char *character : { "К", "東", "😀" }) {
+		const std::string sequence(character);
+		for (size_t cut = 1; cut < sequence.size(); ++cut) {
+			const std::string bytes = std::string(prefix.utf8_str()) + sequence.substr(0, cut);
+			const wxString damaged(bytes.data(), wxConvISO8859_1, bytes.size());
+			ASSERT_EQUALS(damaged, RepairDoubleEncodedUTF8(damaged));
+			ASSERT_EQUALS(expected, RepairDoubleEncodedUTF8(damaged, true));
+		}
+	}
+}
+
+TEST(StringFunctions, RepairTruncatedUTF8Reported160ByteNames)
+{
+	for (const char *text : { "oper.ru.Клим.Жуков.Столетняя.война.07.Чёрный.Принц.Орден.Подвязки."
+				  "Каркассон.и.шаткий.трон.В",
+		     "Разговор с Дьяволо_ Последнее предупреждение Людям Земли. Мировая Война_ Хаос_ Конец "
+		     "Св" }) {
+		const std::string bytes = std::string(text) + "\xD0";
+		ASSERT_EQUALS(size_t(160), bytes.size());
+		const wxString damaged(bytes.data(), wxConvISO8859_1, bytes.size());
+		ASSERT_EQUALS(
+			wxString::FromUTF8(text) + wxUniChar(0xFFFD), RepairDoubleEncodedUTF8(damaged, true));
+	}
+}
+
+TEST(StringFunctions, RepairTruncatedUTF8RepeatedWithinPassLimit)
+{
+	const wxString prefix = wxString::FromUTF8("Клим.frías.");
+	const std::string bytes = std::string(prefix.utf8_str()) + "\xD0";
+	const wxString truncated(bytes.data(), wxConvISO8859_1, bytes.size());
+	wxString damaged = truncated;
+	for (unsigned layer = 0; layer < 4; ++layer) {
+		ASSERT_EQUALS(prefix + wxUniChar(0xFFFD), RepairDoubleEncodedUTF8(damaged, true));
+		damaged = DoubleEncodeUTF8(damaged);
+	}
+	// Four valid passes exhaust the budget before the incomplete layer is reached.
+	ASSERT_EQUALS(truncated, RepairDoubleEncodedUTF8(damaged, true));
+}
+
+TEST(StringFunctions, RepairTruncatedUTF8RequiresValidNonAsciiPrefix)
+{
+	for (const char *text : { "Café", "Ñandú", "plainÐ", "東京", "Ã", "é" }) {
+		const wxString name = wxString::FromUTF8(text);
+		ASSERT_EQUALS(name, RepairDoubleEncodedUTF8(name, true));
+	}
+	const std::string prefix = "name.";
+	for (const std::string &tail :
+		{ std::string("\xD0"), std::string("\xE6\x97"), std::string("\xF0\x9F\x98") }) {
+		const std::string bytes = prefix + tail;
+		const wxString damaged(bytes.data(), wxConvISO8859_1, bytes.size());
+		ASSERT_EQUALS(damaged, RepairDoubleEncodedUTF8(damaged, true));
+	}
+}
+
+TEST(StringFunctions, RepairTruncatedUTF8RejectsMalformedSequences)
+{
+	const std::string prefix = "Клим.";
+	for (const std::string &tail : { std::string("\x80"),
+		     std::string("\xC0"),
+		     std::string("\xC1\xBF"),
+		     std::string("\xE0\x80"),
+		     std::string("\xED\xA0"),
+		     std::string("\xF0\x80\x80"),
+		     std::string("\xF4\x90"),
+		     std::string("\xF5"),
+		     std::string("\xD0x"),
+		     std::string("\xD0x\xD0"),
+		     std::string("\xFF\xD0"),
+		     std::string("\xE0\x80\xAF\xD0"),
+		     std::string("\xF4\x90\x80\x80\xD0") }) {
+		const std::string bytes = prefix + tail;
+		const wxString damaged(bytes.data(), wxConvISO8859_1, bytes.size());
+		ASSERT_EQUALS(damaged, RepairDoubleEncodedUTF8(damaged, true));
+	}
+}
+
 ///////////////////////////////////////////////////////////
 // Tests for the FuzzyStrCmp function
 

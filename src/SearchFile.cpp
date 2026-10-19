@@ -87,7 +87,7 @@ CSearchFile::CSearchFile(const CMemFile &data,
 		CTag tag(data, optUTF8);
 		switch (tag.GetNameID()) {
 		case FT_FILENAME:
-			SetFileName(CPath(RepairDoubleEncodedUTF8(tag.GetStr())));
+			SetFileName(CPath(RepairDoubleEncodedUTF8(tag.GetStr(), true)));
 			break;
 		case FT_FILESIZE:
 			SetFileSize(tag.GetInt());

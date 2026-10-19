@@ -242,8 +242,11 @@ wxString RestoreEncodedPipes(const wxString &link);
  * Performs at most four strict decoding passes, preserving the last valid text.
  * Names that do not match this pattern are left unchanged. Literal text that
  * happens to match the encoding pattern cannot be distinguished from damage.
+ * Search results may opt into recovering a valid non-ASCII UTF-8 prefix with an
+ * incomplete trailing sequence. The incomplete sequence becomes U+FFFD; malformed
+ * sequences elsewhere and names without a complete non-ASCII sequence stay intact.
  */
-wxString RepairDoubleEncodedUTF8(const wxString &name);
+wxString RepairDoubleEncodedUTF8(const wxString &name, bool allowTruncatedTail = false);
 
 /**
  * Escapes the chars needed to make the url valid.
