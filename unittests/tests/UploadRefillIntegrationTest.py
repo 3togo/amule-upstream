@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Exercise real daemon uploads to isolated loopback peers and report whole-process cost.
 
-No public servers, Kad peers, or user configuration. Requests default to a 24-block window;
+No public servers, Kad peers, or user configuration. Requests keep a 24-block window;
 received bytes are checked against the shared file. Linux /proc supplies CPU and context
 switches for the daemon only. Example: python3 UploadRefillIntegrationTest.py build/src/amuled
 """
@@ -51,8 +51,7 @@ def usage(pid):
     return cpu, switches
 
 
-def run(binary, seconds, slots, rate, compress=False, pause_ms=0, request_window=24,
-        first_peer_block_bytes=BLOCK, separate_first_file=False, read_shim=None, warmup=2):
+def run(binary, seconds, slots, rate, compress=False, pause_ms=0):
     with tempfile.TemporaryDirectory(prefix='amule-upload-refill-') as directory:
         root = Path(directory)
         incoming = root / 'Incoming'
@@ -62,19 +61,11 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, request_window
                    else os.urandom(64 * 1024 * 1024))
         filename = 'upload.txt' if compress else 'upload.bin'
         (incoming / filename).write_bytes(content)
-        first_content = content
-        first_filename = filename
-        if separate_first_file:
-            first_content = bytes([content[0] ^ 1]) + content[1:]
-            first_filename = 'upload-slow.bin'
-            (incoming / first_filename).write_bytes(first_content)
         ec_port, peer_port = free_ports(2, peer_index=1)
         write_amule_conf(root, ec_port, Port=peer_port, UDPEnable=0, FilterLanIPs=0,
                          MaxUpload=rate, SlotAllocation=10, MaxConnections=200,
                          IncomingDir=incoming)
         env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8')
-        if read_shim:
-            env['LD_PRELOAD'] = read_shim
         stop = threading.Event()
         ready = [threading.Event() for _ in range(slots)]
         received = [0] * slots
@@ -90,15 +81,13 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, request_window
                 ec = connect_daemon(proc, ec_port, root, peer_port)
                 deadline = time.monotonic() + 30
                 files = {}
-                while filename not in files or first_filename not in files:
+                while filename not in files:
                     assert time.monotonic() < deadline, 'shared file was not hashed'
                     files = shared(ec)
                     time.sleep(0.1)
+                file_hash = files[filename]
 
                 def peer(index):
-                    peer_content = first_content if index == 0 else content
-                    file_hash = files[first_filename if index == 0 else filename]
-                    block_bytes = first_peer_block_bytes if index == 0 else BLOCK
                     sock = socket.socket()
                     sockets.append(sock)
                     try:
@@ -126,13 +115,13 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, request_window
 
                         def request():
                             nonlocal next_offset
-                            while len(pending) < request_window:
+                            while len(pending) < 24:
                                 starts, ends = [], []
-                                for _ in range(min(3, request_window - len(pending))):
-                                    if next_offset >= len(peer_content):
+                                for _ in range(min(3, 24 - len(pending))):
+                                    if next_offset >= len(content):
                                         next_offset = 0
                                     start = next_offset
-                                    end = min(start + block_bytes, len(peer_content))
+                                    end = min(start + BLOCK, len(content))
                                     starts.append(start)
                                     ends.append(end)
                                     pending[start] = [end, start]
@@ -160,7 +149,7 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, request_window
                                 compressed_packets[index] += 1
                                 del packed[start]
                                 end = start + len(payload)
-                            assert payload == peer_content[start:end], 'upload payload differs'
+                            assert payload == content[start:end], 'upload payload differs'
                             if pause_ms and index == 0:
                                 time.sleep(pause_ms / 1000)
                             received[index] += end - start
@@ -169,7 +158,7 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, request_window
                             pending[owner][1] = end
                             if end == pending[owner][0]:
                                 del pending[owner]
-                            if len(pending) <= request_window // 2:
+                            if len(pending) <= 12:
                                 request()
                     except BaseException as error:
                         if not stop.is_set():
@@ -186,7 +175,7 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, request_window
                     assert not errors, errors
                     assert time.monotonic() < deadline, 'upload slots did not start'
                     time.sleep(0.1)
-                time.sleep(warmup)
+                time.sleep(2)
                 before = received.copy()
                 cpu, switches = usage(proc.pid)
                 start = time.monotonic()
@@ -200,8 +189,6 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, request_window
                     assert sum(compressed_packets) > 0, 'compression was not exercised'
                 mib = sum(delivered) / 1024**2
                 return dict(seconds=elapsed, slots=slots, rate_kib=rate, compress=compress, pause_ms=pause_ms,
-                            request_window=request_window, first_peer_block_bytes=first_peer_block_bytes,
-                            separate_first_file=separate_first_file, read_shim=bool(read_shim), warmup=warmup,
                             compressed_packets=compressed_packets,
                             mib_per_second=mib / elapsed, cpu_ms_per_mib=1000 * (cpu_after - cpu) / mib,
                             context_switches_per_second=(switches_after - switches) / elapsed,
@@ -231,22 +218,7 @@ if __name__ == '__main__':
     parser.add_argument('--rate', type=int, default=2560, help='upload cap in KiB/s')
     parser.add_argument('--compress', action='store_true')
     parser.add_argument('--pause-ms', type=float, default=0, help='delay each packet on first peer')
-    parser.add_argument('--request-window', type=int, default=24, help='pending ranges per peer')
-    parser.add_argument('--first-peer-block-bytes', type=int, default=BLOCK,
-                        help='range length for peer 0 (other peers use 184320 bytes)')
-    parser.add_argument('--separate-first-file', action='store_true',
-                        help='give peer 0 a distinct upload-slow.bin file')
-    parser.add_argument('--read-shim', help='LD_PRELOAD library loaded only into the daemon')
-    parser.add_argument('--warmup', type=float, default=2, help='seconds before measurement')
     args = parser.parse_args()
-    if not 1 <= args.first_peer_block_bytes <= 3 * BLOCK:
-        parser.error('--first-peer-block-bytes must be between 1 and 552960')
-    if args.request_window < 3 or args.request_window * max(BLOCK, args.first_peer_block_bytes) >= 64 * 1024**2:
-        parser.error('--request-window must be at least 3 and fit distinct ranges in the 64 MiB file')
-    if args.warmup < 0:
-        parser.error('--warmup must be nonnegative')
     print(json.dumps(retry_port_collisions(
         run, str(Path(args.binary).resolve()), args.seconds, args.slots, args.rate,
-        args.compress, args.pause_ms, args.request_window, args.first_peer_block_bytes,
-        args.separate_first_file, str(Path(args.read_shim).resolve()) if args.read_shim else None,
-        args.warmup)))
+        args.compress, args.pause_ms)))
