@@ -1608,16 +1608,22 @@ bool CamuleDlg::LoadGUIPrefs(bool override_pos, bool override_size)
 		desired.SetPosition(wxPoint(x1, y1));
 	}
 	std::vector<wxRect> workAreas;
+	size_t primaryDisplay = 0;
 	for (unsigned i = 0; i < wxDisplay::GetCount(); ++i) {
-		workAreas.push_back(wxDisplay(i).GetClientArea());
+		const wxDisplay display(i);
+		workAreas.push_back(display.GetClientArea());
+		if (display.IsPrimary()) {
+			primaryDisplay = i;
+		}
 	}
 #ifdef __WXGTK__
 	// Preserve the first-run fallback for window managers without Maximize().
 	if (!override_size && !override_pos && (x2 <= 0 || y2 <= 0) && !workAreas.empty()) {
-		desired = workAreas.front();
+		desired = workAreas[primaryDisplay];
 	}
 #endif
-	const wxRect restored = ConstrainWindowRect(desired, workAreas, FromDIP(wxSize(320, 240)));
+	const wxRect restored =
+		ConstrainWindowRect(desired, workAreas, FromDIP(wxSize(320, 240)), primaryDisplay);
 	// Explicit command-line geometry keeps its precedence over saved settings.
 	if (!override_size) {
 		SetSize(restored.GetSize());
@@ -2211,7 +2217,8 @@ void CamuleDlg::OnMainGUIMaximize(wxMaximizeEvent &evt)
 void CamuleDlg::OnMainGUIIdle(wxIdleEvent &evt)
 {
 	// Window managers can move a frame before its maximized state is delivered.
-	// Sample after pending native events, rather than caching transitional bounds.
+	// Sampling at idle lets those events settle so transitional bounds cannot
+	// replace the normal restore position.
 	CacheLastShownGeometry();
 	evt.Skip();
 }

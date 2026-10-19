@@ -31,21 +31,28 @@
 #include <cstdint>
 #include <vector>
 
-// Select the work area with the largest intersection. A removed monitor falls
-// back to the primary work area. Use wide arithmetic for untrusted config values.
-inline wxRect ConstrainWindowRect(
-	const wxRect &saved, const std::vector<wxRect> &workAreas, const wxSize &minimum)
+// Preserve windows whose top edge is reachable, including those spanning monitors.
+// Otherwise recover onto the most-overlapped work area, or the primary display
+// when no work area overlaps. Use wide arithmetic for untrusted config values.
+inline wxRect ConstrainWindowRect(const wxRect &saved,
+	const std::vector<wxRect> &workAreas,
+	const wxSize &minimum,
+	size_t primaryDisplay = 0)
 {
 	if (workAreas.empty()) {
 		return saved;
 	}
-	const wxRect *chosen = &workAreas.front();
+	const wxRect *chosen = &workAreas[primaryDisplay < workAreas.size() ? primaryDisplay : 0];
 	int64_t largest = 0;
 	for (const wxRect &area : workAreas) {
 		const int64_t right = std::min(int64_t(saved.x) + saved.width, int64_t(area.x) + area.width);
+		const int64_t width = std::max<int64_t>(0, right - std::max(saved.x, area.x));
+		if (width > 0 && saved.y >= area.y && int64_t(saved.y) < int64_t(area.y) + area.height) {
+			return wxRect(saved.GetPosition(),
+				wxSize(std::max(saved.width, minimum.x), std::max(saved.height, minimum.y)));
+		}
 		const int64_t bottom =
 			std::min(int64_t(saved.y) + saved.height, int64_t(area.y) + area.height);
-		const int64_t width = std::max<int64_t>(0, right - std::max(saved.x, area.x));
 		const int64_t height = std::max<int64_t>(0, bottom - std::max(saved.y, area.y));
 		if (width * height > largest) {
 			largest = width * height;

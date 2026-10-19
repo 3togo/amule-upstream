@@ -42,11 +42,37 @@ TEST(WindowGeometry, ValidNegativeMonitorIsPreserved)
 	const wxRect saved(-1200, -100, 900, 700);
 	ASSERT_TRUE((saved) == (ConstrainWindowRect(saved, areas, wxSize(320, 240))));
 }
+TEST(WindowGeometry, RemovedMonitorFallsBackToPrimaryDisplay)
+{
+	// Display enumeration order need not put the primary display first.
+	const std::vector<wxRect> areas{ wxRect(-1280, 0, 1280, 1024), wxRect(0, 40, 1920, 1040) };
+	const wxRect result = ConstrainWindowRect(wxRect(5000, 3000, 800, 600), areas, wxSize(320, 240), 1);
+	ASSERT_TRUE(areas[1].Contains(result));
+	ASSERT_TRUE((wxSize(800, 600)) == (result.GetSize()));
+}
+TEST(WindowGeometry, ReachableSpanningWindowIsPreserved)
+{
+	const std::vector<wxRect> areas{ wxRect(0, 40, 1920, 1040), wxRect(1920, 0, 1280, 1024) };
+	const wxRect saved(200, 80, 2800, 900);
+	ASSERT_TRUE((saved) == (ConstrainWindowRect(saved, areas, wxSize(320, 240))));
+}
+TEST(WindowGeometry, ReachableTopEdgeOnSecondaryDisplayIsPreserved)
+{
+	const std::vector<wxRect> areas{ wxRect(0, 0, 1920, 1080), wxRect(-1280, -1024, 1280, 1024) };
+	const wxRect saved(-500, -800, 2400, 1800);
+	ASSERT_TRUE((saved) == (ConstrainWindowRect(saved, areas, wxSize(320, 240))));
+}
+TEST(WindowGeometry, UnreachableTopEdgeRecoversToOverlappingDisplay)
+{
+	const std::vector<wxRect> areas{ wxRect(0, 40, 1920, 1040), wxRect(1920, 0, 1280, 1024) };
+	const wxRect result = ConstrainWindowRect(wxRect(2200, -100, 800, 600), areas, wxSize(320, 240));
+	ASSERT_TRUE((wxRect(2200, 0, 800, 600)) == (result));
+}
 TEST(WindowGeometry, BoundsIncludeSizeAndTaskbar)
 {
 	const wxRect area(0, 40, 1280, 680);
 	const std::vector<wxRect> areas{ area };
-	ASSERT_TRUE((area) == (ConstrainWindowRect(wxRect(1200, 700, 8000, 4000), areas, wxSize(320, 240))));
+	ASSERT_TRUE((area) == (ConstrainWindowRect(wxRect(1200, 720, 8000, 4000), areas, wxSize(320, 240))));
 	ASSERT_TRUE((wxSize(320, 240)) ==
 		    (ConstrainWindowRect(wxRect(10, 50, 1, 1), areas, wxSize(320, 240)).GetSize()));
 }
