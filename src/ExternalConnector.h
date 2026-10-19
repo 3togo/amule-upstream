@@ -267,7 +267,7 @@ protected:
 	bool m_forceZLIB;
 
 	// Select the spawned API token's verifier instead of the configured password's.
-	bool m_ECTokenCredential = false;
+	uint8_t m_ECTokenCredential = 0;
 	// Advertise the multi-search EC capability (EC_TAG_CAN_MULTI_SEARCH) so the daemon
 	// addresses searches by ID and several can run at once. Off by default; only a connector
 	// that reads EC_TAG_SEARCH_ID back and handles per-ID results (amulecmd) sets it true.

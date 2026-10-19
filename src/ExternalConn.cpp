@@ -1079,8 +1079,8 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 					if (m_aeadCipher == ECCrypt::Cipher_None || m_aeadOfferMalformed)
 						throw std::invalid_argument("Encryption required");
 					const auto verifier =
-						credential == 1
-							? theApp->GetEcTokenVerifier()
+						credential != 0
+							? theApp->GetEcTokenVerifier(credential)
 							: ECSRP::Verifier::Decode(std::string(
 								  thePrefs::ECPasswordVerifier().utf8_str()));
 					const auto B = m_srp.Start(verifier, credential, A, m_aeadTranscript);
@@ -1223,8 +1223,8 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 				// A password change or child-token revocation invalidates even a
 				// handshake that received its challenge before the change.
 				const std::string current =
-					m_srpCredential == 1
-						? theApp->GetEcTokenVerifier().Encode()
+					m_srpCredential != 0
+						? theApp->GetEcTokenVerifier(m_srpCredential).Encode()
 						: ECSRP::Verifier::Decode(
 							  std::string(
 								  thePrefs::ECPasswordVerifier().utf8_str()))

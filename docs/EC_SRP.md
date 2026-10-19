@@ -56,7 +56,8 @@ SRP does not replace or contribute to the X25519 transport keys.
 
 1. Plain `EC_OP_AUTH_REQ`: existing client/protocol/capability fields, cipher
    offer, client nonce/public key, plus custom `EC_TAG_SRP_A` (384 bytes) and
-   `EC_TAG_SRP_CREDENTIAL` (one byte: 0=password, 1=spawned API token).
+   `EC_TAG_SRP_CREDENTIAL` (one byte: 0=password, 1=spawned API token,
+   2=spawned amuleweb token).
 2. Plain `EC_OP_AUTH_SALT`: server cipher/nonce/public key plus custom
    `EC_TAG_SRP_B` (384 bytes), `EC_TAG_SRP_SALT` (16 bytes),
    `EC_TAG_SRP_PROFILE` (four bytes: `01 0f 08 01`). Both sides now install
@@ -100,8 +101,13 @@ Config backups and saved client digests are not revoked by deleting the live
 key. A downgrade has no ECPassword and requires setting a password again with
 the older core. Do not copy a verifier into ECPassword.
 
-The core builds an in-memory verifier when issuing a child API token, and
-revokes it with the token. The token is decoded directly as 16 raw bytes on
+The core builds independent in-memory verifiers when issuing API and amuleweb
+child tokens, and revokes each when that child exits. Tokens are handed off in
+separate owner-only files (`amuleapi-ec-token` and `amuleweb-ec-token`) and removed
+on read, launch failure, shutdown, or after ten seconds if unread. A spawned
+amuleweb still reads its HTTP settings from `--amule-config-file`, but never
+uses the daemon's verifier as a client credential or prompts for a password
+when the child token is missing. The token is decoded directly as 16 raw bytes on
 both ends; it is not hashed again. A random dummy token verifier is prepared
 before accepting connections. Missing tokens take the same login path, with
 the same profile, sizes and generic wrong-password result. Before accepting M1 the core
@@ -132,3 +138,8 @@ reject missing or tampered server evidence before sending commands.
 with both a configured password and a spawned token, including an obsolete
 `Encryption=0` setting. The token case uses a wrong configured password to rule
 out fallback and checks that the token file was consumed.
+`ECSRPWebIntegrationTest` starts the real core-spawned amuleweb before and after
+restart, both alone and alongside amuleapi. It checks owner-only token handoff,
+credential-selector isolation, revocation of pending proofs on child exit,
+cleanup after an early helper exit, and prompt-free rejection of missing or
+malformed child tokens.

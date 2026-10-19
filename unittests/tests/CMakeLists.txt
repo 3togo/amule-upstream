@@ -2979,3 +2979,13 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Int
 		$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>)
 	set_tests_properties (ECSRPApiIntegrationTest PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 endif()
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_WEBSERVER AND Python3_Interpreter_FOUND AND UNIX AND NOT APPLE)
+	set (ec_srp_web_args $<TARGET_FILE:amuled> $<TARGET_FILE:amuleweb>)
+	if (BUILD_AMULEAPI)
+		list (APPEND ec_srp_web_args $<TARGET_FILE:amuleapi>)
+	endif()
+	add_test (NAME ECSRPWebIntegrationTest COMMAND ${Python3_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/ECSRPWebIntegrationTest.py ${ec_srp_web_args})
+	set_tests_properties (ECSRPWebIntegrationTest PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+endif()

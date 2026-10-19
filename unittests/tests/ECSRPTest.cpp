@@ -217,7 +217,7 @@ int main()
 		Client client;
 		Server server;
 		const Bytes transcript(163, 42);
-		for (uint8_t credential : { 0, 1 }) {
+		for (uint8_t credential : { 0, 1, 2 }) {
 			const auto cA = client.Start();
 			const auto sB = server.Start(verifier, credential, cA, transcript);
 			const auto m1 = client.Respond(password, credential, verifier.salt, sB, transcript);

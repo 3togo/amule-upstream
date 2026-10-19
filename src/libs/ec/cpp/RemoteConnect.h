@@ -259,7 +259,7 @@ public:
 	CRemoteConnect(wxEvtHandler *evt_handler);
 
 	void SetCapabilities(bool canZLIB, bool canUTF8numbers, bool canNotify);
-	void SetTokenCredential(bool token) { m_srpCredential = token ? 1 : 0; }
+	void SetTokenCredential(uint8_t credential) { m_srpCredential = credential; }
 
 	/// True once keys were derived for this connection, i.e. the daemon accepted the
 	/// offer. Used to insist that EC_OP_AUTH_OK really did arrive sealed.
