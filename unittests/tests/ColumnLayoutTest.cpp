@@ -143,11 +143,8 @@ void RunTests()
 		wxKeyEvent settings(wxEVT_KEY_DOWN);
 		settings.m_keyCode = 'L';
 		settings.SetShiftDown(true);
-#ifdef __WXOSX__
-		settings.SetMetaDown(true);
-#else
+		// wx maps ControlDown()/CmdDown() to Command on macOS too.
 		settings.SetControlDown(true);
-#endif
 		list->ProcessWindowEvent(settings);
 		Check(list->popupPosition == wxPoint(0, 0), "Keyboard column menu did not open at the list");
 		Check(!list->lastVisibleEnabled, "Menu allows hiding the last visible column");
