@@ -2228,6 +2228,8 @@ target_link_libraries (BrowseStoreTest
 if (TARGET wxWidgets::CORE)
     add_executable (ColumnFitTest
         ColumnFitTest.cpp
+        ${CMAKE_SOURCE_DIR}/src/SearchColumnFit.cpp
+        ${CMAKE_SOURCE_DIR}/src/ClientNameCellDrawing.cpp
         ${CMAKE_SOURCE_DIR}/src/MuleDataViewCtrl.cpp
         ${CMAKE_SOURCE_DIR}/src/MuleVirtualDataViewCtrl.cpp
         ${CMAKE_SOURCE_DIR}/src/MuleBarRenderer.cpp

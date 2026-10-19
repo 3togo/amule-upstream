@@ -160,10 +160,10 @@ protected:
 	/// filename-mismatch colour cues DrawClientItem used to set on the wxDC.
 	bool GetItemAttr(wxUIntPtr item, unsigned column, wxDataViewItemAttr &attr) const override;
 
-	/// Fill data for the Name column's composite icon+text renderer (see
-	/// CClientNameRenderer) and for a leaf's own bar column.
 	int GetCustomFitWidth(const wxDataViewItem &item, unsigned column, wxDC &dc) const override;
 
+	/// Fill data for the Name column's composite icon+text renderer (see
+	/// CClientNameRenderer) and for a leaf's own bar column.
 	void GetItemBarFill(wxUIntPtr item, unsigned column, CBarFillSpec &out) const override;
 
 	/// Single-column comparison for the base's sort chain, after the

@@ -35,12 +35,13 @@
 #include <common/Format.h> // Needed for CFormat
 #include <tags/FileTags.h> // Needed for FT_MEDIA_LENGTH / _BITRATE / _CODEC
 
-#include "amule.h"            // Needed for theApp
-#include "Server.h"           // Needed for CServer
-#include "ServerConnect.h"    // Needed for CServerConnect
-#include "SearchList.h"       // Needed for CSearchFile
-#include "updownclient.h"     // Needed for BROWSE_IN_PROGRESS
-#include "BrowseListModel.h"  // Needed for CBrowseListModel
+#include "amule.h"           // Needed for theApp
+#include "Server.h"          // Needed for CServer
+#include "ServerConnect.h"   // Needed for CServerConnect
+#include "SearchList.h"      // Needed for CSearchFile
+#include "updownclient.h"    // Needed for BROWSE_IN_PROGRESS
+#include "BrowseListModel.h" // Needed for CBrowseListModel
+#include "SearchColumnFit.h"
 #include "SearchListModel.h"  // Needed for CSearchListModel
 #include "GetTickCount.h"     // Needed for GetTickCount64()
 #include "CommentDialogLst.h" // Needed for CCommentDialogLst (Kad comments/ratings)
@@ -676,46 +677,7 @@ void CSearchListCtrl::GetColumnFitRows(wxDataViewItemArray &rows, size_t limit) 
 	if (limit == 0 || !GetSearchId()) {
 		return;
 	}
-	// Keep the row being inspected, including a browse folder. Other candidates
-	// come from storage order: fitting must not copy and sort the entire forest.
-	const wxDataViewItem current = GetCurrentItem();
-	if (current.IsOk()) {
-		rows.Add(current);
-	}
-	const auto appendVisiblePath = [&](const wxDataViewItem &item) {
-		std::vector<wxDataViewItem> path;
-		for (wxDataViewItem node = item; node.IsOk(); node = m_model->GetParent(node)) {
-			path.push_back(node);
-		}
-		for (auto it = path.rbegin(); it != path.rend() && rows.size() < limit; ++it) {
-			if (std::find(rows.begin(), rows.end(), *it) == rows.end()) {
-				rows.Add(*it);
-			}
-			if (*it != item && !IsExpanded(*it)) {
-				break;
-			}
-		}
-	};
-	const CSearchResultList &files = theApp->searchlist->GetSearchResults(GetSearchId());
-	const size_t candidates = std::min(files.size(), limit * 8);
-	for (size_t i = 0; i < candidates && rows.size() < limit; ++i) {
-		const size_t index = candidates > 1 ? i * (files.size() - 1) / (candidates - 1) : 0;
-		CSearchFile *file = files[index];
-		if (PassesFilter(file)) {
-			appendVisiblePath(CSearchListModel::ToItem(file));
-		}
-		// The result index contains roots only. Sample grouped alternatives too,
-		// including the visible parent when a matching child is collapsed.
-		const CSearchResultList &children = file->GetChildren();
-		const size_t childCount = std::min<size_t>(children.size(), 8);
-		for (size_t child = 0; child < childCount && rows.size() < limit; ++child) {
-			const size_t childIndex =
-				childCount > 1 ? child * (children.size() - 1) / (childCount - 1) : 0;
-			if (PassesFilter(children[childIndex])) {
-				appendVisiblePath(CSearchListModel::ToItem(children[childIndex]));
-			}
-		}
-	}
+	SampleSearchColumnFitRows(*this, rows, limit);
 }
 
 wxString CSearchListCtrl::GetRowLabel(const wxDataViewItem &item) const
