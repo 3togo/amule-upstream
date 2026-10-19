@@ -23,8 +23,8 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
-#include "amule.h"
-#include "libs/ec/cpp/ECCrypt.h" // Interface declarations.
+#include "amule.h" // Interface declarations.
+#include "libs/ec/cpp/ECCrypt.h"
 
 #include "BrowseManager.h"
 
@@ -1435,7 +1435,7 @@ bool CamuleApp::OnInit()
 				webserver_pid = static_cast<int>(wxExecute(cmd, wxEXEC_ASYNC, p));
 			} catch (const std::exception &) {
 				webserver_pid = 0;
-				AddLogLineC("An exception occurred while launching amuleweb.");
+				AddLogLineC(_("An exception occurred while launching amuleweb."));
 			}
 			webserver_ok = webserver_pid > 0;
 			if (webserver_ok) {
@@ -1526,7 +1526,7 @@ void CamuleApp::StartAmuleApi(bool startup)
 		std::string ecToken;
 		try {
 			ecToken = webcommon::GenerateEcToken();
-			m_ecTokenVerifier = ECSRP::Verifier::Create(ecToken);
+			m_ecTokenVerifier = ECSRP::Verifier::Create(ecToken, GetEcTokenVerifier().salt);
 		} catch (const std::exception &) {
 			ECCrypt::SecureWipe(reinterpret_cast<uint8_t *>(ecToken.data()), ecToken.size());
 			ecToken.clear();
@@ -1635,7 +1635,7 @@ bool CamuleApp::PrepareAmulewebToken()
 	bool ready = false;
 	try {
 		token = webcommon::GenerateEcToken();
-		const auto verifier = ECSRP::Verifier::Create(token);
+		const auto verifier = ECSRP::Verifier::Create(token, GetEcTokenVerifier().salt);
 		const auto path =
 			webcommon::EcWebTokenFilePath(std::string(thePrefs::GetConfigDir().utf8_str()));
 		ready = webcommon::WriteFileAtomic0600(path, token + "\n");
@@ -1648,7 +1648,7 @@ bool CamuleApp::PrepareAmulewebToken()
 	}
 	ECCrypt::SecureWipe(reinterpret_cast<uint8_t *>(token.data()), token.size());
 	if (!ready)
-		AddLogLineC("Could not prepare the amuleweb EC token.");
+		AddLogLineC(_("Could not prepare the amuleweb EC token."));
 	return ready;
 }
 
@@ -1660,7 +1660,7 @@ bool CamuleApp::ClearAmulewebToken()
 		webcommon::EcWebTokenFilePath(std::string(thePrefs::GetConfigDir().utf8_str())).c_str());
 	if (wxFileExists(path) && !wxRemoveFile(path)) {
 		m_ecWebTokenFileExpiryMs = theStats::GetUptimeMillis() + EC_TOKEN_FILE_TTL_MS;
-		AddLogLineC(CFormat("Could not remove the amuleweb EC token file: %s") % path);
+		AddLogLineC(CFormat(_("Could not remove the amuleweb EC token file: %s")) % path);
 		return false;
 	}
 	return true;
@@ -3933,14 +3933,14 @@ wxDEFINE_EVENT(wxEVT_CORE_SERVER_DNS_DONE, wxEvent); // File_checked_for_headers
 
 const ECSRP::Verifier &CamuleApp::GetEcTokenVerifier(uint8_t credential)
 {
-	if (credential != 1 && credential != 2)
+	if (credential != ECSRP::ApiToken && credential != ECSRP::WebToken)
 		throw std::invalid_argument("Invalid EC token credential");
 	if (!m_ecDummyTokenVerifier.Valid()) {
 		auto random = ECCrypt::RandomBytes(16);
 		m_ecDummyTokenVerifier = ECSRP::Verifier::Create(ECSRP::Hex(random));
 		ECCrypt::SecureWipe(random);
 	}
-	auto &verifier = credential == 2 ? m_ecWebTokenVerifier : m_ecTokenVerifier;
+	auto &verifier = credential == ECSRP::WebToken ? m_ecWebTokenVerifier : m_ecTokenVerifier;
 	if (!verifier.Valid())
 		verifier = m_ecDummyTokenVerifier;
 	return verifier;

@@ -1,4 +1,27 @@
-// Copyright (c) 2026 aMule Team. GPL-2.0-or-later.
+//
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// Any parts of this program derived from the xMule, lMule or eMule project,
+// or contributed by third-party developers are copyrighted by their
+// respective authors.
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
+//
+
 #ifndef ECSRP_H
 #define ECSRP_H
 
@@ -13,6 +36,13 @@ namespace ECSRP
 {
 using Bytes = std::vector<uint8_t>;
 constexpr size_t WIDTH = 384;
+inline const Bytes PROFILE_BYTES{ 1, 15, 8, 1 };
+enum Credential : uint8_t
+{
+	Password = 0,
+	ApiToken = 1,
+	WebToken = 2
+};
 // v1 deliberately supports one bounded profile. Never allocate using peer costs.
 const char *Profile();
 struct Verifier
@@ -22,6 +52,8 @@ struct Verifier
 	std::string Encode() const;
 	static Verifier Decode(const std::string &text);
 	static Verifier Create(const std::string &digest);
+	static Verifier Create(const std::string &digest, const Bytes &salt);
+	bool Matches(const std::string &digest) const;
 	bool Valid() const;
 };
 
@@ -71,7 +103,9 @@ public:
 	void Reset();
 
 private:
-	Bytes m_expected, m_proof;
+	Bytes m_b, m_A, m_B, m_transcript;
+	Verifier m_verifier;
+	uint8_t m_credential = Password;
 };
 
 Bytes Field(const CECPacket &packet, uint16_t name, size_t size);

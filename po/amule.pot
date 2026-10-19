@@ -474,6 +474,10 @@ msgid "Not starting %s: it is neither next to aMule nor on PATH."
 msgstr ""
 
 #: src/amule.cpp
+msgid "An exception occurred while launching amuleweb."
+msgstr ""
+
+#: src/amule.cpp
 #, c-format
 msgid "web server running on pid %d"
 msgstr ""
@@ -507,6 +511,15 @@ msgstr ""
 
 #: src/amule.cpp
 msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot be run. Please install the package containing aMule's REST API server, or build aMule from source with -DBUILD_AMULEAPI=YES and install it."
+msgstr ""
+
+#: src/amule.cpp
+msgid "Could not prepare the amuleweb EC token."
+msgstr ""
+
+#: src/amule.cpp
+#, c-format
+msgid "Could not remove the amuleweb EC token file: %s"
 msgstr ""
 
 #: src/amule.cpp
@@ -814,7 +827,11 @@ msgid "ERROR: aMule daemon cannot be used when external connections are disabled
 msgstr ""
 
 #: src/amuled.cpp
-msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPasswordVerifier\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
+msgid "ERROR: An EC password is required. Run amuled --ec-config to set it."
+msgstr ""
+
+#: src/amuled.cpp
+msgid "ERROR: Invalid ECPasswordVerifier in amule.conf. Run amuled --ec-config to set a new EC password."
 msgstr ""
 
 #: src/amuled.cpp
@@ -2274,6 +2291,10 @@ msgid "External connections disabled due to invalid ECPasswordVerifier!"
 msgstr ""
 
 #: src/ExternalConn.cpp
+msgid "External connections disabled: could not prepare the EC token verifier."
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
 msgstr ""
 
@@ -2287,6 +2308,10 @@ msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "External connection refused due to empty password in preferences!"
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "Too many failed connection attempts; try again later."
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2488,8 +2513,17 @@ msgstr ""
 msgid "Client could not be swapped to that file."
 msgstr ""
 
+#: src/ExternalConn.cpp
+msgid "Only password-authenticated sessions may change the EC password."
+msgstr ""
+
 #: src/ExternalConn.cpp src/PrefsUnifiedDlg.cpp
 msgid "Could not update EC password verifier."
+msgstr ""
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "EC password changed by %s"
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2770,7 +2804,7 @@ msgid "Do not write a log file; print to the console only."
 msgstr ""
 
 #: src/ExternalConnector.cpp
-msgid "The daemon verifier cannot be used as a client password. Configure the client password separately.\n"
+msgid "The daemon verifier cannot supply a client password. Use -P or the password prompt. A saved client password will be preserved.\n"
 msgstr ""
 
 #: src/FileDetailDialog.cpp
@@ -9883,4 +9917,36 @@ msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not remove legacy ECPassword; cleanup will be retried on restart."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not persist ECPasswordVerifier; using the legacy ECPassword in memory for this run. Migration will be retried on restart."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not generate ECPasswordVerifier; external connections are disabled."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not persist ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not generate ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Invalid or unsupported ECPasswordVerifier; refusing external connections."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not compare legacy ECPassword with ECPasswordVerifier; refusing external connections."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
 msgstr ""

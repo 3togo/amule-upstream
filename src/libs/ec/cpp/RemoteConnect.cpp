@@ -540,6 +540,10 @@ bool CRemoteConnect::VerifyServerProof(const CECPacket *reply)
 const CECPacket *CRemoteConnect::OnPacketReceived(const CECPacket *packet, uint32 trueSize)
 {
 	CECPacket *next_packet = 0;
+	if (IsCryptReady() && !WasLastPacketEncrypted()) {
+		CloseSocket();
+		return nullptr;
+	}
 	// Liveness stamp for the reply watchdog. Taken for EVERY inbound packet,
 	// handshake included, so a fresh connection is never mistaken for a quiet one.
 	m_lastReplyAt = std::chrono::steady_clock::now();
@@ -557,13 +561,6 @@ const CECPacket *CRemoteConnect::OnPacketReceived(const CECPacket *packet, uint3
 		ProcessAuthPacket(packet);
 		break;
 	case EC_OK:
-		if (IsCryptReady() && !WasLastPacketEncrypted()) {
-			// Established encrypted session: every response must arrive sealed. A
-			// cleartext packet here is an injection attempt.
-			AddDebugLogLineN(logEC, "EC: cleartext packet on an encrypted session, dropping");
-			CloseSocket();
-			break;
-		}
 		if (!m_req_fifo.empty()) {
 			CECPacketHandlerBase *handler = m_req_fifo.front();
 			m_req_fifo.pop_front();
@@ -636,7 +633,7 @@ bool CRemoteConnect::ProcessAuthPacket(const CECPacket *reply)
 				const auto B = ECSRP::Field(*reply, EC_TAG_SRP_B, ECSRP::WIDTH);
 				const auto salt = ECSRP::Field(*reply, EC_TAG_SRP_SALT, 16);
 				const auto profile = ECSRP::Field(*reply, EC_TAG_SRP_PROFILE, 4);
-				if (profile != ECSRP::Bytes({ 1, 15, 8, 1 }))
+				if (profile != ECSRP::PROFILE_BYTES)
 					throw std::invalid_argument("Unsupported SRP profile");
 				SetupAEADFromSalt(reply);
 				if (!m_aeadNegotiated)
@@ -669,88 +666,89 @@ bool CRemoteConnect::ProcessAuthPacket(const CECPacket *reply)
 						   "knows the password. Connection closed.");
 				m_ec_state = EC_FAIL;
 				CloseSocket();
-				NotifyConnectionResult(false);
-				return false;
-			}
-			m_ec_state = EC_OK;
-			result = true;
-			if (reply->GetTagByName(EC_TAG_SERVER_VERSION)) {
-				m_serverVersion = reply->GetTagByName(EC_TAG_SERVER_VERSION)->GetStringData();
-				m_server_reply =
-					_("Succeeded! Connection established to aMule ") + m_serverVersion;
 			} else {
-				m_server_reply = _("Succeeded! Connection established.");
-			}
-			// Mirror the server's negotiated capabilities into m_my_flags, or
-			// `flags &= m_my_flags` in CECSocket::WritePacket drops them from outgoing
-			// packets. Old daemons do not echo EC_TAG_CAN_LARGE_TAG_COUNT (#199) and the
-			// sentinel wire format stays disabled both ways.
-			if (reply->GetTagByName(EC_TAG_CAN_LARGE_TAG_COUNT)) {
-				m_my_flags |= EC_FLAG_LARGE_TAG_COUNT;
-			}
-			// Server speaks the partial-update protocol: Get_EC_Response_GetUpdate may
-			// omit unchanged files and emit explicit EC_TAG_FILE_REMOVED markers, and our
-			// INC_UPDATE handler must skip the bulk "missing == deleted" loop. Old
-			// daemons do not echo this and stay on the legacy alive-marker path (#713).
-			if (reply->GetTagByName(EC_TAG_CAN_PARTIAL_UPDATE)) {
-				m_serverPartialUpdate = true;
-			}
-			// Which daemon process we're talking to. Stays 0 against a daemon that does
-			// not send it, which the reconnect path reads as "can't tell".
-			if (const CECTag *sessionTag = reply->GetTagByName(EC_TAG_SESSION_ID)) {
-				m_serverSessionId = sessionTag->GetInt();
-			}
-			// Server knows EC_OP_GET_CLIENT_HISTORY. No echo leaves the Known-clients tab
-			// empty rather than sending it: a debug daemon asserts on the opcode.
-			if (reply->GetTagByName(EC_TAG_CAN_CLIENT_HISTORY)) {
-				m_serverClientHistory = true;
-			}
-			if (reply->GetTagByName(EC_TAG_CAN_PARTIAL_SEARCH)) {
-				m_serverPartialSearch = true;
-			}
-			// Server confirmed multi-search: it allocates a distinct EC_TAG_SEARCH_ID per
-			// search. Old daemons omit the echo and we stay on the sentinel path.
-			if (reply->GetTagByName(EC_TAG_CAN_MULTI_SEARCH)) {
-				m_serverMultiSearch = true;
-			}
-			// Server answers an id-less EC_OP_SEARCH_PROGRESS with every open search's
-			// progress as children, so one request covers every tab. Old daemons omit the
-			// echo and we keep polling one request per search id.
-			if (reply->GetTagByName(EC_TAG_CAN_SEARCH_PROGRESS_UNION)) {
-				m_serverSearchProgressUnion = true;
-			}
-			// Server buffers incoming peer messages for EC_OP_GET_CHAT_MESSAGES. Old
-			// daemons omit the echo and the client never polls for chat.
-			if (reply->GetTagByName(EC_TAG_CAN_CHAT)) {
-				m_serverChat = true;
-			}
-			// Its own tag, because EC_TAG_CAN_CHAT above is echoed by daemons that predate
-			// the session ops: gating on that one would send EC_OP_GET_CHAT_SESSIONS to a
-			// core whose dispatcher asserts on it.
-			if (reply->GetTagByName(EC_TAG_CAN_CHAT_SESSIONS)) {
-				m_serverChatSessions = true;
-			}
-			// Complete-file deletion is safe only when the core advertises support.
-			m_serverDeleteComplete = reply->GetTagByName(EC_TAG_CAN_DELETE_COMPLETE) != nullptr;
-			// Server accepts/lists chat sessions by hash. Old daemons omit the echo and
-			// we address and list by GUI_ID only, exactly as a build that predates the
-			// hash tag would.
-			if (reply->GetTagByName(EC_TAG_CAN_CHAT_PEER_HASH)) {
-				m_serverChatPeerHash = true;
-			}
-			// Server serves EC_OP_SEARCH_LIST. Old daemons omit the echo and the client
-			// must not send the opcode: it lands in ProcessRequest2's unknown-opcode
-			// branch, which logs and asserts.
-			if (reply->GetTagByName(EC_TAG_CAN_SEARCH_LIST)) {
-				m_serverSearchList = true;
-			}
-			m_serverKadLookups = reply->GetTagByName(EC_TAG_CAN_KAD_LOOKUPS) != nullptr;
-			// Unknown search kinds silently become local on older daemons.
-			m_serverSearchAll = reply->GetTagByName(EC_TAG_CAN_SEARCH_ALL) != nullptr;
-			// Server serves the shared-directory config ops. Without the echo the GUI keeps
-			// the folders panel read-only rather than discarding edits silently.
-			if (reply->GetTagByName(EC_TAG_CAN_SHAREDDIRS_CONFIG)) {
-				m_serverSharedDirsConfig = true;
+				m_ec_state = EC_OK;
+				result = true;
+				if (reply->GetTagByName(EC_TAG_SERVER_VERSION)) {
+					m_serverVersion =
+						reply->GetTagByName(EC_TAG_SERVER_VERSION)->GetStringData();
+					m_server_reply = _("Succeeded! Connection established to aMule ") +
+							 m_serverVersion;
+				} else {
+					m_server_reply = _("Succeeded! Connection established.");
+				}
+				// Mirror the server's negotiated capabilities into m_my_flags, or
+				// `flags &= m_my_flags` in CECSocket::WritePacket drops them from outgoing
+				// packets. Old daemons do not echo EC_TAG_CAN_LARGE_TAG_COUNT (#199) and the
+				// sentinel wire format stays disabled both ways.
+				if (reply->GetTagByName(EC_TAG_CAN_LARGE_TAG_COUNT)) {
+					m_my_flags |= EC_FLAG_LARGE_TAG_COUNT;
+				}
+				// Server speaks the partial-update protocol: Get_EC_Response_GetUpdate may
+				// omit unchanged files and emit explicit EC_TAG_FILE_REMOVED markers, and our
+				// INC_UPDATE handler must skip the bulk "missing == deleted" loop. Old
+				// daemons do not echo this and stay on the legacy alive-marker path (#713).
+				if (reply->GetTagByName(EC_TAG_CAN_PARTIAL_UPDATE)) {
+					m_serverPartialUpdate = true;
+				}
+				// Which daemon process we're talking to. Stays 0 against a daemon that does
+				// not send it, which the reconnect path reads as "can't tell".
+				if (const CECTag *sessionTag = reply->GetTagByName(EC_TAG_SESSION_ID)) {
+					m_serverSessionId = sessionTag->GetInt();
+				}
+				// Server knows EC_OP_GET_CLIENT_HISTORY. No echo leaves the Known-clients tab
+				// empty rather than sending it: a debug daemon asserts on the opcode.
+				if (reply->GetTagByName(EC_TAG_CAN_CLIENT_HISTORY)) {
+					m_serverClientHistory = true;
+				}
+				if (reply->GetTagByName(EC_TAG_CAN_PARTIAL_SEARCH)) {
+					m_serverPartialSearch = true;
+				}
+				// Server confirmed multi-search: it allocates a distinct EC_TAG_SEARCH_ID per
+				// search. Old daemons omit the echo and we stay on the sentinel path.
+				if (reply->GetTagByName(EC_TAG_CAN_MULTI_SEARCH)) {
+					m_serverMultiSearch = true;
+				}
+				// Server answers an id-less EC_OP_SEARCH_PROGRESS with every open search's
+				// progress as children, so one request covers every tab. Old daemons omit the
+				// echo and we keep polling one request per search id.
+				if (reply->GetTagByName(EC_TAG_CAN_SEARCH_PROGRESS_UNION)) {
+					m_serverSearchProgressUnion = true;
+				}
+				// Server buffers incoming peer messages for EC_OP_GET_CHAT_MESSAGES. Old
+				// daemons omit the echo and the client never polls for chat.
+				if (reply->GetTagByName(EC_TAG_CAN_CHAT)) {
+					m_serverChat = true;
+				}
+				// Its own tag, because EC_TAG_CAN_CHAT above is echoed by daemons that
+				// predate the session ops: gating on that one would send
+				// EC_OP_GET_CHAT_SESSIONS to a core whose dispatcher asserts on it.
+				if (reply->GetTagByName(EC_TAG_CAN_CHAT_SESSIONS)) {
+					m_serverChatSessions = true;
+				}
+				// Complete-file deletion is safe only when the core advertises support.
+				m_serverDeleteComplete =
+					reply->GetTagByName(EC_TAG_CAN_DELETE_COMPLETE) != nullptr;
+				// Server accepts/lists chat sessions by hash. Old daemons omit the echo and
+				// we address and list by GUI_ID only, exactly as a build that predates the
+				// hash tag would.
+				if (reply->GetTagByName(EC_TAG_CAN_CHAT_PEER_HASH)) {
+					m_serverChatPeerHash = true;
+				}
+				// Server serves EC_OP_SEARCH_LIST. Old daemons omit the echo and the client
+				// must not send the opcode: it lands in ProcessRequest2's unknown-opcode
+				// branch, which logs and asserts.
+				if (reply->GetTagByName(EC_TAG_CAN_SEARCH_LIST)) {
+					m_serverSearchList = true;
+				}
+				m_serverKadLookups = reply->GetTagByName(EC_TAG_CAN_KAD_LOOKUPS) != nullptr;
+				// Unknown search kinds silently become local on older daemons.
+				m_serverSearchAll = reply->GetTagByName(EC_TAG_CAN_SEARCH_ALL) != nullptr;
+				// Server serves the shared-directory config ops. Without the echo the GUI
+				// keeps the folders panel read-only rather than discarding edits silently.
+				if (reply->GetTagByName(EC_TAG_CAN_SHAREDDIRS_CONFIG)) {
+					m_serverSharedDirsConfig = true;
+				}
 			}
 		} else {
 			m_ec_state = EC_FAIL;
@@ -765,6 +763,7 @@ bool CRemoteConnect::ProcessAuthPacket(const CECPacket *reply)
 		}
 	}
 	if (!result) {
+		ECCrypt::SecureWipe(m_srpClientProof);
 		m_srp.Reset();
 		ECCrypt::SecureWipe(m_aeadEphPriv);
 		m_connectionPassword.clear();

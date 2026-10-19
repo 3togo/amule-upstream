@@ -462,12 +462,13 @@ public:
 	{
 #ifndef CLIENT_GUI
 		wxString verifier, error;
-		ECSRP::LoadCredential(*cfg, verifier, error);
+		if (!ECSRP::LoadCredential(*cfg, verifier, error))
+			verifier = "invalid";
 		CPreferences::LoadECVerifier(verifier);
 		if (!error.IsEmpty())
-			AddLogLineC(error);
-#endif
+			AddLogLineCS(error);
 		m_value = CPreferences::ECPasswordVerifier().IsEmpty() ? "" : "********";
+#endif
 	}
 	void SaveToFile(wxConfigBase *) override {}
 #ifndef AMULE_DAEMON
@@ -493,6 +494,7 @@ public:
 #endif
 };
 
+#ifndef CLIENT_GUI
 bool CPreferences::SetECPass(const wxString &digest)
 {
 	wxString error;
@@ -501,6 +503,8 @@ bool CPreferences::SetECPass(const wxString &digest)
 		AddLogLineC(error);
 	return ok;
 }
+
+#endif
 
 /** Cfg class for CPath. */
 class Cfg_Path : public Cfg_Str

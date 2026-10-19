@@ -105,7 +105,7 @@ private:
 	wxString m_connectionPassword;
 	ECSRP::Client m_srp;
 	ECSRP::Bytes m_srpA;
-	uint8_t m_srpCredential = 0;
+	uint8_t m_srpCredential = ECSRP::Password;
 	void AddSRPLogin(CECPacket &packet);
 
 	wxString m_server_reply;

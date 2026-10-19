@@ -40,9 +40,9 @@
 
 #include "ECIdDiff.h"            // Needed for ComputeRemovedIds
 #include "ECNotificationDrain.h" // Bounded, deferred EC push delivery
-#include "ExternalConn.h"
+#include "ExternalConn.h"        // Interface declarations
 #include <stdexcept>
-#include "libs/ec/cpp/ECSRP.h"   // Interface declarations
+#include "libs/ec/cpp/ECSRP.h"
 #include "ECFullResponseCache.h" // Needed for s_ec*FullCache
 #include "updownclient.h"        // Needed for CUpDownClient
 #include "Server.h"              // Needed for CServer
@@ -457,15 +457,11 @@ private:
 	} m_conn_state;
 
 	ECSRP::Server m_srp;
-	uint8_t m_srpCredential = 0;
+	uint8_t m_srpCredential = ECSRP::Password;
 	std::string m_srpVerifier;
 	// X25519 transport is installed after AUTH_SALT, before sealed SRP evidence.
 	// A working channel alone grants no authority to execute commands.
 	uint8_t m_aeadCipher;
-	// Set when the client offered encryption (CAN_AEAD + a nonce) but sent no usable
-	// public key. Such a peer is provably new enough to send one, so the offer is
-	// malformed and the login is refused rather than degraded to clear.
-	bool m_aeadOfferMalformed;
 	std::vector<uint8_t> m_aeadServerNonce;
 	std::vector<uint8_t> m_aeadClientNonce;
 	std::vector<uint8_t> m_aeadTranscript;
@@ -609,7 +605,6 @@ CECServerSocket::CECServerSocket(ECNotifier *notifier)
 : CECMuleSocket(true)
 , m_conn_state(CONN_INIT)
 , m_aeadCipher(ECCrypt::Cipher_None)
-, m_aeadOfferMalformed(false)
 , m_lastEcGenSeen(0)
 , m_lastEcGenSeenShared(0)
 , m_lastEcGenSeenPart(0)
@@ -635,7 +630,6 @@ CECServerSocket::~CECServerSocket()
 void CECServerSocket::NegotiateAEAD(const CECPacket *request, CECPacket *response)
 {
 	m_aeadCipher = ECCrypt::Cipher_None;
-	m_aeadOfferMalformed = false;
 	m_aeadServerNonce.clear();
 	m_aeadClientNonce.clear();
 	m_aeadTranscript.clear();
@@ -656,7 +650,6 @@ void CECServerSocket::NegotiateAEAD(const CECPacket *request, CECPacket *respons
 		// Not an older client -- encryption has never shipped, so anything that offers
 		// it at all is new enough to send a key. A keyless offer is therefore malformed,
 		// or a middlebox stripped the key, and the login is refused rather than degraded.
-		m_aeadOfferMalformed = true;
 		AddDebugLogLineN(logEC, "AEAD: offer without a usable public key, refusing the login");
 		return;
 	}
@@ -773,6 +766,10 @@ const CECPacket *CECServerSocket::OnPacketReceived(const CECPacket *packet, uint
 	packet->DebugPrint(true, trueSize);
 
 	const CECPacket *reply = NULL;
+	if (IsCryptReady() && !WasLastPacketEncrypted()) {
+		CloseSocket();
+		return nullptr;
+	}
 
 	if (m_conn_state == CONN_FAILED) {
 		// Client didn't close the socket when authentication failed.
@@ -785,17 +782,6 @@ const CECPacket *CECServerSocket::OnPacketReceived(const CECPacket *packet, uint
 		// Called twice: once to send the salt, once to verify the password.
 		reply = Authenticate(packet);
 	} else {
-		if (IsCryptReady() && !WasLastPacketEncrypted()) {
-			// The session negotiated encryption, so every packet past the handshake
-			// must arrive sealed. A cleartext packet here is an injection attempt: our
-			// sealed replies stay confidential, but executing an unauthenticated
-			// cleartext command with this session's authority is not. The one
-			// legitimate clear packet, a terminal AUTH_FAIL, only arrives before
-			// CONN_ESTABLISHED.
-			AddDebugLogLineN(logEC, "EC: cleartext packet on an encrypted session, dropping");
-			CloseSocket();
-			return nullptr;
-		}
 		reply = ProcessRequest2(packet);
 	}
 	return reply;
@@ -883,6 +869,15 @@ ExternalConn::ExternalConn(amuleIPV4Address addr, wxString *msg)
 		} catch (const std::exception &) {
 			*msg += "External connections disabled due to invalid ECPasswordVerifier!\n";
 			AddLogLineC(_("External connections disabled due to invalid ECPasswordVerifier!"));
+			return;
+		}
+		try {
+			theApp->GetEcTokenVerifier();
+		} catch (const std::exception &) {
+			const wxString error =
+				_("External connections disabled: could not prepare the EC token verifier.");
+			*msg += error + "\n";
+			AddLogLineC(error);
 			return;
 		}
 		// Create the socket
@@ -979,7 +974,6 @@ CExternalConnListener::CExternalConnListener(const amuleIPV4Address &adr, int fl
 : CLibSocketServer(adr, flags, thePrefs::GetECNetworkInterface())
 , m_conn(conn)
 {
-	theApp->GetEcTokenVerifier();
 }
 
 void CExternalConnListener::OnAccept()
@@ -1015,10 +1009,23 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 	if (thePrefs::ECPasswordVerifier().IsEmpty()) {
 		AddLogLineC(_("External connection refused due to empty password in preferences!"));
 
+		m_conn_state = CONN_FAILED;
+		m_srp.Reset();
 		return new CECPacket(EC_OP_AUTH_FAIL);
 	}
 
 	if ((m_conn_state == CONN_INIT) && (request->GetOpCode() == EC_OP_AUTH_REQ)) {
+		const std::string peerIp(wxString(GetIP()).ToStdString());
+		const auto throttle = theApp->ECServerHandler->AuthRateLimiter().Check(peerIp);
+		if (throttle.locked_out) {
+			m_conn_state = CONN_FAILED;
+			auto *failure = new CECPacket(EC_OP_AUTH_FAIL);
+			failure->AddTag(CECTag(EC_TAG_STRING,
+				wxTRANSLATE("Too many failed connection attempts; try again later.")));
+			return failure;
+		}
+		// Reserve an attempt before expensive work; abandoned challenges count too.
+		theApp->ECServerHandler->AuthRateLimiter().NoteFailure(peerIp);
 		// cppcheck-suppress unreadVariable
 		const CECTag *clientName = request->GetTagByName(EC_TAG_CLIENT_NAME);
 		// cppcheck-suppress unreadVariable
@@ -1079,17 +1086,17 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 					const auto A = ECSRP::Field(*request, EC_TAG_SRP_A, ECSRP::WIDTH);
 					const auto credential =
 						ECSRP::Field(*request, EC_TAG_SRP_CREDENTIAL, 1).at(0);
-					if (m_aeadCipher == ECCrypt::Cipher_None || m_aeadOfferMalformed)
+					if (m_aeadCipher == ECCrypt::Cipher_None)
 						throw std::invalid_argument("Encryption required");
 					const auto verifier =
-						credential != 0
+						credential != ECSRP::Password
 							? theApp->GetEcTokenVerifier(credential)
 							: ECSRP::Verifier::Decode(std::string(
 								  thePrefs::ECPasswordVerifier().utf8_str()));
 					const auto B = m_srp.Start(verifier, credential, A, m_aeadTranscript);
 					m_srpCredential = credential;
 					m_srpVerifier = verifier.Encode();
-					const ECSRP::Bytes profile{ 1, 15, 8, 1 };
+					const auto &profile = ECSRP::PROFILE_BYTES;
 					response->AddTag(CECTag(EC_TAG_SRP_B, B.size(), B.data()));
 					response->AddTag(CECTag(
 						EC_TAG_SRP_SALT, verifier.salt.size(), verifier.salt.data()));
@@ -1102,10 +1109,7 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 					delete response;
 					response = new CECPacket(EC_OP_AUTH_FAIL);
 					response->AddTag(CECTag(EC_TAG_STRING,
-						request->GetTagByName(EC_TAG_SRP_A)
-							? wxTRANSLATE("Invalid SRP handshake or EC verifier.")
-							: wxTRANSLATE("An EC client of version 3.2.0 or "
-								      "later is required.")));
+						wxTRANSLATE("Invalid SRP handshake or EC verifier.")));
 					m_conn_state = CONN_FAILED;
 					m_srp.Reset();
 				}
@@ -1226,7 +1230,7 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 				// A password change or child-token revocation invalidates even a
 				// handshake that received its challenge before the change.
 				const std::string current =
-					m_srpCredential != 0
+					m_srpCredential != ECSRP::Password
 						? theApp->GetEcTokenVerifier(m_srpCredential).Encode()
 						: ECSRP::Verifier::Decode(
 							  std::string(
@@ -1326,11 +1330,6 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 				} else {
 					err = wxTRANSLATE("Authentication failed: missing password.");
 				}
-
-				// Both branches are a failed credential attempt: a client that omits the hash
-				// entirely is guessing just as much as one that sends a wrong hash, and
-				// letting the omission go uncounted would be an unmetered path.
-				theApp->ECServerHandler->AuthRateLimiter().NoteFailure(peerIp);
 
 				response = new CECPacket(EC_OP_AUTH_FAIL);
 				response->AddTag(CECTag(EC_TAG_STRING, err));
@@ -4066,6 +4065,19 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 			request->GetTagByNameSafe(EC_TAG_SELECT_PREFS)->GetInt(), request->GetDetailLevel());
 		break;
 	case EC_OP_SET_PREFERENCES: {
+		bool changesPassword = false;
+		for (const auto &group : *request) {
+			if (group.GetTagName() == EC_TAG_PREFS_REMOTECTRL &&
+				group.GetTagByName(EC_TAG_EXTERNALCONN_PASSWD))
+				changesPassword = true;
+		}
+		if (changesPassword && m_srpCredential != ECSRP::Password) {
+			response = new CECPacket(EC_OP_FAILED);
+			response->AddTag(CECTag(EC_TAG_STRING,
+				wxTRANSLATE(
+					"Only password-authenticated sessions may change the EC password.")));
+			break;
+		}
 		const uint16 oldTcpPort = thePrefs::GetPort();
 		const uint16 oldUdpPort = thePrefs::GetUDPPort();
 		// Keep value snapshots: Apply() mutates both stored preference strings.
@@ -4083,6 +4095,8 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 				CECTag(EC_TAG_STRING, wxTRANSLATE("Could not update EC password verifier.")));
 			break;
 		}
+		if (changesPassword)
+			AddLogLineN(CFormat(_("EC password changed by %s")) % GetPeer());
 		// Apply() left any amuleapi password the client sent sitting in the
 		// preferences as a pending request; this is what turns it into a
 		// stored, stretched record in amuleapi-passwords. Logged rather than

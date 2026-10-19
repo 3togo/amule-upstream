@@ -230,9 +230,15 @@ def stored_search(results, kind=C['EC_SEARCH_ALL']):
 
 
 def stop_daemon(proc):
-    proc.terminate()
+    if os.name == 'nt':
+        # TerminateProcess does not reap spawned helpers; their log handles
+        # otherwise prevent TemporaryDirectory cleanup on Windows.
+        subprocess.run(['taskkill', '/PID', str(proc.pid), '/T', '/F'],
+                       capture_output=True, timeout=10, check=False)
+    else:
+        proc.terminate()
     code = proc.wait(timeout=10)
-    assert code == 0, f"daemon shutdown failed: {code}"
+    assert os.name == "nt" or code == 0, f"daemon shutdown failed: {code}"
 
 
 def free_ports(n, udp_indices=(), peer_index=None):

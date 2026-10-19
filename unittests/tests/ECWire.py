@@ -118,15 +118,17 @@ class EncryptedSocket:
     def close(self): self.sock.close()
     def __getattr__(self,name): return getattr(self.sock,name)
 
-def authenticate(sock,digest,credential=0,capabilities=(),before_proof=None):
+def authenticate(sock,digest,credential=0,capabilities=(),before_proof=None, request_mutator=None, proof_mutator=None, challenge=None):
     priv=X25519PrivateKey.generate();pub=priv.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw);cn=os.urandom(32)
     a=int.from_bytes(os.urandom(32),'big');A=pow(5,a,N)
     fields=[tag('EC_TAG_CLIENT_NAME',b'EC integration\0',6),tag('EC_TAG_CLIENT_VERSION',b'1\0',6),
             tag('EC_TAG_PROTOCOL_VERSION',struct.pack('!H',C['EC_CURRENT_PROTOCOL_VERSION']),3),
             tag('EC_TAG_CAN_AEAD',b'\x01'),tag('EC_TAG_AEAD_CLIENT_NONCE',cn),tag('EC_TAG_AEAD_CLIENT_PUBKEY',pub),
             tag('EC_TAG_SRP_A',pad(A)),tag('EC_TAG_SRP_CREDENTIAL',bytes([credential]))]
+    if request_mutator: fields=request_mutator(fields)
     sock.sendall(packet('EC_OP_AUTH_REQ',fields+list(capabilities)))
     op,tags=read(sock)
+    if op==C['EC_OP_AUTH_FAIL']: return sock,op,tags
     assert op==C['EC_OP_AUTH_SALT'],(op,tags)
     assert tags[C['EC_TAG_SRP_PROFILE']]==bytes([1,15,8,1])
     B=int.from_bytes(tags[C['EC_TAG_SRP_B']],'big');assert 0<B<N
@@ -134,11 +136,14 @@ def authenticate(sock,digest,credential=0,capabilities=(),before_proof=None):
     cipher=int.from_bytes(tags[C['EC_TAG_AEAD_CIPHER']],'big');assert cipher==1
     transcript=b'\x01\x01'+bytes([cipher])+cn+sn+pub+sp
     encrypted=EncryptedSocket(sock,priv.exchange(X25519PublicKey.from_public_bytes(sp)),cn,sn,transcript,cipher)
+    if challenge: challenge(tags)
     if before_proof: before_proof()
     x=derive(digest,salt);u=int.from_bytes(sha(pad(A)+pad(B)),'big');assert u
     S=pow((B-k*pow(5,x,N))%N,a+u*x,N)
     m1,m2=proofs(S,context(credential,salt,transcript,A,B))
-    encrypted.sendall(packet('EC_OP_AUTH_PASSWD',[tag('EC_TAG_SRP_M1',m1)]))
+    message=packet('EC_OP_AUTH_PASSWD',[tag('EC_TAG_SRP_M1',m1)])
+    if proof_mutator: message=proof_mutator(m1)
+    encrypted.sendall(message)
     op,tags=read(encrypted)
     if op==C['EC_OP_AUTH_OK']: assert hmac.compare_digest(tags[C['EC_TAG_SRP_M2']],m2)
     return encrypted,op,tags

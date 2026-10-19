@@ -73,26 +73,29 @@ class BadServerProof(socketserver.BaseRequestHandler):
             self.request.settimeout(3)
             try:
                 self.server.extra = encrypted.recv(8)
-            except (socket.timeout, EOFError):
+            except (socket.timeout, EOFError, ConnectionResetError):
                 self.server.extra = b''
         except BaseException as exc:
             self.server.error = exc
 
 class OldDaemon(socketserver.BaseRequestHandler):
     def handle(self):
-        W.read(self.request)
+        _,req=W.read(self.request)
         # Retired numeric salt tag; deliberately no SRP B.
         salt=struct.pack('!HBIQ',0x000b*2,5,8,123)
         if getattr(self.server,'bad_profile',False):
             fields=[W.tag('EC_TAG_SRP_B',W.pad(5)),W.tag('EC_TAG_SRP_SALT',bytes(16)),
-                    W.tag('EC_TAG_SRP_PROFILE',bytes([1,31,8,1]))]
+                    W.tag('EC_TAG_SRP_PROFILE',bytes([1,31,8,1])),
+                    W.tag('EC_TAG_AEAD_CIPHER',b'\x01',2),
+                    W.tag('EC_TAG_AEAD_SERVER_NONCE',os.urandom(32)),
+                    W.tag('EC_TAG_AEAD_SERVER_PUBKEY',W.X25519PrivateKey.generate().public_key().public_bytes(W.serialization.Encoding.Raw,W.serialization.PublicFormat.Raw))]
             self.request.sendall(W.packet('EC_OP_AUTH_SALT',fields))
         else:
             body=bytes([C['EC_OP_AUTH_SALT']])+struct.pack('!H',1)+salt
             self.request.sendall(struct.pack('!II',0x20,len(body))+body)
         self.request.settimeout(3)
         try: self.server.extra=self.request.recv(4096)
-        except socket.timeout: self.server.extra=b''
+        except (socket.timeout,ConnectionResetError): self.server.extra=b''
 
 def main(daemon,cmd,async_probe):
     with tempfile.TemporaryDirectory(prefix='amule-srp-') as scratch:
@@ -101,7 +104,7 @@ def main(daemon,cmd,async_probe):
         env=dict(os.environ,HOME=scratch,XDG_CONFIG_HOME=str(root/'xdg'),LC_ALL='C.UTF-8')
         for restart in range(2):
             with (root/'console').open('w') as log:
-                proc=subprocess.Popen([daemon,'-c',scratch,'--disable-fatal'],env=env,stdout=log,stderr=log)
+                proc=subprocess.Popen([daemon,'-c',scratch] + ([] if os.name == 'nt' else ['--disable-fatal']),env=env,stdout=log,stderr=log)
                 try:
                     ec=connect_daemon(proc,port,root,peer);ec.sock.close()
                     conf=(root/'amule.conf').read_text()
@@ -115,12 +118,38 @@ def main(daemon,cmd,async_probe):
                     out=subprocess.run([async_probe,str(port)],env=env,capture_output=True,text=True,timeout=20)
                     assert out.returncode==0,out
                     print('PASS: migrated config, amulecmd and GUI async transport login, restart',restart)
-                    if restart: continue
+                    if restart:
+                        # No M1 is sent. A bounded number of AUTH_REQ challenges
+                        # must lock out this address before further SRP work.
+                        challenges = 0
+                        for attempt in range(12):
+                            class StopChallenge(Exception): pass
+                            try:
+                                with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
+                                    def abandon(tags):
+                                        raise StopChallenge()
+                                    _,op,tags=W.authenticate(sock,hashlib.md5(b'regression').digest(),challenge=abandon)
+                                    assert op==C['EC_OP_AUTH_FAIL'] and b'Too many' in tags[C['EC_TAG_STRING']]
+                                    break
+                            except StopChallenge:
+                                challenges += 1
+                        else: raise AssertionError('abandoned handshakes bypass rate limit')
+                        assert 0 < challenges <= 10
+                        print('PASS: abandoned AUTH_REQ handshakes trigger pre-SRP rate limit')
+                        continue
                     # A legacy client gets an explicit version error before any password proof.
                     with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
                         sock.sendall(W.packet('EC_OP_AUTH_REQ',[W.tag('EC_TAG_PROTOCOL_VERSION',struct.pack('!H',C['EC_CURRENT_PROTOCOL_VERSION']),3)]))
                         op,tags=W.read(sock)
                         assert op==C['EC_OP_AUTH_FAIL'] and b'3.2.0' in tags[C['EC_TAG_STRING']]
+                    # Importing daemon settings must preserve a remembered client credential.
+                    client_config=root/'config'/'remote.conf'
+                    client_config.parent.mkdir(exist_ok=True)
+                    remembered=hashlib.md5(b'regression').hexdigest()
+                    client_config.write_text('[EC]\nPassword='+remembered+'\n')
+                    out=subprocess.run([cmd,'--config-file=remote.conf','--create-config-from='+str(root/'amule.conf')],cwd=root,env=env,capture_output=True,text=True,timeout=10)
+                    assert out.returncode==0,out
+                    assert 'Password='+remembered in client_config.read_text(), 'config import erased remembered credential'
                     # Missing token follows a full SRP exchange and rejects a guess.
                     with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
                         encrypted,op,_=W.authenticate(sock,os.urandom(16),credential=1)
@@ -135,6 +164,33 @@ def main(daemon,cmd,async_probe):
                         assert relay.error is None,relay.error
                         assert len(relay.observed)==32
                     print('PASS: old client, missing token, split X25519 MITM rejected')
+                    EC(port).sock.close()
+                    # Every invalid sequence consumes its connection, and replayed
+                    # M1 must fail even on a fresh transport with the same password.
+                    for opcode in ('EC_OP_AUTH_PASSWD', 'EC_OP_STAT_REQ'):
+                        with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
+                            sock.sendall(W.packet(opcode,[]))
+                            assert W.read(sock)[0]==C['EC_OP_AUTH_FAIL']
+                    for value in (bytes(384), W.pad(W.N), W.pad(W.N+1), b'bad'):
+                        with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
+                            def mutate(fields):
+                                return [f for f in fields if f[:2]!=W.tag('EC_TAG_SRP_A',b'')[:2]]+[W.tag('EC_TAG_SRP_A',value)]
+                            assert W.authenticate(sock,hashlib.md5(b'regression').digest(),request_mutator=mutate)[1]==C['EC_OP_AUTH_FAIL']
+                    # Successful logins clear the attempt bucket between phases.
+                    EC(port).sock.close()
+                    with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
+                        assert W.authenticate(sock,hashlib.md5(b'regression').digest(),proof_mutator=lambda m: W.packet('EC_OP_AUTH_REQ',[]))[1]==C['EC_OP_AUTH_FAIL']
+                    saved_m1=[]
+                    with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
+                        def capture(m):
+                            saved_m1.append(m)
+                            return W.packet('EC_OP_AUTH_PASSWD',[W.tag('EC_TAG_SRP_M1',m)])
+                        assert W.authenticate(sock,hashlib.md5(b'regression').digest(),proof_mutator=capture)[1]==C['EC_OP_AUTH_OK']
+                    with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
+                        assert W.authenticate(sock,hashlib.md5(b'regression').digest(),proof_mutator=lambda m: W.packet('EC_OP_AUTH_PASSWD',[W.tag('EC_TAG_SRP_M1',saved_m1[0])]))[1]==C['EC_OP_AUTH_FAIL']
+                    EC(port).sock.close()
+                    print('PASS: out-of-order, repeated AUTH_REQ, invalid A, and M1 replay rejected')
+
                     # A malformed edit must report failure and leave the existing
                     # credential usable, rather than closing or rekeying the daemon.
                     editor = EC(port)

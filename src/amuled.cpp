@@ -23,6 +23,7 @@
 //
 
 #include "amule.h" // Interface declarations.
+#include "libs/ec/cpp/ECSRP.h"
 
 #include <include/common/EventIDs.h>
 
@@ -287,14 +288,15 @@ int CamuleDaemonApp::OnRun()
 			       "the file ~/.aMule/amule.conf"));
 		return 0;
 	} else if (thePrefs::ECPasswordVerifier().IsEmpty()) {
-		AddLogLineCS(
-			_("ERROR: A valid password is required to use external connections, and aMule daemon "
-			  "cannot be used without external connections. To run aMule daemon, you must set "
-			  "the \"ECPasswordVerifier\" field in the file ~/.aMule/amule.conf with an "
-			  "appropriate "
-			  "value. Execute amuled with the flag --ec-config to set the password. More "
-			  "information can be found at https://amule-org.github.io/docs"));
+		AddLogLineCS(_("ERROR: An EC password is required. Run amuled --ec-config to set it."));
 		return 0;
+	}
+	try {
+		ECSRP::Verifier::Decode(std::string(thePrefs::ECPasswordVerifier().utf8_str()));
+	} catch (const std::exception &) {
+		AddLogLineCS(_("ERROR: Invalid ECPasswordVerifier in amule.conf. Run amuled --ec-config to "
+			       "set a new EC password."));
+		return 1;
 	}
 
 #ifdef __WINDOWS__

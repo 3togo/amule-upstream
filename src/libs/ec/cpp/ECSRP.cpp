@@ -1,4 +1,27 @@
-// Copyright (c) 2026 aMule Team. GPL-2.0-or-later.
+//
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// Any parts of this program derived from the xMule, lMule or eMule project,
+// or contributed by third-party developers are copyrighted by their
+// respective authors.
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
+//
+
 #include "ECSRP.h"
 
 // Use the shared include prefix and scoped Crypto++ deprecation handling.
@@ -88,11 +111,12 @@ Bytes Derive(const std::string &digest, const Bytes &salt)
 }
 Bytes Context(uint8_t credential, const Bytes &salt, const Bytes &transcript, const Bytes &A, const Bytes &B)
 {
-	if (credential > 2 || salt.size() != 16 || transcript.empty()) {
+	if (credential > WebToken || salt.size() != 16 || transcript.empty()) {
 		throw std::invalid_argument("Invalid SRP context");
 	}
 	// Fixed v1 profile; transcript length is uint32, network byte order.
-	Bytes out{ 1, credential, 15, 8, 1 };
+	Bytes out = PROFILE_BYTES;
+	out.insert(out.begin() + 1, credential);
 	out = Join(out, salt);
 	const uint32_t len = transcript.size();
 	for (int shift = 24; shift >= 0; shift -= 8) {
@@ -242,13 +266,22 @@ Verifier Verifier::Decode(const std::string &text)
 }
 Verifier Verifier::Create(const std::string &digest)
 {
+	return Create(digest, ECCrypt::RandomBytes(16));
+}
+Verifier Verifier::Create(const std::string &digest, const Bytes &salt)
+{
 	Verifier v;
-	v.salt = ECCrypt::RandomBytes(16);
+	v.salt = salt;
 	Secret x(Derive(digest, v.salt));
 	v.value = Arithmetic().Public(x);
 	if (!v.Valid())
 		throw std::runtime_error("Could not generate EC verifier");
 	return v;
+}
+bool Verifier::Matches(const std::string &digest) const
+{
+	Secret x(Derive(digest, salt));
+	return ECCrypt::ConstantTimeEquals(value, Arithmetic().Public(x));
 }
 Client::Client() = default;
 Client::~Client()
@@ -302,32 +335,50 @@ Server::~Server()
 }
 void Server::Reset()
 {
-	ECCrypt::SecureWipe(m_expected);
-	ECCrypt::SecureWipe(m_proof);
+	ECCrypt::SecureWipe(m_b);
+	m_A.clear();
+	m_B.clear();
+	m_transcript.clear();
+	m_verifier = {};
 }
 Bytes Server::Start(const Verifier &v, uint8_t credential, const Bytes &A, const Bytes &transcript)
 {
 	Reset();
 	if (!v.Valid())
 		throw std::invalid_argument("Invalid SRP verifier");
+	// Reject invalid A before doing the single challenge exponentiation.
+	const Arithmetic g;
+	const Integer n = Prime(g);
+	if (A.size() != WIDTH || Number(A) <= Integer::Zero() || Number(A) >= n)
+		throw std::invalid_argument("Invalid SRP public value");
 	Secret b(ECCrypt::RandomBytes(32));
 	if (b.size() != 32 || Number(b).IsZero())
 		throw std::runtime_error("No SRP randomness");
-	const Arithmetic g;
 	const auto B = g.ServerPublic(v.value, b);
+	(void)Scrambling(g, A, B);
 	(void)Context(credential, v.salt, transcript, A, B);
-	Secret s(g.ServerSecret(A, B, b, v.value));
-	const auto proofs = Evidence(s, credential, v.salt, transcript, A, B);
-	m_expected = proofs.client;
-	m_proof = proofs.server;
+	m_b = b;
+	m_A = A;
+	m_B = B;
+	m_verifier = v;
+	m_credential = credential;
+	m_transcript = transcript;
 	return B;
 }
 Bytes Server::Verify(const Bytes &proof)
 {
-	Bytes response;
-	if (!m_expected.empty() && ECCrypt::ConstantTimeEquals(proof, m_expected))
-		response = m_proof;
+	if (m_b.empty())
+		return {};
+	// Consume the exchange even if computing evidence throws.
+	Secret b(std::move(m_b));
+	const auto verifier = m_verifier;
+	const auto A = m_A, B = m_B, transcript = m_transcript;
+	const auto credential = m_credential;
 	Reset();
-	return response;
+	if (proof.size() != 32)
+		return {};
+	Secret shared(Arithmetic().ServerSecret(A, B, b, verifier.value));
+	const auto evidence = Evidence(shared, credential, verifier.salt, transcript, A, B);
+	return ECCrypt::ConstantTimeEquals(proof, evidence.client) ? evidence.server : Bytes();
 }
 } // namespace ECSRP

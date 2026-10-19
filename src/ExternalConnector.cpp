@@ -596,6 +596,9 @@ bool CaMuleExternalConnector::OnCmdLineParsed(wxCmdLineParser &parser)
 		}
 		CECFileConfig aMuleConfig(aMuleConfigFile);
 		LoadAmuleConfig(aMuleConfig);
+		if (m_password.IsEmpty())
+			Show(_("The daemon verifier cannot supply a client password. Use -P or the password "
+			       "prompt. A saved client password will be preserved.\n"));
 		SaveConfigFile();
 		m_configFile->Flush();
 		exit(0);
@@ -662,8 +665,6 @@ void CaMuleExternalConnector::LoadAmuleConfig(CECFileConfig &cfg)
 	cfg.ReadHash("/ExternalConnect/ECPassword", &m_password);
 	if (cfg.HasEntry("/ExternalConnect/ECPasswordVerifier")) {
 		m_password.Clear();
-		Show(_("The daemon verifier cannot be used as a client password. Configure the client "
-		       "password separately.\n"));
 	}
 	m_language = cfg.Read("/eMule/Language", "");
 	theLogger.SetVerbose(cfg.Read("/eMule/VerboseDebug", 0l) != 0);
@@ -705,7 +706,8 @@ void CaMuleExternalConnector::SaveConfigFile()
 		m_configFile->Write("/Locale", m_language);
 		m_configFile->Write("/EC/Host", m_host);
 		m_configFile->Write("/EC/Port", m_port);
-		m_configFile->WriteHash("/EC/Password", m_password);
+		if (!m_password.IsEmpty())
+			m_configFile->WriteHash("/EC/Password", m_password);
 		// ZLIB was read in LoadConfigFile but never written here, so toggling --disable-
 		// zlib did not persist and any value in the config file silently reset to the
 		// enabled default on every save (#817).

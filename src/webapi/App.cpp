@@ -23,6 +23,7 @@
 //
 
 #include "App.h"
+#include "libs/ec/cpp/ECSRP.h"
 
 #include <common/MuleDebug.h> // Needed for SetFatalAbortRedirectFd
 
@@ -354,7 +355,7 @@ bool CamuleapiApp::LoadAmuleapiConfig()
 		std::string token;
 		if (webcommon::ReadAndConsumeEcToken(tokenPath, token)) {
 			m_password.Decode(wxString::FromUTF8(token.c_str()));
-			m_ECTokenCredential = true;
+			m_ECTokenCredential = ECSRP::ApiToken;
 			// Worth one line: it tells an operator which credential this instance is
 			// using, and is what the "no token left on disk" check looks for.
 			Show("amuleapi: using the ephemeral EC token from the core.\n");

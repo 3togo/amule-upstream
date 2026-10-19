@@ -13,7 +13,7 @@ import time
 import urllib.error
 import urllib.request
 
-from AllSearchIntegrationTest import connect_daemon, free_ports, retry_port_collisions, stop_daemon
+from AllSearchIntegrationTest import connect_daemon, free_ports, retry_port_collisions, stop_daemon, tag
 from DaemonConfig import write_amule_conf
 import ECWire as W
 
@@ -107,6 +107,19 @@ def run(daemon_binary, web_binary, api_binary=None):
                         with socket.create_connection(('127.0.0.1', ec_port), timeout=10) as sock:
                             _, op, _ = W.authenticate(sock, token, credential=credential)
                             assert op == W.C[expected], 'child credential selectors were mixed'
+                    with socket.create_connection(('127.0.0.1',ec_port),timeout=10) as sock:
+                        encrypted,op,_=W.authenticate(sock,token,credential=2)
+                        assert op==W.C['EC_OP_AUTH_OK']
+                        # A rejected password edit must not apply unrelated prefs either.
+                        password_tag=W.tag('EC_TAG_EXTERNALCONN_PASSWD',hashlib.md5(b'evil').digest(),9)
+                        group=tag(W.C['EC_TAG_PREFS_REMOTECTRL'],children=[password_tag])
+                        encrypted.sendall(W.packet('EC_OP_SET_PREFERENCES',[group]))
+                        assert W.read(encrypted)[0]==W.C['EC_OP_FAILED']
+                    EC_salt=[]
+                    for selector in (1,2):
+                        with socket.create_connection(('127.0.0.1',ec_port),timeout=10) as sock:
+                            W.authenticate(sock,token,credential=selector,challenge=lambda tags: EC_salt.append(tags[W.C['EC_TAG_SRP_SALT']]))
+                    assert EC_salt[0]==EC_salt[1], 'salt reveals live token selector'
                     if api_binary:
                         assert http_ready(api_port, '/api/v1/health'), 'web login disrupted API'
                     # Revocation must also reject a proof prepared before child exit.

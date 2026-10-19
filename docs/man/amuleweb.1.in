@@ -191,6 +191,8 @@ or
 .PP
 \fBamuleweb\fR \fB\-\-create-config-from\fR=\fI/home/username/.aMule/amule.conf\fR
 .PP
+After daemon credential migration, supply the client password with \fB\-P\fR or enter it at the password prompt; the daemon verifier cannot supply it.
+.PP
 These will save settings to \fI$HOME/.aMule/remote.conf\fR, and later you only need to type:
 .PP
 .B_untranslated amuleweb

@@ -308,6 +308,109 @@ profile, and verify the sealed server proof before sending any command.
 Protocol/snapshot-version checks remain in effect. After repeated failures
 from one address, the daemon temporarily refuses further logins.
 
+`EC_TAG_PROTOCOL_VERSION` must be equal to the server's
+`EC_CURRENT_PROTOCOL_VERSION`, currently `0x0204`. If not, the server
+refuses the login.
+
+`EC_TAG_VERSION_ID` is a 16-byte hash that binds a development snapshot
+to the same snapshot on the other side. Only a snapshot built with a
+version ID requires it. A release refuses any client that sends it, so
+leave it out.
+
+Each `EC_TAG_CAN_*` is an empty tag advertising support for one
+extension. They fall into two groups, and the group decides how the
+server confirms the capability — which in turn decides what a client may
+safely do when the confirmation is absent.
+
+**Wire-format capabilities** change how bytes are framed:
+`EC_TAG_CAN_ZLIB`, `EC_TAG_CAN_UTF8_NUMBERS`,
+`EC_TAG_CAN_LARGE_TAG_COUNT`. The server may set the matching flag
+(`EC_FLAG_ZLIB`, `EC_FLAG_UTF8_NUMBERS`, `EC_FLAG_LARGE_TAG_COUNT`) only
+when both sides advertised the capability; a client that omits the tag
+gets the historical wire format for that feature. For `ZLIB` and
+`UTF8_NUMBERS` the flag appearing on a later packet *is* the
+confirmation — the server does not echo those two tags.
+`LARGE_TAG_COUNT` is both echoed and flagged.
+
+**Feature capabilities** gate whole operations rather than the framing:
+`EC_TAG_CAN_PARTIAL_UPDATE`, `EC_TAG_CAN_MULTI_SEARCH`,
+`EC_TAG_CAN_CHAT`, `EC_TAG_CAN_CHAT_SESSIONS`,
+`EC_TAG_CAN_SHAREDDIRS_CONFIG`, `EC_TAG_CAN_SEARCH_LIST`,
+`EC_TAG_CAN_SEARCH_PROGRESS_UNION`, `EC_TAG_CAN_SEARCH_ALL`,
+`EC_TAG_CAN_DELETE_COMPLETE`. The server
+echoes each of these in its `EC_OP_AUTH_OK` response when it supports it,
+so the client learns what is negotiated for this connection.
+
+For a feature capability the echo is **load-bearing, not informational**.
+A client that does not see one echoed must not send the operations it
+gates: an opcode the server does not know reaches the unknown-opcode
+branch of its request dispatcher, which asserts before it can answer
+`EC_OP_FAILED`. Asking an older server takes it down rather than
+receiving a polite refusal.
+
+With `EC_TAG_CAN_MULTI_SEARCH`, a search request that names no
+`EC_TAG_SEARCH_ID` (results, progress without the union, stop, more)
+addresses the last search this connection started. A connection that has
+not started one gets the most recent search any client started. A peer
+browse is never that default.
+
+`EC_TAG_CAN_SEARCH_PROGRESS_UNION` changes the reply shape of
+`EC_OP_SEARCH_PROGRESS`, so it is advertised only alongside
+`EC_TAG_CAN_MULTI_SEARCH` — a single-search client has one search and no
+use for the union. Once negotiated, **every** `EC_OP_SEARCH_PROGRESS` from
+that connection answers in the union shape: one child entry per search,
+keyed by `EC_TAG_SEARCH_ID`, whose children are the same tags the per-id
+form puts at the top level.
+
+A client should name the searches it is tracking, one `EC_TAG_SEARCH_ID`
+per search. That narrows which searches come back and makes the daemon
+refresh exactly those in its search LRU, as a per-id poll did; naming none
+reports everything the daemon holds. Naming ids does **not** opt back into
+the single-search reply — the shape is fixed by the capability, not by the
+request. A daemon that keyed the union off "no ids named" would answer a
+client that named several about only the first, and the client would read
+every other search's absence as an expiry.
+
+Each entry also carries `EC_TAG_SEARCH_NAME`, the query the search was
+started with — or, for a browse, the peer's nickname. It is the same tag
+and the same string `EC_OP_SEARCH_LIST` reports, so a client polling
+progress can label what it is reporting on without also fetching the list.
+
+The union reply carries no `EC_TAG_SEARCH_EXPIRED`: it reports the whole
+set, so an id the client asked about and did not get back is one the
+daemon no longer holds.
+
+`EC_TAG_CAN_NOTIFY` is the one exception to both patterns: the server
+records it and simply pushes notifications or does not, so there is
+neither an echo nor a flag to observe.
+
+**A missing echo means "do not send", not "send and see".** An older
+daemon has no handler for an operation it predates, so the request
+reaches the unknown-opcode path, which logs
+`External Connection: invalid opcode received: 0x...`, asserts on
+debug builds, and answers `EC_OP_FAILED`. Clients must therefore check
+the echo before sending a gated operation and fall back to the older
+behaviour when it is absent — for `EC_TAG_CAN_SEARCH_LIST`, for
+instance, listing only the searches the client started itself.
+
+Any new operation added to this protocol needs a capability tag of its
+own, advertised by the client, echoed by the server and checked before
+use. Bumping `EC_CURRENT_PROTOCOL_VERSION` is *not* the mechanism for
+this: that constant gates the handshake as a whole, so raising it
+severs every mixed-version pairing instead of degrading one feature.
+
+The first packet must be `EC_OP_AUTH_REQ`; other initial opcodes receive
+`EC_OP_AUTH_FAIL`. AUTH_REQ must include the SRP and AEAD tags listed in
+[EC_SRP.md](EC_SRP.md), in addition to the protocol and optional client fields.
+
+After verifying M1, the server sends a sealed `EC_OP_AUTH_OK` containing
+`EC_TAG_SRP_M2`, `EC_TAG_SERVER_VERSION`, accepted capability tags, and
+`EC_TAG_SESSION_ID` (a uint64 identifying this daemon process). A changed
+session ID means cached ECIDs from the previous process must be discarded.
+The version string identifies a release or a development snapshot. Parse tags
+by name; do not assume their count or order. Require a valid M2 before using
+any of these fields or sending commands.
+
 ### Example 2 — Simple stats request
 
 ```

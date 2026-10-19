@@ -34,7 +34,7 @@ def run(daemon_binary, api_binary, token):
         processes = []
         with (root / 'console').open('w') as log:
             try:
-                daemon = subprocess.Popen([daemon_binary, '-c', str(root), '--disable-fatal'],
+                daemon = subprocess.Popen([daemon_binary, '-c', str(root)] + ([] if os.name == 'nt' else ['--disable-fatal']),
                                           env=env, stdout=log, stderr=log)
                 processes.append(daemon)
                 ec = connect_daemon(daemon, port, root, peer)

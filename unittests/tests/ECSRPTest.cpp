@@ -1,4 +1,30 @@
-// Copyright (c) 2026 aMule Team. GPL-2.0-or-later.
+//
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// Any parts of this program derived from the xMule, lMule or eMule project,
+// or contributed by third-party developers are copyrighted by their
+// respective authors.
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
+//
+
+#include "config.h"
+#define CRYPTOPP_INC_NEED_SRP
+#include "CryptoPP_Inc.h"
 #include "ECSRP.h"
 #include "ECSRPVector.h"
 #include "ECSRPConfig.h"
@@ -82,6 +108,49 @@ int main()
 			if (scenario == 5)
 				Check(cfg.Read("/EC/Password", wxString()) == "unrelated",
 					"rotation overwrote a separately saved credential");
+		}
+		// RFC 7914 section 12: https://www.rfc-editor.org/rfc/rfc7914#section-12
+		// The fourth vector needs 1 GiB, so keep the default test within the CI fast budget.
+		struct ScryptVector
+		{
+			const char *password, *salt;
+			uint64_t n;
+			uint32_t r, p;
+			const char *expected;
+		};
+		for (const auto &test : {
+			     ScryptVector{ "",
+				     "",
+				     16,
+				     1,
+				     1,
+				     "77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442"
+				     "fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906" },
+			     ScryptVector{ "password",
+				     "NaCl",
+				     1024,
+				     8,
+				     16,
+				     "fdbabe1c9d3472007856e7190d01e9fe7c6ad7cbc8237830e77376634b373162"
+				     "2eaf30d92e22a3886ff109279d9830dac727afb94a83ee6d8360cbdfa2cc0640" },
+			     ScryptVector{ "pleaseletmein",
+				     "SodiumChloride",
+				     16384,
+				     8,
+				     1,
+				     "7023bdcb3afd7348461c06cd81fd38ebfda8fbba904f8e3ea9b543f6545da1f2"
+				     "d5432955613f0fcf62d49705242a9af9e61e85dc0d651e40dfcf017b45575887" } }) {
+			Bytes derived(64);
+			CryptoPP::Scrypt().DeriveKey(derived.data(),
+				derived.size(),
+				reinterpret_cast<const uint8_t *>(test.password),
+				std::string(test.password).size(),
+				reinterpret_cast<const uint8_t *>(test.salt),
+				std::string(test.salt).size(),
+				test.n,
+				test.r,
+				test.p);
+			Check(derived == H(test.expected), "RFC 7914 scrypt vector");
 		}
 		// RFC 5054 Appendix B. These exercise the same arithmetic as production,
 		// with the RFC's SHA-1 and 1024-bit group instead of EC's v1 profile.
@@ -168,13 +237,15 @@ int main()
 			cfg.failAt = failAt;
 			wxString record, error;
 			const bool loaded = LoadCredential(cfg, record, error);
-			Check(loaded == (failAt != 1), "migration commit result");
+			Check(loaded, "migration unavailable after persistence failure");
 			if (failAt == 1) {
-				Check(record.IsEmpty() &&
+				Check(!record.IsEmpty() &&
 						!cfg.HasEntry("/ExternalConnect/ECPasswordVerifier"),
 					"failed migration changed verifier");
 				Check(cfg.Read("/ExternalConnect/ECPassword", wxString()) == password,
 					"failed migration lost old credential");
+				Check(Verifier::Decode(std::string(record.utf8_str())).Matches(password),
+					"in-memory migration cannot authenticate the legacy password");
 			} else {
 				Check(Verifier::Decode(std::string(record.utf8_str())).Valid(),
 					"persisted invalid verifier");
@@ -190,6 +261,32 @@ int main()
 					"restart did not clean legacy key");
 			}
 		}
+		FaultConfig downgrade;
+		downgrade.Write(
+			"/ExternalConnect/ECPasswordVerifier", wxString::FromUTF8(verifier.Encode().c_str()));
+		const std::string newer = "abcdef0123456789abcdef0123456789";
+		downgrade.Write("/ExternalConnect/ECPassword", wxString::FromUTF8(newer.c_str()));
+		wxString migrated, migrationError;
+		Check(LoadCredential(downgrade, migrated, migrationError), "re-upgrade migration failed");
+		const auto replaced = Verifier::Decode(std::string(migrated.utf8_str()));
+		Check(replaced.Matches(newer) && !replaced.Matches(password),
+			"re-upgrade resurrected old password");
+		Check(replaced.salt != verifier.salt && !migrationError.empty(),
+			"downgrade migration not logged or salted");
+		Check(!downgrade.HasEntry("/ExternalConnect/ECPassword"), "new legacy key not removed");
+		FaultConfig cleanup;
+		cleanup.Write("/ExternalConnect/ECPassword", wxString::FromUTF8(password.c_str()));
+		cleanup.failAt = 2;
+		Check(StoreCredential(
+			      cleanup, wxString::FromUTF8(password.c_str()), migrated, migrationError),
+			"cleanup failure rejected committed verifier");
+		Check(!cleanup.HasEntry("/ExternalConnect/ECPassword"),
+			"failed cleanup restored stale legacy key in memory");
+		Check(StoreCredential(cleanup, wxString::FromUTF8(newer.c_str()), migrated, migrationError),
+			"rotation after failed cleanup failed");
+		Check(LoadCredential(cleanup, migrated, migrationError) &&
+				Verifier::Decode(std::string(migrated.utf8_str())).Matches(newer),
+			"cleanup failure resurrected old password");
 		FaultConfig corrupt;
 		corrupt.Write("/ExternalConnect/ECPassword", wxString::FromUTF8(password.c_str()));
 		corrupt.Write("/ExternalConnect/ECPasswordVerifier", "v9:unsupported");

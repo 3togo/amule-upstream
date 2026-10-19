@@ -85,11 +85,16 @@ password-keyed AEAD confirmation tags are retired; their tag IDs are not reused.
 When the verifier key is absent, the core derives a verifier from the existing
 ECPassword digest, writes and flushes it, then deletes and flushes the old key.
 wxFileConfig writes through a temporary file. Failure of the first commit
-preserves the old credential and does not enable authentication with an
-unpersisted verifier. Interrupted cleanup is retried on restart, using the
-already committed verifier and salt. A present malformed/unsupported verifier
-never falls back to ECPassword. CLI, local preferences and authenticated remote
-preferences generate a fresh salt and verifier for a changed password.
+preserves the old key and uses a derived verifier in memory for that run, with
+a console warning until migration can be saved. The temporary-file rename is
+not fsync-backed: it does not promise durability across power loss. Interrupted
+cleanup is retried on restart, using the
+already committed verifier and salt if the old digest still matches it. If a
+downgraded core changed ECPassword, re-upgrade migrates that newer digest with
+a fresh salt and logs the replacement. A present malformed/unsupported verifier
+never falls back to ECPassword. CLI and local preferences generate a fresh salt
+and verifier for a changed password. Remote password changes require a session
+authenticated with the EC password.
 The local dialog commits the password only after validation and cancellable
 work. Remote preference snapshots never consume or retain a pending EC digest;
 the edit is sent explicitly at commit and cleared only on acknowledgement.
@@ -109,10 +114,15 @@ amuleweb still reads its HTTP settings from `--amule-config-file`, but never
 uses the daemon's verifier as a client credential or prompts for a password
 when the child token is missing. The token is decoded directly as 16 raw bytes on
 both ends; it is not hashed again. A random dummy token verifier is prepared
-before accepting connections. Missing tokens take the same login path, with
-the same profile, sizes and generic wrong-password result. Before accepting M1 the core
+before accepting connections. Dummy and live token verifiers share one random
+process salt, so the challenge salt cannot reveal whether either helper is
+running. Token-authenticated sessions cannot change the EC password. Missing
+tokens take the same login path, with the same profile, sizes and generic
+wrong-password result. Before accepting M1 the core
 checks that the selected verifier is still current, so password changes and
-token revocation also invalidate pending handshakes. No per-request
+token revocation also invalidate pending handshakes. AUTH_REQ checks the address
+rate limit and reserves an attempt, including abandoned challenges; only the
+challenge exponentiation runs before M1. No per-request
 scrypt or dummy-verifier generation exposes token availability.
 
 ## Security scope and validation

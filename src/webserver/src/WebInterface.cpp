@@ -39,6 +39,7 @@
 #include <Credentials.h>
 
 #include "WebServer.h"
+#include "libs/ec/cpp/ECSRP.h"
 
 #include <wx/apptrait.h>
 #include <wx/socket.h>
@@ -315,7 +316,7 @@ bool CamulewebApp::OnCmdLineParsed(wxCmdLineParser &parser)
 		if (webcommon::ReadAndConsumeEcToken(
 			    webcommon::EcWebTokenFilePath(std::string(m_configDir.utf8_str())), token)) {
 			m_password.Decode(wxString::FromUTF8(token.c_str()));
-			m_ECTokenCredential = 2;
+			m_ECTokenCredential = ECSRP::WebToken;
 		}
 		if (m_password.IsEmpty()) {
 			// A verifier is not a client credential. Never prompt on the redirected

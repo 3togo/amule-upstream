@@ -1,6 +1,30 @@
-// Copyright (c) 2026 aMule Team. GPL-2.0-or-later.
+//
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// Any parts of this program derived from the xMule, lMule or eMule project,
+// or contributed by third-party developers are copyrighted by their
+// respective authors.
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
+//
+
 #include "ECSRPConfig.h"
 #include "ECSRP.h"
+#include <wx/intl.h>
 
 namespace ECSRP
 {
@@ -8,14 +32,49 @@ namespace
 {
 const char *const KEY = "/ExternalConnect/ECPasswordVerifier";
 const char *const LEGACY = "/ExternalConnect/ECPassword";
+wxString CreateRecord(const wxString &digest)
+{
+	return digest.IsEmpty() ? wxString()
+				: wxString::FromUTF8(
+					  Verifier::Create(std::string(digest.utf8_str())).Encode().c_str());
+}
 void Cleanup(wxConfigBase &cfg, wxString &error)
 {
-	if (cfg.HasEntry(LEGACY)) {
-		const wxString old = cfg.Read(LEGACY, wxString());
-		if (!cfg.DeleteEntry(LEGACY) || !cfg.Flush()) {
-			cfg.Write(LEGACY, old);
-			error = "Could not remove legacy ECPassword; cleanup will be retried on restart.";
+	// Never restore the old digest in memory: a subsequent password rotation
+	// must not leave a stale legacy key that wins on the next startup.
+	if (cfg.HasEntry(LEGACY) && (!cfg.DeleteEntry(LEGACY) || !cfg.Flush()))
+		error = _("Could not remove legacy ECPassword; cleanup will be retried on restart.");
+}
+bool Persist(wxConfigBase &cfg, const wxString &next)
+{
+	const bool existed = cfg.HasEntry(KEY);
+	const wxString previous = cfg.Read(KEY, wxString());
+	if (cfg.Write(KEY, next) && cfg.Flush())
+		return true;
+	// wxFileConfig may flush on exit. Restore the old persisted state too.
+	if (existed)
+		cfg.Write(KEY, previous);
+	else
+		cfg.DeleteEntry(KEY);
+	return false;
+}
+bool Migrate(wxConfigBase &cfg, const wxString &legacy, wxString &verifier, wxString &error)
+{
+	try {
+		const wxString next = CreateRecord(legacy);
+		if (Persist(cfg, next)) {
+			verifier = next;
+			Cleanup(cfg, error);
+		} else {
+			verifier = next;
+			error = _("Could not persist ECPasswordVerifier; using the legacy ECPassword in "
+				  "memory for this run. Migration will be retried on restart.");
 		}
+		return true;
+	} catch (const std::exception &) {
+		verifier.clear();
+		error = _("Could not generate ECPasswordVerifier; external connections are disabled.");
+		return false;
 	}
 }
 } // namespace
@@ -23,26 +82,18 @@ bool StoreCredential(wxConfigBase &cfg, const wxString &digest, wxString &verifi
 {
 	error.clear();
 	try {
-		const wxString next =
-			digest.IsEmpty()
-				? wxString()
-				: wxString::FromUTF8(
-					  Verifier::Create(std::string(digest.utf8_str())).Encode().c_str());
-		const bool existed = cfg.HasEntry(KEY);
-		const wxString previous = cfg.Read(KEY, wxString());
-		if (!cfg.Write(KEY, next) || !cfg.Flush()) {
-			if (existed)
-				cfg.Write(KEY, previous);
-			else
-				cfg.DeleteEntry(KEY);
-			error = "Could not persist ECPasswordVerifier; previous credential retained.";
+		const wxString next = CreateRecord(digest);
+		if (!Persist(cfg, next)) {
+			error = _("EC password change rejected: could not persist ECPasswordVerifier. The "
+				  "active credential is unchanged.");
 			return false;
 		}
 		verifier = next;
 		Cleanup(cfg, error);
 		return true;
 	} catch (const std::exception &) {
-		error = "Could not generate ECPasswordVerifier; previous credential retained.";
+		error = _("EC password change rejected: could not generate ECPasswordVerifier. The active "
+			  "credential is unchanged.");
 		return false;
 	}
 }
@@ -56,15 +107,35 @@ bool LoadCredential(wxConfigBase &cfg, wxString &verifier, wxString &error)
 			if (!verifier.IsEmpty())
 				Verifier::Decode(std::string(verifier.utf8_str()));
 		} catch (const std::exception &) {
-			error = "Invalid or unsupported ECPasswordVerifier; refusing external connections.";
+			error = _(
+				"Invalid or unsupported ECPasswordVerifier; refusing external connections.");
 			return false;
+		}
+		if (cfg.HasEntry(LEGACY)) {
+			const wxString legacy = cfg.Read(LEGACY, wxString());
+			bool matches = verifier.IsEmpty() && legacy.IsEmpty();
+			try {
+				if (!verifier.IsEmpty() && !legacy.IsEmpty())
+					matches = Verifier::Decode(std::string(verifier.utf8_str()))
+							  .Matches(std::string(legacy.utf8_str()));
+			} catch (const std::exception &) {
+				error = _("Could not compare legacy ECPassword with ECPasswordVerifier; "
+					  "refusing external connections.");
+				return false;
+			}
+			if (!matches) {
+				const bool ok = Migrate(cfg, legacy, verifier, error);
+				if (ok)
+					error = _("Migrating a changed legacy ECPassword after downgrade; "
+						  "the previous verifier no longer authenticates this run.") +
+						" " + error;
+				return ok;
+			}
 		}
 		Cleanup(cfg, error);
 		return true;
 	}
 	const wxString legacy = cfg.Read(LEGACY, wxString());
-	if (legacy.IsEmpty())
-		return true;
-	return StoreCredential(cfg, legacy, verifier, error);
+	return legacy.IsEmpty() || Migrate(cfg, legacy, verifier, error);
 }
 } // namespace ECSRP

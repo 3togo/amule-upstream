@@ -592,13 +592,21 @@ public:
 	static uint32 ECAuthLockoutSeconds() { return s_ECAuthLockoutSeconds; }
 	static void SetECPort(uint32 val) { s_ECPort = val; }
 	static const wxString &ECPasswordVerifier() { return s_ECPasswordVerifier; }
+#ifndef CLIENT_GUI
 	static bool SetECPass(const wxString &pass);
+#endif
 	static const wxString &PendingECPass() { return s_ECPasswordInput; }
 	static void ClearPendingECPass()
 	{
 		s_ECPasswordInput = s_ECPasswordVerifier.IsEmpty() ? "" : "********";
 	}
-	static void LoadECVerifier(const wxString &verifier) { s_ECPasswordVerifier = verifier; }
+	static void LoadECVerifier(const wxString &verifier)
+	{
+		const bool placeholder = s_ECPasswordInput.IsEmpty() || s_ECPasswordInput == "********";
+		s_ECPasswordVerifier = verifier;
+		if (placeholder)
+			ClearPendingECPass();
+	}
 	static bool IsTransmitOnlyUploadingClients() { return s_TransmitOnlyUploadingClients; }
 
 	// Fast ED2K Links Handler Toggling
