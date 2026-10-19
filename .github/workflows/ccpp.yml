@@ -515,8 +515,7 @@ jobs:
 
   build_cmake_macos:
     name: Build CMake MacOS (${{ matrix.build_type }})
-    # Match packaging's Apple Silicon image while macos-26 provisioning is unreliable.
-    runs-on: macos-15
+    runs-on: macos-26
     strategy:
       fail-fast: false
       matrix:
