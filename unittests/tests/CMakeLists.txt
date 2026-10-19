@@ -3040,3 +3040,8 @@ add_executable (WindowGeometryTest WindowGeometryTest.cpp)
 target_include_directories (WindowGeometryTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (WindowGeometryTest muleunit mulecommon)
 add_test (NAME WindowGeometryTest COMMAND WindowGeometryTest)
+
+add_executable (BandwidthRateConversionTest BandwidthRateConversionTest.cpp)
+target_include_directories (BandwidthRateConversionTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (BandwidthRateConversionTest muleunit mulecommon)
+add_test (NAME BandwidthRateConversionTest COMMAND BandwidthRateConversionTest)
