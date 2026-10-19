@@ -113,6 +113,12 @@ target_include_directories (KadBuddyCallbackTest PRIVATE
 )
 target_link_libraries (KadBuddyCallbackTest muleunit mulecommon)
 
+# Byte-order conversion between aMule's and eMule's TAG_BUDDYHASH layouts (#1835).
+add_executable (KadBuddyIdLayoutTest KadBuddyIdLayoutTest.cpp)
+add_test (NAME KadBuddyIdLayoutTest COMMAND KadBuddyIdLayoutTest)
+target_include_directories (KadBuddyIdLayoutTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (KadBuddyIdLayoutTest muleunit mulecommon)
+
 # Buddy keepalives and receive expiry with a deterministic monotonic clock.
 add_executable (KadBuddyLivenessTest KadBuddyLivenessTest.cpp)
 add_test (NAME KadBuddyLivenessTest COMMAND KadBuddyLivenessTest)
@@ -1037,7 +1043,7 @@ target_link_libraries (ServerLoginIPv6Test muleunit mulecommon)
 # application.
 add_executable (ServerIPv6UpdateTest ServerIPv6UpdateTest.cpp)
 add_test (NAME ServerIPv6UpdateTest COMMAND ServerIPv6UpdateTest)
-target_include_directories (ServerIPv6UpdateTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories (ServerIPv6UpdateTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
 target_link_libraries (ServerIPv6UpdateTest muleunit mulecommon)
 
 # Canonical address matching for upload-queue UDP lookups, without the application.
