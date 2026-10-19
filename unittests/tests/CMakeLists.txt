@@ -2240,29 +2240,37 @@ target_link_libraries (BrowseStoreTest
 )
 
 if (TARGET wxWidgets::CORE)
-    add_executable (ColumnFitTest
-        ColumnFitTest.cpp
+    function (add_native_list_test name)
+        add_executable (${name}
+            ${name}.cpp
+            NativeListTestMain.cpp
+            ${CMAKE_SOURCE_DIR}/src/MuleDataViewCtrl.cpp
+            ${CMAKE_SOURCE_DIR}/src/MuleVirtualDataViewCtrl.cpp
+            ${CMAKE_SOURCE_DIR}/src/MuleBarRenderer.cpp
+            ${CMAKE_SOURCE_DIR}/src/MuleIconTextRenderer.cpp
+            ${CMAKE_SOURCE_DIR}/src/ListColumnStore.cpp
+            ${CMAKE_SOURCE_DIR}/src/BarShader.cpp
+            ${CMAKE_SOURCE_DIR}/src/MuleColour.cpp
+            ${CMAKE_SOURCE_DIR}/src/GetTickCount.cpp
+            ${ARGN}
+        )
+        if (WIN32)
+            target_sources (${name} PRIVATE DialogLayoutTest.rc)
+        endif()
+        target_include_directories (${name} PRIVATE
+            ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+            ${CMAKE_SOURCE_DIR}/src/libs
+        )
+        target_link_libraries (${name} PRIVATE wxWidgets::CORE mulecommon)
+        add_test (NAME ${name} COMMAND ${name})
+        set_tests_properties (${name} PROPERTIES SKIP_RETURN_CODE 77)
+    endfunction()
+
+    add_native_list_test (ColumnLayoutTest)
+    add_native_list_test (ColumnFitTest
         ${CMAKE_SOURCE_DIR}/src/SearchColumnFit.cpp
         ${CMAKE_SOURCE_DIR}/src/ClientNameCellDrawing.cpp
-        ${CMAKE_SOURCE_DIR}/src/MuleDataViewCtrl.cpp
-        ${CMAKE_SOURCE_DIR}/src/MuleVirtualDataViewCtrl.cpp
-        ${CMAKE_SOURCE_DIR}/src/MuleBarRenderer.cpp
-        ${CMAKE_SOURCE_DIR}/src/MuleIconTextRenderer.cpp
-        ${CMAKE_SOURCE_DIR}/src/ListColumnStore.cpp
-        ${CMAKE_SOURCE_DIR}/src/BarShader.cpp
-        ${CMAKE_SOURCE_DIR}/src/MuleColour.cpp
-        ${CMAKE_SOURCE_DIR}/src/GetTickCount.cpp
     )
-    if (WIN32)
-        target_sources (ColumnFitTest PRIVATE DialogLayoutTest.rc)
-    endif()
-    target_include_directories (ColumnFitTest PRIVATE
-        ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
-        ${CMAKE_SOURCE_DIR}/src/libs
-    )
-    target_link_libraries (ColumnFitTest PRIVATE wxWidgets::CORE mulecommon)
-    add_test (NAME ColumnFitTest COMMAND ColumnFitTest)
-    set_tests_properties (ColumnFitTest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # CListColumnStore maps a column id to its persistence key and default width.
@@ -2289,30 +2297,6 @@ target_link_libraries (ListColumnStoreTest
 	muleunit
 	mulecommon
 )
-
-if (TARGET wxWidgets::CORE)
-    add_executable (ColumnLayoutTest
-        ColumnLayoutTest.cpp
-        ${CMAKE_SOURCE_DIR}/src/MuleDataViewCtrl.cpp
-        ${CMAKE_SOURCE_DIR}/src/MuleVirtualDataViewCtrl.cpp
-        ${CMAKE_SOURCE_DIR}/src/MuleBarRenderer.cpp
-        ${CMAKE_SOURCE_DIR}/src/MuleIconTextRenderer.cpp
-        ${CMAKE_SOURCE_DIR}/src/ListColumnStore.cpp
-        ${CMAKE_SOURCE_DIR}/src/BarShader.cpp
-        ${CMAKE_SOURCE_DIR}/src/MuleColour.cpp
-        ${CMAKE_SOURCE_DIR}/src/GetTickCount.cpp
-    )
-    if (WIN32)
-        target_sources (ColumnLayoutTest PRIVATE DialogLayoutTest.rc)
-    endif()
-    target_include_directories (ColumnLayoutTest PRIVATE
-        ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
-        ${CMAKE_SOURCE_DIR}/src/libs
-    )
-    target_link_libraries (ColumnLayoutTest PRIVATE wxWidgets::CORE mulecommon)
-    add_test (NAME ColumnLayoutTest COMMAND ColumnLayoutTest)
-    set_tests_properties (ColumnLayoutTest PROPERTIES SKIP_RETURN_CODE 77)
-endif()
 
 # RangeFileBody is the Boost.Beast Body amuleapi serves shared content with: a
 # bounded [first, last] window read through a fixed 64 KiB buffer. Header-only

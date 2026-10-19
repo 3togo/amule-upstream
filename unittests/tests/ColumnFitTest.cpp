@@ -23,10 +23,8 @@
 //
 
 #include <wx/wx.h>
-#include <wx/evtloop.h>
 #include <wx/fileconf.h>
 #include <wx/mstream.h>
-#include <iostream>
 #include <algorithm>
 #include <memory>
 #include <vector>
@@ -37,30 +35,11 @@
 #include "Constants.h"
 #include <stdexcept>
 #include "MuleVirtualDataViewCtrl.h"
-#include "Preferences.h"
+#include "NativeListTest.h"
 #include <common/MenuIDs.h>
-
-// These preferences are the only application state read by the production
-// renderers/list base linked into this standalone GUI test.
-uint8 CPreferences::s_depth3D = 0;
-bool CPreferences::s_liveListSort = false;
-
-class LayoutTestApp : public wxApp
-{
-public:
-	bool OnInit() override { return true; }
-};
-wxIMPLEMENT_APP_NO_MAIN(LayoutTestApp);
 
 namespace
 {
-void Check(bool condition, const char *message)
-{
-	if (!condition) {
-		throw std::runtime_error(message);
-	}
-}
-
 class TestList : public CMuleVirtualDataViewCtrl
 {
 public:
@@ -316,6 +295,8 @@ void TestClientDrawing()
 	}
 }
 
+} // namespace
+
 void RunTests()
 {
 	wxFrame frame(nullptr, wxID_ANY, "Column fitting test");
@@ -357,30 +338,4 @@ void RunTests()
 	list->FitColumnWidths(-1);
 	wxTheApp->Yield(true);
 	Check(list->IsColumnHidden(1), "Fitting revealed a hidden column");
-}
-
-} // namespace
-int main(int argc, char **argv)
-{
-	if (!wxEntryStart(argc, argv)) {
-		std::cerr << "No GUI display available; skipping native list tests\n";
-		return 77;
-	}
-	int result = 0;
-	if (!wxTheApp->CallOnInit()) {
-		result = 1;
-	} else {
-		try {
-			wxEventLoop loop;
-			wxEventLoopActivator active(&loop);
-			RunTests();
-			std::cout << "Native list regression tests passed\n";
-		} catch (const std::exception &error) {
-			std::cerr << error.what() << '\n';
-			result = 1;
-		}
-		wxTheApp->OnExit();
-	}
-	wxEntryCleanup();
-	return result;
 }
