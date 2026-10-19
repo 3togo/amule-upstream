@@ -26,6 +26,7 @@
 #include <wx/evtloop.h>
 #include <wx/fileconf.h>
 #include <wx/mstream.h>
+#include <wx/menu.h>
 #include <iostream>
 #include <stdexcept>
 #include "MuleVirtualDataViewCtrl.h"
@@ -73,13 +74,30 @@ public:
 	using CMuleDataViewCtrl::RestoreColumnLayout;
 	int CachedWidth(int col) const { return m_columnStore.GetCachedWidth(col); }
 	int DefaultWidth(int col) const { return m_columnStore.GetColumnDefaultWidth(col); }
+	using CMuleDataViewCtrl::ApplySorting;
+	using CMuleDataViewCtrl::SaveColumnSettings;
+	wxPoint popupPosition = wxDefaultPosition;
+	bool lastVisibleEnabled = true;
+	TestList *mirror = nullptr;
 	int visibilityChanges = 0;
 	int widthChanges = 0;
 
 protected:
+	bool DoPopupMenu(wxMenu *menu, int x, int y) override
+	{
+		popupPosition = wxPoint(x, y);
+		lastVisibleEnabled = menu->IsEnabled(MP_LISTCOL_1 + 1);
+		return true;
+	}
 	wxString GetItemColumnText(wxUIntPtr, unsigned) const override { return "value"; }
 	int CompareItemData(wxUIntPtr, wxUIntPtr, unsigned, bool, int) const override { return 0; }
-	void OnColumnVisibilityChanged() override { ++visibilityChanges; }
+	void OnColumnVisibilityChanged() override
+	{
+		++visibilityChanges;
+		if (mirror) {
+			mirror->CopyColumnLayoutFrom(*this);
+		}
+	}
 	void OnColumnWidthsChanged() override
 	{
 		++widthChanges;
@@ -122,6 +140,17 @@ void RunTests()
 		wxCommandEvent hide(wxEVT_MENU, MP_LISTCOL_1 + 1);
 		list->ProcessWindowEvent(hide);
 		Check(!list->IsColumnHidden(1), "Last visible column can be hidden");
+		wxKeyEvent settings(wxEVT_KEY_DOWN);
+		settings.m_keyCode = 'L';
+		settings.SetShiftDown(true);
+#ifdef __WXOSX__
+		settings.SetMetaDown(true);
+#else
+		settings.SetControlDown(true);
+#endif
+		list->ProcessWindowEvent(settings);
+		Check(list->popupPosition == wxPoint(0, 0), "Keyboard column menu did not open at the list");
+		Check(!list->lastVisibleEnabled, "Menu allows hiding the last visible column");
 		list->SetColumnHidden(2, false, 80);
 		list->GetColumn(1)->SetWidth(333);
 		wxTheApp->Yield(true);
@@ -131,14 +160,24 @@ void RunTests()
 		}
 		const int adjustedWidth = list->GetColumn(1)->GetWidth();
 		Check(adjustedWidth == 333, "Native resize did not take effect");
+		wxFrame mirroredFrame(nullptr, wxID_ANY, "Live mirrored layout");
+		auto *mirrored = new TestList(&mirroredFrame);
+		list->mirror = mirrored;
 		const int visibilityChanges = list->visibilityChanges;
 		const int widthChanges = list->widthChanges;
+		list->ApplySorting(2, CMuleDataViewCtrl::SORT_DES);
+		list->SaveColumnSettings();
+		const wxString sorting = fixture.config.Read("/eMule/TableOrderingLayoutTest");
 		list->RestoreColumnLayout(false);
+		Check(list->visibilityChanges == visibilityChanges + 1 && list->widthChanges == widthChanges,
+			"Show-all must synchronize exactly once");
 		wxTheApp->Yield(true);
 		Check(!list->IsColumnHidden(0) && !list->IsColumnHidden(2),
 			"Show-all did not reveal every column");
 		Check(list->GetColumn(1)->GetWidth() == adjustedWidth, "Show-all changed an existing width");
 		list->RestoreColumnLayout(true);
+		Check(mirrored->CachedWidth(1) == list->DefaultWidth(1),
+			"Reset mirrored a stale native width");
 		wxTheApp->Yield(true);
 		Check(list->IsColumnHidden(0), "Reset lost the constructor's hidden Part column");
 		Check(!list->IsColumnHidden(1) && !list->IsColumnHidden(2),
@@ -153,9 +192,19 @@ void RunTests()
 		}
 		Check(list->GetColumn(1)->GetWidth() != adjustedWidth,
 			"Reset failed to restore default widths");
-		Check(list->visibilityChanges == visibilityChanges + 2 &&
-				list->widthChanges == widthChanges + 2,
-			"Reset did not notify search-tab synchronization hooks");
+		Check(list->visibilityChanges == visibilityChanges + 2 && list->widthChanges == widthChanges,
+			"Restore must synchronize each layout once through the visibility hook");
+		Check(fixture.config.Read("/eMule/TableOrderingLayoutTest") == sorting,
+			"Restoring the layout changed sorting");
+		wxFrame reloadedFrame(nullptr, wxID_ANY, "Persisted reset");
+		auto *reloaded = new TestList(&reloadedFrame);
+		Check(reloaded->IsColumnHidden(0) && !reloaded->IsColumnHidden(1) &&
+				!reloaded->IsColumnHidden(2),
+			"Reset visibility was not persisted");
+		Check(reloaded->CachedWidth(0) == list->DefaultWidth(0) &&
+				reloaded->CachedWidth(1) == list->DefaultWidth(1),
+			"Reset widths were not persisted");
+		list->mirror = nullptr;
 	}
 	fixture.config.Write("/eMule/TableWidthsLayoutTest", "P:-444,N:300,S:80");
 	{
@@ -167,6 +216,14 @@ void RunTests()
 		mirror->CopyColumnLayoutFrom(*source);
 		Check(mirror->CachedWidth(1) == 300,
 			"Mirroring before first paint lost a restored visible width");
+		wxCommandEvent toggleName(wxEVT_MENU, MP_LISTCOL_1 + 1);
+		source->ProcessWindowEvent(toggleName);
+		Check(source->IsColumnHidden(1) && source->CachedWidth(1) == 300,
+			"Hiding before first paint lost a saved width");
+		source->ProcessWindowEvent(toggleName);
+		source->RestoreColumnLayout(false);
+		Check(source->CachedWidth(1) == 300, "Show-all before first paint lost a saved width");
+		Check(source->CachedWidth(0) == 444, "Show-all lost a hidden column's saved width");
 		source->RestoreColumnLayout(true);
 		mirror->CopyColumnLayoutFrom(*source);
 		Check(mirror->IsColumnHidden(0), "Mirroring lost hidden state");

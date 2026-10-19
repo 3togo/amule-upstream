@@ -24,8 +24,9 @@
 
 #include "MuleDataViewCtrl.h" // Interface declarations
 
-#include <wx/dcclient.h> // Needed for wxClientDC
-#include <wx/menu.h>     // Needed for wxMenu (header show/hide menu)
+#include <wx/dcclient.h>   // Needed for wxClientDC
+#include <wx/menu.h>       // Needed for wxMenu (header show/hide menu)
+#include <wx/scopeguard.h> // Needed for wxON_BLOCK_EXIT_SET
 
 #include <algorithm> // Needed for std::find, std::sort, std::min, std::max
 #include <vector>    // Needed for std::vector
@@ -73,7 +74,7 @@ int CMuleDataViewCtrl::ColumnWidthAdapter::GetColumnWidth(int col) const
 	if (m_ctrl->IsColumnHidden(col)) {
 		return 0;
 	}
-	const int width = m_ctrl->GetColumn(col)->GetWidth();
+	const int width = m_ctrl->m_useCachedColumnWidths ? 0 : m_ctrl->GetColumn(col)->GetWidth();
 	if (width > 0) {
 		return width;
 	}
@@ -175,6 +176,17 @@ unsigned CMuleDataViewCtrl::RealColumnCount() const
 	return columns;
 }
 
+unsigned CMuleDataViewCtrl::VisibleColumnCount() const
+{
+	unsigned visible = 0;
+	for (unsigned i = 0; i < RealColumnCount(); ++i) {
+		if (!IsColumnHidden(static_cast<int>(i))) {
+			++visible;
+		}
+	}
+	return visible;
+}
+
 void CMuleDataViewCtrl::InitColumnState()
 {
 	// Every appended column must sit at the view position matching its model id. Several things
@@ -198,11 +210,7 @@ void CMuleDataViewCtrl::InitColumnState()
 	m_columnHidden.resize(RealColumnCount(), false);
 	// Old profiles may already have every column hidden. Recover a useful default
 	// column before the header becomes the only way to repair the layout.
-	bool anyVisible = false;
-	for (unsigned i = 0; i < RealColumnCount(); ++i) {
-		anyVisible = anyVisible || !IsColumnHidden(static_cast<int>(i));
-	}
-	if (!anyVisible && RealColumnCount() > 0) {
+	if (VisibleColumnCount() == 0 && RealColumnCount() > 0) {
 		unsigned first = 0;
 		for (unsigned i = 0; i < m_defaultColumnHidden.size(); ++i) {
 			if (!m_defaultColumnHidden[i]) {
@@ -492,8 +500,8 @@ void CMuleDataViewCtrl::RestoreColumnLayout(bool defaults)
 	for (unsigned i = 0; i < RealColumnCount(); ++i) {
 		const int col = static_cast<int>(i);
 		const bool hidden = defaults && i < m_defaultColumnHidden.size() && m_defaultColumnHidden[i];
-		const int current =
-			IsColumnHidden(col) ? m_columnStore.GetCachedWidth(col) : GetColumn(i)->GetWidth();
+		const int current = IsColumnHidden(col) ? m_columnStore.GetCachedWidth(col)
+							: m_widthAdapter.GetColumnWidth(col);
 		const int width = defaults || current <= COL_SIZE_MIN
 					  ? m_columnStore.GetColumnDefaultWidth(col)
 					  : current;
@@ -503,9 +511,13 @@ void CMuleDataViewCtrl::RestoreColumnLayout(bool defaults)
 	UpdateExpanderColumn();
 	Thaw();
 	ResetKnownWidths();
-	// Use both hooks so search tabs mirror visibility and widths together.
+	// GTK may still report the pre-reset native widths until the next paint.
+	// Both mirroring and persistence must use the widths just requested.
+	wxON_BLOCK_EXIT_SET(m_useCachedColumnWidths, m_useCachedColumnWidths);
+	m_useCachedColumnWidths = true;
+	// The visibility hook mirrors the complete layout, including widths.
 	OnColumnVisibilityChanged();
-	OnColumnWidthsChanged();
+	SaveColumnSettings();
 	Refresh();
 }
 
@@ -545,12 +557,7 @@ void CMuleDataViewCtrl::ShowColumnMenu(wxDataViewColumn *clicked)
 	wxASSERT_MSG(RealColumnCount() <= menuSlots,
 		"more columns than MP_LISTCOL_* slots -- the extra ones cannot be shown or hidden");
 	const unsigned columns = std::min<unsigned>(RealColumnCount(), menuSlots);
-	unsigned visible = 0;
-	for (unsigned i = 0; i < RealColumnCount(); ++i) {
-		if (!IsColumnHidden(static_cast<int>(i))) {
-			++visible;
-		}
-	}
+	const unsigned visible = VisibleColumnCount();
 	for (unsigned i = 0; i < columns; ++i) {
 		menu.AppendCheckItem(static_cast<int>(i) + MP_LISTCOL_1, GetColumn(i)->GetTitle());
 		menu.Check(static_cast<int>(i) + MP_LISTCOL_1, !IsColumnHidden(static_cast<int>(i)));
@@ -580,7 +587,9 @@ void CMuleDataViewCtrl::ShowColumnMenu(wxDataViewColumn *clicked)
 	const wxWindowIDRef restore = wxWindow::NewControlId();
 	menu.Append(restore, _("Restore default columns and widths"));
 	menu.Bind(wxEVT_MENU, [this](wxCommandEvent &) { RestoreColumnLayout(true); }, restore);
-	PopupMenu(&menu);
+	// Keyboard invocation must stay at the focused table even if the pointer
+	// is over another window. Header clicks retain the pointer position.
+	PopupMenu(&menu, clicked ? wxDefaultPosition : wxPoint(0, 0));
 }
 
 void CMuleDataViewCtrl::FitColumnWidths(int column)
@@ -668,23 +677,18 @@ void CMuleDataViewCtrl::OnColumnMenuSelected(wxCommandEvent &evt)
 	}
 
 	if (!IsColumnHidden(col)) {
-		unsigned visible = 0;
-		for (unsigned i = 0; i < RealColumnCount(); ++i) {
-			if (!IsColumnHidden(static_cast<int>(i))) {
-				++visible;
-			}
-		}
-		if (visible <= 1) {
+		if (VisibleColumnCount() <= 1) {
 			return;
 		}
 		// Remember the width so re-showing restores what the user had.
-		m_columnStore.SetCachedWidth(col, GetColumn(static_cast<unsigned>(col))->GetWidth());
+		m_columnStore.SetCachedWidth(col, m_widthAdapter.GetColumnWidth(col));
 		SetColumnHidden(col, true, 0);
 	} else {
 		const int cached = m_columnStore.GetCachedWidth(col);
 		SetColumnHidden(col, false, cached > 0 ? cached : m_columnStore.GetColumnDefaultWidth(col));
 	}
 	UpdateExpanderColumn();
+	ResetKnownWidths();
 	OnColumnVisibilityChanged();
 	SaveColumnSettings();
 }
