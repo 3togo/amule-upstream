@@ -312,7 +312,8 @@ protected:
 	void OnBnClickedFast(wxCommandEvent &evt);
 	void OnGUITimer(wxTimerEvent &evt);
 	void OnMainGUISizeChange(wxSizeEvent &evt);
-	void OnMainGUIMove(wxMoveEvent &evt);
+	void OnMainGUIIdle(wxIdleEvent &evt);
+	void OnMainGUIMaximize(wxMaximizeEvent &evt);
 	// Stash the current (non-iconized) pos / size / maximized state so SaveGUIPrefs can fall
 	// back to the last good geometry if the user exits from a minimized window.
 	void CacheLastShownGeometry();

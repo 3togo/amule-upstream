@@ -142,7 +142,8 @@ wxBEGIN_EVENT_TABLE(CamuleDlg, wxFrame)
 	EVT_TIMER(ID_GUI_TIMER_EVENT, CamuleDlg::OnGUITimer)
 
 	EVT_SIZE(CamuleDlg::OnMainGUISizeChange)
-	EVT_MOVE(CamuleDlg::OnMainGUIMove)
+	EVT_IDLE(CamuleDlg::OnMainGUIIdle)
+	EVT_MAXIMIZE(CamuleDlg::OnMainGUIMaximize)
 
 	EVT_KEY_UP(CamuleDlg::OnKeyPressed)
 
@@ -216,6 +217,7 @@ CamuleDlg::CamuleDlg(wxWindow *pParent, const wxString &title, wxPoint where, wx
 
 	// wxWidgets send idle events to ALL WINDOWS by default... *SIGH*
 	wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED);
+	SetExtraStyle(GetExtraStyle() | wxWS_EX_PROCESS_IDLE);
 	wxUpdateUIEvent::SetMode(wxUPDATE_UI_PROCESS_SPECIFIED);
 	wxInitAllImageHandlers();
 	Apply_Clients_Skin();
@@ -2198,15 +2200,24 @@ void CamuleDlg::CacheLastShownGeometry()
 	m_windowGeometry.Remember(GetRect(), IsMaximized(), IsIconized());
 }
 
-void CamuleDlg::OnMainGUIMove(wxMoveEvent &evt)
+void CamuleDlg::OnMainGUIMaximize(wxMaximizeEvent &evt)
 {
+	// Idle events may stop while the frame is inactive or minimized. Remember
+	// the restore state as soon as the native maximize notification arrives.
+	m_windowGeometry.Remember(GetRect(), true, false);
+	evt.Skip();
+}
+
+void CamuleDlg::OnMainGUIIdle(wxIdleEvent &evt)
+{
+	// Window managers can move a frame before its maximized state is delivered.
+	// Sample after pending native events, rather than caching transitional bounds.
 	CacheLastShownGeometry();
 	evt.Skip();
 }
 
 void CamuleDlg::OnMainGUISizeChange(wxSizeEvent &evt)
 {
-	CacheLastShownGeometry();
 	wxFrame::OnSize(evt);
 	if (m_transferwnd && m_transferwnd->clientlistctrl) {
 		// Transfer window's splitter set again if it's hidden.
