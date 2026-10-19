@@ -282,6 +282,8 @@ protected:
 		//! A hidden column reads as zero-width, which is how
 		//! CListColumnStore already persists hidden state.
 		int GetColumnWidth(int col) const override;
+		int ToLogicalWidth(int width) const override { return m_ctrl->ToDIP(width); }
+		int FromLogicalWidth(int width) const override { return m_ctrl->FromDIP(width); }
 		bool SetColumnWidth(int col, int width) override
 		{
 			m_ctrl->SetColumnHidden(col, width <= COL_SIZE_MIN, width);

@@ -59,6 +59,9 @@ public:
 	virtual int GetColumnCount() const = 0;
 	virtual int GetColumnWidth(int col) const = 0;
 	virtual bool SetColumnWidth(int col, int width) = 0;
+	//! Convert positive widths to/from logical units; legacy providers use identity.
+	virtual int ToLogicalWidth(int width) const { return width; }
+	virtual int FromLogicalWidth(int width) const { return width; }
 };
 
 /**
@@ -135,8 +138,10 @@ public:
 	void SetCachedWidth(int index, int width);
 
 	/**
-	 * Writes the current column widths and visibility, plus the given sort order, to wxConfig
-	 * under this store's table name. No-op if no table name has been set.
+	 * Writes legacy pixel widths plus a logical-width companion and its source snapshot,
+	 * preserving visibility and sort order. Older clients may still edit the legacy entry;
+	 * LoadSettings() only trusts the companion while its source snapshot matches.
+	 * No-op if no table name has been set.
 	 */
 	void SaveSettings(const IColumnWidthProvider &widget, const CSortingList &sortOrders) const;
 
@@ -156,6 +161,7 @@ public:
 		IColumnWidthProvider &widget, const wxString &oldColumnOrder, CSortingList &outSortOrders);
 
 private:
+	bool RestoreWidth(IColumnWidthProvider &widget, int column, long width, bool logical);
 	int GetNewColumnIndex(int oldindex, const wxString &oldColumnOrder) const;
 	bool ParseOldConfigEntries(const wxString &sortOrders,
 		const wxString &columnWidths,

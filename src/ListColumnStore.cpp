@@ -24,6 +24,8 @@
 
 #include "ListColumnStore.h"
 
+#include <algorithm>
+
 #include <wx/config.h>
 #include <wx/tokenzr.h>
 
@@ -166,20 +168,44 @@ void CListColumnStore::SaveSettings(const IColumnWidthProvider &widget, const CS
 
 	// Save column widths. ATM this is also used to signify hidden columns.
 	wxString buffer;
+	wxString logicalBuffer;
 	for (int i = 0; i < widget.GetColumnCount(); ++i) {
 		wxString columnName = GetColumnName(i);
 		if (!columnName.IsEmpty()) {
 			if (!buffer.IsEmpty()) {
 				buffer << ",";
+				logicalBuffer << ",";
 			}
 			int currentwidth = widget.GetColumnWidth(i);
 			int savedsize = (m_column_sizes.size() && (i < (int)m_column_sizes.size()))
 						? m_column_sizes[i]
 						: 0;
-			buffer << columnName << ":" << ((currentwidth > 0) ? currentwidth : (-1 * savedsize));
+			const int width = currentwidth > 0 ? currentwidth : savedsize;
+			const int sign = currentwidth > 0 ? 1 : -1;
+			buffer << columnName << ":" << sign * width;
+			logicalBuffer << columnName << ":" << sign * widget.ToLogicalWidth(width);
 		}
 	}
 	cfg->Write("/eMule/TableWidths" + m_name, buffer);
+	cfg->Write("/eMule/TableWidthsDIP" + m_name, logicalBuffer);
+	// An older application can still update TableWidths. Only prefer the DIP
+	// companion while it describes the same legacy pixel-width snapshot.
+	cfg->Write("/eMule/TableWidthsDIPSource" + m_name, buffer);
+}
+
+bool CListColumnStore::RestoreWidth(IColumnWidthProvider &widget, int column, long width, bool logical)
+{
+	// Validate before abs(), narrowing, or DPI conversion. Corrupt values must
+	// not overflow or create enormous columns. Invalid entries retain defaults.
+	const int limit = logical ? 4096 : widget.FromLogicalWidth(4096);
+	if (column < 0 || column >= widget.GetColumnCount() || width < -limit || width > limit) {
+		return false;
+	}
+	const int magnitude = static_cast<int>(width < 0 ? -width : width);
+	const int pixels = logical ? widget.FromLogicalWidth(magnitude) : magnitude;
+	SetCachedWidth(column, pixels > COL_SIZE_MIN ? pixels : GetColumnDefaultWidth(column));
+	widget.SetColumnWidth(column, width > 0 ? std::max(COL_SIZE_MIN + 1, pixels) : 0);
+	return true;
 }
 
 bool CListColumnStore::ParseOldConfigEntries(const wxString &sortOrders,
@@ -220,10 +246,10 @@ bool CListColumnStore::ParseOldConfigEntries(const wxString &sortOrders,
 	wxStringTokenizer tokenizer(columnWidths, ",");
 	while (tokenizer.HasMoreTokens()) {
 		long idx = GetNewColumnIndex(counter++, oldColumnOrder);
-		long width = StrToLong(tokenizer.GetNextToken());
-		if (idx >= 0) {
-			widget.SetColumnWidth(static_cast<int>(idx), static_cast<int>(width));
-			restoredWidth = true;
+		long width = 0;
+		if (tokenizer.GetNextToken().ToLong(&width) && idx >= 0) {
+			restoredWidth =
+				RestoreWidth(widget, static_cast<int>(idx), width, false) || restoredWidth;
 		}
 	}
 
@@ -266,20 +292,21 @@ bool CListColumnStore::LoadSettings(
 		}
 	}
 
-	// Column widths
+	// Preserve legacy pixel widths on their first load: their original DPI is
+	// unknowable. The next save writes a logical-width companion for later moves.
+	const bool logical = cfg->HasEntry("/eMule/TableWidthsDIP" + m_name) &&
+			     cfg->Read("/eMule/TableWidthsDIPSource" + m_name, "") == columnWidths;
+	if (logical) {
+		columnWidths = cfg->Read("/eMule/TableWidthsDIP" + m_name, "");
+	}
 	wxStringTokenizer tkz(columnWidths, ",");
 	while (tkz.HasMoreTokens()) {
 		wxString token = tkz.GetNextToken();
 		wxString name = token.BeforeFirst(':');
-		long width = StrToLong(token.AfterFirst(':'));
-		int col = GetColumnIndex(name);
-		if (col >= 0) {
-			if (col >= (int)m_column_sizes.size()) {
-				m_column_sizes.resize(col + 1, 0);
-			}
-			m_column_sizes[col] = static_cast<int>(abs(width));
-			widget.SetColumnWidth(col, static_cast<int>((width > 0) ? width : 0));
-			restoredWidth = true;
+		long width = 0;
+		const int col = GetColumnIndex(name);
+		if (token.AfterFirst(':').ToLong(&width)) {
+			restoredWidth = RestoreWidth(widget, col, width, logical) || restoredWidth;
 		}
 	}
 

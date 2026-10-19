@@ -34,6 +34,9 @@
 #include <muleunit/test.h>
 
 #include <ListColumnStore.h>
+#include <wx/fileconf.h>
+#include <wx/mstream.h>
+#include <limits>
 
 using namespace muleunit;
 
@@ -122,4 +125,130 @@ TEST(CListColumnStore, UnknownColumnsReportTheirMissValues)
 	ASSERT_TRUE(store.GetColumnName(7).IsEmpty());
 	ASSERT_EQUALS(-1, store.GetColumnDefaultWidth(7)); // wxLIST_AUTOSIZE
 	ASSERT_EQUALS(-1, store.GetColumnIndex("nope"));
+}
+
+namespace
+{
+class WidthConfig
+{
+public:
+	WidthConfig()
+	: input("", 0)
+	, config(input)
+	, previous(wxConfigBase::Set(&config))
+	{
+	}
+	~WidthConfig() { wxConfigBase::Set(previous); }
+	wxMemoryInputStream input;
+	wxFileConfig config;
+	wxConfigBase *previous;
+};
+class WidthProvider : public IColumnWidthProvider
+{
+public:
+	explicit WidthProvider(int scale)
+	: scale(scale)
+	{
+	}
+	int GetColumnCount() const override { return 2; }
+	int GetColumnWidth(int col) const override { return widths[col]; }
+	bool SetColumnWidth(int col, int width) override
+	{
+		widths[col] = width;
+		return true;
+	}
+	int ToLogicalWidth(int width) const override { return width / scale; }
+	int FromLogicalWidth(int width) const override { return width * scale; }
+	int scale;
+	int widths[2] = { 200, 100 };
+};
+void RegisterWidths(CListColumnStore &store)
+{
+	store.SetTableName("Test");
+	store.RegisterColumn(0, 200, "N");
+	store.RegisterColumn(1, 100, "S");
+}
+} // namespace
+TEST(CListColumnStore, LogicalWidthsAndHiddenCacheSurviveScaleChange)
+{
+	WidthConfig fixture;
+	CListColumnStore store;
+	RegisterWidths(store);
+	WidthProvider before(2);
+	before.widths[0] = 600;
+	before.widths[1] = 0;
+	store.SetCachedWidth(1, 240);
+	store.SaveSettings(before, {});
+	CListColumnStore restored;
+	RegisterWidths(restored);
+	WidthProvider after(1);
+	CListColumnStore::CSortingList order;
+	ASSERT_TRUE(restored.LoadSettings(after, "", order));
+	ASSERT_EQUALS(300, after.widths[0]);
+	ASSERT_EQUALS(0, after.widths[1]);
+	ASSERT_EQUALS(120, restored.GetCachedWidth(1));
+	restored.SaveSettings(after, order);
+	WidthProvider again(2);
+	ASSERT_TRUE(restored.LoadSettings(again, "", order));
+	ASSERT_EQUALS(600, again.widths[0]);
+	ASSERT_EQUALS(240, restored.GetCachedWidth(1));
+}
+TEST(CListColumnStore, OlderClientEditsOverrideLogicalCompanion)
+{
+	WidthConfig fixture;
+	CListColumnStore store;
+	RegisterWidths(store);
+	WidthProvider before(1);
+	store.SaveSettings(before, {});
+	fixture.config.Write("/eMule/TableWidthsTest", "N:444,S:-160");
+	WidthProvider after(2);
+	CListColumnStore::CSortingList order;
+	ASSERT_TRUE(store.LoadSettings(after, "", order));
+	ASSERT_EQUALS(444, after.widths[0]);
+	ASSERT_EQUALS(160, store.GetCachedWidth(1));
+	ASSERT_EQUALS(0, after.widths[1]);
+}
+TEST(CListColumnStore, LegacyPixelsMigrateWithoutInventingOriginalScale)
+{
+	WidthConfig fixture;
+	fixture.config.Write("/eMule/TableWidthsTest", "N:600,S:-240");
+	CListColumnStore store;
+	RegisterWidths(store);
+	WidthProvider atTwo(2);
+	CListColumnStore::CSortingList order;
+	ASSERT_TRUE(store.LoadSettings(atTwo, "", order));
+	ASSERT_EQUALS(600, atTwo.widths[0]);
+	store.SaveSettings(atTwo, order);
+	WidthProvider atOne(1);
+	ASSERT_TRUE(store.LoadSettings(atOne, "", order));
+	ASSERT_EQUALS(300, atOne.widths[0]);
+	ASSERT_EQUALS(120, store.GetCachedWidth(1));
+}
+TEST(CListColumnStore, InvalidWidthsRetainDefaultsWithoutOverflow)
+{
+	WidthConfig fixture;
+	CListColumnStore store;
+	RegisterWidths(store);
+	WidthProvider provider(2);
+	CListColumnStore::CSortingList order;
+	fixture.config.Write("/eMule/TableWidthsTest",
+		"N:" + wxString::Format("%ld", std::numeric_limits<long>::min()) + ",S:not-a-width");
+	ASSERT_FALSE(store.LoadSettings(provider, "", order));
+	ASSERT_EQUALS(200, provider.widths[0]);
+	ASSERT_EQUALS(100, provider.widths[1]);
+	fixture.config.Write("/eMule/TableWidthsTest", "N:9999999999999999999999999999,S:999999");
+	ASSERT_FALSE(store.LoadSettings(provider, "", order));
+	ASSERT_EQUALS(200, provider.widths[0]);
+}
+TEST(CListColumnStore, PreNamedColumnFormatStillRestoresPixels)
+{
+	WidthConfig fixture;
+	fixture.config.Write("/eMule/TableWidthsTest", "500,90");
+	CListColumnStore store;
+	RegisterWidths(store);
+	WidthProvider provider(2);
+	CListColumnStore::CSortingList order;
+	ASSERT_TRUE(store.LoadSettings(provider, "N,S", order));
+	ASSERT_EQUALS(500, provider.widths[0]);
+	ASSERT_EQUALS(90, provider.widths[1]);
 }
