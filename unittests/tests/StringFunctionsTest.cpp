@@ -85,14 +85,14 @@ TEST(StringFunctions, RepairDoubleEncodedUTF8KeepsLastValidPass)
 TEST(StringFunctions, RepairTruncatedUTF8AtEverySequenceBoundary)
 {
 	const wxString prefix = wxString::FromUTF8("Клим.frías.東京.");
-	const wxString expected = prefix + wxUniChar(0xFFFD);
 	for (const char *character : { "К", "東", "😀" }) {
 		const std::string sequence(character);
 		for (size_t cut = 1; cut < sequence.size(); ++cut) {
 			const std::string bytes = std::string(prefix.utf8_str()) + sequence.substr(0, cut);
 			const wxString damaged(bytes.data(), wxConvISO8859_1, bytes.size());
 			ASSERT_EQUALS(damaged, RepairDoubleEncodedUTF8(damaged));
-			ASSERT_EQUALS(expected, RepairDoubleEncodedUTF8(damaged, true));
+			ASSERT_EQUALS(prefix, RepairDoubleEncodedUTF8(damaged, true));
+			ASSERT_EQUALS(prefix, RepairSearchResultFilename(damaged));
 		}
 	}
 }
@@ -106,8 +106,7 @@ TEST(StringFunctions, RepairTruncatedUTF8Reported160ByteNames)
 		const std::string bytes = std::string(text) + "\xD0";
 		ASSERT_EQUALS(size_t(160), bytes.size());
 		const wxString damaged(bytes.data(), wxConvISO8859_1, bytes.size());
-		ASSERT_EQUALS(
-			wxString::FromUTF8(text) + wxUniChar(0xFFFD), RepairDoubleEncodedUTF8(damaged, true));
+		ASSERT_EQUALS(wxString::FromUTF8(text), RepairDoubleEncodedUTF8(damaged, true));
 	}
 }
 
@@ -118,7 +117,7 @@ TEST(StringFunctions, RepairTruncatedUTF8RepeatedWithinPassLimit)
 	const wxString truncated(bytes.data(), wxConvISO8859_1, bytes.size());
 	wxString damaged = truncated;
 	for (unsigned layer = 0; layer < 4; ++layer) {
-		ASSERT_EQUALS(prefix + wxUniChar(0xFFFD), RepairDoubleEncodedUTF8(damaged, true));
+		ASSERT_EQUALS(prefix, RepairDoubleEncodedUTF8(damaged, true));
 		damaged = DoubleEncodeUTF8(damaged);
 	}
 	// Four valid passes exhaust the budget before the incomplete layer is reached.
@@ -162,40 +161,33 @@ TEST(StringFunctions, RepairTruncatedUTF8RejectsMalformedSequences)
 	}
 }
 
-TEST(StringFunctions, RepairSearchFilenameCaseChangedEncodingLayers)
+TEST(StringFunctions, RepairSearchFilenamePreservesCaseChangedEncoding)
 {
-	// The reported Spanish fragment results from three Latin-1 misreadings,
-	// with title-casing after layers two and three. C1 controls represent the
-	// reporter's caret notation. Undo encoding and changed leads, preserving
-	// the received ASCII casing: "Años" and "AñOs" have the same damaged form.
-	const wxString damaged = wxString::FromUTF8("Aã£Â") + wxUniChar(0x83) + wxString::FromUTF8("Ã") +
+	// Case changes lose information: strict decoding must not guess lead bytes.
+	const wxString spanish = wxString::FromUTF8("Aã£Â") + wxUniChar(0x83) + wxString::FromUTF8("Ã") +
 				 wxUniChar(0x82) + wxString::FromUTF8("Â±Os.avi");
-	ASSERT_EQUALS(damaged, RepairDoubleEncodedUTF8(damaged, true));
-	ASSERT_EQUALS(wxString::FromUTF8("AñOs.avi"), RepairSearchResultFilename(damaged));
-	ASSERT_EQUALS(wxString::FromUTF8("AñOs.avi"), RepairSearchResultFilename(DoubleEncodeUTF8(damaged)));
-	// The same four-pass budget applies to the combined reverse sequence.
-	ASSERT_EQUALS(wxString::FromUTF8("AÃ±Os.avi"),
-		RepairSearchResultFilename(DoubleEncodeUTF8(DoubleEncodeUTF8(damaged))));
-}
-
-TEST(StringFunctions, RepairSearchFilenameLowercasedCyrillicLeads)
-{
-	// Lowercasing the damaged text changes U+00D0/U+00D1 to U+00F0/U+00F1.
-	const wxString damaged = wxString::FromUTF8("ð") + wxUniChar(0x9A) + wxString::FromUTF8("ð»ð¸ð¼.mkv");
-	ASSERT_EQUALS(wxString::FromUTF8("Клим.mkv"), RepairSearchResultFilename(damaged));
-}
-
-TEST(StringFunctions, RepairSearchFilenameCaseChangesNeedCorroboratingEvidence)
-{
-	for (const wxString &name : { wxString::FromUTF8("Café.mkv"),
-		     wxString::FromUTF8("Aã£Os.avi"),
-		     wxString::FromUTF8("東京.mkv"),
-		     wxString::FromUTF8("ã") + wxUniChar(0x83),
-		     wxString::FromUTF8("ã") + wxUniChar(0x83) + wxString::FromUTF8("brokené"),
-		     wxString::FromUTF8("ã") + wxUniChar(0x83) + wxString::FromUTF8("ã") + wxUniChar(0x83) +
-			     wxUniChar(0xFF) }) {
+	const wxString cyrillic =
+		wxString::FromUTF8("ð") + wxUniChar(0x9A) + wxString::FromUTF8("ð»ð¸ð¼.mkv");
+	for (const wxString &name : { spanish, cyrillic }) {
 		ASSERT_EQUALS(name, RepairSearchResultFilename(name));
+		ASSERT_EQUALS(name, RepairSearchResultFilename(DoubleEncodeUTF8(name)));
 	}
+}
+
+TEST(StringFunctions, RepairSearchFilenamePreservesExistingReplacementCharacter)
+{
+	const wxString original = wxString::FromUTF8("Клим.�.mkv");
+	ASSERT_EQUALS(original, RepairSearchResultFilename(original));
+	ASSERT_EQUALS(original, RepairSearchResultFilename(DoubleEncodeUTF8(original)));
+}
+
+TEST(StringFunctions, RepairTruncatedUTF8ContinuesDecodingPrefix)
+{
+	// Dropping a tail must not stop a later strict pass over a Latin-1 prefix.
+	const wxString original = wxString::FromUTF8("frías.mkv");
+	const std::string bytes = std::string(DoubleEncodeUTF8(original).utf8_str()) + "\xD0";
+	const wxString damaged(bytes.data(), wxConvISO8859_1, bytes.size());
+	ASSERT_EQUALS(original, RepairSearchResultFilename(damaged));
 }
 
 ///////////////////////////////////////////////////////////

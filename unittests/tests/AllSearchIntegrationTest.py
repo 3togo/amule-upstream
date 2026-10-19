@@ -37,10 +37,10 @@ TRUNCATED_UTF8_PREFIXES = (
     'Разговор с Дьяволо_ Последнее предупреждение Людям Земли. Мировая Война_ Хаос_ Конец Св',
 )
 FILENAME_REPAIR_CASES = tuple(
-    ('truncatedutf8' + word, prefix.encode() + b'\xd0', prefix + '\ufffd')
+    ('truncatedutf8' + word, prefix.encode() + b'\xd0', prefix)
     for word, prefix in zip(('zero', 'one'), TRUNCATED_UTF8_PREFIXES)
 ) + (
-    ('casechangedutf8', 'Bhr-Aã£Â\u0083Ã\u0082Â±Os.mkv'.encode(), 'Bhr-AñOs.mkv'),
+    ('casechangedutf8', 'Bhr-Aã£Â\u0083Ã\u0082Â±Os.mkv'.encode(), 'Bhr-Aã£Â\u0083Ã\u0082Â±Os.mkv'),
 )
 
 

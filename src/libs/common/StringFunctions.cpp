@@ -66,76 +66,11 @@ size_t IncompleteUTF8TailLength(const std::string &bytes)
 	}
 	return available;
 }
-
-bool ContainsC1Controls(const wxString &text)
-{
-	for (size_t i = 0; i < text.Length(); ++i) {
-		const unsigned ch = text.GetChar(i).GetValue();
-		if (ch >= 0x80 && ch <= 0x9F) {
-			return true;
-		}
-	}
-	return false;
-}
-
-size_t CanonicalUTF8SequenceLength(const std::string &bytes, size_t start)
-{
-	const unsigned lead = static_cast<unsigned char>(bytes[start]);
-	if (lead < 0x80) {
-		return 1;
-	}
-	const size_t length = lead >= 0xC2 && lead <= 0xDF   ? 2
-			      : lead >= 0xE0 && lead <= 0xEF ? 3
-			      : lead >= 0xF0 && lead <= 0xF4 ? 4
-							     : 0;
-	if (length == 0 || length > bytes.size() - start) {
-		return 0;
-	}
-	for (size_t i = 1; i < length; ++i) {
-		const unsigned next = static_cast<unsigned char>(bytes[start + i]);
-		if ((next & 0xC0) != 0x80 ||
-			(i == 1 &&
-				((lead == 0xE0 && next < 0xA0) || (lead == 0xED && next >= 0xA0) ||
-					(lead == 0xF0 && next < 0x90) || (lead == 0xF4 && next >= 0x90)))) {
-			return 0;
-		}
-	}
-	return length;
-}
-
-// Title-casing mojibake can lowercase a Latin-1 character that represented a
-// UTF-8 lead (e.g. U+00C3 -> U+00E3). Undo that only where the received bytes
-// cannot form a canonical sequence, and the restored lead forms a complete pair.
-bool RestoreCaseChangedUTF8Leads(std::string &bytes, unsigned &changes)
-{
-	for (size_t i = 0; i < bytes.size();) {
-		const size_t length = CanonicalUTF8SequenceLength(bytes, i);
-		if (length != 0) {
-			i += length;
-			continue;
-		}
-		const size_t remaining = bytes.size() - i;
-		if (remaining <= 3 && IncompleteUTF8TailLength(bytes.substr(i)) == remaining) {
-			return true;
-		}
-		const unsigned ch = static_cast<unsigned char>(bytes[i]);
-		if (((ch >= 0xE2 && ch <= 0xF6) || (ch >= 0xF8 && ch <= 0xFE)) && i + 1 < bytes.size() &&
-			(static_cast<unsigned char>(bytes[i + 1]) & 0xC0) == 0x80) {
-			bytes[i] = static_cast<char>(ch - 0x20);
-			++changes;
-			i += 2;
-			continue;
-		}
-		return false;
-	}
-	return true;
-}
 } // namespace
 
 wxString RepairDoubleEncodedUTF8(const wxString &name, bool allowTruncatedTail)
 {
 	wxString current = name;
-	bool truncated = false;
 	for (unsigned pass = 0; pass < 4; ++pass) {
 		std::string bytes;
 		bytes.reserve(current.Length());
@@ -144,13 +79,13 @@ wxString RepairDoubleEncodedUTF8(const wxString &name, bool allowTruncatedTail)
 		for (size_t i = 0; i < current.Length(); ++i) {
 			const unsigned ch = current.GetChar(i).GetValue();
 			if (ch > 0xFF) {
-				return truncated ? current + wxUniChar(0xFFFD) : current;
+				return current;
 			}
 			// wxConvUTF8 can accept surrogate code points and values above U+10FFFF.
 			// Reject their byte patterns explicitly, including obsolete UTF-8 leads.
 			if (ch >= 0xF5 || (previous == 0xED && ch >= 0xA0 && ch <= 0xBF) ||
 				(previous == 0xF4 && ch >= 0x90 && ch <= 0xBF)) {
-				return truncated ? current + wxUniChar(0xFFFD) : current;
+				return current;
 			}
 			if (previous >= 0xC2 && previous <= 0xF4 && ch >= 0x80 && ch <= 0xBF) {
 				hasUTF8Sequence = true;
@@ -180,56 +115,13 @@ wxString RepairDoubleEncodedUTF8(const wxString &name, bool allowTruncatedTail)
 			break;
 		}
 		current = decoded;
-		truncated = truncated || tail != 0;
 	}
-	// Keep the loss visible, and append only after all decoding passes so the
-	// marker does not prevent recovery of another encoding layer in the prefix.
-	return truncated ? current + wxUniChar(0xFFFD) : current;
+	return current;
 }
 
 wxString RepairSearchResultFilename(const wxString &name)
 {
-	const wxString strict = RepairDoubleEncodedUTF8(name, true);
-	// C1 controls are evidence of a Latin-1 interpretation of UTF-8 bytes.
-	// Prefer the strict result whenever it has already removed those controls.
-	if (!ContainsC1Controls(name) || !ContainsC1Controls(strict)) {
-		return strict;
-	}
-	wxString current = name;
-	unsigned changes = 0;
-	bool truncated = false;
-	for (unsigned pass = 0; pass < 4; ++pass) {
-		std::string bytes;
-		for (size_t i = 0; i < current.Length(); ++i) {
-			const unsigned ch = current.GetChar(i).GetValue();
-			if (ch > 0xFF) {
-				return changes >= 2 && !ContainsC1Controls(current)
-					       ? (truncated ? current + wxUniChar(0xFFFD) : current)
-					       : strict;
-			}
-			bytes.push_back(static_cast<char>(ch));
-		}
-		unsigned passChanges = 0;
-		if (!RestoreCaseChangedUTF8Leads(bytes, passChanges)) {
-			break;
-		}
-		const size_t tail = IncompleteUTF8TailLength(bytes);
-		const size_t length = bytes.size() - tail;
-		const wxString decoded(bytes.data(), wxConvUTF8, length);
-		if (decoded.IsEmpty() || (tail != 0 && decoded.Length() == length)) {
-			break;
-		}
-		current = decoded;
-		changes += passChanges;
-		truncated = truncated || tail != 0;
-	}
-	// One ambiguous letter is insufficient evidence. Require multiple restored
-	// leads and removal of all C1 controls; preserve ASCII casing rather than
-	// guessing what it was before the irreversible title-casing step.
-	if (changes < 2 || ContainsC1Controls(current)) {
-		return strict;
-	}
-	return truncated ? current + wxUniChar(0xFFFD) : current;
+	return RepairDoubleEncodedUTF8(name, true);
 }
 
 // Conversion of a wxString so it can be used by printf() on a console.

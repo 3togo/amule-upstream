@@ -237,23 +237,11 @@ wxString UnescapeHTML(const wxString &str);
  */
 wxString RestoreEncodedPipes(const wxString &link);
 
-/**
- * Heuristically repairs filename text whose UTF-8 bytes were decoded as Latin-1.
- * Performs at most four strict decoding passes, preserving the last valid text.
- * Names that do not match this pattern are left unchanged. Literal text that
- * happens to match the encoding pattern cannot be distinguished from damage.
- * Search results may opt into recovering a valid non-ASCII UTF-8 prefix with an
- * incomplete trailing sequence. The incomplete sequence becomes U+FFFD; malformed
- * sequences elsewhere and names without a complete non-ASCII sequence stay intact.
- */
+/** Repairs up to four strict UTF-8/Latin-1 encoding layers, preserving the last valid text.
+ * Optionally discards an incomplete tail after a valid non-ASCII UTF-8 prefix. */
 wxString RepairDoubleEncodedUTF8(const wxString &name, bool allowTruncatedTail = false);
 
-/**
- * Search-only recovery, including incomplete tails and repeated encoding with
- * case-changed UTF-8 leads. Case repair requires C1-control evidence and multiple
- * changed leads, and must remove all C1 controls within four decoding passes.
- * ASCII casing is preserved: the original casing cannot be uniquely recovered.
- */
+/** Repairs search-result filenames using strict decoding with incomplete tails discarded. */
 wxString RepairSearchResultFilename(const wxString &name);
 
 /**
