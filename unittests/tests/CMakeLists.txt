@@ -317,6 +317,14 @@ target_include_directories (NatRendezvousProtocolTest PRIVATE
 )
 target_link_libraries (NatRendezvousProtocolTest muleunit ${Boost_LIBRARIES})
 
+# Lugdunum NAT callback codecs and the OP_IDCHANGE fields, without the application.
+add_executable (LugdunumNatTraversalTest LugdunumNatTraversalTest.cpp)
+target_include_directories (LugdunumNatTraversalTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
+target_compile_features (LugdunumNatTraversalTest PRIVATE cxx_std_17)
+target_compile_definitions (LugdunumNatTraversalTest PRIVATE ENABLE_NATT_SERVER_COORDINATION)
+target_link_libraries (LugdunumNatTraversalTest muleunit mulecommon)
+add_test (NAME LugdunumNatTraversalTest COMMAND LugdunumNatTraversalTest)
+
 # The buffering between libutp and the eD2k stack: the would-block contract
 # CEMSocket depends on, and the close that must happen exactly once. Header-only
 # and free of libutp, so it is compiled and run in every build rather than only
@@ -2281,6 +2289,30 @@ target_link_libraries (ListColumnStoreTest
 	muleunit
 	mulecommon
 )
+
+if (TARGET wxWidgets::CORE)
+    add_executable (ColumnLayoutTest
+        ColumnLayoutTest.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleDataViewCtrl.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleVirtualDataViewCtrl.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleBarRenderer.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleIconTextRenderer.cpp
+        ${CMAKE_SOURCE_DIR}/src/ListColumnStore.cpp
+        ${CMAKE_SOURCE_DIR}/src/BarShader.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleColour.cpp
+        ${CMAKE_SOURCE_DIR}/src/GetTickCount.cpp
+    )
+    if (WIN32)
+        target_sources (ColumnLayoutTest PRIVATE DialogLayoutTest.rc)
+    endif()
+    target_include_directories (ColumnLayoutTest PRIVATE
+        ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+        ${CMAKE_SOURCE_DIR}/src/libs
+    )
+    target_link_libraries (ColumnLayoutTest PRIVATE wxWidgets::CORE mulecommon)
+    add_test (NAME ColumnLayoutTest COMMAND ColumnLayoutTest)
+    set_tests_properties (ColumnLayoutTest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
 
 # RangeFileBody is the Boost.Beast Body amuleapi serves shared content with: a
 # bounded [first, last] window read through a fixed 64 KiB buffer. Header-only
