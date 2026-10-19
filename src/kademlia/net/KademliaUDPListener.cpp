@@ -436,7 +436,7 @@ bool CKademliaUDPListener::AddContact2(const uint8_t *data,
 	bool tcpFirewalled = false;
 	uint8_t tags = bio.ReadUInt8();
 	while (tags) {
-		CTag *tag = bio.ReadTag();
+		CTag *tag = bio.ReadTag(true /* UTF-8 */);
 		if (!tag->GetName().Cmp(TAG_SOURCEUPORT)) {
 			if (tag->IsInt() && (uint16_t)tag->GetInt() > 0) {
 				port = tag->GetInt();
@@ -1202,7 +1202,7 @@ void CKademliaUDPListener::Process2PublishKeyRequest(const uint8_t *packetData,
 			entry->m_bSource = false;
 			uint32_t tags = bio.ReadUInt8();
 			while (tags > 0) {
-				CTag *tag = bio.ReadTag();
+				CTag *tag = bio.ReadTag(true /* UTF-8 */);
 				if (tag) {
 					if (!tag->GetName().Cmp(TAG_FILENAME)) {
 						if (entry->GetCommonFileName().IsEmpty()) {
@@ -1370,7 +1370,7 @@ void CKademliaUDPListener::Process2PublishSourceRequest(const uint8_t *packetDat
 		uint32_t tags = bio.ReadUInt8();
 		while (tags > 0) {
 			const uint64_t tagStart = bio.GetPosition();
-			CTag *tag = bio.ReadTag();
+			CTag *tag = bio.ReadTag(true /* UTF-8 */);
 			const uint32_t tagBytes = static_cast<uint32_t>(bio.GetPosition() - tagStart);
 			if (tag) {
 				if (!tag->GetName().Cmp(TAG_SOURCETYPE)) {
@@ -1589,7 +1589,7 @@ void CKademliaUDPListener::Process2PublishNotesRequest(const uint8_t *packetData
 		entry->m_tLifeTime = (uint32_t)time(nullptr) + KADEMLIAREPUBLISHTIMEN;
 		uint32_t tags = bio.ReadUInt8();
 		while (tags > 0) {
-			CTag *tag = bio.ReadTag();
+			CTag *tag = bio.ReadTag(true /* UTF-8 */);
 			if (tag) {
 				if (!tag->GetName().Cmp(TAG_FILENAME)) {
 					if (tag->GetStr().length() > KADEMLIAMAXNOTENAMELEN) {
