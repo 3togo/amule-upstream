@@ -73,11 +73,21 @@ void SampleSearchColumnFitRows(const wxDataViewCtrl &view, wxDataViewItemArray &
 
 	// Reserve room for descendants, but sample roots across their entire
 	// range first. An early large group must not hide the last roots.
-	const bool expanded = std::any_of(roots.begin(), roots.end(), [&](const wxDataViewItem &item) {
-		return view.IsExpanded(item);
-	});
 	const size_t budget = limit - rows.size();
-	const size_t rootCount = std::min(roots.size(), expanded ? std::max<size_t>(1, budget / 2) : budget);
+	size_t rootCount = std::min(roots.size(), std::max<size_t>(1, budget / 2));
+	bool expanded = false;
+	// Probe only the strided roots we would sample. Asking IsExpanded() for
+	// every stored root can itself be expensive on native tree backends.
+	for (size_t i = 0; i < rootCount; ++i) {
+		const size_t index = rootCount > 1 ? i * (roots.size() - 1) / (rootCount - 1) : 0;
+		if (view.IsExpanded(roots[index])) {
+			expanded = true;
+			break;
+		}
+	}
+	if (!expanded) {
+		rootCount = std::min(roots.size(), budget);
+	}
 	std::vector<wxDataViewItem> pending;
 	const auto sample = [&](const wxDataViewItemArray &items, size_t count) {
 		for (size_t i = 0; i < count; ++i) {

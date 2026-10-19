@@ -113,8 +113,8 @@ void DrawClientNameCell(const ClientNameCell &cell,
 		} // else: default (Client_Grey_Smiley)
 
 		imageList.Draw(image, *dc, point.x, point.y + imageYOffset, wxIMAGELIST_DRAW_TRANSPARENT);
-		point.x = rect.GetX() + layout.clientX;
 	}
+	point.x = rect.GetX() + layout.clientX;
 
 	uint8 clientImage = Client_Unknown;
 	if (!cell.knownSoftware) {
