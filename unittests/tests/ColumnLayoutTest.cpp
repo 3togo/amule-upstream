@@ -232,6 +232,41 @@ void RunTests()
 			"Copying a layout emitted change notifications");
 	}
 
+	fixture.config.DeleteEntry("/eMule/TableWidthsScaleLayoutTest");
+	fixture.config.Write("/eMule/TableWidthsLayoutTest", "P:-200,N:300,S:-80");
+	{
+		wxFrame frame(nullptr, wxID_ANY, "Runtime DPI change");
+		auto *list = new TestList(&frame);
+		wxDPIChangedEvent larger(wxSize(96, 96), wxSize(144, 144));
+		list->ProcessWindowEvent(larger);
+		Check(list->CachedWidth(0) == 300 && list->CachedWidth(1) == 450 &&
+				list->CachedWidth(2) == 120,
+			"DPI change did not rescale visible and hidden cached widths");
+		Check(list->IsColumnHidden(0) && list->IsColumnHidden(2),
+			"DPI change altered column visibility");
+		list->SaveColumnSettings();
+		const wxString widths = fixture.config.Read("/eMule/TableWidthsLayoutTest");
+		Check(widths.Contains("P:-300") && widths.Contains("S:-120"),
+			"Saving after a DPI change persisted stale hidden widths");
+
+		wxFrame reloadedFrame(nullptr, wxID_ANY, "Reload after DPI change");
+		auto *reloaded = new TestList(&reloadedFrame);
+		Check(reloaded->CachedWidth(0) == 300 && reloaded->CachedWidth(2) == 120,
+			"Restart after a DPI change lost hidden restore widths");
+		wxDPIChangedEvent smaller(wxSize(144, 144), wxSize(96, 96));
+		reloaded->ProcessWindowEvent(smaller);
+		Check(reloaded->CachedWidth(0) == 200 && reloaded->CachedWidth(2) == 80,
+			"Returning to the original DPI did not restore hidden cached widths");
+
+		wxCommandEvent show(wxEVT_MENU, MP_LISTCOL_1);
+		list->ProcessWindowEvent(show);
+		Check(!list->IsColumnHidden(0) && list->CachedWidth(0) == 300,
+			"Showing a column after a DPI change lost its scaled restore width");
+		list->SaveColumnSettings();
+		Check(fixture.config.Read("/eMule/TableWidthsLayoutTest").Contains("P:300"),
+			"Showing a column after a DPI change restored a stale width");
+	}
+
 	fixture.config.Write("/eMule/TableWidthsLayoutTest", "P:-50,N:-200,S:-80");
 	{
 		wxFrame frame(nullptr, wxID_ANY, "Hidden profile recovery test");

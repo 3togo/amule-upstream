@@ -313,6 +313,7 @@ protected:
 	void OnColumnHeaderClick(wxDataViewEvent &event);
 	void OnColumnHeaderRightClick(wxDataViewEvent &event);
 	void OnColumnMenuSelected(wxCommandEvent &evt);
+	void OnDPIChanged(wxDPIChangedEvent &event);
 	void OnIdle(wxIdleEvent &event);
 	void OnChar(wxKeyEvent &evt);
 	void OnKeyDown(wxKeyEvent &evt);
