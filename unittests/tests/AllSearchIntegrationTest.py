@@ -36,6 +36,12 @@ TRUNCATED_UTF8_PREFIXES = (
     'oper.ru.Клим.Жуков.Столетняя.война.07.Чёрный.Принц.Орден.Подвязки.Каркассон.и.шаткий.трон.В',
     'Разговор с Дьяволо_ Последнее предупреждение Людям Земли. Мировая Война_ Хаос_ Конец Св',
 )
+FILENAME_REPAIR_CASES = tuple(
+    ('truncatedutf8' + word, prefix.encode() + b'\xd0', prefix + '\ufffd')
+    for word, prefix in zip(('zero', 'one'), TRUNCATED_UTF8_PREFIXES)
+) + (
+    ('casechangedutf8', 'Bhr-Aã£Â\u0083Ã\u0082Â±Os.mkv'.encode(), 'Bhr-AñOs.mkv'),
+)
 
 
 def exact(sock, n):
@@ -337,9 +343,9 @@ def run(binary):
                                         queries.put(packet[1:])
                                         if not answer.wait(10):
                                             return
-                                        if b'truncatedutf8' in packet:
-                                            index = 0 if b'truncatedutf8zero' in packet else 1
-                                            name = TRUNCATED_UTF8_PREFIXES[index].encode() + b'\xd0'
+                                        name = next((raw for query, raw, _ in FILENAME_REPAIR_CASES
+                                                     if query.encode() in packet), None)
+                                        if name is not None:
                                             body = b'\x33' + struct.pack('<I', 1) + search_record(name)
                                         else:
                                             sources = 0xffffffff if b'overflow' in packet else 10
@@ -362,9 +368,10 @@ def run(binary):
                     # One incomplete UTF-8 tail must not garble the entire result.
                     # Check the name returned over EC after the production reader,
                     # search-result constructor and serialization have all run.
-                    for word, prefix in zip(('zero', 'one'), TRUNCATED_UTF8_PREFIXES):
-                        assert len(prefix.encode() + b'\xd0') == 160
-                        sid = ec.start('truncatedutf8' + word, kind=C['EC_SEARCH_LOCAL'])
+                    for query, raw, expected in FILENAME_REPAIR_CASES:
+                        if query.startswith('truncatedutf8'):
+                            assert len(raw) == 160
+                        sid = ec.start(query, kind=C['EC_SEARCH_LOCAL'])
                         queries.get(timeout=5)
                         for _ in range(50):
                             if ec.progress(sid)[C['EC_TAG_SEARCH_LIFECYCLE_STATE']][0] == 2:
@@ -373,7 +380,7 @@ def run(binary):
                         results = ec.call(C['EC_OP_SEARCH_RESULTS'],
                                           [integer(C['EC_TAG_SEARCH_ID'], sid)])[1]
                         name = results[C['EC_TAG_SEARCHFILE']][1][C['EC_TAG_PARTFILE_NAME']][0]
-                        assert name.rstrip(b'\0').decode() == prefix + '\ufffd', name
+                        assert name.rstrip(b'\0').decode() == expected, name
                         ec.call(C['EC_OP_SEARCH_STOP'], [integer(C['EC_TAG_SEARCH_ID'], sid),
                                                        tag(C['EC_TAG_SEARCH_CLOSE'])])
                     # Both components: eD2k completion cannot finish the Kad component.

@@ -162,6 +162,42 @@ TEST(StringFunctions, RepairTruncatedUTF8RejectsMalformedSequences)
 	}
 }
 
+TEST(StringFunctions, RepairSearchFilenameCaseChangedEncodingLayers)
+{
+	// The reported Spanish fragment results from three Latin-1 misreadings,
+	// with title-casing after layers two and three. C1 controls represent the
+	// reporter's caret notation. Undo encoding and changed leads, preserving
+	// the received ASCII casing: "Años" and "AñOs" have the same damaged form.
+	const wxString damaged = wxString::FromUTF8("Aã£Â") + wxUniChar(0x83) + wxString::FromUTF8("Ã") +
+				 wxUniChar(0x82) + wxString::FromUTF8("Â±Os.avi");
+	ASSERT_EQUALS(damaged, RepairDoubleEncodedUTF8(damaged, true));
+	ASSERT_EQUALS(wxString::FromUTF8("AñOs.avi"), RepairSearchResultFilename(damaged));
+	ASSERT_EQUALS(wxString::FromUTF8("AñOs.avi"), RepairSearchResultFilename(DoubleEncodeUTF8(damaged)));
+	// The same four-pass budget applies to the combined reverse sequence.
+	ASSERT_EQUALS(wxString::FromUTF8("AÃ±Os.avi"),
+		RepairSearchResultFilename(DoubleEncodeUTF8(DoubleEncodeUTF8(damaged))));
+}
+
+TEST(StringFunctions, RepairSearchFilenameLowercasedCyrillicLeads)
+{
+	// Lowercasing the damaged text changes U+00D0/U+00D1 to U+00F0/U+00F1.
+	const wxString damaged = wxString::FromUTF8("ð") + wxUniChar(0x9A) + wxString::FromUTF8("ð»ð¸ð¼.mkv");
+	ASSERT_EQUALS(wxString::FromUTF8("Клим.mkv"), RepairSearchResultFilename(damaged));
+}
+
+TEST(StringFunctions, RepairSearchFilenameCaseChangesNeedCorroboratingEvidence)
+{
+	for (const wxString &name : { wxString::FromUTF8("Café.mkv"),
+		     wxString::FromUTF8("Aã£Os.avi"),
+		     wxString::FromUTF8("東京.mkv"),
+		     wxString::FromUTF8("ã") + wxUniChar(0x83),
+		     wxString::FromUTF8("ã") + wxUniChar(0x83) + wxString::FromUTF8("brokené"),
+		     wxString::FromUTF8("ã") + wxUniChar(0x83) + wxString::FromUTF8("ã") + wxUniChar(0x83) +
+			     wxUniChar(0xFF) }) {
+		ASSERT_EQUALS(name, RepairSearchResultFilename(name));
+	}
+}
+
 ///////////////////////////////////////////////////////////
 // Tests for the FuzzyStrCmp function
 

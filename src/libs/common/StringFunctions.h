@@ -249,6 +249,14 @@ wxString RestoreEncodedPipes(const wxString &link);
 wxString RepairDoubleEncodedUTF8(const wxString &name, bool allowTruncatedTail = false);
 
 /**
+ * Search-only recovery, including incomplete tails and repeated encoding with
+ * case-changed UTF-8 leads. Case repair requires C1-control evidence and multiple
+ * changed leads, and must remove all C1 controls within four decoding passes.
+ * ASCII casing is preserved: the original casing cannot be uniquely recovered.
+ */
+wxString RepairSearchResultFilename(const wxString &name);
+
+/**
  * Escapes the chars needed to make the url valid.
  */
 wxString validateURI(const wxString &url);
