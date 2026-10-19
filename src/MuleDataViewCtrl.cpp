@@ -24,8 +24,9 @@
 
 #include "MuleDataViewCtrl.h" // Interface declarations
 
-#include <wx/dcclient.h> // Needed for wxClientDC
-#include <wx/menu.h>     // Needed for wxMenu (header show/hide menu)
+#include <wx/dcclient.h>   // Needed for wxClientDC
+#include <wx/menu.h>       // Needed for wxMenu (header show/hide menu)
+#include <wx/scopeguard.h> // Needed for wxON_BLOCK_EXIT_SET
 
 #include <algorithm> // Needed for std::find, std::sort, std::min, std::max
 #include <vector>    // Needed for std::vector
@@ -46,6 +47,7 @@ wxBEGIN_EVENT_TABLE(CMuleDataViewCtrl, wxDataViewCtrl)
 	EVT_DATAVIEW_COLUMN_HEADER_CLICK(wxID_ANY, CMuleDataViewCtrl::OnColumnHeaderClick)
 	EVT_DATAVIEW_COLUMN_HEADER_RIGHT_CLICK(wxID_ANY, CMuleDataViewCtrl::OnColumnHeaderRightClick)
 	EVT_MENU_RANGE(MP_LISTCOL_1, MP_LISTCOL_25, CMuleDataViewCtrl::OnColumnMenuSelected)
+	EVT_DPI_CHANGED(CMuleDataViewCtrl::OnDPIChanged)
 	EVT_IDLE(CMuleDataViewCtrl::OnIdle)
 	EVT_CHAR(CMuleDataViewCtrl::OnChar)
 	EVT_KEY_DOWN(CMuleDataViewCtrl::OnKeyDown)
@@ -68,12 +70,22 @@ CMuleDataViewCtrl::CMuleDataViewCtrl(wxWindow *parent,
 
 CMuleDataViewCtrl::~CMuleDataViewCtrl() = default;
 
+double CMuleDataViewCtrl::ColumnWidthAdapter::GetWidthScale() const
+{
+#ifdef wxHAS_DPI_INDEPENDENT_PIXELS
+	// GTK3 and macOS column widths already use logical coordinates.
+	return 1.0;
+#else
+	return m_ctrl->GetDPIScaleFactor();
+#endif
+}
+
 int CMuleDataViewCtrl::ColumnWidthAdapter::GetColumnWidth(int col) const
 {
 	if (m_ctrl->IsColumnHidden(col)) {
 		return 0;
 	}
-	const int width = m_ctrl->GetColumn(col)->GetWidth();
+	const int width = m_ctrl->m_useCachedColumnWidths ? 0 : m_ctrl->GetColumn(col)->GetWidth();
 	if (width > 0) {
 		return width;
 	}
@@ -175,6 +187,17 @@ unsigned CMuleDataViewCtrl::RealColumnCount() const
 	return columns;
 }
 
+unsigned CMuleDataViewCtrl::VisibleColumnCount() const
+{
+	unsigned visible = 0;
+	for (unsigned i = 0; i < RealColumnCount(); ++i) {
+		if (!IsColumnHidden(static_cast<int>(i))) {
+			++visible;
+		}
+	}
+	return visible;
+}
+
 void CMuleDataViewCtrl::InitColumnState()
 {
 	// Every appended column must sit at the view position matching its model id. Several things
@@ -196,6 +219,21 @@ void CMuleDataViewCtrl::InitColumnState()
 #endif
 
 	m_columnHidden.resize(RealColumnCount(), false);
+	// Old profiles may already have every column hidden. Recover a useful default
+	// column before the header becomes the only way to repair the layout.
+	if (VisibleColumnCount() == 0 && RealColumnCount() > 0) {
+		unsigned first = 0;
+		for (unsigned i = 0; i < m_defaultColumnHidden.size(); ++i) {
+			if (!m_defaultColumnHidden[i]) {
+				first = i;
+				break;
+			}
+		}
+		SetColumnHidden(static_cast<int>(first),
+			false,
+			m_columnStore.GetColumnDefaultWidth(static_cast<int>(first)));
+		UpdateExpanderColumn();
+	}
 	ResetKnownWidths();
 }
 
@@ -367,6 +405,7 @@ unsigned FromStoreFlags(unsigned storeFlags)
 
 void CMuleDataViewCtrl::LoadColumnSettings()
 {
+	CaptureDefaultColumnState();
 	if (!m_columnStore.HasTableName()) {
 		return;
 	}
@@ -452,6 +491,74 @@ void CMuleDataViewCtrl::OnColumnHeaderClick(wxDataViewEvent &event)
 
 void CMuleDataViewCtrl::OnColumnHeaderRightClick(wxDataViewEvent &event)
 {
+	ShowColumnMenu(event.GetDataViewColumn());
+	event.Skip();
+}
+
+void CMuleDataViewCtrl::CaptureDefaultColumnState()
+{
+	if (!m_defaultColumnHidden.empty()) {
+		return;
+	}
+	for (unsigned i = 0; i < RealColumnCount(); ++i) {
+		m_defaultColumnHidden.push_back(IsColumnHidden(static_cast<int>(i)));
+	}
+}
+
+void CMuleDataViewCtrl::RestoreColumnLayout(bool defaults)
+{
+	Freeze();
+	for (unsigned i = 0; i < RealColumnCount(); ++i) {
+		const int col = static_cast<int>(i);
+		const bool hidden = defaults && i < m_defaultColumnHidden.size() && m_defaultColumnHidden[i];
+		const int current = IsColumnHidden(col) ? m_columnStore.GetCachedWidth(col)
+							: m_widthAdapter.GetColumnWidth(col);
+		const int width = defaults || current <= COL_SIZE_MIN
+					  ? m_columnStore.GetColumnDefaultWidth(col)
+					  : current;
+		m_columnStore.SetCachedWidth(col, width);
+		SetColumnHidden(col, hidden, width);
+	}
+	UpdateExpanderColumn();
+	Thaw();
+	ResetKnownWidths();
+	// GTK may still report the pre-reset native widths until the next paint.
+	// Both mirroring and persistence must use the widths just requested.
+	wxON_BLOCK_EXIT_SET(m_useCachedColumnWidths, m_useCachedColumnWidths);
+	m_useCachedColumnWidths = true;
+	// The visibility hook mirrors the complete layout, including widths.
+	OnColumnVisibilityChanged();
+	SaveColumnSettings();
+	Refresh();
+}
+
+void CMuleDataViewCtrl::CopyColumnLayoutFrom(const CMuleDataViewCtrl &source)
+{
+	wxCHECK_RET(RealColumnCount() == source.RealColumnCount(), "incompatible table layouts");
+	for (unsigned i = 0; i < RealColumnCount(); ++i) {
+		const int col = static_cast<int>(i);
+		const bool hidden = source.IsColumnHidden(col);
+		int width = hidden ? source.m_columnStore.GetCachedWidth(col)
+				   : source.m_widthAdapter.GetColumnWidth(col);
+		if (width <= COL_SIZE_MIN) {
+			width = source.m_columnStore.GetColumnDefaultWidth(col);
+		}
+		// A hidden native column can still report its old, pre-reset width.
+		// Transfer the cache as well, so showing it in another tab restores the
+		// latest choice rather than whichever width that tab last remembered.
+		m_columnStore.SetCachedWidth(col, width);
+		if (IsColumnHidden(col) != hidden || (!hidden && GetColumn(i)->GetWidth() != width)) {
+			SetColumnHidden(col, hidden, width);
+		}
+	}
+	UpdateExpanderColumn();
+	// GTK can clamp widths differently between tabs. Do not have the idle poll
+	// mistake a copied layout for a drag and mirror it back indefinitely.
+	ResetKnownWidths();
+}
+
+void CMuleDataViewCtrl::ShowColumnMenu(wxDataViewColumn *clicked)
+{
 	// Show/hide menu, as CMuleListCtrl::OnColumnRClick offered on every
 	// list built on the old base.
 	wxMenu menu;
@@ -461,14 +568,16 @@ void CMuleDataViewCtrl::OnColumnHeaderRightClick(wxDataViewEvent &event)
 	wxASSERT_MSG(RealColumnCount() <= menuSlots,
 		"more columns than MP_LISTCOL_* slots -- the extra ones cannot be shown or hidden");
 	const unsigned columns = std::min<unsigned>(RealColumnCount(), menuSlots);
+	const unsigned visible = VisibleColumnCount();
 	for (unsigned i = 0; i < columns; ++i) {
 		menu.AppendCheckItem(static_cast<int>(i) + MP_LISTCOL_1, GetColumn(i)->GetTitle());
 		menu.Check(static_cast<int>(i) + MP_LISTCOL_1, !IsColumnHidden(static_cast<int>(i)));
+		menu.Enable(static_cast<int>(i) + MP_LISTCOL_1,
+			visible > 1 || IsColumnHidden(static_cast<int>(i)));
 	}
 
 	menu.AppendSeparator();
 	const wxWindowIDRef fitColumn = wxWindow::NewControlId();
-	const wxDataViewColumn *clicked = event.GetDataViewColumn();
 	if (clicked && clicked->GetModelColumn() < RealColumnCount()) {
 		menu.Append(fitColumn, _("Fit column to contents"));
 		menu.Bind(
@@ -482,8 +591,16 @@ void CMuleDataViewCtrl::OnColumnHeaderRightClick(wxDataViewEvent &event)
 	menu.Append(fitAll, _("Fit visible columns to contents"));
 	menu.Bind(wxEVT_MENU, [this](wxCommandEvent &) { FitColumnWidths(-1); }, fitAll);
 
-	PopupMenu(&menu);
-	event.Skip();
+	menu.AppendSeparator();
+	const wxWindowIDRef showAll = wxWindow::NewControlId();
+	menu.Append(showAll, _("Show all columns (keep widths)"));
+	menu.Bind(wxEVT_MENU, [this](wxCommandEvent &) { RestoreColumnLayout(false); }, showAll);
+	const wxWindowIDRef restore = wxWindow::NewControlId();
+	menu.Append(restore, _("Restore default columns and widths"));
+	menu.Bind(wxEVT_MENU, [this](wxCommandEvent &) { RestoreColumnLayout(true); }, restore);
+	// Keyboard invocation must stay at the focused table even if the pointer
+	// is over another window. Header clicks retain the pointer position.
+	PopupMenu(&menu, clicked ? wxDefaultPosition : wxPoint(0, 0));
 }
 
 void CMuleDataViewCtrl::FitColumnWidths(int column)
@@ -493,10 +610,8 @@ void CMuleDataViewCtrl::FitColumnWidths(int column)
 		return;
 	}
 	wxDataViewItemArray rows;
-	GetDisplayOrder(rows);
-	// Bound text measurement work on large search/download lists. Sample across the list,
-	// including both ends, so fitting is not biased towards its current sort order.
-	const size_t samples = std::min<size_t>(rows.size(), 512);
+	GetColumnFitRows(rows, 512);
+	const size_t samples = rows.size();
 	wxClientDC dc(this);
 	dc.SetFont(GetFont());
 	const int padding = FromDIP(16);
@@ -513,46 +628,51 @@ void CMuleDataViewCtrl::FitColumnWidths(int column)
 		int width = rows.empty()
 				    ? std::max(headerWidth, m_columnStore.GetColumnDefaultWidth(columnIndex))
 				    : headerWidth;
-		// Bars (and custom client cells using bar specs) have no textual natural width.
-		// Keep their useful default rather than feeding their current width back into a fit.
+		// Genuine bars keep a useful default. Composite cells using the same
+		// variant may supply a measured width through GetCustomFitWidth().
 		if (dynamic_cast<CMuleBarRenderer *>(col->GetRenderer())) {
 			width = std::max(width, m_columnStore.GetColumnDefaultWidth(columnIndex));
-		} else {
-			for (size_t sample = 0; sample < samples; ++sample) {
-				const size_t row =
-					samples > 1 ? sample * (rows.size() - 1) / (samples - 1) : 0;
-				if (!model->HasValue(rows[row], col->GetModelColumn())) {
-					continue;
-				}
-				wxVariant value;
-				model->GetValue(value, rows[row], col->GetModelColumn());
-				wxString text;
-				int iconWidth = 0;
-				if (value.GetType() == "string") {
-					text = value.GetString();
-				} else if (value.GetType() == "wxDataViewIconText") {
-					wxDataViewIconText cell;
-					cell << value;
-					text = cell.GetText();
-					if (cell.GetIcon().IsOk()) {
-						iconWidth = cell.GetIcon().GetWidth() + FromDIP(4);
-					}
-				}
-				wxDataViewItemAttr attr;
-				dc.SetFont(model->GetAttr(rows[row], col->GetModelColumn(), attr)
-						   ? attr.GetEffectiveFont(GetFont())
-						   : GetFont());
-				int cellWidth = dc.GetTextExtent(text).x + iconWidth + padding;
-				if (col == GetExpanderColumn() && !model->IsListModel()) {
-					cellWidth += FromDIP(20);
-					for (wxDataViewItem parent = model->GetParent(rows[row]);
-						parent.IsOk();
-						parent = model->GetParent(parent)) {
-						cellWidth += std::max(GetIndent(), FromDIP(16));
-					}
-				}
-				width = std::max(width, std::min(cellWidth, contentLimit));
+		}
+		for (size_t row = 0; row < samples; ++row) {
+			if (!model->HasValue(rows[row], col->GetModelColumn())) {
+				continue;
 			}
+			wxDataViewItemAttr attr;
+			dc.SetFont(model->GetAttr(rows[row], col->GetModelColumn(), attr)
+					   ? attr.GetEffectiveFont(GetFont())
+					   : GetFont());
+			const int custom = GetCustomFitWidth(rows[row], col->GetModelColumn(), dc);
+			if (custom >= 0) {
+				width = std::max(width, std::min(custom + padding, contentLimit));
+				continue;
+			}
+			if (dynamic_cast<CMuleBarRenderer *>(col->GetRenderer())) {
+				continue;
+			}
+			wxVariant value;
+			model->GetValue(value, rows[row], col->GetModelColumn());
+			wxString text;
+			int iconWidth = 0;
+			if (value.GetType() == "string") {
+				text = value.GetString();
+			} else if (value.GetType() == "wxDataViewIconText") {
+				wxDataViewIconText cell;
+				cell << value;
+				text = cell.GetText();
+				if (cell.GetIcon().IsOk()) {
+					iconWidth = cell.GetIcon().GetWidth() + FromDIP(4);
+				}
+			}
+
+			int cellWidth = dc.GetTextExtent(text).x + iconWidth + padding;
+			if (col == GetExpanderColumn() && !model->IsListModel()) {
+				cellWidth += FromDIP(20);
+				for (wxDataViewItem parent = model->GetParent(rows[row]); parent.IsOk();
+					parent = model->GetParent(parent)) {
+					cellWidth += std::max(GetIndent(), FromDIP(16));
+				}
+			}
+			width = std::max(width, std::min(cellWidth, contentLimit));
 		}
 		col->SetWidth(width);
 	}
@@ -571,16 +691,35 @@ void CMuleDataViewCtrl::OnColumnMenuSelected(wxCommandEvent &evt)
 	}
 
 	if (!IsColumnHidden(col)) {
+		if (VisibleColumnCount() <= 1) {
+			return;
+		}
 		// Remember the width so re-showing restores what the user had.
-		m_columnStore.SetCachedWidth(col, GetColumn(static_cast<unsigned>(col))->GetWidth());
+		m_columnStore.SetCachedWidth(col, m_widthAdapter.GetColumnWidth(col));
 		SetColumnHidden(col, true, 0);
 	} else {
 		const int cached = m_columnStore.GetCachedWidth(col);
 		SetColumnHidden(col, false, cached > 0 ? cached : m_columnStore.GetColumnDefaultWidth(col));
 	}
 	UpdateExpanderColumn();
+	ResetKnownWidths();
 	OnColumnVisibilityChanged();
 	SaveColumnSettings();
+}
+
+void CMuleDataViewCtrl::OnDPIChanged(wxDPIChangedEvent &event)
+{
+#ifndef wxHAS_DPI_INDEPENDENT_PIXELS
+	// wx rescales the native columns, but hidden columns restore their widths from this
+	// cache. Keep every cached width in the same units before idle can persist the layout.
+	for (int col = 0; col < static_cast<int>(RealColumnCount()); ++col) {
+		const int width = m_columnStore.GetCachedWidth(col);
+		if (width > 0) {
+			m_columnStore.SetCachedWidth(col, event.ScaleX(width));
+		}
+	}
+#endif
+	event.Skip();
 }
 
 void CMuleDataViewCtrl::OnIdle(wxIdleEvent &event)
@@ -738,6 +877,12 @@ void CMuleDataViewCtrl::RaiseItemContextMenu()
 
 void CMuleDataViewCtrl::OnKeyDown(wxKeyEvent &evt)
 {
+	// A focused list can open its column settings even with an empty header or
+	// no rows. Ctrl+Shift+L (Command+Shift+L on macOS) leaves row menus unchanged.
+	if (evt.CmdDown() && evt.ShiftDown() && !evt.AltDown() && evt.GetKeyCode() == 'L') {
+		ShowColumnMenu();
+		return;
+	}
 #ifdef __WXOSX__
 	// wx's Cocoa backend has no keyboard-triggered path to wxEVT_DATAVIEW_ITEM_CONTEXT_MENU. It
 	// does handle wxEVT_CONTEXT_MENU -- that is how a right-click becomes a dataview event

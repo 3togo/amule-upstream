@@ -35,12 +35,13 @@
 #include <common/Format.h> // Needed for CFormat
 #include <tags/FileTags.h> // Needed for FT_MEDIA_LENGTH / _BITRATE / _CODEC
 
-#include "amule.h"            // Needed for theApp
-#include "Server.h"           // Needed for CServer
-#include "ServerConnect.h"    // Needed for CServerConnect
-#include "SearchList.h"       // Needed for CSearchFile
-#include "updownclient.h"     // Needed for BROWSE_IN_PROGRESS
-#include "BrowseListModel.h"  // Needed for CBrowseListModel
+#include "amule.h"           // Needed for theApp
+#include "Server.h"          // Needed for CServer
+#include "ServerConnect.h"   // Needed for CServerConnect
+#include "SearchList.h"      // Needed for CSearchFile
+#include "updownclient.h"    // Needed for BROWSE_IN_PROGRESS
+#include "BrowseListModel.h" // Needed for CBrowseListModel
+#include "SearchColumnFit.h"
 #include "SearchListModel.h"  // Needed for CSearchListModel
 #include "GetTickCount.h"     // Needed for GetTickCount64()
 #include "CommentDialogLst.h" // Needed for CCommentDialogLst (Kad comments/ratings)
@@ -204,6 +205,8 @@ CSearchListCtrl::CSearchListCtrl(
 	// Default sort is by name, ascending.
 	m_sort_orders.emplace_back(CSearchListModel::COL_NAME, 0);
 	ShowSortCaret(CSearchListModel::COL_NAME, 0);
+
+	CaptureDefaultColumnState();
 
 	// Only load settings for first list, otherwise sync with current lists
 	if (s_lists.empty()) {
@@ -609,30 +612,7 @@ void CSearchListCtrl::SyncLists(CSearchListCtrl *src, CSearchListCtrl *dst)
 {
 	wxCHECK_RET(src && dst, "NULL argument in SyncLists");
 
-	for (unsigned i = 0; i < src->RealColumnCount(); ++i) {
-		// Hidden state has to travel with the width: copying width alone
-		// would leave the other tabs showing a column this one has hidden.
-		const int col = static_cast<int>(i);
-		const bool hidden = src->IsColumnHidden(col);
-		if (dst->IsColumnHidden(col) != hidden) {
-			dst->SetColumnHidden(col, hidden, src->GetColumn(i)->GetWidth());
-		}
-		if (!hidden && dst->GetColumn(i)->GetWidth() != src->GetColumn(i)->GetWidth()) {
-			dst->GetColumn(i)->SetWidth(src->GetColumn(i)->GetWidth());
-		}
-	}
-	dst->UpdateExpanderColumn();
-
-	// Re-baseline what dst's idle poll compares against, so the widths just written read as the
-	// status quo rather than as a drag the user made there. Without this the mirror echoes: dst
-	// notices "its" widths moved and mirrors them straight back.
-	//
-	// The echo does not die out on its own. GTK clamps a column to a minimum taken from its
-	// header and contents, so a width that fits one tab comes back wider in another holding
-	// different results, and the two hand it back and forth indefinitely. It showed up on
-	// columns empty in one of the tabs, since those are the ones whose clamped minimum differs
-	// (issue #1022).
-	dst->ResetKnownWidths();
+	dst->CopyColumnLayoutFrom(*src);
 
 	if (dst->m_sort_orders.empty() || src->m_sort_orders.empty() ||
 		dst->m_sort_orders.front() != src->m_sort_orders.front()) {
@@ -668,6 +648,15 @@ void CSearchListCtrl::GetDisplayOrder(wxDataViewItemArray &ordered) const
 {
 	ordered.Clear();
 	AppendDisplayOrder(wxDataViewItem(), ordered);
+}
+
+void CSearchListCtrl::GetColumnFitRows(wxDataViewItemArray &rows, size_t limit) const
+{
+	rows.Clear();
+	if (limit == 0 || !GetSearchId()) {
+		return;
+	}
+	SampleSearchColumnFitRows(*this, rows, limit);
 }
 
 wxString CSearchListCtrl::GetRowLabel(const wxDataViewItem &item) const
@@ -786,6 +775,11 @@ void CSearchListCtrl::OnIdleHook()
 			EnsureVisible(topBefore);
 		}
 	}
+}
+
+void CSearchListCtrl::OnColumnVisibilityChanged()
+{
+	SyncOtherLists(this);
 }
 
 void CSearchListCtrl::OnColumnWidthsChanged()

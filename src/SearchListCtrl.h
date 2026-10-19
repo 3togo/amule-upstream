@@ -204,10 +204,12 @@ protected:
 		int modifier) const override;
 	bool AltSortAllowed(unsigned column) const override;
 	void GetDisplayOrder(wxDataViewItemArray &ordered) const override;
+	void GetColumnFitRows(wxDataViewItemArray &rows, size_t limit) const override;
 	wxString GetRowLabel(const wxDataViewItem &item) const override;
 	wxString GetOldColumnOrder() const override;
 	void OnIdleHook() override;
 	void OnColumnWidthsChanged() override;
+	void OnColumnVisibilityChanged() override;
 	void OnSortingChanged() override;
 
 	/// True if the filename passes the filter and the row should be shown. @see PassesFilter(),
