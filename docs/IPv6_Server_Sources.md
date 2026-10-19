@@ -10,40 +10,42 @@ server over an IPv6 transport, which is out of scope, nor `OP_SERVERIDENT`'s
 ## Availability
 
 The exchange is compile-time gated by `ENABLE_IPV6`. A build without it sends
-and parses exactly what it always has: four login tags, no `CT_MOD_IP_V6`, no
-`CT_SERVER_FLAGS` `0x1000` bit, and `OP_FOUNDSOURCES` / `_OBFU` source ids are
-never treated as anything but an ordinary userid.
+and parses exactly what it always has: four login tags, no `CT_MOD_IP_V6`, and
+`OP_FOUNDSOURCES` / `_OBFU` source ids are never treated as anything but an
+ordinary userid.
 
 ## Login: advertising our IPv6 address
 
 A client that currently advertises an IPv6 address to peers (`AdvertiseIPv6=1`
 and the gates in `AdvertisedIPv6ForPeers()`: corroboration, an inbound-capable
-listener, and no proxy) sends two additional things in `OP_LOGINREQUEST`, both
-or neither:
+listener, and no proxy) adds a `CT_MOD_IP_V6` (`0xAE`) tag to
+`OP_LOGINREQUEST`: `TAGTYPE_HASH` (0x01), carrying the address as 16 raw bytes
+-- the same tag and encoding the hello packet already sends to peers
+(`src/BaseClient.cpp`, `SendHelloTypePacket`). The tag alone tells the server
+that we parse IPv6 source records; `ed2k-server` keys on nothing else. The
+decision is made in `DecideServerLoginIPv6()` (`src/ServerLoginIPv6.h`). The
+address this login advertised is remembered per server connection
+(`CServerSocket::GetLoginIPv6()`), because it is also the condition under
+which a sentinel source record (below) is expected, and it identifies our own
+record.
 
-- a `CT_MOD_IP_V6` (`0xAE`) tag, `TAGTYPE_HASH` (0x01), carrying the address as
-  16 raw bytes -- the same tag and encoding the hello packet already sends to
-  peers (`src/BaseClient.cpp`, `SendHelloTypePacket`);
-- the `0x1000` bit set in the existing `CT_SERVER_FLAGS` (`0x20`) tag, meaning
-  "this client can parse an IPv6 source record".
+No `CT_SERVER_FLAGS` bit is set. `0x1000`, once specified for this, is
+Lugdunum's NAT callback capability: Lugdunum answers a client that sets it
+with an odd LowID, a longer `OP_IDCHANGE` and callback notices, and NeoLoader
+reads it the same way. emule-qt withdrew it from the IPv6 extension for that
+reason.
 
-The login tag count is adjusted by exactly one (`CT_MOD_IP_V6`); the `0x1000`
-bit is carried inside the already-counted `CT_SERVER_FLAGS` tag. The decision
-is made once, in `DecideServerLoginIPv6()` (`src/ServerLoginIPv6.h`), so the
-tag and the bit cannot drift apart. The address this login advertised is
-remembered per server connection (`CServerSocket::GetLoginIPv6()`), because
-it is also the condition under which a sentinel source record (below) is
-expected, and it identifies our own record.
-
-## Server flag: `0x4000`
+## Server flags: `0x4000` and `0x8000`
 
 A server that speaks this extension sets bit `0x4000` in the TCP flags word of
 its `OP_IDCHANGE` reply (`src/include/protocol/ed2k/Client2Server/TCP.h`,
-`SRV_TCPFLG_IPV6`). aMule recognises and logs it
-(`CServer::SupportsIPv6Sources()`); it is not currently acted on beyond that.
-This bit is deliberately not the same value as the client's `0x1000` login
-flag -- the two name different directions of the same capability and must
-never be unified into one bit.
+`SRV_TCPFLG_IPV6`). aMule logs it (`CServer::SupportsIPv6Sources()`), and
+requires it before trusting `0x8000` (below).
+
+A server that also sets bit `0x8000` (`SRV_TCPFLG_IPV6_UPDATE`) additionally
+accepts `OP_IPV6_UPDATE` on this connection -- see the next section. `0x8000`
+is trusted only together with `0x4000`, because elsewhere it is read as a NAT
+rendezvous flag (`ServerAcceptsIPv6Updates()` in `src/ServerIPv6Update.h`).
 
 ## Source records: the IPv6 sentinel
 
@@ -59,7 +61,7 @@ what keeps the record self-delimiting:
 ```
 
 A server only sends this sentinel to a client that advertised `CT_MOD_IP_V6`
-and the `0x1000` bit at login; without that, `0xFFFFFFFF` is parsed as an
+at login; without that, `0xFFFFFFFF` is parsed as an
 ordinary (and unusable, since `255.255.255.255` is never a real peer) userid,
 exactly as before this extension existed. Per the upstream reference
 (`ed2k-server`), IPv6 records are published only for sources that are LowID on
@@ -86,25 +88,44 @@ carries no user hash to recognise it by.
 
 ## Trade-off for a HighID client
 
-For a requester that advertised IPv6, ed2k-server sends a LowID source that
-has a publishable IPv6 only as a sentinel, never as its LowID. Without this
+This trade-off applies only to an `ed2k-server` older than 0.9.83. For a
+requester that advertised IPv6, such a server sends a LowID source that has a
+publishable IPv6 only as a sentinel, never as its LowID. Without this
 extension, a HighID aMule reaches such a source through a server callback;
 with it, only by dialling the IPv6. eMuleAI sends `CT_MOD_IP_V6` whenever it
 holds a public IPv6, whether or not it accepts inbound IPv6, and many home
 routers block inbound IPv6. So `AdvertiseIPv6=1` gains sources while we are
-LowID, and can lose some while we are HighID. A server-side change to send the
-sentinel only to LowID requesters is proposed in
-[andrey23127/ed2k-server#33](https://github.com/andrey23127/ed2k-server/issues/33).
+LowID, and can lose some while we are HighID. `ed2k-server` 0.9.83 fixed this:
+it now sends the sentinel only to a LowID requester
+(`ipv6_capable && !is_high_id`).
+
+## Keeping the server current: `OP_IPV6_UPDATE`
+
+On a connection where the server set `0x4000` and `0x8000`, aMule sends `OP_IPV6_UPDATE`
+(opcode `0x63`): 16 raw bytes, all zeros to withdraw, no reply, same rules as
+the login tag. It is sent whenever `AdvertisedIPv6ForPeers()` changes, stops,
+or starts after login -- the same change detection that drives
+`OP_CHANGE_CLIENT_IP` to peers (`src/amule.cpp`) -- and also right after an
+`OP_IDCHANGE` carrying both bits, in case the address changed between the
+login and that reply. The decision is `DecideServerIPv6Update()`
+(`src/ServerIPv6Update.h`); the send path is
+`CServerConnect::UpdateAdvertisedIPv6()`, which keeps
+`CServerSocket::GetLoginIPv6()` -- the own-record check address -- in step
+with whatever was actually sent.
+
+Because the server sends no reply, an `OP_FOUNDSOURCES` built while we were
+still capable can still arrive after a withdrawal. Sentinel parsing is
+therefore sticky for the rest of the server session once any IPv6 was
+advertised on it, by the login or an update: it never turns back off, even
+while `GetLoginIPv6()` itself goes back to Absent (`0xFFFFFFFF` is never a
+real source id). `CServerSocket::IsIPv6SentinelParsingOn()` is the sticky
+flag; `GetLoginIPv6()` is the separate, up-to-date own-record address. A
+server that never sets both bits (any `ed2k-server` older than 0.9.83) never
+receives an update, so it keeps publishing the address from our login until
+the next login, even after it changed or advertising stopped.
 
 ## Scope
 
 Out of scope: connecting to a server over an IPv6 transport; `OP_SERVERIDENT`
-`ST_IPV6` / `ST_IPV6_STATUS`; acting on the server's `0x4000` bit beyond
-logging it; any change to the UDP ping/search/source path, which stays IPv4
-only.
-
-Limit: the server keeps the address from our login until the next login. If
-our advertised IPv6 changes, or advertising stops (a corroboration veto or
-the opt-out), the server keeps publishing the old address for the rest of the
-session. An in-session update is proposed in
-[andrey23127/ed2k-server#34](https://github.com/andrey23127/ed2k-server/issues/34).
+`ST_IPV6` / `ST_IPV6_STATUS`; any change to the UDP ping/search/source path,
+which stays IPv4 only.

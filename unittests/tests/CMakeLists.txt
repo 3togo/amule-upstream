@@ -113,6 +113,12 @@ target_include_directories (KadBuddyCallbackTest PRIVATE
 )
 target_link_libraries (KadBuddyCallbackTest muleunit mulecommon)
 
+# Byte-order conversion between aMule's and eMule's TAG_BUDDYHASH layouts (#1835).
+add_executable (KadBuddyIdLayoutTest KadBuddyIdLayoutTest.cpp)
+add_test (NAME KadBuddyIdLayoutTest COMMAND KadBuddyIdLayoutTest)
+target_include_directories (KadBuddyIdLayoutTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (KadBuddyIdLayoutTest muleunit mulecommon)
+
 # Buddy keepalives and receive expiry with a deterministic monotonic clock.
 add_executable (KadBuddyLivenessTest KadBuddyLivenessTest.cpp)
 add_test (NAME KadBuddyLivenessTest COMMAND KadBuddyLivenessTest)
@@ -310,6 +316,14 @@ target_include_directories (NatRendezvousProtocolTest PRIVATE
 	${Boost_INCLUDE_DIR}
 )
 target_link_libraries (NatRendezvousProtocolTest muleunit ${Boost_LIBRARIES})
+
+# Lugdunum NAT callback codecs and the OP_IDCHANGE fields, without the application.
+add_executable (LugdunumNatTraversalTest LugdunumNatTraversalTest.cpp)
+target_include_directories (LugdunumNatTraversalTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
+target_compile_features (LugdunumNatTraversalTest PRIVATE cxx_std_17)
+target_compile_definitions (LugdunumNatTraversalTest PRIVATE ENABLE_NATT_SERVER_COORDINATION)
+target_link_libraries (LugdunumNatTraversalTest muleunit mulecommon)
+add_test (NAME LugdunumNatTraversalTest COMMAND LugdunumNatTraversalTest)
 
 # The buffering between libutp and the eD2k stack: the would-block contract
 # CEMSocket depends on, and the close that must happen exactly once. Header-only
@@ -1033,6 +1047,13 @@ add_test (NAME ServerLoginIPv6Test COMMAND ServerLoginIPv6Test)
 target_include_directories (ServerLoginIPv6Test PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (ServerLoginIPv6Test muleunit mulecommon)
 
+# Whether to send OP_IPV6_UPDATE on a server connection and its 16-byte payload, without the
+# application.
+add_executable (ServerIPv6UpdateTest ServerIPv6UpdateTest.cpp)
+add_test (NAME ServerIPv6UpdateTest COMMAND ServerIPv6UpdateTest)
+target_include_directories (ServerIPv6UpdateTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
+target_link_libraries (ServerIPv6UpdateTest muleunit mulecommon)
+
 # Canonical address matching for upload-queue UDP lookups, without the application.
 add_executable (UploadQueueAddressPolicyTest
 	UploadQueueAddressPolicyTest.cpp
@@ -1734,7 +1755,7 @@ target_link_libraries (ChatSessionStoreTest
 	mulecommon
 )
 
-# Queue bookkeeping only; the scheduler is never started, so no task runs.
+# Queue bookkeeping and the one-per-type limit for queued and running tasks.
 add_executable (ThreadSchedulerTest
 	ThreadSchedulerTest.cpp
 	${CMAKE_SOURCE_DIR}/src/ThreadScheduler.cpp
@@ -1750,6 +1771,11 @@ target_link_libraries (ThreadSchedulerTest
 	muleunit
 	mulecommon
 )
+
+add_executable (SharedFileVerifyScheduleTest SharedFileVerifyScheduleTest.cpp)
+add_test (NAME SharedFileVerifyScheduleTest COMMAND SharedFileVerifyScheduleTest)
+target_include_directories (SharedFileVerifyScheduleTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (SharedFileVerifyScheduleTest muleunit mulecommon)
 
 add_executable (MediaProbeParseTest
 	MediaProbeParseTest.cpp
@@ -2238,6 +2264,30 @@ target_link_libraries (ListColumnStoreTest
 	mulecommon
 )
 
+if (TARGET wxWidgets::CORE)
+    add_executable (ColumnLayoutTest
+        ColumnLayoutTest.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleDataViewCtrl.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleVirtualDataViewCtrl.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleBarRenderer.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleIconTextRenderer.cpp
+        ${CMAKE_SOURCE_DIR}/src/ListColumnStore.cpp
+        ${CMAKE_SOURCE_DIR}/src/BarShader.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleColour.cpp
+        ${CMAKE_SOURCE_DIR}/src/GetTickCount.cpp
+    )
+    if (WIN32)
+        target_sources (ColumnLayoutTest PRIVATE DialogLayoutTest.rc)
+    endif()
+    target_include_directories (ColumnLayoutTest PRIVATE
+        ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+        ${CMAKE_SOURCE_DIR}/src/libs
+    )
+    target_link_libraries (ColumnLayoutTest PRIVATE wxWidgets::CORE mulecommon)
+    add_test (NAME ColumnLayoutTest COMMAND ColumnLayoutTest)
+    set_tests_properties (ColumnLayoutTest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
 # RangeFileBody is the Boost.Beast Body amuleapi serves shared content with: a
 # bounded [first, last] window read through a fixed 64 KiB buffer. Header-only
 # and free of wx and of the rest of the webapi tree, so the test compiles on
@@ -2600,6 +2650,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 					--amuled $<TARGET_FILE:amuled> --amuleapi $<TARGET_FILE:amuleapi>
 			)
 		endif ()
+		add_test (NAME SharedFileReverifyIntegrationTest
+			COMMAND ${Python3_EXECUTABLE} -u
+				${CMAKE_CURRENT_SOURCE_DIR}/SharedFileReverifyIntegrationTest.py $<TARGET_FILE:amuled>
+		)
 		add_test (NAME KnownHistoryIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/KnownHistoryIntegrationTest.py $<TARGET_FILE:amuled>

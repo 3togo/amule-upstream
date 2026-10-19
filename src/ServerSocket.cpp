@@ -49,6 +49,12 @@
 #include "IPFilter.h"
 #include "NetworkFunctions.h" // Needed for IsGoodIP
 #include "GuiEvents.h"        // Needed for Notify_*
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+#include "LugdunumNatTraversal.h" // Needed for ParseIdChangeFields
+#endif
+#ifdef ENABLE_IPV6
+#include "AdvertisedIPv6.h" // Needed for AdvertisedIPv6ForPeers
+#endif
 #include <boost/system/error_code.hpp>
 
 // CServerSocket
@@ -295,6 +301,13 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 						"OP_IDCHANGE: server speaks the IPv6 source extension");
 				}
 #endif
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+				if (cur_server->SupportsLugdunumNatCallback()) {
+					AddDebugLogLineN(logServer,
+						"OP_IDCHANGE: server flags include Lugdunum's NAT callback "
+						"bit");
+				}
+#endif
 				// copy TCP flags into the server in the server list
 				if (pServer) {
 					pServer->SetTCPFlags(cur_server->GetTCPFlags());
@@ -338,6 +351,21 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 					}
 				}
 			}
+
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+			if (cur_server != nullptr) {
+				const LugdunumNatTraversal::IdChangeFields idChange =
+					LugdunumNatTraversal::ParseIdChangeFields(packet, size);
+				const uint16 seenTcpPort =
+					idChange.hasYourPort ? static_cast<uint16>(idChange.yourPort) : 0;
+				cur_server->SetSeenTcpPort(seenTcpPort);
+				if (idChange.hasYourPort) {
+					AddDebugLogLineN(logServer,
+						CFormat("OP_IDCHANGE: server sees our TCP port as %u") %
+							seenTcpPort);
+				}
+			}
+#endif
 
 			if (new_id == 0) {
 				uint8 state = thePrefs::GetSmartIdState();
@@ -399,6 +427,17 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 				theApp->OnlineSig(); // Added By Bouc7
 			}
 
+#ifdef ENABLE_IPV6
+			// SetConnectionState(CS_CONNECTED) above is what makes serverconnect's
+			// connectedsocket (and so GetCurrentServer()) point at this connection;
+			// UpdateAdvertisedIPv6() needs it.
+			if (cur_server->SupportsIPv6Updates()) {
+				AddDebugLogLineN(logServer, "OP_IDCHANGE: server accepts OP_IPV6_UPDATE");
+				// The address may have changed between the login and this IDCHANGE.
+				serverconnect->UpdateAdvertisedIPv6(AdvertisedIPv6ForPeers());
+			}
+#endif
+
 			theApp->ShowConnectionState();
 
 			AddLogLineN(CFormat(_("New clientid is %u")) % new_id);
@@ -436,7 +475,7 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 			if (CPartFile *file = theApp->downloadqueue->GetFileByID(fileid)) {
 				const CNetworkAddress *loginIPv6 = nullptr;
 #ifdef ENABLE_IPV6
-				if (GetLoginIPv6().IsPresent()) {
+				if (IsIPv6SentinelParsingOn()) {
 					loginIPv6 = &GetLoginIPv6();
 				}
 #endif
