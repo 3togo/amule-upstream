@@ -44,12 +44,14 @@ inline const wxRect *FindPrimaryWorkArea(const std::vector<wxRect> &workAreas, s
 	return nullptr;
 }
 
-// Preserve windows whose top edge is reachable, including those spanning monitors.
+// Preserve windows with a usable title-bar area, including those spanning monitors.
+// The caller supplies the reachability margin in window coordinates (converted from DIP).
 // Otherwise recover onto the most-overlapped work area, or the primary display
 // when no work area overlaps. Use wide arithmetic for untrusted config values.
 inline wxRect ConstrainWindowRect(const wxRect &saved,
 	const std::vector<wxRect> &workAreas,
 	const wxSize &minimum,
+	int reachableMargin,
 	size_t primaryDisplay = 0)
 {
 	if (workAreas.empty()) {
@@ -63,7 +65,8 @@ inline wxRect ConstrainWindowRect(const wxRect &saved,
 		}
 		const int64_t right = std::min(int64_t(saved.x) + saved.width, int64_t(area.x) + area.width);
 		const int64_t width = std::max<int64_t>(0, right - std::max(saved.x, area.x));
-		if (width > 0 && saved.y >= area.y && int64_t(saved.y) < int64_t(area.y) + area.height) {
+		if (width >= reachableMargin && saved.y >= area.y &&
+			int64_t(saved.y) <= int64_t(area.y) + area.height - reachableMargin) {
 			return wxRect(saved.GetPosition(),
 				wxSize(std::max(saved.width, minimum.x), std::max(saved.height, minimum.y)));
 		}
@@ -101,6 +104,7 @@ inline wxRect RestoreWindowRect(const wxRect &current,
 	const wxRect &saved,
 	const std::vector<wxRect> &workAreas,
 	const wxSize &minimum,
+	int reachableMargin,
 	size_t primaryDisplay,
 	const CWindowRestoreOptions &options)
 {
@@ -118,7 +122,7 @@ inline wxRect RestoreWindowRect(const wxRect &current,
 	if (!options.overridePosition && options.hasSavedPosition) {
 		desired.SetPosition(saved.GetPosition());
 	}
-	wxRect restored = ConstrainWindowRect(desired, workAreas, minimum, primaryDisplay);
+	wxRect restored = ConstrainWindowRect(desired, workAreas, minimum, reachableMargin, primaryDisplay);
 	if (options.overridePosition) {
 		restored.SetPosition(current.GetPosition());
 	}

@@ -1623,6 +1623,7 @@ bool CamuleDlg::LoadGUIPrefs(bool override_pos, bool override_size)
 		wxRect(x1, y1, x2, y2),
 		workAreas,
 		FromDIP(wxSize(320, 240)),
+		FromDIP(50),
 		primaryDisplay,
 		options);
 	// -1 is a real coordinate on desktops extending left or above the primary display.
