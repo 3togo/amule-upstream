@@ -105,6 +105,11 @@ protected:
 	/// against what is on screen.
 	virtual void GetDisplayOrder(wxDataViewItemArray &ordered) const = 0;
 
+	//! Bounded sample for explicit fitting; must not build or sort the full display order.
+	virtual void GetColumnFitRows(wxDataViewItemArray &rows, size_t limit) const = 0;
+	//! Content width for composite cells, or -1 to use variant/default measurement.
+	virtual int GetCustomFitWidth(const wxDataViewItem &, unsigned, wxDC &) const { return -1; }
+
 	//! Text a row is matched against when the user types to select.
 	virtual wxString GetRowLabel(const wxDataViewItem &item) const = 0;
 
@@ -292,6 +297,7 @@ protected:
 		//! A hidden column reads as zero-width, which is how
 		//! CListColumnStore already persists hidden state.
 		int GetColumnWidth(int col) const override;
+		double GetWidthScale() const override;
 		bool SetColumnWidth(int col, int width) override
 		{
 			m_ctrl->SetColumnHidden(col, width <= COL_SIZE_MIN, width);
@@ -312,6 +318,7 @@ protected:
 	void OnColumnHeaderClick(wxDataViewEvent &event);
 	void OnColumnHeaderRightClick(wxDataViewEvent &event);
 	void OnColumnMenuSelected(wxCommandEvent &evt);
+	void OnDPIChanged(wxDPIChangedEvent &event);
 	void OnIdle(wxIdleEvent &event);
 	void OnChar(wxKeyEvent &evt);
 	void OnKeyDown(wxKeyEvent &evt);
@@ -338,12 +345,12 @@ protected:
 	 */
 	void ResetKnownWidths();
 
+	//! Explicit user fit; negative column fits every visible column.
+	void FitColumnWidths(int column);
+
 private:
 	//! Default width in device pixels, wide enough for the translated heading and sort caret.
 	int GetDefaultColumnWidth(const wxString &label, int width) const;
-
-	//! Explicit header-menu fit; a negative index fits every visible column.
-	void FitColumnWidths(int column);
 
 	//! Per-column hidden state, indexed like the control's columns.
 	std::vector<bool> m_columnHidden;

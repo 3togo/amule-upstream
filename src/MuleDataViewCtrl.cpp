@@ -47,6 +47,7 @@ wxBEGIN_EVENT_TABLE(CMuleDataViewCtrl, wxDataViewCtrl)
 	EVT_DATAVIEW_COLUMN_HEADER_CLICK(wxID_ANY, CMuleDataViewCtrl::OnColumnHeaderClick)
 	EVT_DATAVIEW_COLUMN_HEADER_RIGHT_CLICK(wxID_ANY, CMuleDataViewCtrl::OnColumnHeaderRightClick)
 	EVT_MENU_RANGE(MP_LISTCOL_1, MP_LISTCOL_25, CMuleDataViewCtrl::OnColumnMenuSelected)
+	EVT_DPI_CHANGED(CMuleDataViewCtrl::OnDPIChanged)
 	EVT_IDLE(CMuleDataViewCtrl::OnIdle)
 	EVT_CHAR(CMuleDataViewCtrl::OnChar)
 	EVT_KEY_DOWN(CMuleDataViewCtrl::OnKeyDown)
@@ -68,6 +69,16 @@ CMuleDataViewCtrl::CMuleDataViewCtrl(wxWindow *parent,
 }
 
 CMuleDataViewCtrl::~CMuleDataViewCtrl() = default;
+
+double CMuleDataViewCtrl::ColumnWidthAdapter::GetWidthScale() const
+{
+#ifdef wxHAS_DPI_INDEPENDENT_PIXELS
+	// GTK3 and macOS column widths already use logical coordinates.
+	return 1.0;
+#else
+	return m_ctrl->GetDPIScaleFactor();
+#endif
+}
 
 int CMuleDataViewCtrl::ColumnWidthAdapter::GetColumnWidth(int col) const
 {
@@ -599,10 +610,8 @@ void CMuleDataViewCtrl::FitColumnWidths(int column)
 		return;
 	}
 	wxDataViewItemArray rows;
-	GetDisplayOrder(rows);
-	// Bound text measurement work on large search/download lists. Sample across the list,
-	// including both ends, so fitting is not biased towards its current sort order.
-	const size_t samples = std::min<size_t>(rows.size(), 512);
+	GetColumnFitRows(rows, 512);
+	const size_t samples = rows.size();
 	wxClientDC dc(this);
 	dc.SetFont(GetFont());
 	const int padding = FromDIP(16);
@@ -619,46 +628,51 @@ void CMuleDataViewCtrl::FitColumnWidths(int column)
 		int width = rows.empty()
 				    ? std::max(headerWidth, m_columnStore.GetColumnDefaultWidth(columnIndex))
 				    : headerWidth;
-		// Bars (and custom client cells using bar specs) have no textual natural width.
-		// Keep their useful default rather than feeding their current width back into a fit.
+		// Genuine bars keep a useful default. Composite cells using the same
+		// variant may supply a measured width through GetCustomFitWidth().
 		if (dynamic_cast<CMuleBarRenderer *>(col->GetRenderer())) {
 			width = std::max(width, m_columnStore.GetColumnDefaultWidth(columnIndex));
-		} else {
-			for (size_t sample = 0; sample < samples; ++sample) {
-				const size_t row =
-					samples > 1 ? sample * (rows.size() - 1) / (samples - 1) : 0;
-				if (!model->HasValue(rows[row], col->GetModelColumn())) {
-					continue;
-				}
-				wxVariant value;
-				model->GetValue(value, rows[row], col->GetModelColumn());
-				wxString text;
-				int iconWidth = 0;
-				if (value.GetType() == "string") {
-					text = value.GetString();
-				} else if (value.GetType() == "wxDataViewIconText") {
-					wxDataViewIconText cell;
-					cell << value;
-					text = cell.GetText();
-					if (cell.GetIcon().IsOk()) {
-						iconWidth = cell.GetIcon().GetWidth() + FromDIP(4);
-					}
-				}
-				wxDataViewItemAttr attr;
-				dc.SetFont(model->GetAttr(rows[row], col->GetModelColumn(), attr)
-						   ? attr.GetEffectiveFont(GetFont())
-						   : GetFont());
-				int cellWidth = dc.GetTextExtent(text).x + iconWidth + padding;
-				if (col == GetExpanderColumn() && !model->IsListModel()) {
-					cellWidth += FromDIP(20);
-					for (wxDataViewItem parent = model->GetParent(rows[row]);
-						parent.IsOk();
-						parent = model->GetParent(parent)) {
-						cellWidth += std::max(GetIndent(), FromDIP(16));
-					}
-				}
-				width = std::max(width, std::min(cellWidth, contentLimit));
+		}
+		for (size_t row = 0; row < samples; ++row) {
+			if (!model->HasValue(rows[row], col->GetModelColumn())) {
+				continue;
 			}
+			wxDataViewItemAttr attr;
+			dc.SetFont(model->GetAttr(rows[row], col->GetModelColumn(), attr)
+					   ? attr.GetEffectiveFont(GetFont())
+					   : GetFont());
+			const int custom = GetCustomFitWidth(rows[row], col->GetModelColumn(), dc);
+			if (custom >= 0) {
+				width = std::max(width, std::min(custom + padding, contentLimit));
+				continue;
+			}
+			if (dynamic_cast<CMuleBarRenderer *>(col->GetRenderer())) {
+				continue;
+			}
+			wxVariant value;
+			model->GetValue(value, rows[row], col->GetModelColumn());
+			wxString text;
+			int iconWidth = 0;
+			if (value.GetType() == "string") {
+				text = value.GetString();
+			} else if (value.GetType() == "wxDataViewIconText") {
+				wxDataViewIconText cell;
+				cell << value;
+				text = cell.GetText();
+				if (cell.GetIcon().IsOk()) {
+					iconWidth = cell.GetIcon().GetWidth() + FromDIP(4);
+				}
+			}
+
+			int cellWidth = dc.GetTextExtent(text).x + iconWidth + padding;
+			if (col == GetExpanderColumn() && !model->IsListModel()) {
+				cellWidth += FromDIP(20);
+				for (wxDataViewItem parent = model->GetParent(rows[row]); parent.IsOk();
+					parent = model->GetParent(parent)) {
+					cellWidth += std::max(GetIndent(), FromDIP(16));
+				}
+			}
+			width = std::max(width, std::min(cellWidth, contentLimit));
 		}
 		col->SetWidth(width);
 	}
@@ -691,6 +705,21 @@ void CMuleDataViewCtrl::OnColumnMenuSelected(wxCommandEvent &evt)
 	ResetKnownWidths();
 	OnColumnVisibilityChanged();
 	SaveColumnSettings();
+}
+
+void CMuleDataViewCtrl::OnDPIChanged(wxDPIChangedEvent &event)
+{
+#ifndef wxHAS_DPI_INDEPENDENT_PIXELS
+	// wx rescales the native columns, but hidden columns restore their widths from this
+	// cache. Keep every cached width in the same units before idle can persist the layout.
+	for (int col = 0; col < static_cast<int>(RealColumnCount()); ++col) {
+		const int width = m_columnStore.GetCachedWidth(col);
+		if (width > 0) {
+			m_columnStore.SetCachedWidth(col, event.ScaleX(width));
+		}
+	}
+#endif
+	event.Skip();
 }
 
 void CMuleDataViewCtrl::OnIdle(wxIdleEvent &event)
