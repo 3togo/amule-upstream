@@ -196,6 +196,25 @@ void CMuleDataViewCtrl::InitColumnState()
 #endif
 
 	m_columnHidden.resize(RealColumnCount(), false);
+	// Old profiles may already have every column hidden. Recover a useful default
+	// column before the header becomes the only way to repair the layout.
+	bool anyVisible = false;
+	for (unsigned i = 0; i < RealColumnCount(); ++i) {
+		anyVisible = anyVisible || !IsColumnHidden(static_cast<int>(i));
+	}
+	if (!anyVisible && RealColumnCount() > 0) {
+		unsigned first = 0;
+		for (unsigned i = 0; i < m_defaultColumnHidden.size(); ++i) {
+			if (!m_defaultColumnHidden[i]) {
+				first = i;
+				break;
+			}
+		}
+		SetColumnHidden(static_cast<int>(first),
+			false,
+			m_columnStore.GetColumnDefaultWidth(static_cast<int>(first)));
+		UpdateExpanderColumn();
+	}
 	ResetKnownWidths();
 }
 
@@ -367,6 +386,7 @@ unsigned FromStoreFlags(unsigned storeFlags)
 
 void CMuleDataViewCtrl::LoadColumnSettings()
 {
+	CaptureDefaultColumnState();
 	if (!m_columnStore.HasTableName()) {
 		return;
 	}
@@ -452,6 +472,45 @@ void CMuleDataViewCtrl::OnColumnHeaderClick(wxDataViewEvent &event)
 
 void CMuleDataViewCtrl::OnColumnHeaderRightClick(wxDataViewEvent &event)
 {
+	ShowColumnMenu(event.GetDataViewColumn());
+	event.Skip();
+}
+
+void CMuleDataViewCtrl::CaptureDefaultColumnState()
+{
+	if (!m_defaultColumnHidden.empty()) {
+		return;
+	}
+	for (unsigned i = 0; i < RealColumnCount(); ++i) {
+		m_defaultColumnHidden.push_back(IsColumnHidden(static_cast<int>(i)));
+	}
+}
+
+void CMuleDataViewCtrl::RestoreColumnLayout(bool defaults)
+{
+	Freeze();
+	for (unsigned i = 0; i < RealColumnCount(); ++i) {
+		const int col = static_cast<int>(i);
+		const bool hidden = defaults && i < m_defaultColumnHidden.size() && m_defaultColumnHidden[i];
+		const int current =
+			IsColumnHidden(col) ? m_columnStore.GetCachedWidth(col) : GetColumn(i)->GetWidth();
+		const int width = defaults || current <= COL_SIZE_MIN
+					  ? m_columnStore.GetColumnDefaultWidth(col)
+					  : current;
+		m_columnStore.SetCachedWidth(col, width);
+		SetColumnHidden(col, hidden, width);
+	}
+	UpdateExpanderColumn();
+	Thaw();
+	ResetKnownWidths();
+	// Use both hooks so search tabs mirror visibility and widths together.
+	OnColumnVisibilityChanged();
+	OnColumnWidthsChanged();
+	Refresh();
+}
+
+void CMuleDataViewCtrl::ShowColumnMenu(wxDataViewColumn *clicked)
+{
 	// Show/hide menu, as CMuleListCtrl::OnColumnRClick offered on every
 	// list built on the old base.
 	wxMenu menu;
@@ -461,14 +520,21 @@ void CMuleDataViewCtrl::OnColumnHeaderRightClick(wxDataViewEvent &event)
 	wxASSERT_MSG(RealColumnCount() <= menuSlots,
 		"more columns than MP_LISTCOL_* slots -- the extra ones cannot be shown or hidden");
 	const unsigned columns = std::min<unsigned>(RealColumnCount(), menuSlots);
+	unsigned visible = 0;
+	for (unsigned i = 0; i < RealColumnCount(); ++i) {
+		if (!IsColumnHidden(static_cast<int>(i))) {
+			++visible;
+		}
+	}
 	for (unsigned i = 0; i < columns; ++i) {
 		menu.AppendCheckItem(static_cast<int>(i) + MP_LISTCOL_1, GetColumn(i)->GetTitle());
 		menu.Check(static_cast<int>(i) + MP_LISTCOL_1, !IsColumnHidden(static_cast<int>(i)));
+		menu.Enable(static_cast<int>(i) + MP_LISTCOL_1,
+			visible > 1 || IsColumnHidden(static_cast<int>(i)));
 	}
 
 	menu.AppendSeparator();
 	const wxWindowIDRef fitColumn = wxWindow::NewControlId();
-	const wxDataViewColumn *clicked = event.GetDataViewColumn();
 	if (clicked && clicked->GetModelColumn() < RealColumnCount()) {
 		menu.Append(fitColumn, _("Fit column to contents"));
 		menu.Bind(
@@ -482,8 +548,14 @@ void CMuleDataViewCtrl::OnColumnHeaderRightClick(wxDataViewEvent &event)
 	menu.Append(fitAll, _("Fit visible columns to contents"));
 	menu.Bind(wxEVT_MENU, [this](wxCommandEvent &) { FitColumnWidths(-1); }, fitAll);
 
+	menu.AppendSeparator();
+	const wxWindowIDRef showAll = wxWindow::NewControlId();
+	menu.Append(showAll, _("Show all columns (keep widths)"));
+	menu.Bind(wxEVT_MENU, [this](wxCommandEvent &) { RestoreColumnLayout(false); }, showAll);
+	const wxWindowIDRef restore = wxWindow::NewControlId();
+	menu.Append(restore, _("Restore default columns and widths"));
+	menu.Bind(wxEVT_MENU, [this](wxCommandEvent &) { RestoreColumnLayout(true); }, restore);
 	PopupMenu(&menu);
-	event.Skip();
 }
 
 void CMuleDataViewCtrl::FitColumnWidths(int column)
@@ -571,6 +643,15 @@ void CMuleDataViewCtrl::OnColumnMenuSelected(wxCommandEvent &evt)
 	}
 
 	if (!IsColumnHidden(col)) {
+		unsigned visible = 0;
+		for (unsigned i = 0; i < RealColumnCount(); ++i) {
+			if (!IsColumnHidden(static_cast<int>(i))) {
+				++visible;
+			}
+		}
+		if (visible <= 1) {
+			return;
+		}
 		// Remember the width so re-showing restores what the user had.
 		m_columnStore.SetCachedWidth(col, GetColumn(static_cast<unsigned>(col))->GetWidth());
 		SetColumnHidden(col, true, 0);
@@ -738,6 +819,12 @@ void CMuleDataViewCtrl::RaiseItemContextMenu()
 
 void CMuleDataViewCtrl::OnKeyDown(wxKeyEvent &evt)
 {
+	// A focused list can open its column settings even with an empty header or
+	// no rows. Ctrl+Shift+L (Command+Shift+L on macOS) leaves row menus unchanged.
+	if (evt.CmdDown() && evt.ShiftDown() && !evt.AltDown() && evt.GetKeyCode() == 'L') {
+		ShowColumnMenu();
+		return;
+	}
 #ifdef __WXOSX__
 	// wx's Cocoa backend has no keyboard-triggered path to wxEVT_DATAVIEW_ITEM_CONTEXT_MENU. It
 	// does handle wxEVT_CONTEXT_MENU -- that is how a right-click becomes a dataview event

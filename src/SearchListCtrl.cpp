@@ -205,6 +205,8 @@ CSearchListCtrl::CSearchListCtrl(
 	m_sort_orders.emplace_back(CSearchListModel::COL_NAME, 0);
 	ShowSortCaret(CSearchListModel::COL_NAME, 0);
 
+	CaptureDefaultColumnState();
+
 	// Only load settings for first list, otherwise sync with current lists
 	if (s_lists.empty()) {
 		m_columnStore.SetTableName("Search");
