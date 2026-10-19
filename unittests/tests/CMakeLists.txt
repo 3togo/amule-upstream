@@ -2225,6 +2225,30 @@ target_link_libraries (BrowseStoreTest
 	mulecommon
 )
 
+if (TARGET wxWidgets::CORE)
+    add_executable (ColumnFitTest
+        ColumnFitTest.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleDataViewCtrl.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleVirtualDataViewCtrl.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleBarRenderer.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleIconTextRenderer.cpp
+        ${CMAKE_SOURCE_DIR}/src/ListColumnStore.cpp
+        ${CMAKE_SOURCE_DIR}/src/BarShader.cpp
+        ${CMAKE_SOURCE_DIR}/src/MuleColour.cpp
+        ${CMAKE_SOURCE_DIR}/src/GetTickCount.cpp
+    )
+    if (WIN32)
+        target_sources (ColumnFitTest PRIVATE DialogLayoutTest.rc)
+    endif()
+    target_include_directories (ColumnFitTest PRIVATE
+        ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+        ${CMAKE_SOURCE_DIR}/src/libs
+    )
+    target_link_libraries (ColumnFitTest PRIVATE wxWidgets::CORE mulecommon)
+    add_test (NAME ColumnFitTest COMMAND ColumnFitTest)
+    set_tests_properties (ColumnFitTest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
 # CListColumnStore maps a column id to its persistence key and default width.
 # The key is the on-disk config format, so the id a caller registers has to be
 # the id it looks the column up by -- a registry that renumbered stored ids

@@ -94,6 +94,9 @@ struct ClientNameCell
 //! Snapshot a live peer. Safe to call only while `client` is known alive.
 ClientNameCell MakeClientNameCell(const CUpDownClient *client, bool a4af = false);
 
+//! Width of the same badge cluster, flag and text, in the DC's logical coordinates.
+int MeasureClientNameCell(const ClientNameCell &cell, wxDC &dc);
+
 /**
  * Draw the badge cluster, the optional country flag and the name.
  *

@@ -60,6 +60,7 @@ struct ClientCtrlItem_Struct
 	CKnownFile *GetOwner() const { return m_owner; }
 
 	CClientRef &GetSource() { return m_sourceValue; }
+	const CClientRef &GetSource() const { return m_sourceValue; }
 
 	void SetContents(CKnownFile *owner, const CClientRef &source, SourceItemType type)
 	{
@@ -161,6 +162,8 @@ protected:
 
 	/// Fill data for the Name column's composite icon+text renderer (see
 	/// CClientNameRenderer) and for a leaf's own bar column.
+	int GetCustomFitWidth(const wxDataViewItem &item, unsigned column, wxDC &dc) const override;
+
 	void GetItemBarFill(wxUIntPtr item, unsigned column, CBarFillSpec &out) const override;
 
 	/// Single-column comparison for the base's sort chain, after the

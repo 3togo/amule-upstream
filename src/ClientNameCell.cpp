@@ -78,6 +78,24 @@ ClientNameCell MakeClientNameCell(const CUpDownClient *client, bool a4af)
 	return cell;
 }
 
+int MeasureClientNameCell(const ClientNameCell &cell, wxDC &dc)
+{
+	int iconWidth = 0;
+	int iconHeight = 0;
+	theApp->amuledlg->m_imagelist.GetSize(0, iconWidth, iconHeight);
+	int width = (iconWidth + 2) * (cell.showState ? 2 : 1);
+#ifdef GEOIP_GUI
+	if (!cell.countryCode.IsEmpty()) {
+		const wxBitmap flag = theApp->GetCountryFlags()->GetFlag(
+			cell.countryCode, dc.FromDIP(wxSize(16, 12)), dc.GetContentScaleFactor());
+		if (flag.IsOk()) {
+			width += flag.GetLogicalSize().x + dc.FromDIP(2);
+		}
+	}
+#endif
+	return width + dc.GetTextExtent(cell.name.IsEmpty() ? wxString("?") : cell.name).x;
+}
+
 void DrawClientNameCell(const ClientNameCell &cell, const wxRect &rect, wxDC *dc)
 {
 	if (rect.GetWidth() <= 0 || rect.GetHeight() <= 0) {
