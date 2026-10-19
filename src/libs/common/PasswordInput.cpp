@@ -163,7 +163,8 @@ bool ReadTerminalLine(std::string &line)
 			return false;
 		}
 		if (c == L'\r' || c == L'\n') {
-			const auto utf8 = wxString(wide).utf8_str();
+			const wxString text(wide);
+			const auto utf8 = text.utf8_str();
 			if (!wide.empty() && utf8.length() == 0) {
 				return false;
 			}

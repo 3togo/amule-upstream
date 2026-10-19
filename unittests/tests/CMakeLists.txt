@@ -3002,7 +3002,6 @@ if (BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiPasswordInputTest.py
 			$<TARGET_FILE:amuleapi>
 	)
-	set_tests_properties (AmuleApiPasswordInputTest PROPERTIES TIMEOUT 90)
 endif ()
 
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
@@ -3010,7 +3009,6 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Int
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiEcPasswordIntegrationTest.py
 			$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
 	)
-	set_tests_properties (AmuleApiEcPasswordIntegrationTest PROPERTIES TIMEOUT 180)
 endif ()
 
 # Download diagnostics must never expose URL credentials to log/status readers.
