@@ -272,6 +272,8 @@ protected:
 	void CaptureDefaultColumnState();
 	//! Show every column, optionally restoring constructor widths and visibility.
 	void RestoreColumnLayout(bool defaults);
+	//! Copy visibility and both visible/hidden widths without generating a resize echo.
+	void CopyColumnLayoutFrom(const CMuleDataViewCtrl &source);
 	void ShowColumnMenu(wxDataViewColumn *clicked = nullptr);
 
 	/// Adapts this control to IColumnWidthProvider for CListColumnStore. A separate object

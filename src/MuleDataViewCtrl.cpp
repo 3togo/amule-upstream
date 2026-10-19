@@ -509,6 +509,31 @@ void CMuleDataViewCtrl::RestoreColumnLayout(bool defaults)
 	Refresh();
 }
 
+void CMuleDataViewCtrl::CopyColumnLayoutFrom(const CMuleDataViewCtrl &source)
+{
+	wxCHECK_RET(RealColumnCount() == source.RealColumnCount(), "incompatible table layouts");
+	for (unsigned i = 0; i < RealColumnCount(); ++i) {
+		const int col = static_cast<int>(i);
+		const bool hidden = source.IsColumnHidden(col);
+		int width = hidden ? source.m_columnStore.GetCachedWidth(col)
+				   : source.m_widthAdapter.GetColumnWidth(col);
+		if (width <= COL_SIZE_MIN) {
+			width = source.m_columnStore.GetColumnDefaultWidth(col);
+		}
+		// A hidden native column can still report its old, pre-reset width.
+		// Transfer the cache as well, so showing it in another tab restores the
+		// latest choice rather than whichever width that tab last remembered.
+		m_columnStore.SetCachedWidth(col, width);
+		if (IsColumnHidden(col) != hidden || (!hidden && GetColumn(i)->GetWidth() != width)) {
+			SetColumnHidden(col, hidden, width);
+		}
+	}
+	UpdateExpanderColumn();
+	// GTK can clamp widths differently between tabs. Do not have the idle poll
+	// mistake a copied layout for a drag and mirror it back indefinitely.
+	ResetKnownWidths();
+}
+
 void CMuleDataViewCtrl::ShowColumnMenu(wxDataViewColumn *clicked)
 {
 	// Show/hide menu, as CMuleListCtrl::OnColumnRClick offered on every

@@ -69,7 +69,10 @@ public:
 		LoadColumnSettings();
 		InitColumnState();
 	}
+	using CMuleDataViewCtrl::CopyColumnLayoutFrom;
 	using CMuleDataViewCtrl::RestoreColumnLayout;
+	int CachedWidth(int col) const { return m_columnStore.GetCachedWidth(col); }
+	int DefaultWidth(int col) const { return m_columnStore.GetColumnDefaultWidth(col); }
 	int visibilityChanges = 0;
 	int widthChanges = 0;
 
@@ -154,6 +157,27 @@ void RunTests()
 				list->widthChanges == widthChanges + 2,
 			"Reset did not notify search-tab synchronization hooks");
 	}
+	fixture.config.Write("/eMule/TableWidthsLayoutTest", "P:-444,N:300,S:80");
+	{
+		wxFrame first(nullptr, wxID_ANY, "Source layout");
+		wxFrame second(nullptr, wxID_ANY, "Mirrored layout");
+		auto *source = new TestList(&first);
+		auto *mirror = new TestList(&second);
+		Check(mirror->CachedWidth(0) == 444, "Hidden-width fixture did not load");
+		mirror->CopyColumnLayoutFrom(*source);
+		Check(mirror->CachedWidth(1) == 300,
+			"Mirroring before first paint lost a restored visible width");
+		source->RestoreColumnLayout(true);
+		mirror->CopyColumnLayoutFrom(*source);
+		Check(mirror->IsColumnHidden(0), "Mirroring lost hidden state");
+		Check(mirror->CachedWidth(0) == source->DefaultWidth(0),
+			"Mirroring retained a hidden column's pre-reset width");
+		// Copying is passive: it must not emit notifications which echo back to
+		// the source and continuously relayout two search tabs.
+		Check(mirror->visibilityChanges == 0 && mirror->widthChanges == 0,
+			"Copying a layout emitted change notifications");
+	}
+
 	fixture.config.Write("/eMule/TableWidthsLayoutTest", "P:-50,N:-200,S:-80");
 	{
 		wxFrame frame(nullptr, wxID_ANY, "Hidden profile recovery test");
