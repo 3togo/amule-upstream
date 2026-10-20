@@ -217,6 +217,10 @@ CEC_PartFile_Tag::CEC_PartFile_Tag(const CPartFile *file, EC_DETAIL_LEVEL detail
 		AddTag(EC_TAG_PARTFILE_SIZE_XFER, file->GetTransferred(), valuemap);
 		AddTag(EC_TAG_PARTFILE_SIZE_DONE, file->GetCompletedSize(), valuemap);
 		AddTag(EC_TAG_PARTFILE_SPEED, (uint64_t)file->GetDisplayDownloadRate(), valuemap);
+		AddDiffTag(this,
+			EC_TAG_PARTFILE_SPEED_SMOOTHED,
+			static_cast<double>(file->GetKBpsDown()),
+			valuemap);
 	}
 
 	AddTag(EC_TAG_PARTFILE_PRIO,

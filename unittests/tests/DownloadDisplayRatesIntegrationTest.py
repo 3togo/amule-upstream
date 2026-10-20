@@ -14,16 +14,17 @@ import sys
 import tempfile
 import threading
 import time
+import zlib
 
 from AllSearchIntegrationTest import (C, connect_daemon, free_ports, retry_port_collisions,
-                                      stop_daemon)
+                                      stop_daemon, tag)
 from DaemonConfig import write_amule_conf
 from DisplayRatesIntegrationTest import DisplayRateMirror, PartialUpdateEC
 from ED2KLinkIntegrationTest import add_link
 from UploadRefillIntegrationTest import packet, send
 
 
-def run(binary):
+def run(binary, compress=False):
     with tempfile.TemporaryDirectory(prefix='amule-download-rates-') as directory:
         root = Path(directory)
         for name in ('Incoming', 'Temp'):
@@ -86,19 +87,36 @@ def run(binary):
                                 send(sock, 0x50, file_hash + bytes(2))
                             elif opcode == 0x54:  # OP_STARTUPLOADREQ
                                 send(sock, 0x55)
+                            elif opcode == 0x56:  # OP_CANCELTRANSFER
+                                pending.clear()
                             elif opcode == 0x47:  # OP_REQUESTPARTS
                                 offsets = struct.unpack_from('<6I', data, 16)
-                                pending.extend([start, end] for start, end in zip(offsets[:3], offsets[3:])
+                                pending.extend([start, end, None, 0] for start, end in zip(offsets[:3], offsets[3:])
                                                if end > start)
                                 ready[index].set()
                         now = time.monotonic()
                         if pending and active.is_set() and now - last_sent >= 0.04:
-                            start, end = pending[0]
-                            count = min(int(rate[0] * 0.04), end - start)
-                            send(sock, 0x46, file_hash + struct.pack('<II', start, start + count) + b'x' * count)
-                            pending[0][0] += count
-                            if pending[0][0] == end:
-                                pending.pop(0)
+                            start, end, packed, offset = pending[0]
+                            count = int(rate[0] * 0.04)
+                            if compress:
+                                if packed is None:
+                                    # Exercise a real compression gain, so counting inflated
+                                    # bytes would visibly disagree with the total wire rate.
+                                    size = end - start
+                                    packed = zlib.compress(os.urandom(size // 2) + bytes(size - size // 2))
+                                    pending[0][2] = packed
+                                chunk = packed[offset:offset + count]
+                                data = file_hash + struct.pack('<II', start, len(packed)) + chunk
+                                sock.sendall(struct.pack('<BIB', 0xc5, len(data) + 1, 0x40) + data)
+                                pending[0][3] += len(chunk)
+                                if pending[0][3] == len(packed):
+                                    pending.pop(0)
+                            else:
+                                count = min(count, end - start)
+                                send(sock, 0x46, file_hash + struct.pack('<II', start, start + count) + b'x' * count)
+                                pending[0][0] += count
+                                if pending[0][0] == end:
+                                    pending.pop(0)
                             last_sent = now
             except (EOFError, OSError) as error:
                 if not stopped.is_set():
@@ -135,6 +153,8 @@ def run(binary):
                     assert downloading == 2 and peers > speed, (total, peers, files, downloading)
                     assert abs(peers - files) < speed * 0.25, ('file/peer rates disagree', peers, files)
                     assert abs(total - peers) < speed * 0.5, ('total/peer rates disagree', total, peers)
+                    assert all(fields[C['EC_TAG_PARTFILE_SPEED_SMOOTHED']] > 0
+                               for fields in mirror.files.values()), 'missing smoothed ETA rate'
             active.clear()
             time.sleep(1.5)
             for mirror in mirrors:
@@ -143,8 +163,17 @@ def run(binary):
                 assert sum(peer.get(C['EC_TAG_CLIENT_DOWNLOAD_STATE']) == 0
                            for peer in mirror.peers.values()) == 2, 'sources left DS_DOWNLOADING'
                 assert total < 4096 and peers == files == 0, ('stale download rates', total, peers, files)
+                assert all(fields[C['EC_TAG_PARTFILE_SPEED_SMOOTHED']] > 0
+                           for fields in mirror.files.values()), 'idle display overwrote the smoothed ETA rate'
+            # Pause clears both rates even though no further partfile Process ticks run.
+            assert ec.call(C['EC_OP_PARTFILE_PAUSE'], [tag(C['EC_TAG_PARTFILE'], file_hash, 9)])[0] == C['EC_OP_NOOP']
+            for mirror in mirrors:
+                _, peers, files, downloading = mirror.poll_downloads()
+                assert peers == files == downloading == 0, (peers, files, downloading)
+                assert all(fields[C['EC_TAG_PARTFILE_SPEED_SMOOTHED']] == 0
+                           for fields in mirror.files.values()), 'paused ETA rate did not reset'
             assert not errors, errors
-            print('PASS: one-second total, two-source and file download rates, step change and idle expiry; legacy/partial EC')
+            print(f'PASS (compressed={compress}): one-second total, two-source and file download rates, step change and idle expiry; legacy/partial EC')
         finally:
             stopped.set()
             for sock in connections + listeners:
@@ -160,4 +189,5 @@ def run(binary):
 
 
 if __name__ == '__main__':
-    retry_port_collisions(lambda: run(str(Path(sys.argv[1]).resolve())))
+    for compressed in (False, True):
+        retry_port_collisions(lambda: run(str(Path(sys.argv[1]).resolve()), compressed))

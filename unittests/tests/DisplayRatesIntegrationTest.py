@@ -49,6 +49,8 @@ class DisplayRateMirror:
                                if key in (C['EC_TAG_KNOWNFILE_UPLOAD_SPEED'],
                                           C['EC_TAG_KNOWNFILE_UPLOADING_COUNT'], C['EC_TAG_PARTFILE_SPEED'],
                                           C['EC_TAG_PARTFILE_SOURCE_COUNT_XFER'])})
+                fields.update({key: float(data.rstrip(b'\0')) for key, data, _ in children
+                               if key == C['EC_TAG_PARTFILE_SPEED_SMOOTHED']})
             elif name == C['EC_TAG_CLIENT']:
                 present = set()
                 for _, peer_id, fields in children:
@@ -99,6 +101,21 @@ class DisplayRatesObserver:
 
     def close(self):
         self.partial.sock.close()
+
+    def check_file_switch(self, sockets, file_hash, switched):
+        from UploadRefillIntegrationTest import send
+        for mirror in self.mirrors:
+            assert mirror.poll()[1] > 0, 'switch test missed the recent upload window'
+        for sock in sockets:
+            send(sock, 0x4f, file_hash)  # OP_SETREQFILEID, retaining the upload slot
+        deadline = time.monotonic() + 5
+        while not all(event.is_set() for event in switched):
+            assert time.monotonic() < deadline, 'peers did not receive the new file status'
+            time.sleep(0.01)
+        for mirror in self.mirrors:
+            total, peers, files, uploading = mirror.poll()
+            assert uploading == len(sockets), 'file switch lost the upload slots'
+            assert peers == files == 0, ('new share inherited old upload bytes', total, peers, files)
 
     def check_idle(self, received):
         deadline = time.monotonic() + 20

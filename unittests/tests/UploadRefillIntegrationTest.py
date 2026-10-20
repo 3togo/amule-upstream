@@ -61,6 +61,8 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_
                    else os.urandom(64 * 1024 * 1024))
         filename = 'upload.txt' if compress else 'upload.bin'
         (incoming / filename).write_bytes(content)
+        if check_display_rates:
+            (incoming / 'switch.bin').write_bytes(os.urandom(65536))
         ec_port, peer_port = free_ports(2, peer_index=1)
         write_amule_conf(root, ec_port, Port=peer_port, UDPEnable=0, FilterLanIPs=0,
                          MaxUpload=rate, SlotAllocation=10, MaxConnections=200,
@@ -69,6 +71,8 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_
         stop = threading.Event()
         draining = threading.Event()
         ready = [threading.Event() for _ in range(slots)]
+        drained = [threading.Event() for _ in range(slots)]
+        switched = [threading.Event() for _ in range(slots)]
         received = [0] * slots
         compressed_packets = [0] * slots
         errors = []
@@ -83,7 +87,7 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_
                 ec = connect_daemon(proc, ec_port, root, peer_port)
                 deadline = time.monotonic() + 30
                 files = {}
-                while filename not in files:
+                while filename not in files or (check_display_rates and 'switch.bin' not in files):
                     assert time.monotonic() < deadline, 'shared file was not hashed'
                     files = shared(ec)
                     time.sleep(0.1)
@@ -136,6 +140,8 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_
                         ready[index].set()
                         while not stop.is_set():
                             proto, opcode, data = packet(sock)
+                            if check_display_rates and (proto, opcode) == (0xe3, 0x50) and data[:16] == files['switch.bin']:
+                                switched[index].set()
                             if (proto, opcode) not in ((0xe3, 0x46), (0xc5, 0x40)):
                                 continue
                             assert data[:16] == file_hash
@@ -160,6 +166,8 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_
                             pending[owner][1] = end
                             if end == pending[owner][0]:
                                 del pending[owner]
+                            if draining.is_set() and not pending:
+                                drained[index].set()
                             if len(pending) <= 12 and not draining.is_set():
                                 request()
                     except BaseException as error:
@@ -197,6 +205,14 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_
                     # Finish outstanding requests, then keep the sockets and upload slots
                     # open. A stopped sender must expire speeds without a disconnect.
                     draining.set()
+                    deadline = time.monotonic() + 20
+                    while not all(event.is_set() for event in drained):
+                        assert not errors and time.monotonic() < deadline, ('requests did not drain', errors)
+                        time.sleep(0.01)
+                    # The last payload is still inside its one-second window. Switching
+                    # shares must not assign that file's recent bytes to the new share.
+                    time.sleep(0.15)
+                    observer.check_file_switch(sockets, files['switch.bin'], switched)
                     observer.check_idle(received)
                 mib = sum(delivered) / 1024**2
                 return dict(seconds=elapsed, slots=slots, rate_kib=rate, compress=compress, pause_ms=pause_ms,

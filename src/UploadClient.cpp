@@ -264,7 +264,12 @@ void CUpDownClient::SetUploadFileID(CKnownFile *newreqfile)
 {
 	if (m_uploadingfile == newreqfile) {
 		return;
-	} else if (m_uploadingfile) {
+	}
+	CKnownFile *previousFile = m_uploadingfile;
+	// A peer can change shares without leaving its upload slot. Its recent display
+	// bytes belong to the old share, not to the share it has just requested.
+	m_displayUploadRate.Reset();
+	if (m_uploadingfile) {
 		m_uploadingfile->RemoveUploadingClient(this);
 		m_uploadingfile->UpdateUpPartsFrequency(this, false); // Decrement
 		// The decrement side never recomputed, so the count was a high-water mark that only
@@ -289,6 +294,14 @@ void CUpDownClient::SetUploadFileID(CKnownFile *newreqfile)
 		m_upPartStatus.clear();
 		m_nUpCompleteSourcesCount = 0;
 		ClearUploadFileID();
+	}
+	// The periodic sweep visits only current upload files. The old file needs an
+	// explicit refresh when its final peer leaves, including changes to a null file.
+	if (previousFile) {
+		Notify_SharedFilesUpdateItem(previousFile);
+	}
+	if (newreqfile) {
+		Notify_SharedFilesUpdateItem(newreqfile);
 	}
 }
 

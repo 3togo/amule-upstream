@@ -530,7 +530,7 @@ private:
 	/// one that merely got a second older -- see the comment on the comparison in Process().
 	/// Ordered to match the capture there; the values only exist to be compared, so a plain
 	/// array avoids naming ten fields twice.
-	std::array<uint64, 12> m_ecTickState{};
+	std::array<uint64, 13> m_ecTickState{};
 
 	uint8 m_category;
 	uint32 m_nDlActiveTime;
@@ -548,6 +548,7 @@ private:
 	// shared files and search results).
 
 	uint32 m_kbpsDown;
+	bool m_hasSmoothedDownloadRateEC = false;
 	uint8 m_iDownPriorityEC;
 	bool m_isShared;
 	SourcenameItemMap m_SourcenameItemMap;

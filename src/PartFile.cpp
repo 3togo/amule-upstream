@@ -1615,7 +1615,7 @@ uint32 CPartFile::Process(uint8 m_icounter)
 	// answer "changed" always and leave this test doing nothing. The cost is that an idle
 	// download's active time reaches a remote GUI only when something real changes; it is
 	// read in one place.
-	const std::array<uint64, 12> ecTickState = { GetStatus(),
+	const std::array<uint64, 13> ecTickState = { GetStatus(),
 		GetSourceCount(),
 		GetNotCurrentSourcesCount(),
 		GetTransferingSrcCount(),
@@ -1625,6 +1625,8 @@ uint32 CPartFile::Process(uint8 m_icounter)
 		// Quantised exactly as the tag sends it, so a speed wobble too
 		// small to change the wire value doesn't count as a change.
 		(uint64)GetDisplayDownloadRate(),
+		// The remote GUI uses this separate smoothed rate for its remaining-time estimate.
+		(uint64)(GetKBpsDown() * 1024),
 		GetAvailablePartCount(),
 		m_nCompleteSourcesCount,
 		// The last two are already implied by the ones above -- a block arriving moves
