@@ -81,6 +81,29 @@ int main(int argc, char **argv)
 		wxEntryCleanup();
 		return ok ? 0 : 1;
 	}
+	if (std::string(argv[3]) == "registry") {
+		const wxString base = wxString::FromUTF8(argv[2]);
+		const wxString document = base + "/readonly/budget.xlsx";
+		int probe = open(document.fn_str(), O_RDONLY);
+		bool ok = probe >= 0;
+		if (probe >= 0) {
+			close(probe);
+		}
+		probe = open(document.fn_str(), O_WRONLY);
+		ok = (probe < 0 && errno == EACCES) && ok;
+		if (probe >= 0) {
+			close(probe);
+		}
+		probe = open((base + "/downloads/download.part").fn_str(), O_CREAT | O_WRONLY, 0600);
+		ok = probe >= 0 && ok;
+		if (probe >= 0) {
+			ok = write(probe, "partial download", 16) == 16 && ok;
+			close(probe);
+		}
+		wxTheApp->OnExit();
+		wxEntryCleanup();
+		return ok ? 0 : 1;
+	}
 	const wxString result = FolderAccess::Choose(
 		nullptr, "Approve test folder", wxString::FromUTF8(argv[2]), std::string(argv[3]) == "write");
 	bool permissionMatches = true;

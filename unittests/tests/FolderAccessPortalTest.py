@@ -67,7 +67,7 @@ class PortalTest(unittest.TestCase):
             GLib.Variant("(ua{sv})", (1 if cls.mode == "cancel" else 0, results)))
         invocation.return_value(GLib.Variant("(o)", (request,)))
 
-    def run_case(self, mode, writable=False):
+    def run_case(self, mode, writable=False, sparse=False):
         with tempfile.TemporaryDirectory(prefix="amule-portal-test-", dir=Path(DRIVER).parent) as directory:
             base = Path(directory)
             profile = base / "profile"
@@ -79,6 +79,15 @@ class PortalTest(unittest.TestCase):
             if writable:
                 (profile / "folder-access.ini").write_text("Count=1\nFolder0=" + str(self.folder) +
                     "\nHostFolder0=/media/USB/My Documents\nWritable0=1\n")
+            if sparse:
+                downloads = base / "downloads"
+                downloads.mkdir()
+                # A missing entry must not shift its write permission onto a
+                # later read-only share, or make Remember overwrite another row.
+                (profile / "folder-access.ini").write_text(
+                    "Count=3\nWritable0=1\nFolder1=" + str(self.folder) +
+                    "\nHostFolder1=/media/USB/My Documents\nWritable1=" + ("1" if writable else "0") +
+                    "\nFolder2=" + str(downloads) + "\nWritable2=1\n")
             env = dict(os.environ, FLATPAK_ID="org.amule.aMule",
                 XDG_CONFIG_HOME=str(base / "config"), XDG_DATA_HOME=str(base / "data"),
                 XDG_CACHE_HOME=str(base / "cache"), GIO_USE_VFS="local",
@@ -102,9 +111,13 @@ class PortalTest(unittest.TestCase):
                 self.assertIn("HOST=/media/USB/My Documents", proc.stdout)
                 self.assertEqual(record.stat().st_mode & 0o777, 0o600)
                 contents = record.read_text()
-                self.assertIn("Count=1", contents)
-                self.assertIn("Writable0=" + ("1" if writable else "0"), contents)
-                self.assertIn("HostFolder0=/media/USB/My Documents", contents)
+                index = "1" if sparse else "0"
+                self.assertIn("Count=" + ("3" if sparse else "1"), contents)
+                self.assertIn("Writable" + index + "=" + ("1" if writable else "0"), contents)
+                self.assertIn("HostFolder" + index + "=/media/USB/My Documents", contents)
+                if sparse:
+                    self.assertIn("Folder2=" + str(downloads), contents)
+                    self.assertNotIn("Folder0=", contents)
 
     def test_failed_atomic_save_preserves_profile_and_can_retry(self):
         with tempfile.TemporaryDirectory(prefix="amule-profile-save-") as directory:
@@ -129,6 +142,40 @@ class PortalTest(unittest.TestCase):
 
     def test_write_requires_explicit_mode(self):
         self.run_case("success", True)
+
+    def test_missing_registry_entry_does_not_grant_write_to_share(self):
+        self.run_case("success", sparse=True)
+
+    def test_sparse_registry_preserves_writable_destination(self):
+        self.run_case("success", writable=True, sparse=True)
+
+    def test_sparse_registry_enforces_both_permissions(self):
+        with tempfile.TemporaryDirectory(prefix="amule-registry-test-", dir=Path(DRIVER).parent) as directory:
+            base = Path(directory)
+            profile = base / "profile"
+            profile.mkdir()
+            readonly = base / "readonly"
+            readonly.mkdir()
+            document = readonly / "budget.xlsx"
+            document.write_bytes(b"existing office document")
+            downloads = base / "downloads"
+            downloads.mkdir()
+            record = profile / "folder-access.ini"
+            record.write_text("Count=3\nWritable0=1\nFolder1=" + str(readonly) +
+                "\nWritable1=0\nFolder2=" + str(downloads) + "\nWritable2=1\n")
+            original_registry = record.read_bytes()
+            env = dict(os.environ, FLATPAK_ID="org.amule.aMule",
+                XDG_CONFIG_HOME=str(base / "config"), XDG_DATA_HOME=str(base / "data"),
+                XDG_CACHE_HOME=str(base / "cache"), GIO_USE_VFS="local",
+                GSETTINGS_BACKEND="memory", NO_AT_BRIDGE="1")
+            proc = subprocess.run([DRIVER, str(profile), str(base), "registry"],
+                env=env, capture_output=True, text=True, timeout=15)
+            if proc.returncode == 77:
+                self.skipTest(proc.stderr)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertEqual(document.read_bytes(), b"existing office document")
+            self.assertEqual(record.read_bytes(), original_registry)
+            self.assertEqual((downloads / "download.part").read_bytes(), b"partial download")
 
     def test_cancel_does_not_add_a_folder(self):
         self.run_case("cancel")

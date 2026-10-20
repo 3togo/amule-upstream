@@ -155,10 +155,15 @@ bool RestrictWrites(wxString &error)
 	}
 #endif
 	wxFileConfig config("", "", thePrefs::GetConfigDir() + "folder-access.ini");
-	const auto approved = ApprovedFolders();
-	for (size_t i = 0; i < approved.size(); ++i) {
-		if (config.ReadBool(wxString::Format("Writable%zu", i), false)) {
-			writableFolders.push_back(approved[i]);
+	long count = 0;
+	config.Read("Count", &count, 0);
+	for (long i = 0; i < count; ++i) {
+		// Keep permissions paired with their original registry entry, even when
+		// another entry has an empty or missing path.
+		wxString path;
+		if (config.ReadBool(wxString::Format("Writable%ld", i), false) &&
+			config.Read(wxString::Format("Folder%ld", i), &path) && !path.empty()) {
+			writableFolders.emplace_back(path);
 		}
 	}
 	// Flatpak provides private app storage and a private /tmp. These are required
@@ -196,25 +201,24 @@ namespace
 {
 void Remember(const wxString &path, bool writable)
 {
-	auto folders = ApprovedFolders();
-	for (size_t i = 0; i < folders.size(); ++i) {
-		if (folders[i] == CPath(path)) {
+	CamuleFileConfig config("", "", thePrefs::GetConfigDir() + "folder-access.ini");
+	config.SetUmask(0077);
+	long count = 0;
+	config.Read("Count", &count, 0);
+	for (long i = 0; i < count; ++i) {
+		wxString folder;
+		if (config.Read(wxString::Format("Folder%ld", i), &folder) && CPath(folder) == CPath(path)) {
 			if (writable) {
-				CamuleFileConfig config(
-					"", "", thePrefs::GetConfigDir() + "folder-access.ini");
-				config.SetUmask(0077);
-				config.Write(wxString::Format("Writable%zu", i), true);
+				config.Write(wxString::Format("Writable%ld", i), true);
 				config.Flush();
 			}
 			return;
 		}
 	}
-	CamuleFileConfig config("", "", thePrefs::GetConfigDir() + "folder-access.ini");
-	config.SetUmask(0077);
-	config.Write(wxString::Format("Folder%zu", folders.size()), path);
-	config.Write(wxString::Format("HostFolder%zu", folders.size()), HostPath(path));
-	config.Write(wxString::Format("Writable%zu", folders.size()), writable);
-	config.Write("Count", static_cast<long>(folders.size() + 1));
+	config.Write(wxString::Format("Folder%ld", count), path);
+	config.Write(wxString::Format("HostFolder%ld", count), HostPath(path));
+	config.Write(wxString::Format("Writable%ld", count), writable);
+	config.Write("Count", count + 1);
 	config.Flush();
 }
 
