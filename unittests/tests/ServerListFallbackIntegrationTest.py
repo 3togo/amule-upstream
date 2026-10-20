@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import json
 import os
+import socket
 import struct
 import subprocess
 import sys
@@ -15,7 +16,7 @@ import time
 from urllib.error import URLError, HTTPError
 from urllib.request import ProxyHandler, Request, build_opener
 
-from AllSearchIntegrationTest import C, connect_daemon, free_ports, log_snapshot, stop_daemon, string, tag, integer, retry_port_collisions
+from AllSearchIntegrationTest import C, connect_daemon, exact, free_ports, log_snapshot, stop_daemon, string, tag, integer, retry_port_collisions
 from DaemonConfig import EC_PASSWORD, write_amule_conf
 from KnownHistoryIntegrationTest import start as start_ed2k
 
@@ -228,6 +229,117 @@ def run(binary, root, responses, sources, expected, *, url=None, startup=False,
         worker.join(timeout=5)
 
 
+def connection_case(binary, root, already_connecting):
+    """A multi-source update connects once at completion and preserves an active login."""
+    root.mkdir()
+    (root / 'Incoming').mkdir()
+    (root / 'Temp').mkdir()
+    empty_met = b'\xe0' + struct.pack('<I', 0)
+    (root / 'server.met').write_bytes(empty_met)
+    source_file = root / 'addresses.dat'
+    source_file.write_text('')
+    last_requested = threading.Event()
+    release = threading.Event()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == '/last':
+                last_requested.set()
+                release.wait(timeout=20)
+            status, body = (200, empty_met) if self.path == '/first' else FAIL
+            self.send_response(status)
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    worker = threading.Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    proc = ec = peer = None
+    with socket.socket() as listener:
+        listener.bind(('127.0.0.1', 0))
+        listener.listen(4)
+        listener.settimeout(0.5)
+
+        def no_new_connection():
+            try:
+                unexpected, _ = listener.accept()
+            except socket.timeout:
+                return
+            unexpected.close()
+            raise AssertionError('server update started or restarted an ED2K connection')
+
+        def accept_login():
+            listener.settimeout(5)
+            accepted, _ = listener.accept()
+            listener.settimeout(0.5)
+            accepted.settimeout(5)
+            try:
+                _, length = struct.unpack('<BI', exact(accepted, 5))
+                assert exact(accepted, length)[0] == 0x01  # OP_LOGINREQUEST
+                # Withhold the ID reply, keeping the daemon in IsConnecting().
+                return accepted
+            except BaseException:
+                accepted.close()
+                raise
+
+        try:
+            ports = free_ports(3, udp_indices=(2,), peer_index=1)
+            write_amule_conf(root, ports[0], Port=ports[1], UDPPort=ports[2],
+                             ConnectToED2K=1, FilterLanIPs=0)
+            proc, ec = start(binary, root, ports)
+            address = f'localhost:{listener.getsockname()[1]}'
+            assert ec.call(C['EC_OP_SERVER_ADD'], [string(C['EC_TAG_SERVER_ADDRESS'], address)])[0] == C['EC_OP_NOOP']
+            if already_connecting:
+                assert ec.call(C['EC_OP_SERVER_CONNECT'])[0] == C['EC_OP_NOOP']
+                peer = accept_login()
+            base = f'http://127.0.0.1:{server.server_port}'
+            source_file.write_text(base + '/first\n' + base + '/last\n')
+            assert ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'])[0] == C['EC_OP_NOOP']
+            wait_for(proc, last_requested.is_set, root)
+            # The first valid source has loaded, but the sequence is still running.
+            _, state = ec.call(C['EC_OP_GET_CONNSTATE'])
+            assert state[C['EC_TAG_CONNSTATE']][0] & 0x03 == (0x02 if already_connecting else 0), state
+            no_new_connection()
+            release.set()
+            wait_for(proc, lambda: 'Failed to download server.met from ' + base in
+                     (root / 'logfile').read_text(errors='replace'), root)
+            if not already_connecting:
+                # The last source failed: success must remember the earlier source.
+                peer = accept_login()
+            no_new_connection()
+            peer.settimeout(0.5)
+            try:
+                assert peer.recv(1), 'the pending ED2K login was disconnected'
+            except socket.timeout:
+                pass  # The pending login is still open, with no reply from our server.
+
+            # A subsequent wholly failed update must not reuse the previous success.
+            assert ec.call(C['EC_OP_SERVER_DISCONNECT'])[0] == C['EC_OP_NOOP']
+            peer.close()
+            peer = None
+            source_file.write_text(base + '/failure\n')
+            failures = (root / 'logfile').read_text(errors='replace').count('Failed to download server.met from ')
+            assert ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'])[0] == C['EC_OP_NOOP']
+            wait_for(proc, lambda: (root / 'logfile').read_text(errors='replace').count(
+                     'Failed to download server.met from ') > failures, root)
+            no_new_connection()
+        finally:
+            release.set()
+            if peer:
+                peer.close()
+            if ec:
+                ec.sock.close()
+            if proc and proc.poll() is None:
+                stop_daemon(proc)
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=5)
+
+
 def editor_case(binary, api_binary, root):
     root.mkdir()
     (root / 'Incoming').mkdir()
@@ -432,6 +544,8 @@ def main():
                 return
 
             migration_cases(binary, root)
+            connection_case(binary, root / 'connect-after-sequence', already_connecting=False)
+            connection_case(binary, root / 'preserve-pending-login', already_connecting=True)
             if hasattr(os, 'geteuid') and os.geteuid() != 0:
                 unreadable_migration_case(binary, root / 'unreadable-migration')
             case('merge-after-success', {'/first': GOOD, '/last': SECOND}, ['/first', '/last'], ['/first', '/last'])

@@ -837,6 +837,7 @@ bool CServerList::UpdateServerMetFromURL(
 		return refuse(_("No server list sources configured"));
 	}
 	m_serverMetSourceIndex = 0;
+	m_serverMetLoaded = false;
 	m_serverMetShowDialog = showDialog;
 	StartNextServerMetDownload();
 	return true;
@@ -882,6 +883,7 @@ bool CServerList::DownloadFinished(uint32 result)
 	if (result == HTTP_Success) {
 		loaded = LoadServerMet(temporary, false);
 		if (loaded) {
+			m_serverMetLoaded = true;
 			SaveServerMet();
 			AddLogLineN(CFormat(_("Finished downloading the server list from %s")) %
 				    DownloadUrlForLog(m_serverMetURL));
@@ -895,14 +897,14 @@ bool CServerList::DownloadFinished(uint32 result)
 	}
 	if (result == HTTP_Cancelled) {
 		m_serverMetSources.clear();
-		return loaded;
+		return false;
 	}
 	if (!loaded && result != HTTP_Skipped) {
 		AddLogLineC(CFormat(_("Failed to download %s from %s")) % "server.met" %
 			    DownloadUrlForLog(m_serverMetURL));
 	}
 	StartNextServerMetDownload();
-	return loaded;
+	return !m_serverMetDownloading && m_serverMetLoaded;
 }
 
 void CServerList::AutoDownloadFinished(uint32 result)

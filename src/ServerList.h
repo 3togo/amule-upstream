@@ -68,6 +68,7 @@ public:
 		bool automatic = false,
 		wxString *error = nullptr);
 	bool IsServerMetDownloading() const { return m_serverMetDownloading; }
+	// Report success only at the end of a sequence, if any source loaded.
 	bool DownloadFinished(uint32 result);
 	void AutoDownloadFinished(uint32 result);
 	uint32 GetAvgFile() const;
@@ -119,6 +120,7 @@ private:
 	wxArrayString m_serverMetSources;
 	size_t m_serverMetSourceIndex = 0;
 	bool m_serverMetDownloading = false;
+	bool m_serverMetLoaded = false;
 	bool m_serverMetAutomatic = false;
 	bool m_serverMetShowDialog = false;
 	bool m_initialized;

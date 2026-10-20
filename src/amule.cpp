@@ -3284,9 +3284,9 @@ void CamuleApp::OnFinishedHTTPDownload(CMuleInternalEvent &event)
 		ipfilter->DownloadFinished(event.GetExtraInt64());
 		break;
 	case HTTP_ServerMet:
-		if (serverlist->DownloadFinished(event.GetExtraInt64()) && !IsConnectedED2K()) {
-			// If successfully downloaded a server list, and are not connected at the moment, try
-			// to connect. This happens when no server met is available on startup.
+		if (serverlist->DownloadFinished(event.GetExtraInt64()) && !serverconnect->IsConnected() &&
+			!serverconnect->IsConnecting()) {
+			// Connect once after the entire update, preserving an existing connection attempt.
 			serverconnect->ConnectToAnyServer();
 		}
 		break;
