@@ -63,7 +63,10 @@ public:
 	bool IsInitialized() const { return m_initialized; }
 	void Sort();
 	// showDialog shows the HTTP progress dialog, for a local, user-initiated update only.
-	void UpdateServerMetFromURL(const wxString &strURL, bool showDialog = false, bool automatic = false);
+	bool UpdateServerMetFromURL(const wxString &strURL,
+		bool showDialog = false,
+		bool automatic = false,
+		wxString *error = nullptr);
 	bool DownloadFinished(uint32 result);
 	void AutoDownloadFinished(uint32 result);
 	uint32 GetAvgFile() const;

@@ -151,12 +151,15 @@ def run(binary, root, responses, sources, expected, *, url=None, startup=False,
         expected_source_file = source_file.read_bytes() if source_file.exists() else None
         if api_binary:
             api_proc, endpoint, token = start_api(api_binary, root / 'api', ports[0])
-            status, data = api_post(endpoint, '/servers/update', {} if requested is None else {'url': requested}, token)
+            status, data = api_post(endpoint, '/servers_update', {} if requested is None else {'url': requested}, token)
             assert status == 202, (status, data)
         elif not startup and not automatic:
             tags = [] if requested is None else [string(C['EC_TAG_SERVERS_UPDATE_URL'], requested)]
-            op, _ = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'], tags)
-            assert op == C['EC_OP_NOOP'], op
+            op, result = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'], tags)
+            assert op == C['EC_OP_NOOP' if expected else 'EC_OP_FAILED'], (op, result)
+        if not expected:
+            reason = 'Invalid URL' if requested else 'No server list sources configured'
+            wait_for(proc, lambda: reason in (root / 'logfile').read_text(errors='replace'), root)
         if overlap:
             wait_for(proc, lambda: len(requests) == 1, root)
             # The current sequence must retain its snapshot despite live edits and another request.
@@ -164,7 +167,14 @@ def run(binary, root, responses, sources, expected, *, url=None, startup=False,
             expected_source_file = source_file.read_bytes()
             op, _ = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'],
                             [string(C['EC_TAG_SERVERS_UPDATE_URL'], base + '/overlap')])
-            assert op == C['EC_OP_NOOP'], op
+            assert op == C['EC_OP_FAILED'], op
+            if api_binary:
+                try:
+                    api_post(endpoint, '/servers_update', {}, token)
+                    raise AssertionError('overlapping API update was accepted')
+                except HTTPError as error:
+                    assert error.code == 400, error.code
+                    assert 'already in progress' in error.read().decode()
             wait_for(proc, lambda: 'A server list download is already in progress.' in
                      (root / 'logfile').read_text(errors='replace'), root)
             release.set()
@@ -183,6 +193,8 @@ def run(binary, root, responses, sources, expected, *, url=None, startup=False,
                             log.count('Skipped download of server.met')) >= len(expected)
                 wait_for(proc, completed, root)
             time.sleep(0.3)
+        if cancel:
+            assert not (root / 'server.met.download').exists()
         assert requests == expected, requests
         data = (root / 'server.met').read_bytes() if (root / 'server.met').exists() else b''
         assert bytes([203, 0, 113, 8]) not in data, data
@@ -221,7 +233,7 @@ def editor_case(binary, api_binary, root):
     (root / 'Temp').mkdir()
     (root / 'server.met').write_bytes(EXISTING)
     source_file = root / 'addresses.dat'
-    original = '# Keep comments during migration of an uncustomised default.\nhttps://one.example/list\n'
+    original = '# Preserve comments when the legacy source is already present.\nhttps://upd.emule-security.org/server.met\nhttps://one.example/list\n'
     source_file.write_text(original)
     ports = free_ports(3, udp_indices=(2,), peer_index=1)
     write_amule_conf(root, ports[0], Port=ports[1], UDPPort=ports[2],
@@ -282,9 +294,11 @@ def editor_case(binary, api_binary, root):
             assert op == C['EC_OP_FAILED'], op
             assert source_file.read_text().splitlines() == many
         for invalid in ['', 'http:///missing-host', 'http://host/a\x00hidden', 'http://host/list\nother']:
-            request('POST', '/servers/update', {'url': invalid}, expected=400)
+            request('POST', '/servers_update', {'url': invalid}, expected=400)
         op, _ = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'], [integer(C['EC_TAG_SERVERS_UPDATE_URL'], 1)])
         assert op == C['EC_OP_FAILED'], op
+        # Keep only the established route for this action.
+        request('POST', '/servers/update', {}, expected=405)
         # A write failure is reported to API clients, preserving the existing filesystem object.
         source_file.unlink()
         source_file.mkdir()
@@ -298,10 +312,17 @@ def editor_case(binary, api_binary, root):
         wait_for(proc, lambda: prefs()['update_urls'] == [], root)
         assert prefs()['update_url'] == ''
         assert source_file.read_text() == ''
+        request('POST', '/servers_update', {}, expected=400)
+        op, result = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'], [])
+        assert op == C['EC_OP_FAILED'], (op, result)
         # The empty list remains empty after restarting, with no legacy key to remigrate.
         ec.sock.close()
         ec = None
+        # A completed transfer may still have a queued notification during shutdown.
+        temporary = root / 'server.met.download'
+        temporary.write_bytes(SERVER_MET)
         stop_daemon(proc)
+        assert not temporary.exists(), 'shutdown left a completed server.met download behind'
         proc, ec = start(binary, root, ports, ed2k=False)
         assert source_file.read_text() == ''
     finally:
@@ -318,9 +339,16 @@ def migration_cases(binary, root):
     default = 'https://upd.emule-security.org/server.met'
     cases = [
         ('fresh-default', None, None, default + '\n'),
-        ('keep-empty', default, '', ''),
+        ('keep-empty-no-legacy', None, '', ''),
+        ('migrate-default-into-empty', default, '', default + '\n'),
         ('keep-comments', default, '# custom sources\nhttp://existing.example/list\n',
-         '# custom sources\nhttp://existing.example/list\n'),
+         default + '\nhttp://existing.example/list\n'),
+        ('default-already-present', default, '# keep comments\n' + default + '\n',
+         '# keep comments\n' + default + '\n'),
+        ('default-already-second', default, '# keep order\nhttp://existing.example/list\n' + default + '\n',
+         '# keep order\nhttp://existing.example/list\n' + default + '\n'),
+        ('custom-already-first', 'https://custom.example/list', '# keep comment\nhttps://custom.example/list\n',
+         '# keep comment\nhttps://custom.example/list\n'),
         ('custom-first', 'https://custom.example/list', 'http://existing.example/list\n',
          'https://custom.example/list\nhttp://existing.example/list\n'),
         ('custom-deduplicated', 'https://custom.example/list',
@@ -395,6 +423,9 @@ def main():
                      ['/first', '/last'], api_binary=api_binary)
                 case('api-explicit-once', {'/alternate': GOOD}, ['/backup'], ['/alternate'],
                      url='/alternate', api_binary=api_binary)
+                case('api-overlap-snapshot', {'/primary': GOOD, '/backup': GOOD},
+                     ['/primary', '/backup'], ['/primary', '/backup'],
+                     overlap=True, api_binary=api_binary)
                 case('api-explicit-failure', {'/backup': GOOD}, ['/backup'], ['/alternate'],
                      url='/alternate', success=False, api_binary=api_binary)
                 return
@@ -440,7 +471,8 @@ def main():
             case('cancel-auto-on-shutdown', {}, ['/primary', '/backup'], ['/primary'],
                  success=False, cancel=True, automatic=True)
     retry_port_collisions(attempt)
-    print('4 API/EC source-list scenarios passed' if api_binary else '24 server-list scenarios and migration checks passed')
+    print('API/EC source-list regression checks passed' if api_binary else
+          'Server-list download and migration regression checks passed')
 
 
 if __name__ == '__main__':

@@ -1134,7 +1134,7 @@ CHttpServer::Response CApiDispatcher::DispatchToHandler(const CHttpServer::Reque
 		}
 	}
 
-	if (path == "/api/v1/servers_update" || path == "/api/v1/servers/update") {
+	if (path == "/api/v1/servers_update") {
 		if (req.method != "POST") {
 			return MethodNotAllowed("POST", "only POST on /servers_update");
 		}
@@ -3626,10 +3626,9 @@ std::string FilePriorityAccepted(unsigned domain)
 	return "`priority` must be one of " + out;
 }
 
-// /servers_update, /kad/update and /ipfilter/update are the same operation over
-// three lists: take one http(s) URL, hand it to amuled in a single string tag, echo
-// the effective URL back with a 202. amuled persists the URL into the matching
-// preference itself, so none of them also PATCHes it here.
+// List downloads pass a URL to amuled and return 202 when accepted.
+// Server updates may omit the URL to download all saved sources; explicit
+// server URLs are used once. Kad and IP filter downloads persist their URL.
 struct UrlFetchSpec
 {
 	// JSON body field carrying the URL, and the key echoed in the reply.
@@ -3645,6 +3644,8 @@ struct UrlFetchSpec
 	// Run an inline RefresherTick so the caches, and the SSE diff built from them,
 	// pick up whatever already landed.
 	bool refresh_after;
+	// An omitted URL selects a list in the daemon instead of a single configured URL.
+	bool optional_url = false;
 };
 
 // Pull the URL out of the body per `spec`, falling back to `configured` when the
@@ -3690,7 +3691,7 @@ bool ResolveFetchUrl(const CHttpServer::Request &req,
 				("required string field " + field + " is missing").c_str());
 			return false;
 		}
-		if (spec.op == EC_OP_SERVER_UPDATE_FROM_URL) {
+		if (spec.optional_url) {
 			out_url.clear();
 			return true;
 		}
@@ -6793,7 +6794,7 @@ CHttpServer::Response CApiDispatcher::HandleServerUpdateFromUrl(const CHttpServe
 	// next few ticks (CServerList::UpdateServerMetFromURL), so the `server_added` SSE
 	// events keep firing on subsequent natural ticks.
 	static const UrlFetchSpec kSpec = {
-		"url", EC_OP_SERVER_UPDATE_FROM_URL, EC_TAG_SERVERS_UPDATE_URL, false, true
+		"url", EC_OP_SERVER_UPDATE_FROM_URL, EC_TAG_SERVERS_UPDATE_URL, false, true, true
 	};
 	std::string url;
 	CHttpServer::Response rejection;

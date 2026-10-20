@@ -2102,7 +2102,7 @@ curl -s -X PATCH -H "Authorization: Bearer $TOKEN" \
 
 **Auth:** `ADMIN`
 
-Also available as `POST /api/v1/servers/update`. With no body or `{}`, downloads and merges all configured `servers.update_urls` in order. With `url`, downloads that source once without changing preferences. Failed sources and HTTP 304 responses do not stop a configured-list update. Cancellation stops the sequence.
+With no body or `{}`, downloads and merges all configured `servers.update_urls` in order. With `url`, downloads that source once without changing preferences. Failed sources do not stop a configured-list update. Cancellation stops the sequence. An empty configured list, invalid URL or download already in progress is rejected with HTTP 400 and the daemon’s reason.
 
 **Body:**
 

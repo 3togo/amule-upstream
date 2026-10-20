@@ -135,24 +135,15 @@ CServerWnd::CServerWnd(wxWindow *pParent /*=NULL*/, int splitter_pos)
 	auto *sourceField = CastChild(IDC_SERVERLISTURL, wxTextCtrl);
 	sourceField->SetToolTip(_("Download this server.met URL once without saving it."));
 
-	if (auto *label = FindWindowByName("serverListLabel", this))
-		label->SetLabel(_("One-off URL"));
-	auto *sourceRow = sourceField->GetContainingSizer();
-	wxWindow *sourceParent = sourceField->GetParent();
-	auto *oldUpdate = FindWindow(ID_UPDATELIST);
-	sourceRow->Detach(oldUpdate);
-	oldUpdate->Destroy();
-	sourceRow->Insert(0,
-		new wxButton(sourceParent, ID_UPDATELIST, _("Update server list")),
-		wxSizerFlags().Center());
-	auto *editSources = new wxButton(sourceParent, wxID_ANY, _("Edit list…"));
-	sourceRow->Insert(1, editSources, wxSizerFlags().Center().Border(wxLEFT, 5));
+	sourceField->SetHint("https://…/server.met");
+	auto *editSources = wxDynamicCast(FindWindowByName("editServerSources", this), wxButton);
 	editSources->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { EditServerListSources(this); });
-	auto *downloadOnce = new wxButton(sourceParent, wxID_ANY, _("Download once"));
-	sourceRow->Insert(5, downloadOnce, wxSizerFlags().Center().Border(wxLEFT, 5));
-	downloadOnce->Bind(wxEVT_BUTTON, [this, sourceField](wxCommandEvent &) {
-		if (!sourceField->GetValue().empty())
-			UpdateServerMetFromURL(sourceField->GetValue());
+	auto *downloadOnce = wxDynamicCast(FindWindowByName("downloadServerListOnce", this), wxButton);
+	downloadOnce->Bind(wxEVT_BUTTON, &CServerWnd::OnBnClickedUpdateservermetfromurl, this);
+	downloadOnce->Enable(!sourceField->GetValue().empty());
+	sourceField->Bind(wxEVT_TEXT, [downloadOnce](wxCommandEvent &event) {
+		downloadOnce->Enable(!event.GetString().empty());
+		event.Skip();
 	});
 
 	// Three columns, no header: an empty spacer that insets the labels, then label and value.

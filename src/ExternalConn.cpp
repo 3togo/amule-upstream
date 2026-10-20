@@ -3960,8 +3960,13 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 
 		// An empty URL updates the configured list; explicit URLs are never saved.
 
-		theApp->serverlist->UpdateServerMetFromURL(url);
-		response = new CECPacket(EC_OP_NOOP);
+		wxString error;
+		if (theApp->serverlist->UpdateServerMetFromURL(url, false, false, &error)) {
+			response = new CECPacket(EC_OP_NOOP);
+		} else {
+			response = new CECPacket(EC_OP_FAILED);
+			response->AddTag(CECTag(EC_TAG_STRING, error));
+		}
 		break;
 	}
 	case EC_OP_SERVER_SET_STATIC_PRIO: {
@@ -4154,8 +4159,9 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		if (!static_cast<const CEC_Prefs_Packet *>(request)->Apply()) {
 			response = new CECPacket(EC_OP_FAILED);
 			response->AddTag(CECTag(EC_TAG_STRING,
-				_("Could not save the server list sources. Check the URLs and file "
-				  "permissions.")));
+				CFormat(_("Could not save server list sources to %s. Check the URLs and file "
+					  "permissions.")) %
+					(thePrefs::GetConfigDir() + "addresses.dat")));
 			break;
 		}
 		// Apply() left any amuleapi password the client sent sitting in the

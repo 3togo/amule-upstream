@@ -472,6 +472,10 @@ void CServerList::GetUserFileStatus(uint32 &user, uint32 &file)
 
 CServerList::~CServerList()
 {
+	// HTTP shutdown can leave a completed transfer's notification queued.
+	const CPath temporary(thePrefs::GetConfigDir() + "server.met.download");
+	if (temporary.FileExists())
+		CPath::RemoveFile(temporary);
 	if (thePrefs::GetNetworkED2K() && IsInitialized()) {
 		SaveServerMet();
 	}
@@ -808,11 +812,17 @@ void CServerList::RemoveDeadServers()
 	}
 }
 
-void CServerList::UpdateServerMetFromURL(const wxString &strURL, bool showDialog, bool automatic)
+bool CServerList::UpdateServerMetFromURL(
+	const wxString &strURL, bool showDialog, bool automatic, wxString *error)
 {
+	auto refuse = [error](const wxString &reason) {
+		if (error)
+			*error = reason;
+		AddLogLineN(reason);
+		return false;
+	};
 	if (m_serverMetDownloading) {
-		AddLogLineN(_("A server list download is already in progress."));
-		return;
+		return refuse(_("A server list download is already in progress."));
 	}
 	m_serverMetAutomatic = automatic;
 	m_serverMetSources.clear();
@@ -821,12 +831,15 @@ void CServerList::UpdateServerMetFromURL(const wxString &strURL, bool showDialog
 	} else if (ServerListSources::IsValid(strURL)) {
 		m_serverMetSources.Add(strURL);
 	} else {
-		AddLogLineC(_("Invalid URL"));
-		return;
+		return refuse(_("Invalid URL"));
+	}
+	if (m_serverMetSources.empty()) {
+		return refuse(_("No server list sources configured"));
 	}
 	m_serverMetSourceIndex = 0;
 	m_serverMetShowDialog = showDialog;
 	StartNextServerMetDownload();
+	return true;
 }
 
 void CServerList::StartNextServerMetDownload()
@@ -858,20 +871,24 @@ void CServerList::StartServerMetDownload(const wxString &url, bool showDialog)
 bool CServerList::DownloadFinished(uint32 result)
 {
 	m_serverMetDownloading = false;
+	const CPath temporary(thePrefs::GetConfigDir() + "server.met.download");
 	if (theApp->IsOnShutDown()) {
+		if (temporary.FileExists())
+			CPath::RemoveFile(temporary);
+		m_serverMetSources.clear();
 		return false;
 	}
 	bool loaded = false;
 	if (result == HTTP_Success) {
-		const CPath temporary(thePrefs::GetConfigDir() + "server.met.download");
 		loaded = LoadServerMet(temporary, false);
 		if (loaded) {
 			SaveServerMet();
 			AddLogLineN(CFormat(_("Finished downloading the server list from %s")) %
 				    DownloadUrlForLog(m_serverMetURL));
 		}
-		CPath::RemoveFile(temporary);
 	}
+	if (temporary.FileExists())
+		CPath::RemoveFile(temporary);
 	if (result == HTTP_Skipped) {
 		AddLogLineN(CFormat(_("Skipped download of %s, because requested file is not newer.")) %
 			    "server.met");

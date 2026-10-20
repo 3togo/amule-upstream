@@ -2107,7 +2107,7 @@ void CPreferences::LoadPreferences()
 	LoadCats();
 #ifndef CLIENT_GUI
 	// Migrate once, and remove the old key only after the list is safely on disk.
-	// An existing empty file is intentional and must remain empty.
+	// Retain every valid legacy source, including the old default.
 	wxConfigBase *cfg = wxConfigBase::Get();
 	wxString legacy;
 	const bool hadLegacy = cfg->Read("/eMule/Ed2kServersUrl", &legacy);
@@ -2117,13 +2117,16 @@ void CPreferences::LoadPreferences()
 	// A failed read is not an empty list: replacing it would lose existing sources.
 	if ((hadLegacy || !exists) && (ServerListSources::Read(path, urls) || !exists)) {
 		bool changed = !exists;
-		if (!legacy.empty() && legacy != "https://upd.emule-security.org/server.met" &&
-			ServerListSources::IsValid(legacy)) {
+		if (ServerListSources::IsValid(legacy)) {
 			const int index = urls.Index(legacy);
-			if (index != wxNOT_FOUND)
+			if (index == wxNOT_FOUND) {
+				urls.Insert(legacy, 0);
+				changed = true;
+			} else if (index != 0 && legacy != "https://upd.emule-security.org/server.met") {
 				urls.RemoveAt(static_cast<size_t>(index));
-			urls.Insert(legacy, 0);
-			changed = true;
+				urls.Insert(legacy, 0);
+				changed = true;
+			}
 		} else if (!exists && (!hadLegacy || !legacy.empty())) {
 			urls.Add("https://upd.emule-security.org/server.met");
 		}

@@ -93,8 +93,9 @@ void EditServerListDlg::SetText(const wxString &text)
 void EditServerListSources(wxWindow *parent)
 {
 	EditServerListDlg dlg(parent,
-		_("Edit server list"),
-		_("Add here URL's to download server.met files.\nOnly one url on each line."),
+		_("Edit sources…"),
+		_("Enter one server.met URL per line.\nSaving replaces the source list and removes comment "
+		  "lines."),
 		wxEmptyString);
 	wxString text;
 	for (const auto &url : thePrefs::GetServerListURLs())
@@ -115,8 +116,14 @@ void EditServerListSources(wxWindow *parent)
 #endif
 			return;
 		}
-		wxMessageBox(
-			_("Could not save the server list sources. Check the URLs and file permissions."),
+		wxMessageBox(wxString::Format(_("Could not save server list sources to %s. Check the URLs "
+						"and file permissions."),
+#ifdef CLIENT_GUI
+				     _("addresses.dat in the daemon configuration directory")
+#else
+				     thePrefs::GetConfigDir() + "addresses.dat"
+#endif
+					     ),
 			_("ERROR"),
 			wxOK | wxICON_ERROR,
 			parent);

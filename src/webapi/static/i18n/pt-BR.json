@@ -806,7 +806,6 @@
   "prefs_field_security_obfuscation_requested": "Usar ofuscação nas conexões de saída",
   "prefs_group_general": "Geral",
   "prefs_field_connection_upnp_control_point_port": "Porta TCP do UPnP (opcional)",
-  "prefs_field_servers_update_url": "URL de atualização da lista de servidores",
   "downloads_peer_ident_id_needed": "ID necessária",
   "downloads_peer_col_user_hash": "Hash do usuário",
   "prefs_remote_controls": "Controles remotos",
@@ -1047,5 +1046,9 @@
   "downloads_confirm_delete_selected_other": "Apagar do disco os {n} arquivos selecionados? Arquivos completos serão apagados permanentemente; downloads ativos serão cancelados e removidos. Isto não pode ser desfeito.",
   "prefs_field_servers_update_urls": "Server list source URLs (one per line)",
   "prefs_field_servers_update_list": "Update server list",
-  "prefs_field_files_shared_file_reverify_days": "Verificar dados locais dos arquivos compartilhados solicitados a cada N dias (0 = desativado)"
+  "prefs_field_files_shared_file_reverify_days": "Verificar dados locais dos arquivos compartilhados solicitados a cada N dias (0 = desativado)",
+  "prefs_sources_apply_first": "Apply your changes first",
+  "prefs_sources_saved_help": "Downloads from the saved sources.",
+  "prefs_sources_one_off": "One-off URL",
+  "prefs_sources_download_once": "Download once"
 }

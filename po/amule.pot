@@ -1248,6 +1248,10 @@ msgstr ""
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr ""
 
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr ""
+
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
 msgstr ""
@@ -2253,18 +2257,23 @@ msgstr[1] ""
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr ""
 
-#: src/EditServerListDlg.cpp
-msgid "Edit server list"
+#: src/EditServerListDlg.cpp src/muuli_wdr.cpp
+msgid "Edit sources…"
 msgstr ""
 
 #: src/EditServerListDlg.cpp
 msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
 msgstr ""
 
 #: src/EditServerListDlg.cpp src/ExternalConn.cpp
-msgid "Could not save the server list sources. Check the URLs and file permissions."
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr ""
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2500,10 +2509,6 @@ msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Client could not be swapped to that file."
-msgstr ""
-
-#: src/ExternalConn.cpp src/ServerList.cpp
-msgid "Invalid URL"
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -5054,10 +5059,6 @@ msgid "retries"
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr ""
-
-#: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
 msgstr ""
 
@@ -5660,15 +5661,15 @@ msgid "Click this button to reset the log."
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
+msgid "Update server list"
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Server list"
+msgid "One-off URL:"
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+msgid "Download once"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -7523,6 +7524,10 @@ msgid "A server list download is already in progress."
 msgstr ""
 
 #: src/ServerList.cpp
+msgid "No server list sources configured"
+msgstr ""
+
+#: src/ServerList.cpp
 #, c-format
 msgid "Start downloading server list from %s"
 msgstr ""
@@ -7741,22 +7746,6 @@ msgstr ""
 
 #: src/ServerWnd.cpp
 msgid "Download this server.met URL once without saving it."
-msgstr ""
-
-#: src/ServerWnd.cpp
-msgid "One-off URL"
-msgstr ""
-
-#: src/ServerWnd.cpp
-msgid "Update server list"
-msgstr ""
-
-#: src/ServerWnd.cpp
-msgid "Edit list…"
-msgstr ""
-
-#: src/ServerWnd.cpp
-msgid "Download once"
 msgstr ""
 
 #: src/ServerWnd.cpp

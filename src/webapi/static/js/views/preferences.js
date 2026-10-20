@@ -127,8 +127,7 @@ const TABS = [
       { key: "update_list_at_startup", type: "bool" },
       { key: "update_list_from_server", type: "bool" },
       { key: "update_list_from_client", type: "bool" },
-      { key: "update_urls", type: "textarea", adminOnly: true },
-      { key: "update_list", type: "button",
+      { key: "update_urls", type: "textarea", adminOnly: true,
         action: { path: "servers_update",
                   titleKey: "prefs_action_servers_update",
                   toastKey: "prefs_action_servers_update_toast" } },
@@ -480,6 +479,8 @@ export default function Preferences({ isGuest }) {
   const [values, setValues] = useState({}); // "cat.key" -> value (display units)
   const [active, setActive] = useState("webui");
   const [busy, setBusy] = useState(false);
+  const [savedSources, setSavedSources] = useState("");
+  const [oneOffUrl, setOneOffUrl] = useState("");
   // Staged WebUI (browser) settings; committed by applyWebui.
   const [webuiLang, setWebuiLang] = useState(getLang());
   const [webuiTheme, setWebuiTheme] = useState(getTheme());
@@ -499,6 +500,7 @@ export default function Preferences({ isGuest }) {
             v[cat + "." + f.key] = val;
           }
       setValues(v);
+      setSavedSources(v["servers.update_urls"] || "");
       setLoaded(true);
     }).catch((e) => setError(terr(e) || t("prefs_error")));
   }, []);
@@ -581,11 +583,26 @@ export default function Preferences({ isGuest }) {
         </div>`;
     }
     if (f.type === "textarea") {
+      const unsaved = (val || "") !== savedSources;
       return html`
         <div class=${"field field-wide" + subCls}>
           <label for=${id}>${label}</label>
           <textarea id=${id} rows="4" disabled=${disabled}
                     value=${val == null ? "" : val} onInput=${(e) => setVal(id, e.target.value)}></textarea>
+          <button class="btn btn-primary" type="button" disabled=${disabled || busy || unsaved}
+                  title=${t(unsaved ? "prefs_sources_apply_first" : "prefs_field_servers_update_list")}
+                  onClick=${() => runAction(f.action)}>${t("prefs_field_servers_update_list")}</button>
+          <p class="hint">${t("prefs_sources_saved_help")}</p>
+          <label for="server-one-off">${t("prefs_sources_one_off")}</label>
+          <div class="field-action">
+            <input class="input" id="server-one-off" type="text" disabled=${disabled}
+                   placeholder="https://…/server.met" value=${oneOffUrl}
+                   onInput=${(e) => setOneOffUrl(e.target.value)} />
+            <button class="btn btn-primary" type="button" disabled=${disabled || !oneOffUrl.trim()}
+                    onClick=${() => runAction({ ...f.action, body: "url" }, oneOffUrl)}>
+              ${t("prefs_sources_download_once")}
+            </button>
+          </div>
         </div>`;
     }
     const input = html`
@@ -608,8 +625,8 @@ export default function Preferences({ isGuest }) {
       </div>`;
   };
 
-  // The endpoint takes the URL directly and persists it itself, so this fires
-  // the download with whatever is typed -- no Apply first, no PATCH here.
+  // URL actions use the supplied value directly. Server one-off downloads
+  // leave preferences unchanged; the configured-list action uses saved sources.
   // An action with no `body` carries no value at all (Reload): POST and done.
   const runAction = async (a, val) => {
     let body;
@@ -667,7 +684,16 @@ export default function Preferences({ isGuest }) {
   const save = async (e) => {
     e.preventDefault();
     setBusy(true);
-    try { await api.patch("preferences", collect()); toast(t("prefs_toast_saved"), "success"); }
+    try {
+      const body = collect();
+      // PATCH returns the canonical list after daemon validation and deduplication.
+      const saved = await api.patch("preferences", body);
+      const sources = (saved.servers.update_urls || []).join("\n");
+      setSavedSources(sources);
+      setValues((vs) => ({ ...vs, ["servers.update_urls"]:
+        vs["servers.update_urls"] === values["servers.update_urls"] ? sources : vs["servers.update_urls"] }));
+      toast(t("prefs_toast_saved"), "success");
+    }
     catch (err) { toast(terr(err) || t("prefs_error"), "error"); }
     finally { setBusy(false); }
   };

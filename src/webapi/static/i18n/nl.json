@@ -960,7 +960,6 @@
   "stats_tree_servers_failed": "Mislukte Servers: %i",
   "client_detail_uploaded": "Geüpload (sessie / totaal)",
   "prefs_field_connection_upnp_control_point_port": "UPnP TCP-poort (Optioneel)",
-  "prefs_field_servers_update_url": "Serverlijst update URL",
   "prefs_remote_controls": "Besturing op afstand",
   "prefs_field_message_filter_filter_by_keyword": "Filter berichten die sleutelwoorden bevatten",
   "prefs_field_connection_proxy_port": "Proxypoort",
@@ -1037,5 +1036,9 @@
   "downloads_delete_more": "... en nog {n}",
   "downloads_confirm_delete_selected_one": "Verwijder het geselecteerde bestand van de schijf? Voltooide bestanden zullen permanent verwijderd worden, actieve downloads worden geannuleerd en verwijderd. Dit kan niet ongedaan worden gemaakt.",
   "downloads_confirm_delete_selected_other": "Verwijder de {n} geselecteerde bestanden van de schijf? Voltooide bestanden zullen permanent verwijderd worden, actieve downloads worden geannuleerd en verwijderd. Dit kan niet ongedaan worden gemaakt.",
-  "prefs_field_files_shared_file_reverify_days": "Verifiëer Lokale Gegevens van aangevraagde gedeelde bestanden elke N dagen (0 = uitgeschakeld)"
+  "prefs_field_files_shared_file_reverify_days": "Verifiëer Lokale Gegevens van aangevraagde gedeelde bestanden elke N dagen (0 = uitgeschakeld)",
+  "prefs_sources_apply_first": "Apply your changes first",
+  "prefs_sources_saved_help": "Downloads from the saved sources.",
+  "prefs_sources_one_off": "One-off URL",
+  "prefs_sources_download_once": "Download once"
 }
