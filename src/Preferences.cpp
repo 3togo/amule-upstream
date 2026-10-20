@@ -1125,12 +1125,10 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	/** Misc */
 	NewCfgItem(IDC_QUEUESIZE, (MkCfg_Int("/eMule/QueueSizePref", s_iQueueSize, 50)));
 
-#ifdef __DEBUG__
 	/** Debugging */
 	NewCfgItem(ID_VERBOSEDEBUG, (new Cfg_Bool("/eMule/VerboseDebug", s_bVerbose, false)));
 	NewCfgItem(ID_VERBOSEDEBUGLOGFILE,
 		(new Cfg_Bool("/eMule/VerboseDebugLogfile", s_bVerboseLogfile, false)));
-#endif
 
 	/** Connection settings */
 	NewCfgItem(IDC_MAXUP, (MkCfg_Int("/eMule/MaxUpload", s_maxupload, 0)));
@@ -1684,7 +1682,6 @@ void CPreferences::LoadAllItems(wxConfigBase *cfg)
 		cfg->DeleteEntry("/SkinGUIOptions/UseSkinFiles");
 	}
 
-#ifdef __DEBUG__
 	// Load debug-categories
 	int count = theLogger.GetDebugCategoryCount();
 
@@ -1696,7 +1693,9 @@ void CPreferences::LoadAllItems(wxConfigBase *cfg)
 
 		theLogger.SetEnabled(cat.GetType(), enabled);
 	}
-#endif
+
+	SetVerbose(s_bVerbose);
+	SetVerboseLogfile(s_bVerboseLogfile);
 
 	// Now do some post-processing / sanity checking on the values we just loaded
 #ifndef CLIENT_GUI
@@ -1759,8 +1758,7 @@ void CPreferences::SaveAllItems(wxConfigBase *cfg)
 	for (; it_b != s_MiscList.end(); ++it_b)
 		(*it_b)->SaveToFile(cfg);
 
-// Save debug-categories
-#ifdef __DEBUG__
+	// Save debug-categories
 	int count = theLogger.GetDebugCategoryCount();
 
 	for (int i = 0; i < count; i++) {
@@ -1768,7 +1766,18 @@ void CPreferences::SaveAllItems(wxConfigBase *cfg)
 
 		cfg->Write("/Debug/Cat_" + cat.GetName(), cat.IsEnabled());
 	}
-#endif
+}
+
+void CPreferences::SetVerbose(bool val)
+{
+	s_bVerbose = val;
+	theLogger.SetVerbose(val);
+}
+
+void CPreferences::SetVerboseLogfile(bool val)
+{
+	s_bVerboseLogfile = val;
+	theLogger.SetVerboseLogfile(val);
 }
 
 void CPreferences::SetMaxUpload(uint32 in)

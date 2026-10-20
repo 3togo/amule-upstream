@@ -1158,11 +1158,13 @@ void CAICHHashSet::ClientAICHRequestFailed(CUpDownClient *pClient)
 		return;
 	}
 	if (theApp->downloadqueue->IsPartFile(data.m_pPartFile)) {
+#ifdef __DEBUG__
 		AddDebugLogLineN(logSHAHashSet,
 			CFormat("AICH Request failed, Trying to ask another client (File: '%s', Part: %u, "
 				"Client '%s'") %
 				data.m_pPartFile->GetFileName() % data.m_nPart %
 				pClient->GetClientFullInfo());
+#endif
 		data.m_pPartFile->RequestAICHRecovery(data.m_nPart);
 	}
 }

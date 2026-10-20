@@ -1213,8 +1213,10 @@ void CClientList::CleanUpClientList()
 #endif
 			}
 		}
+#ifdef __DEBUG__
 		AddDebugLogLineN(logClient,
 			CFormat("Cleaned ClientList, removed %i not used known clients") % cDeleted);
+#endif
 	}
 }
 
