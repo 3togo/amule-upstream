@@ -93,7 +93,7 @@
 namespace
 {
 // Keep the original text control (including the search-history dropdown) and
-// its text events. Reserve the button's space so typing does not move the row.
+// its text events. The clear button stays visible even when the field is empty.
 wxSizer *WithTextClearButton(wxWindow *input)
 {
     wxWindow *parent = input->GetParent();
@@ -101,18 +101,21 @@ wxSizer *WithTextClearButton(wxWindow *input)
     auto *row = new wxBoxSizer(wxHORIZONTAL);
     row->Add(input, wxSizerFlags(1).CenterVertical());
     auto *clear = new wxBitmapButton(parent, wxID_ANY,
-        wxArtProvider::GetBitmapBundle(wxART_CROSS_MARK, wxART_BUTTON),
+        wxArtProvider::GetBitmapBundle(wxART_CROSS_MARK, wxART_BUTTON, input->FromDIP(wxSize(20, 20))),
         wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
     clear->SetToolTip(_("Clear"));
-    clear->SetName(_("Clear"));
-    row->Add(clear, wxSizerFlags().CenterVertical().Border(wxLEFT, 2).ReserveSpaceEvenIfHidden());
-    clear->Show(!dynamic_cast<wxTextEntry *>(input)->GetValue().IsEmpty());
+    // Use a larger icon and a square button without clipping native button
+    // padding (notably on macOS) or making it shorter than the text field.
+    const wxSize buttonSize = clear->GetBestSize();
+    const int side = wxMax(input->GetBestSize().y, wxMax(buttonSize.x, buttonSize.y));
+    clear->SetMinSize(wxSize(side, side));
+    row->Add(clear, wxSizerFlags().CenterVertical().Border(wxLEFT, 2));
+    clear->Enable(!dynamic_cast<wxTextEntry *>(input)->GetValue().IsEmpty());
 
     // Bind by ID on the parent: Search can replace its Name control when the
     // remember-history preference changes. Neither callback retains that control.
-    parent->Bind(wxEVT_TEXT, [clear, row](wxCommandEvent &event) {
-        clear->Show(!event.GetString().IsEmpty());
-        row->Layout();
+    parent->Bind(wxEVT_TEXT, [clear](wxCommandEvent &event) {
+        clear->Enable(!event.GetString().IsEmpty());
         event.Skip();
     }, inputId);
     clear->Bind(wxEVT_BUTTON, [parent, inputId](wxCommandEvent &) {
