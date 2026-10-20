@@ -36,6 +36,14 @@ TEST(ECFileConfig, ExplicitRelativePathsArePreserved)
 	}
 }
 
+TEST(ECFileConfig, SelectedConfigDirectoryIsUsedForBareNames)
+{
+	const wxString directory = wxFileName::DirName("portable-config").GetPathWithSep();
+	ASSERT_EQUALS(directory + "custom.conf", FinalizeFilename("custom.conf", directory));
+	ASSERT_EQUALS(wxString("./custom.conf"), FinalizeFilename("./custom.conf", directory));
+	ASSERT_EQUALS(wxGetHomeDir() + "/custom.conf", FinalizeFilename("~/custom.conf", directory));
+}
+
 TEST(ECFileConfig, RootedPathsArePreserved)
 {
 	ASSERT_EQUALS(wxString("/remote.conf"), FinalizeFilename("/remote.conf"));
@@ -71,6 +79,14 @@ TEST(ECFileConfig, WindowsHomeDirectoryShorthandIsExpanded)
 {
 	ASSERT_EQUALS(wxGetHomeDir() + "\\remote.conf", FinalizeFilename("~\\remote.conf"));
 	ASSERT_EQUALS(wxGetHomeDir() + "\\", FinalizeFilename("~\\"));
+}
+
+TEST(ECFileConfig, WindowsBareStreamNamesUseConfigDirectory)
+{
+	for (const wxString &name :
+		{ wxString("remote.conf:stream"), wxString("remote.conf:stream:$DATA") }) {
+		ASSERT_EQUALS(GetConfigDir(name) + name, FinalizeFilename(name));
+	}
 }
 #else
 TEST(ECFileConfig, UnixBackslashesAndColonsRemainFilenameCharacters)

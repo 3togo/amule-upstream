@@ -33,17 +33,25 @@
 #include "OtherFunctions.h" // Needed for GetConfigDir()
 
 /**
- * Expands a leading home-directory shorthand, or prepends ConfigDir to bare filenames.
+ * Expands a leading home-directory shorthand, or prepends the configuration directory to bare names.
+ * Callers that already selected a directory can supply it to preserve their portable-file probe.
  */
-inline wxString FinalizeFilename(const wxString filename)
+inline wxString FinalizeFilename(const wxString filename, const wxString &configDir = wxEmptyString)
 {
 	if (filename.length() >= 2 && filename.GetChar(0) == '~' &&
 		wxFileName::IsPathSeparator(filename.GetChar(1))) {
 		return wxGetHomeDir() + filename.Mid(1);
 	}
-	// GetPath includes the volume, preserving drive-relative paths such as C:remote.conf.
-	if (wxFileName(filename).GetPath().IsEmpty()) {
-		return GetConfigDir(filename) + filename;
+	// A Windows drive is one ASCII letter. Other colons can belong to a bare NTFS stream name.
+#ifdef __WINDOWS__
+	if (filename.length() >= 2 && filename.GetChar(1) == ':' &&
+		((filename.GetChar(0) >= 'A' && filename.GetChar(0) <= 'Z') ||
+			(filename.GetChar(0) >= 'a' && filename.GetChar(0) <= 'z'))) {
+		return filename;
+	}
+#endif
+	if (filename.find_first_of(wxFileName::GetPathSeparators()) == wxString::npos) {
+		return (configDir.IsEmpty() ? GetConfigDir(filename) : configDir) + filename;
 	}
 	return filename;
 }

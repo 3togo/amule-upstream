@@ -588,7 +588,7 @@ bool CaMuleExternalConnector::OnCmdLineParsed(wxCmdLineParser &parser)
 	// Portable detection is "does <cwd>/config/<probe> exist", so each connector probes for the
 	// file it actually owns rather than for remote.conf regardless.
 	m_configDir = GetConfigDir(PortableProbeFile());
-	m_configFileName = m_configDir + m_configFileName;
+	m_configFileName = FinalizeFilename(m_configFileName, m_configDir);
 
 	wxString aMuleConfigFile;
 	if (UsesConnectorConfigFile() && parser.Found("create-config-from", &aMuleConfigFile)) {
