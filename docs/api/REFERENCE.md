@@ -3516,7 +3516,9 @@ reset or replacement of the daemon's profile; use `rate()` to handle resets.
 
 Before the first successful refresh, output contains build information and
 `amule_ec_connected 0`. After a failed refresh it also retains the previous
-snapshot timestamp, while omitting all daemon measurements. These are HTTP 200
+snapshot timestamp, while omitting all daemon measurements. A mandatory statistics,
+file-update, or preferences request rejected with `EC_OP_FAILED` counts as a failed
+refresh even if the EC connection remains open. These are HTTP 200
 responses: Prometheus `up` describes HTTP scrape health, while
 `amule_ec_connected` and `time() - amule_snapshot_timestamp_seconds` describe
 refresh health and freshness. A hung refresh retains the last published state,

@@ -150,8 +150,11 @@ bool RefresherTick(CamuleapiApp &app, CState &state, MetricsSnapshot *metrics)
 	{
 		std::unique_ptr<CECPacket> req(new CECPacket(EC_OP_STAT_REQ, EC_DETAIL_FULL));
 		const CECPacket *resp = app.SendRecvSerialized(req.get());
-		if (!resp)
+		// A protocol error is a failed refresh even when the socket is still alive.
+		if (!resp || resp->GetOpCode() == EC_OP_FAILED) {
+			delete resp;
 			return false;
+		}
 		StatusSnapshot s;
 		ParseStatusFromPacket(resp, s);
 		s.search_all_supported = app.IsServerSearchAllActive();
@@ -182,8 +185,11 @@ bool RefresherTick(CamuleapiApp &app, CState &state, MetricsSnapshot *metrics)
 	{
 		std::unique_ptr<CECPacket> req(new CECPacket(EC_OP_GET_UPDATE, EC_DETAIL_INC_UPDATE));
 		const CECPacket *resp = app.SendRecvSerialized(req.get());
-		if (!resp)
+		// A protocol error is a failed refresh even when the socket is still alive.
+		if (!resp || resp->GetOpCode() == EC_OP_FAILED) {
+			delete resp;
 			return false;
+		}
 		auto &rle = app.PartfileRleStateRequireStateWriteLock();
 
 		// Snapshot the cache's pre-tick ECID set so rle_state entries can be
@@ -451,8 +457,11 @@ bool RefresherTick(CamuleapiApp &app, CState &state, MetricsSnapshot *metrics)
 		std::unique_ptr<CECPacket> req(new CECPacket(EC_OP_GET_PREFERENCES));
 		req->AddTag(CECTag(EC_TAG_SELECT_PREFS, selection));
 		const CECPacket *resp = app.SendRecvSerialized(req.get());
-		if (!resp)
+		// A protocol error is a failed refresh even when the socket is still alive.
+		if (!resp || resp->GetOpCode() == EC_OP_FAILED) {
+			delete resp;
 			return false;
+		}
 		PreferencesSnapshot p;
 		std::vector<CategorySnapshot> cats;
 		ParsePreferencesFromPacket(resp, p, cats);

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Offline metrics HTTP checks, including an EC fixture that stalls the refresher."""
 from contextlib import contextmanager
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -75,7 +76,8 @@ def api_fixture(binary, root, ec_port, enabled=True, configured=True):
         static = root / 'static'
         static.mkdir()
         (static / 'index.html').write_text('fixture SPA')
-        text = config.read_text().replace('Password=', 'Password=regression', 1)
+        digest = hashlib.md5(b'regression').hexdigest().upper()
+        text = config.read_text().replace('PasswordMD5=', 'PasswordMD5=' + digest, 1)
         text = text.replace('StaticRoot=', f'StaticRoot={static}', 1)
         text = text.replace('BasePath=', 'BasePath=/amule', 1)
         # Enabled is omitted for the default-on case, as in an existing profile.
@@ -124,6 +126,8 @@ class CoreHandler(socketserver.BaseRequestHandler):
                     reply, tags = C['EC_OP_NOOP'], []
                     if op == C['EC_OP_STAT_REQ']:
                         reply = C['EC_OP_STATS']
+                    if op == self.server.fail_opcode:
+                        reply = C['EC_OP_FAILED']
                 payload = bytes([reply]) + struct.pack('!H', len(tags)) + b''.join(tags)
                 self.request.sendall(struct.pack('!II', 0x20, len(payload)) + payload)
         except (EOFError, OSError):
@@ -137,6 +141,7 @@ class Core(socketserver.ThreadingTCPServer):
 def fake_core_checks(binary, root):
     with Core(('127.0.0.1', 0), CoreHandler) as core:
         core.ops = []
+        core.fail_opcode = None
         core.hold, core.entered, core.release = threading.Event(), threading.Event(), threading.Event()
         threading.Thread(target=core.serve_forever, daemon=True).start()
         core.hold.set()
@@ -187,6 +192,19 @@ def fake_core_checks(binary, root):
                 assert request(base, '/api/v1/status',
                                headers={'Cookie': 'amuleapi_token=' + jwt})[0] == 200
                 print('PASS: BasePath, methods, HEAD, cache policy and dedicated bearer authentication')
+
+                for failed_request in ('EC_OP_STAT_REQ', 'EC_OP_GET_UPDATE', 'EC_OP_GET_PREFERENCES'):
+                    core.fail_opcode = C[failed_request]
+                    def failed_snapshot():
+                        text = request(base, token=TOKEN)[2]
+                        return text if 'amule_ec_connected 0\n' in text else None
+                    failed = eventually(failed_snapshot, seconds=5)
+                    assert 'amule_snapshot_timestamp_seconds ' in failed, failed
+                    assert 'amule_transfer_rate_bytes_per_second' not in failed, failed
+                    assert 'amule_downloads{' not in failed, failed
+                    core.fail_opcode = None
+                    eventually(lambda: 'amule_ec_connected 1\n' in request(base, token=TOKEN)[2])
+                print('PASS: rejected EC refreshes suppress daemon metrics and recover')
 
                 for _ in range(30):
                     request(base, token='bad')

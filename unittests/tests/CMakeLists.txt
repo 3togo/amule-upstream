@@ -3128,10 +3128,12 @@ if (ENABLE_INTEGRATION_TESTS AND ENABLE_IP2COUNTRY AND BUILD_DAEMON AND BUILD_AM
 	endif ()
 endif ()
 
+if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 add_executable (WindowGeometryTest WindowGeometryTest.cpp)
 target_include_directories (WindowGeometryTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries (WindowGeometryTest muleunit mulecommon)
+target_link_libraries (WindowGeometryTest muleunit mulecommon wxWidgets::CORE)
 add_test (NAME WindowGeometryTest COMMAND WindowGeometryTest)
+endif ()
 
 add_executable (BandwidthRateConversionTest BandwidthRateConversionTest.cpp)
 target_include_directories (BandwidthRateConversionTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
