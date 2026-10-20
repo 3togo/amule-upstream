@@ -256,7 +256,7 @@
   "prefs_field_connection_proxy_user": "Пользователь прокси",
   "downloads_peer_ident_all": "Любая идентификация",
   "client_detail_tab_general": "Основные",
-  "prefs_ed2k_readonly": "Сеть ed2k",
+  "prefs_ed2k": "Сеть ed2k",
   "client_detail_ip": "IP : порт",
   "downloads_prio_normal": "Обычный",
   "downloads_peer_col_downloaded": "Загружено всего",

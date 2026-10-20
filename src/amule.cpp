@@ -3823,6 +3823,36 @@ void CamuleApp::DisconnectED2K()
 	}
 }
 
+void CamuleApp::ApplyNetworkChange(bool ed2kWasEnabled, bool kadWasEnabled)
+{
+	const bool ed2kEnabled = thePrefs::GetNetworkED2K();
+	const bool kadEnabled = thePrefs::GetNetworkKademlia();
+	if (ed2kWasEnabled && !ed2kEnabled) {
+		serverconnect->StopConnectionTry();
+		DisconnectED2K();
+	} else if (!ed2kWasEnabled && ed2kEnabled) {
+		amuleIPV4Address address;
+		if (thePrefs::GetAddress().IsEmpty() || !address.Hostname(thePrefs::GetAddress())) {
+			address.AnyAddress();
+		}
+		address.Service(thePrefs::GetPort() + 3);
+		serverconnect->InitServerUDPSocket(address);
+		// A core started with ED2K disabled has not loaded either server list yet.
+		if (!serverlist->IsInitialized()) {
+			serverlist->Init();
+			if (thePrefs::AutoServerlist()) {
+				serverlist->StartAutoUpdate();
+			}
+		}
+	}
+	if (kadWasEnabled && !kadEnabled) {
+		StopKad();
+	}
+	if (ed2kWasEnabled != ed2kEnabled || kadWasEnabled != kadEnabled) {
+		Notify_NetworkRearrange();
+	}
+}
+
 bool CamuleApp::CryptoAvailable() const
 {
 	return clientcredits && clientcredits->CryptoAvailable();

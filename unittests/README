@@ -191,3 +191,23 @@ The existing wxGetApp downcast during CamuleApp construction triggers the UBSan
 vptr check before startup. If encountered, a temporary suppression file containing
 "vptr:wxGetApp" can be passed via UBSAN_OPTIONS=suppressions=<file> alongside the
 options above; keep address and leak checking enabled.
+
+Runtime network preference coverage (BUILD_DAEMON=ON, BUILD_AMULEAPI=ON,
+ENABLE_INTEGRATION_TESTS=ON):
+
+  ctest --test-dir build -R NetworkPreferencesIntegrationTest --output-on-failure
+
+NetworkPreferencesIntegrationTest starts an isolated offline daemon with both
+networks disabled and seeded server.met/staticservers.dat files. A REST PATCH
+must enable ED2K without restarting, load both lists, create the server UDP
+socket and attempt the configured auto-update once. Repeated network toggles
+must preserve the live list. A second EC client checks all enabled-network
+bitmasks through the connection-state poll, including partial preference writes
+and both networks disabled. The auto-update has an empty URL list; no public
+network connection is required.
+
+GUI follow-up: with amulegui connected (or EC enabled on the monolithic GUI),
+toggle ED2K and Kad from the Web UI. Check that the Networks page, conditional
+log tabs and toolbar label follow each change within one poll. In amulegui,
+then change each network back in Preferences and verify that the daemon accepts
+it. Reopen Preferences/reconnect to check the full preference refresh path.

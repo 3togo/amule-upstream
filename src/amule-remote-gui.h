@@ -140,6 +140,7 @@ public:
 	// refresh it before it is shown, and send only what the user changed.
 	void RefreshFromRemote(std::function<void()> then = nullptr);
 	void ApplyRefresh(const CECPacket *packet);
+	void UpdateNetworks(bool ed2kEnabled, bool kadEnabled);
 	void SendChangesToRemote();
 	//! Sends one preferences category holding only the given tags.
 	void SendPartialToRemote(const CECTag &category);

@@ -971,7 +971,7 @@
   "prefs_field_geoip_maxmind_license": "MaxMind licentiesleutel",
   "prefs_field_connection_proxy_user": "Proxygebruiker",
   "downloads_peer_ident_all": "Alle Identiteit",
-  "prefs_ed2k_readonly": "ed2k-netwerk",
+  "prefs_ed2k": "ed2k-netwerk",
   "client_detail_ip": "IP : Poort",
   "prefs_field_remote_controls_webserver_template_name": "Websjabloon",
   "prefs_shdir_error": "Laden van gedeelde mappen mislukt",

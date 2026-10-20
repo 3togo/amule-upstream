@@ -1189,6 +1189,8 @@ void PrefsUnifiedDlg::SetCredentialStateLabel(int id, bool isSet)
 
 void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 {
+	const bool ed2kWasEnabled = thePrefs::GetNetworkED2K();
+	const bool kadWasEnabled = thePrefs::GetNetworkKademlia();
 #ifndef CLIENT_GUI
 	const uint16 previousTcpPort = thePrefs::GetPort();
 	const uint16 previousUdpPort = thePrefs::GetUDPPort();
@@ -1456,11 +1458,6 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 		restart_needed_msg += _("- Temp folder changed.\n");
 	}
 
-	if (CfgChanged(IDC_NETWORKED2K) && thePrefs::GetNetworkED2K()) {
-		restart_needed = true;
-		restart_needed_msg += _("- ED2K network enabled.\n");
-	}
-
 	// CommitSharedDirsWithProgress already ran Reload (with progress and cancel) when
 	// shareddir_list itself changed; this only triggers a fresh Reload for the other paths
 	// IDC_INCFILES / IDC_TEMPFILES affect. The three settings below each need a re-walk,
@@ -1572,13 +1569,13 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 		theApp->amuledlg->Create_Toolbar(thePrefs::VerticalToolbar());
 	}
 
-	if (!thePrefs::GetNetworkED2K() && theApp->IsConnectedED2K()) {
-		theApp->DisconnectED2K();
+#ifndef CLIENT_GUI
+	theApp->ApplyNetworkChange(ed2kWasEnabled, kadWasEnabled);
+#else
+	if (ed2kWasEnabled != thePrefs::GetNetworkED2K() || kadWasEnabled != thePrefs::GetNetworkKademlia()) {
+		theApp->amuledlg->DoNetworkRearrange();
 	}
-
-	if (!thePrefs::GetNetworkKademlia() && theApp->IsConnectedKad()) {
-		theApp->StopKad();
-	}
+#endif
 
 	if (!thePrefs::GetNetworkED2K() && !thePrefs::GetNetworkKademlia()) {
 		wxMessageBox(_("Both eD2k and Kad network are disabled.\nYou won't be able to connect until "
@@ -1591,10 +1588,6 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 			_("Message"),
 			wxOK | wxICON_INFORMATION,
 			this);
-	}
-
-	if (CfgChanged(IDC_NETWORKKAD) || CfgChanged(IDC_NETWORKED2K)) {
-		theApp->amuledlg->DoNetworkRearrange();
 	}
 
 	if (CfgChanged(IDC_TOOLTIPDELAY)) {

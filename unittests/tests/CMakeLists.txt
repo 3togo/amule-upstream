@@ -3015,6 +3015,11 @@ if (BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
 endif ()
 
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
+	add_test (NAME NetworkPreferencesIntegrationTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/NetworkPreferencesIntegrationTest.py
+			$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
+	)
+	set_tests_properties (NetworkPreferencesIntegrationTest PROPERTIES TIMEOUT 120)
 	add_test (NAME AmuleApiEcPasswordIntegrationTest
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiEcPasswordIntegrationTest.py
 			$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>

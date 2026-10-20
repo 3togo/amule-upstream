@@ -1684,8 +1684,45 @@ void CPreferencesRem::RefreshFromRemote(std::function<void()> then)
 void CPreferencesRem::ApplyRefresh(const CECPacket *packet)
 {
 	if (packet->GetOpCode() == EC_OP_SET_PREFERENCES) {
+		const bool ed2kWasEnabled = thePrefs::GetNetworkED2K();
+		const bool kadWasEnabled = thePrefs::GetNetworkKademlia();
 		static_cast<const CEC_Prefs_Packet *>(packet)->Apply();
 		RememberRemoteState();
+		if (theApp->amuledlg && (ed2kWasEnabled != thePrefs::GetNetworkED2K() ||
+						kadWasEnabled != thePrefs::GetNetworkKademlia())) {
+			theApp->amuledlg->DoNetworkRearrange();
+		}
+	}
+}
+
+void CPreferencesRem::UpdateNetworks(bool ed2kEnabled, bool kadEnabled)
+{
+	// Keep the diff baseline in step too: otherwise changing a network back to its
+	// previous value in Preferences would look unchanged and never reach the core.
+	if (m_remoteState) {
+		if (CECTag *connection = m_remoteState->GetTagByName(EC_TAG_PREFS_CONNECTIONS)) {
+			CECEmptyTag updated(EC_TAG_PREFS_CONNECTIONS);
+			for (const CECTag &child : *connection) {
+				if (child.GetTagName() != EC_TAG_NETWORK_ED2K &&
+					child.GetTagName() != EC_TAG_NETWORK_KADEMLIA) {
+					updated.AddTag(child);
+				}
+			}
+			if (ed2kEnabled) {
+				updated.AddTag(CECEmptyTag(EC_TAG_NETWORK_ED2K));
+			}
+			if (kadEnabled) {
+				updated.AddTag(CECEmptyTag(EC_TAG_NETWORK_KADEMLIA));
+			}
+			*connection = updated;
+		}
+	}
+	if (ed2kEnabled != thePrefs::GetNetworkED2K() || kadEnabled != thePrefs::GetNetworkKademlia()) {
+		thePrefs::SetNetworkED2K(ed2kEnabled);
+		thePrefs::SetNetworkKademlia(kadEnabled);
+		if (theApp->amuledlg) {
+			theApp->amuledlg->DoNetworkRearrange();
+		}
 	}
 }
 
@@ -2007,6 +2044,13 @@ void CServerConnectRem::HandlePacket(const CECPacket *packet)
 		static_cast<const CEC_ConnState_Tag *>(packet->GetTagByName(EC_TAG_CONNSTATE));
 	if (!tag) {
 		return;
+	}
+
+	// Older daemons omit this tag; retain the preference-based layout in that case.
+	if (const CECTag *networks = tag->GetTagByName(EC_TAG_NETWORKS_ENABLED)) {
+		const bool ed2kEnabled = (networks->GetInt() & 0x01) != 0;
+		const bool kadEnabled = (networks->GetInt() & 0x02) != 0;
+		theApp->glob_prefs->UpdateNetworks(ed2kEnabled, kadEnabled);
 	}
 
 	theApp->m_ConnState = 0;

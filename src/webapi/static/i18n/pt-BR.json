@@ -835,7 +835,7 @@
   "downloads_peer_ident_all": "Todas as identidades",
   "stats_tree_found_sources": "Fontes encontradas: %s",
   "client_detail_tab_general": "Geral",
-  "prefs_ed2k_readonly": "Rede ed2k",
+  "prefs_ed2k": "Rede ed2k",
   "client_detail_ip": "IP : Porta",
   "downloads_prio_normal": "Normal",
   "downloads_peer_col_downloaded": "DL total",
