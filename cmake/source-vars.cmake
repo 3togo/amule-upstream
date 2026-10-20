@@ -153,6 +153,8 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON OR BUILD_REMOTEGUI)
 		amuleAppCommon.cpp
 		AppImageEnv.cpp
 		AutostartManager.cpp
+		FolderAccess.cpp
+		FolderWriteSandbox.cpp
 		ProtocolHandlerManager.cpp
 		$<$<BOOL:${APPLE}>:ProtocolHandlerManager_mac.mm>
 		ClientRef.cpp

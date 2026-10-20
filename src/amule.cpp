@@ -98,6 +98,7 @@
 #include "PartFile.h"                   // Needed for CPartFile
 #include "PlatformSpecific.h"           // Needed for PlatformSpecific::AllowSleepMode();
 #include "Preferences.h"                // Needed for CPreferences
+#include "FolderAccess.h"
 #include "PublicIPv6Corroboration.h"    // Needed for ObservedPublicIPv6
 #include "SearchList.h"                 // Needed for CSearchList
 #include "Server.h"                     // Needed for GetListName
@@ -879,6 +880,14 @@ bool CamuleApp::OnInit()
 		    "incoming", thePrefs::GetIncomingDir(), thePrefs::GetConfigDir() + "Incoming", outDir)) {
 		thePrefs::SetIncomingDir(outDir);
 	} else {
+		return false;
+	}
+
+	wxString folderAccessError;
+	if (!FolderAccess::RestrictWrites(folderAccessError)) {
+		ShowAlert("Could not enforce read-only folder access. " + folderAccessError,
+			"Folder access protection unavailable",
+			wxICON_ERROR | wxOK);
 		return false;
 	}
 
@@ -2935,7 +2944,11 @@ void CamuleApp::ShutDown()
 	theStats::Save();
 
 	CPath configFileName = CPath(thePrefs::GetConfigDir() + m_configFile);
-	CPath::BackupFile(configFileName, ".bak");
+	if (FolderAccess::IsSandboxed()) {
+		FolderAccess::BackupConfig(configFileName.GetRaw());
+	} else {
+		CPath::BackupFile(configFileName, ".bak");
+	}
 
 	if (clientlist) {
 		clientlist->DeleteAll();

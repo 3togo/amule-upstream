@@ -2379,6 +2379,7 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 	dir.AddTag(shared);
 	dir.AddTag(CECTag(EC_TAG_DIRECTORIES_SHARE_HIDDEN, true)); // value-encoded bool
 	dir.AddTag(CECTag(EC_TAG_DIRECTORIES_EXCLUDE_REGEX, true));
+	dir.AddTag(CECTag(EC_TAG_DIRECTORIES_EXCLUDE_OFFICE, false));
 	resp.AddTag(dir);
 
 	CECEmptyTag files(EC_TAG_PREFS_FILES);
@@ -2437,6 +2438,7 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 	ASSERT_EQUALS(std::string("/a"), p.directories.shared_paths[0]);
 	ASSERT_TRUE(p.directories.share_hidden);
 	ASSERT_TRUE(p.directories.exclude_patterns_use_regex);
+	ASSERT_TRUE(!p.directories.exclude_office_documents);
 	ASSERT_TRUE(!p.directories.rescan_on_startup); // absent -> false
 
 	ASSERT_TRUE(p.files.ich_enabled);
@@ -2743,9 +2745,9 @@ TEST(Refresher, PrefsSchemaIsWellFormed)
 			++emitted;
 	}
 
-	// The documented payload is 129 fields. A row added or dropped without
+	// The documented payload is 130 fields. A row added or dropped without
 	// updating docs/api/REFERENCE.md should trip this.
-	ASSERT_EQUALS(static_cast<std::size_t>(129), emitted);
+	ASSERT_EQUALS(static_cast<std::size_t>(130), emitted);
 }
 
 // The schema's irregularities are enumerated rather than merely counted: each is deliberate and
@@ -3775,4 +3777,18 @@ TEST(Refresher, SearchProgressUnionKeepsExplicitAndMissingKadActivityDistinct)
 	ASSERT_TRUE(activity[1]);
 	ASSERT_TRUE(!activity[2]);
 	ASSERT_TRUE(activity.find(3) == activity.end());
+}
+
+TEST(Refresher, OfficeExclusionDecodesExplicitValue)
+{
+	for (bool enabled : { false, true }) {
+		CECPacket response(EC_OP_SET_PREFERENCES);
+		CECEmptyTag directories(EC_TAG_PREFS_DIRECTORIES);
+		directories.AddTag(CECTag(EC_TAG_DIRECTORIES_EXCLUDE_OFFICE, enabled));
+		response.AddTag(directories);
+		PreferencesSnapshot prefs;
+		std::vector<CategorySnapshot> categories;
+		ParsePreferencesFromPacket(&response, prefs, categories);
+		ASSERT_EQUALS(enabled, prefs.directories.exclude_office_documents);
+	}
 }

@@ -2327,7 +2327,8 @@ Returns every preference category amuled carries over EC. The `general` and `con
     "rescan_on_startup": true,
     "follow_symlinks": false,
     "exclude_patterns": "",
-    "exclude_patterns_use_regex": false
+    "exclude_patterns_use_regex": false,
+    "exclude_office_documents": true
   },
   "files": {
     "ich_enabled": true, "trust_unverified_aich_hashes": false,
@@ -2391,6 +2392,11 @@ Returns every preference category amuled carries over EC. The `general` and `con
   }
 }
 ```
+
+`directories.exclude_office_documents` excludes Word, Excel, PowerPoint,
+OpenDocument, RTF, CSV and TSV extensions from sharing, independently of custom
+patterns. It defaults to true, including for existing profiles, and applies to
+partial and completed downloads without deleting files or preventing downloads.
 
 Booleans are plain JSON `true`/`false` regardless of how amuled encodes them on the wire. **Passwords are never returned** — the webserver admin/guest and amuleapi passwords are write-only (see PATCH). `general.user_hash` is the node's own identity hash, not a password.
 
