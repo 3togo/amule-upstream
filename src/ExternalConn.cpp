@@ -1472,8 +1472,10 @@ static CECPacket *Get_EC_Response_StatRequest(const CECPacket *request, CLoggerA
 	// EC_DETAIL_INC_UPDATE so the included conn state tag is created the way it is
 	// needed here.
 	case EC_DETAIL_INC_UPDATE:
-		response->AddTag(CECTag(EC_TAG_STATS_UP_OVERHEAD, (uint32)theStats::GetUpOverheadRate()));
-		response->AddTag(CECTag(EC_TAG_STATS_DOWN_OVERHEAD, (uint32)theStats::GetDownOverheadRate()));
+		response->AddTag(CECTag(EC_TAG_STATS_UP_OVERHEAD,
+			CDisplayRateCounter::ClampRate(theStats::GetDisplayUpOverheadRate())));
+		response->AddTag(CECTag(EC_TAG_STATS_DOWN_OVERHEAD,
+			CDisplayRateCounter::ClampRate(theStats::GetDisplayDownOverheadRate())));
 		response->AddTag(CECTag(EC_TAG_STATS_BANNED_COUNT, /*(uint32)*/ theStats::GetBannedCount()));
 		AddLoggerTag(response, LoggerAccess);
 		// Needed only for the remote tray icon context menu
@@ -1505,8 +1507,11 @@ static CECPacket *Get_EC_Response_StatRequest(const CECPacket *request, CLoggerA
 	/* fall through */
 	case EC_DETAIL_WEB:
 	case EC_DETAIL_CMD:
-		response->AddTag(CECTag(EC_TAG_STATS_UL_SPEED, (uint32)theStats::GetUploadRate()));
-		response->AddTag(CECTag(EC_TAG_STATS_DL_SPEED, (uint32)(theStats::GetDownloadRate())));
+		// Live speed fields share the GUI's one-second window; history retains its longer average.
+		response->AddTag(CECTag(EC_TAG_STATS_UL_SPEED,
+			CDisplayRateCounter::ClampRate(theStats::GetDisplayUploadRate())));
+		response->AddTag(CECTag(EC_TAG_STATS_DL_SPEED,
+			CDisplayRateCounter::ClampRate(theStats::GetDisplayDownloadRate())));
 		response->AddTag(
 			CECTag(EC_TAG_STATS_UL_SPEED_LIMIT, (uint32)(thePrefs::GetMaxUpload() * 1024.0)));
 		response->AddTag(
@@ -4138,6 +4143,8 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 			request->GetTagByNameSafe(EC_TAG_SELECT_PREFS)->GetInt(), request->GetDetailLevel());
 		break;
 	case EC_OP_SET_PREFERENCES: {
+		const bool ed2kWasEnabled = thePrefs::GetNetworkED2K();
+		const bool kadWasEnabled = thePrefs::GetNetworkKademlia();
 		const uint16 oldTcpPort = thePrefs::GetPort();
 		const uint16 oldUdpPort = thePrefs::GetUDPPort();
 		// Keep value snapshots: Apply() mutates both stored preference strings.
@@ -4182,12 +4189,7 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		if (thePrefs::IsFilteringServers()) {
 			theApp->serverlist->FilterServers();
 		}
-		if (!thePrefs::GetNetworkED2K() && theApp->IsConnectedED2K()) {
-			theApp->DisconnectED2K();
-		}
-		if (!thePrefs::GetNetworkKademlia() && theApp->IsConnectedKad()) {
-			theApp->StopKad();
-		}
+		theApp->ApplyNetworkChange(ed2kWasEnabled, kadWasEnabled);
 #ifdef ENABLE_IPV6
 		// Act on an AdvertiseIPv6 change now, not at the next periodic refresh.
 		AdvertisedIPv6ForPeers();
