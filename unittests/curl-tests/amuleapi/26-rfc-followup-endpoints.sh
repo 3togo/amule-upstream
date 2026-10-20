@@ -153,7 +153,7 @@ else
 fi
 RC=$(curl -s -o /tmp/p11_su.json -w "%{http_code}" -X POST "${H_AUTH[@]}" \
 	-H "Content-Type: application/json" \
-	-d '{"url":"http://upd.emule-security.org/server.met"}' \
+	-d '{"url":"http://127.0.0.1:1/server.met"}' \
 	"$API/servers_update")
 if [ "$RC" = "202" ]; then
 	_pass "POST /servers_update valid url → 202"
