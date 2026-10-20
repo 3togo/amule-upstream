@@ -95,9 +95,9 @@
 #include "MagnetURI.h"            // Needed for CMagnetURI
 #include "NetworkInterfaces.h"    // Needed for DetectNetworkInterfaces
 #include "OtherFunctions.h"
-#include "PartFile.h"                   // Needed for CPartFile
-#include "PlatformSpecific.h"           // Needed for PlatformSpecific::AllowSleepMode();
-#include "Preferences.h"                // Needed for CPreferences
+#include "PartFile.h"         // Needed for CPartFile
+#include "PlatformSpecific.h" // Needed for PlatformSpecific::AllowSleepMode();
+#include "Preferences.h"      // Needed for CPreferences
 #include "FolderAccess.h"
 #include "PublicIPv6Corroboration.h"    // Needed for ObservedPublicIPv6
 #include "SearchList.h"                 // Needed for CSearchList
@@ -870,6 +870,8 @@ bool CamuleApp::OnInit()
 
 	// Validate (and create if needed) the temp / incoming directories.
 	// Deferred to here so the first-run wizard above could redirect them.
+	const CPath configuredTempDir = thePrefs::GetTempDir();
+	const CPath configuredIncomingDir = thePrefs::GetIncomingDir();
 	CPath outDir;
 	if (CheckMuleDirectory("temp", thePrefs::GetTempDir(), thePrefs::GetConfigDir() + "Temp", outDir)) {
 		thePrefs::SetTempDir(outDir);
@@ -889,6 +891,23 @@ bool CamuleApp::OnInit()
 			"Folder access protection unavailable",
 			wxICON_ERROR | wxOK);
 		return false;
+	}
+
+	if (FolderAccess::IsSandboxed() && (configuredTempDir != thePrefs::GetTempDir() ||
+						   configuredIncomingDir != thePrefs::GetIncomingDir())) {
+		// Portal paths replace the inaccessible host paths only after both folders
+		// are approved and the write policy succeeds. Ordinary shutdown does not
+		// save preferences, so commit these paths now to retain access on restart.
+		wxConfigBase *config = wxConfigBase::Get();
+		if (!config->Write("/eMule/TempDir", CPath::ToUniv(thePrefs::GetTempDir())) ||
+			!config->Write("/eMule/IncomingDir", CPath::ToUniv(thePrefs::GetIncomingDir())) ||
+			!config->Flush()) {
+			ShowAlert("Could not save the approved download folders. Existing download files "
+				  "have not been moved.",
+				"Could not save folder access",
+				wxICON_ERROR | wxOK);
+			return false;
+		}
 	}
 
 	m_statistics = new CStatistics();
