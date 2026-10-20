@@ -2754,8 +2754,9 @@ if (TARGET wxWidgets::CORE)
 	if (WIN32)
 		target_sources (DialogLayoutTest PRIVATE DialogLayoutTest.rc)
 	endif()
-	target_include_directories (DialogLayoutTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
-	target_link_libraries (DialogLayoutTest PRIVATE wxWidgets::CORE)
+	target_include_directories (DialogLayoutTest PRIVATE
+		${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/libs)
+	target_link_libraries (DialogLayoutTest PRIVATE wxWidgets::CORE mulecommon)
 	add_test (NAME DialogLayoutTest COMMAND DialogLayoutTest)
 	set_tests_properties (DialogLayoutTest PROPERTIES SKIP_RETURN_CODE 77)
 	add_executable (BandwidthLimitSliderTest BandwidthLimitSliderTest.cpp)
@@ -3052,6 +3053,12 @@ if (BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
 endif ()
 
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
+	if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		add_test (NAME NetworkPreferencesIntegrationTest
+			COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/NetworkPreferencesIntegrationTest.py
+				$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
+		)
+	endif ()
 	add_test (NAME AmuleApiEcPasswordIntegrationTest
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiEcPasswordIntegrationTest.py
 			$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
