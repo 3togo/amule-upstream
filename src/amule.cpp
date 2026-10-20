@@ -1643,6 +1643,20 @@ void CamuleApp::OnAmuleApiTerminated(int pid, int status)
 	}
 }
 
+static amuleIPV4Address GetServerUDPAddress()
+{
+	amuleIPV4Address address;
+	if (thePrefs::GetAddress().IsEmpty()) {
+		address.AnyAddress();
+	} else if (!address.Hostname(thePrefs::GetAddress())) {
+		address.AnyAddress();
+		AddLogLineC(CFormat(_("Could not bind ports to the specified address: %s")) %
+			    thePrefs::GetAddress());
+	}
+	address.Service(thePrefs::GetPort() + 3);
+	return address;
+}
+
 bool CamuleApp::ReinitializeNetwork(wxString *msg)
 {
 	bool ok = true;
@@ -1723,16 +1737,8 @@ bool CamuleApp::ReinitializeNetwork(wxString *msg)
 
 	// Create the UDP socket TCP+3.
 	// Used for source asking on servers.
-	if (thePrefs::GetAddress().IsEmpty()) {
-		myaddr[1].AnyAddress();
-	} else if (!myaddr[1].Hostname(thePrefs::GetAddress())) {
-		myaddr[1].AnyAddress();
-		AddLogLineC(CFormat(_("Could not bind ports to the specified address: %s")) %
-			    thePrefs::GetAddress());
-	}
-
+	myaddr[1] = GetServerUDPAddress();
 	wxString ip = myaddr[1].IPAddress();
-	myaddr[1].Service(thePrefs::GetPort() + 3);
 	serverconnect = new CServerConnect(serverlist, myaddr[1]);
 	*msg << CFormat("*** Server UDP socket (TCP+3) at %s:%u\n") % ip %
 			((unsigned int)thePrefs::GetPort() + 3u);
@@ -3831,12 +3837,7 @@ void CamuleApp::ApplyNetworkChange(bool ed2kWasEnabled, bool kadWasEnabled)
 		serverconnect->StopConnectionTry();
 		DisconnectED2K();
 	} else if (!ed2kWasEnabled && ed2kEnabled) {
-		amuleIPV4Address address;
-		if (thePrefs::GetAddress().IsEmpty() || !address.Hostname(thePrefs::GetAddress())) {
-			address.AnyAddress();
-		}
-		address.Service(thePrefs::GetPort() + 3);
-		serverconnect->InitServerUDPSocket(address);
+		serverconnect->InitServerUDPSocket(GetServerUDPAddress());
 		// A core started with ED2K disabled has not loaded either server list yet.
 		if (!serverlist->IsInitialized()) {
 			serverlist->Init();

@@ -871,7 +871,7 @@
   "prefs_group_webserver": "Server web",
   "prefs_group_geoip_db": "Database",
   "prefs_group_geoip_status": "Stato",
-  "prefs_ed2k": "Rete eD2k",
+  "prefs_ed2k_readonly": "Rete eD2k",
   "prefs_advanced_warning": "Attenzione: queste sono impostazioni per esperti. Valori errati possono peggiorare le prestazioni o la connettività. Modificale solo se sai cosa stai facendo.",
   "prefs_opt_proxy_socks5": "SOCKS5",
   "prefs_opt_proxy_socks4": "SOCKS4",

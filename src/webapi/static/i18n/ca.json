@@ -631,7 +631,7 @@
   "search_have_yes": "Ja el tinc",
   "stats_tree_found_sources": "Fonts trobades: %s",
   "client_detail_tab_general": "General",
-  "prefs_ed2k": "Xarxa eD2k",
+  "prefs_ed2k_readonly": "Xarxa eD2k",
   "client_detail_ip": "IP : Port",
   "app_add_ed2k_link": "Afegeix un enllaç ed2k",
   "downloads_prio_normal": "Normal",
