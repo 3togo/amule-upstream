@@ -39,7 +39,11 @@
 class CDisplayRateCounter
 {
 public:
-	void Add(uint64_t bytes, uint64_t now)
+	void Add(uint64_t bytes, uint64_t now) { AddBatch(bytes, now, now); }
+
+	// Upload counters are drained once per core tick. Keep the interval start so
+	// four 300 ms batches are not reported as just one second of traffic.
+	void AddBatch(uint64_t bytes, uint64_t start, uint64_t now)
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
 		Advance(now);
@@ -57,8 +61,9 @@ public:
 			});
 		if (pos != m_samples->end() && pos->time == now) {
 			pos->bytes += bytes;
+			pos->start = std::min(pos->start, start);
 		} else {
-			m_samples->insert(pos, { now, bytes });
+			m_samples->insert(pos, { now, bytes, std::min(start, now) });
 		}
 		m_total += bytes;
 	}
@@ -67,8 +72,14 @@ public:
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
 		Advance(now);
-		// A one-second window makes its byte count equal to bytes per second.
-		m_rate.store(m_total, std::memory_order_relaxed);
+		// The oldest upload batch can start before the window boundary. Normalize
+		// by its full covered interval; packet samples still use exactly one second.
+		const uint64_t elapsed =
+			m_samples ? std::max<uint64_t>(1000, m_now - m_samples->front().start) : 1000;
+		m_rate.store(elapsed == 1000 ? m_total
+					     : static_cast<uint64_t>(
+						       static_cast<long double>(m_total) * 1000 / elapsed),
+			std::memory_order_relaxed);
 	}
 
 	uint64_t GetRate() const { return m_rate.load(std::memory_order_relaxed); }
@@ -93,6 +104,7 @@ private:
 	{
 		uint64_t time;
 		uint64_t bytes;
+		uint64_t start;
 	};
 	void Advance(uint64_t now)
 	{

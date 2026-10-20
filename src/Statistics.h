@@ -463,7 +463,7 @@ public:
 		s_statsNeedSave = true;
 	}
 
-	static void AddSentBytes(uint32 bytes)
+	static void AddSentBytes(uint32 bytes, uint64 start, uint64 now)
 	{
 		if (!s_sinceFirstTransfer->IsRunning()) {
 			s_sinceFirstTransfer->StartTimer();
@@ -471,7 +471,7 @@ public:
 
 		(*s_sessionUpload) += bytes;
 		(*s_uploadrate) += bytes;
-		s_displayUploadRate.Add(bytes, GetTickCount64());
+		s_displayUploadRate.AddBatch(bytes, start, now);
 		s_totalSent += bytes;
 		s_statsNeedSave = true;
 	}

@@ -100,6 +100,29 @@ class DisplayRatesObserver:
         for mirror in self.mirrors:
             mirror.check_active(expected_rate, slots)
 
+    def check_accuracy(self):
+        # Compare displayed bytes/s against session byte growth over many daemon
+        # ticks. Comparing peer/file totals alone misses a shared 300 ms bias.
+        previous = [sum(peer.get(C['EC_TAG_CLIENT_UPLOAD_SESSION'], 0)
+                        for peer in mirror.peers.values()) for mirror in self.mirrors]
+        starts = [time.monotonic() for _ in self.mirrors]
+        integrated = [[0.0, 0.0] for _ in self.mirrors]
+        for _ in range(20):
+            time.sleep(0.3)
+            for index, mirror in enumerate(self.mirrors):
+                total, peers, _, _ = mirror.poll()
+                now = time.monotonic()
+                integrated[index][0] += total * (now - starts[index])
+                integrated[index][1] += peers * (now - starts[index])
+                starts[index] = now
+        for index, mirror in enumerate(self.mirrors):
+            transferred = sum(peer.get(C['EC_TAG_CLIENT_UPLOAD_SESSION'], 0)
+                              for peer in mirror.peers.values()) - previous[index]
+            assert transferred > 0, 'accuracy check missed active uploads'
+            for name, displayed in zip(('total', 'peers'), integrated[index]):
+                ratio = displayed / transferred
+                assert 0.9 <= ratio <= 1.1, ('displayed upload rate disagrees with session growth', name, ratio)
+
     def close(self):
         self.partial.sock.close()
 

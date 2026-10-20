@@ -1863,7 +1863,6 @@ uint32 CPartFile::Process(uint8 m_icounter)
 	if (m_count >= 30) {
 		m_count = 0;
 		UpdateAutoDownPriority();
-		UpdateDisplayedInfo();
 		if (m_bPercentUpdated == false) {
 			UpdateCompletedInfos();
 		}
@@ -1871,7 +1870,7 @@ uint32 CPartFile::Process(uint8 m_icounter)
 	}
 
 	PublishDisplayDownloadRate();
-	UpdateDisplayedInfo();
+	UpdateDisplayedInfo(false, true);
 
 	// release file handle if unused for some time
 	m_hpartfile.Release();
@@ -4540,13 +4539,19 @@ bool CPartFile::DelSource(CUpDownClient *client)
 
 #endif // !CLIENT_GUI
 
-void CPartFile::UpdateDisplayedInfo(bool force)
+void CPartFile::UpdateDisplayedInfo(bool force, bool deferGUI)
 {
 	uint64 curTick = ::GetTickCount64();
 
 	// Refresh live speeds once per second
 	if (force || curTick - m_lastRefreshedDLDisplay > MINWAIT_BEFORE_DLDISPLAY_WINDOWUPDATE) {
-		Notify_DownloadCtrlUpdateItem(this);
+		if (deferGUI) {
+			// Periodic GUI rows refresh together with the status bar. Keep EC dirty
+			// notifications on the core schedule, including daemon builds.
+			Notify_DownloadCtrlUpdateItemDeferred(this);
+		} else {
+			Notify_DownloadCtrlUpdateItem(this);
+		}
 		m_lastRefreshedDLDisplay = curTick;
 	}
 }

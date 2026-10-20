@@ -353,6 +353,30 @@ void CDownloadListCtrl::RemoveFile(CPartFile *file)
 	// caller is about to free.
 	ShowFile(file, false);
 	m_files.erase(file);
+	m_pendingUpdates.erase(file);
+}
+
+void CDownloadListCtrl::DeferUpdateItem(const void *item)
+{
+	CPartFile *file = const_cast<CPartFile *>(static_cast<const CPartFile *>(item));
+	if (m_files.find(file) != m_files.end()) {
+		m_pendingUpdates.insert(file);
+	}
+}
+
+void CDownloadListCtrl::RefreshLiveItems()
+{
+	for (auto it = m_pendingUpdates.begin(); it != m_pendingUpdates.end();) {
+		CPartFile *file = *it;
+		UpdateItem(file);
+		// Keep active rows on this GUI cadence even if the next core notification
+		// falls just after the timer. Idle rows need no extra periodic repaint.
+		if (file->GetTransferingSrcCount() || file->GetDisplayDownloadRate()) {
+			++it;
+		} else {
+			it = m_pendingUpdates.erase(it);
+		}
+	}
 }
 
 void CDownloadListCtrl::UpdateItem(const void *toupdate)

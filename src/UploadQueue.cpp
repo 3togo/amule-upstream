@@ -67,6 +67,7 @@ CUploadQueue::CUploadQueue()
 {
 	m_nLastStartUpload = 0;
 	m_lastSort = 0;
+	m_lastDisplaySample = GetTickCount64();
 	lastupslotHighID = true;
 	m_allowKicking = true;
 	m_allUploadingKnownFile = new CKnownFile;
@@ -300,8 +301,10 @@ void CUploadQueue::Process()
 	(void)theApp->uploadBandwidthThrottler->GetNumberOfSentBytesOverheadSinceLastCallAndReset();
 
 	if (sentBytes) {
-		theStats::AddSentBytes(sentBytes);
+		theStats::AddSentBytes(sentBytes, m_lastDisplaySample, tick);
 	}
+
+	m_lastDisplaySample = tick;
 
 	// Periodically resort queue if it doesn't happen anyway
 	if ((sint64)(tick - m_lastSort) > MIN2MS(2)) {

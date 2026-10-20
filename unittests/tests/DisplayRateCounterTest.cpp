@@ -175,3 +175,53 @@ TEST(DisplayRateCounterTest, ConcurrentProducersKeepEveryByte)
 	ASSERT_EQUALS(uint64_t(4 * 1000 * 123), RateAt(rate, (uint64_t(1) << 40) + 3));
 	ASSERT_EQUALS(uint64_t(0), RateAt(rate, (uint64_t(1) << 40) + 1003));
 }
+
+TEST(DisplayRateCounterTest, DaemonBatchesCoverTheirFullIntervals)
+{
+	CDisplayRateCounter rate;
+	for (uint64_t now = 300; now <= 6000; now += 300) {
+		rate.AddBatch(240 * 1024, now - 300, now);
+		const uint64_t expected = now < 1000 ? now * 800 * 1024 / 1000 : 800 * 1024;
+		ASSERT_EQUALS(expected, RateAt(rate, now));
+	}
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 7000));
+}
+
+TEST(DisplayRateCounterTest, BatchedSpeedChangeAndIdleDoNotInflateRate)
+{
+	CDisplayRateCounter rate;
+	for (uint64_t now = 300; now <= 1200; now += 300) {
+		rate.AddBatch(240000, now - 300, now);
+	}
+	for (uint64_t now = 1500; now <= 2400; now += 300) {
+		rate.AddBatch(120000, now - 300, now);
+	}
+	ASSERT_EQUALS(uint64_t(400000), RateAt(rate, 2400));
+	rate.AddBatch(0, 2400, 2700);
+	ASSERT_EQUALS(uint64_t(300000), RateAt(rate, 2700));
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 3400));
+	// After idle, only the actual last tick belongs to a new batch.
+	rate.AddBatch(240000, 5700, 6000);
+	ASSERT_EQUALS(uint64_t(240000), RateAt(rate, 6000));
+}
+
+TEST(DisplayRateCounterTest, GuiBatchesMatchPacketWindow)
+{
+	CDisplayRateCounter packets, batches;
+	for (uint64_t now = 100; now <= 3000; now += 100) {
+		packets.Add(80000, now);
+		batches.AddBatch(80000, now - 100, now);
+		ASSERT_EQUALS(RateAt(packets, now), RateAt(batches, now));
+	}
+}
+
+TEST(DisplayRateCounterTest, DelayedBatchUsesActualElapsedTime)
+{
+	CDisplayRateCounter rate;
+	rate.AddBatch(4000000, 1000, 6000);
+	ASSERT_EQUALS(uint64_t(800000), RateAt(rate, 6000));
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 7000));
+	rate.Reset();
+	rate.AddBatch(80000, 8000, 8100);
+	ASSERT_EQUALS(uint64_t(80000), RateAt(rate, 8100));
+}

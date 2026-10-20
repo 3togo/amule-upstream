@@ -190,6 +190,7 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_
                     from DisplayRatesIntegrationTest import DisplayRatesObserver
                     observer = DisplayRatesObserver(ec)
                     observer.check_active(rate * 1024, slots)
+                    observer.check_accuracy()
                 before = received.copy()
                 cpu, switches = usage(proc.pid)
                 start = time.monotonic()

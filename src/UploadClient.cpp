@@ -53,6 +53,7 @@
 void CUpDownClient::ResetDisplayUploadRate()
 {
 	m_displayUploadRate.Reset();
+	m_lastDisplayUploadSample = GetTickCount64();
 	if (m_socket) {
 		// These bytes may have reached the peer before the core accounted for them.
 		// Leave the accounting counters intact; only the new display window starts empty.
@@ -539,7 +540,8 @@ uint32 CUpDownClient::SendBlockData()
 
 	const uint32 previousRate = GetDisplayUploadDatarate();
 	if (IsDownloading()) {
-		m_displayUploadRate.Add(displayBytes, curTick);
+		m_displayUploadRate.AddBatch(displayBytes, m_lastDisplayUploadSample, curTick);
+		m_lastDisplayUploadSample = curTick;
 		m_displayUploadRate.CalculateRate(curTick);
 	}
 	if (GetDisplayUploadDatarate() != previousRate && m_uploadingfile) {

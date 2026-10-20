@@ -822,6 +822,7 @@ private:
 	std::atomic<uint32> m_nUpDatarate;
 	void ResetDisplayUploadRate();
 	CDisplayRateCounter m_displayUploadRate;
+	uint64 m_lastDisplayUploadSample = 0;
 	CDisplayRateCounter m_displayDownloadRate;
 	uint32 m_nSumForAvgUpDataRate;
 	std::list<TransferredData> m_AvarageUDR_list;

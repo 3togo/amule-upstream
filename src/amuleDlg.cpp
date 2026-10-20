@@ -1833,6 +1833,12 @@ void CamuleDlg::OnGUITimer(wxTimerEvent &WXUNUSED(evt))
 
 	if (msCur - msPrev1 > 1000) { // every second
 		msPrev1 = msCur;
+		// Paint download rows and totals from the same published core snapshots.
+#ifndef CLIENT_GUI
+		if (m_transferwnd && m_transferwnd->downloadlistctrl) {
+			m_transferwnd->downloadlistctrl->RefreshLiveItems();
+		}
+#endif
 		ShowTransferRate();
 
 		// The clients page shows live speeds and transfer totals, so it wants a per-second

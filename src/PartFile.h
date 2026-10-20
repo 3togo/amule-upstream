@@ -285,7 +285,7 @@ public:
 	void UpdateFileRatingCommentAvail();
 
 	int GetCommonFilePenalty();
-	void UpdateDisplayedInfo(bool force = false);
+	void UpdateDisplayedInfo(bool force = false, bool deferGUI = false);
 
 	uint8 GetCategory() const { return m_category; }
 	void SetCategory(uint8 cat);
