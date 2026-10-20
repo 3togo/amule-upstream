@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 
 class ClearButtonTestApp : public wxApp
 {
@@ -45,14 +46,14 @@ private:
 class RecordingArtProvider : public wxArtProvider
 {
 public:
-	wxSize requestedSize;
+	std::vector<wxSize> requestedSizes;
 
 protected:
 	wxBitmapBundle CreateBitmapBundle(
 		const wxArtID &id, const wxArtClient &client, const wxSize &size) override
 	{
 		if (id == wxART_CROSS_MARK && client == wxART_BUTTON) {
-			requestedSize = size;
+			requestedSizes.push_back(size);
 		}
 		return wxBitmapBundle(); // Keep the real native artwork.
 	}
@@ -148,8 +149,17 @@ int main(int argc, char **argv)
 				wxArtProvider::Push(provider); // Also clears the art-provider cache.
 				try {
 					CheckRow(new DpiTextCtrl(frame, scale), outer);
-					Require(provider->requestedSize == wxSize(20, 20),
-						"Bitmap bundle size must remain 20 DIP at every DPI");
+					// Native fallback artwork may re-enter the provider with pixel
+					// sizes while rasterizing (e.g. 40x40 on Retina). Exercise a
+					// later high-resolution request on every platform and check
+					// the helper's initial bundle request, not the last raster size.
+					const auto highResolution = wxArtProvider::GetBitmapBundle(
+						wxART_CROSS_MARK, wxART_BUTTON, wxSize(40, 40));
+					Require(highResolution.IsOk(),
+						"High-resolution artwork must be available");
+					Require(!provider->requestedSizes.empty() &&
+							provider->requestedSizes.front() == wxSize(20, 20),
+						"Initial bitmap bundle size must remain 20 DIP at every DPI");
 				} catch (...) {
 					wxArtProvider::Pop();
 					throw;
