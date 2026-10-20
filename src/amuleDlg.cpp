@@ -2277,7 +2277,7 @@ PageType CamuleDlg::CaptureLogPage(wxNotebook *notebook, wxWindowID ctrlId)
 
 void CamuleDlg::DoNetworkRearrange()
 {
-	if (m_prefsVisible && m_prefsDialog) {
+	if (m_prefsDialog && m_prefsDialog->IsShown()) {
 		m_prefsDialog->UpdateNetworkPreferences();
 	}
 #if !defined(__WXOSX_COCOA__)

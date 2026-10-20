@@ -216,3 +216,12 @@ toggle ED2K and Kad from the Web UI. Check that the Networks page, conditional
 log tabs and toolbar label follow each change within one poll. In amulegui,
 then change each network back in Preferences and verify that the daemon accepts
 it. Reopen Preferences/reconnect to check the full preference refresh path.
+
+With Preferences open on Connection, stage an ED2K checkbox change and change
+Kad through another client. The staged ED2K choice must remain, while the
+unedited Kad checkbox follows the external change. Save and verify both flags.
+Repeat without a staged edit: both checkboxes, the Servers sidebar entry and
+the server UDP label must follow external changes. Finally stage a network
+change and enable API guest access without a password: the rejected save must
+leave the core network flags unchanged. Supply valid settings and retry; the
+staged network change must then apply. Run these checks in both desktop clients.
