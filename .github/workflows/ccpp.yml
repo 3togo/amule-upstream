@@ -523,7 +523,8 @@ jobs:
 
   build_cmake_macos:
     name: Build CMake MacOS (${{ matrix.build_type }})
-    runs-on: macos-26
+    # Keep PR builds off the capacity-constrained macOS arm64 runner pool.
+    runs-on: macos-26-intel
     strategy:
       fail-fast: false
       matrix:
@@ -534,15 +535,14 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ${{ runner.os }}-${{ matrix.build_type }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.build_type }}-ccache-
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ matrix.build_type }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-${{ matrix.build_type }}-ccache-
       - name: install deps
         run: |
           brew update
           brew install ${{ env.cmake_macos_deps }}
-          # Homebrew installs into /opt/homebrew on Apple Silicon — not a
-          # default compiler/linker/pkg-config search path. aMule's custom
-          # cmake/cryptopp.cmake uses check_include_file_cxx which does NOT
+          # Use the runner's Homebrew prefix for dependency search paths.
+          # aMule's custom cmake/cryptopp.cmake uses check_include_file_cxx which does NOT
           # honour CMAKE_PREFIX_PATH, so export CPATH/LIBRARY_PATH directly.
           BREW_PREFIX=$(brew --prefix)
           echo "CPATH=$BREW_PREFIX/include" >> "$GITHUB_ENV"
@@ -565,7 +565,7 @@ jobs:
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ${{ runner.os }}-${{ matrix.build_type }}-ccache-${{ github.run_id }}
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ matrix.build_type }}-ccache-${{ github.run_id }}
       - name: ccache stats
         if: always()
         run: ccache --show-stats
