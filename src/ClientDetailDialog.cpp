@@ -65,7 +65,7 @@ ClientDetailInfo ClientDetailInfoFromClient(const CClientRef &client)
 	info.uploadFile = c.GetUploadFile();
 	info.transferredDown = c.GetTransferredDown();
 	info.transferredUp = c.GetTransferredUp();
-	info.kBpsDown = c.GetKBpsDown();
+	info.kBpsDown = c.GetDisplayKBpsDown();
 	info.uploadDatarate = c.GetDisplayUploadDatarate();
 	info.creditRatio = c.GetCreditRatio();
 	// 0 is what the getter returns for a peer with no credit record, which is not a modifier.

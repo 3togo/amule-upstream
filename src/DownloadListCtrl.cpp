@@ -904,10 +904,10 @@ wxString CDownloadListCtrl::GetItemColumnText(wxUIntPtr item, unsigned column) c
 
 	case COLUMN_DL_SPEED:
 		if (file->GetTransferingSrcCount()) {
-			if (file->GetKBpsDown() >= 1024) {
-				return CFormat(_("%.1f MiB/s")) % (file->GetKBpsDown() / 1024.0);
+			if (file->GetDisplayKBpsDown() >= 1024) {
+				return CFormat(_("%.1f MiB/s")) % (file->GetDisplayKBpsDown() / 1024.0);
 			}
-			return CFormat(_("%.1f KiB/s")) % file->GetKBpsDown();
+			return CFormat(_("%.1f KiB/s")) % file->GetDisplayKBpsDown();
 		}
 		return wxEmptyString;
 
@@ -1142,7 +1142,7 @@ int CDownloadListCtrl::CompareItemData(
 		return mod * CmpAny(file1->GetCompletedSize(), file2->GetCompletedSize());
 
 	case COLUMN_DL_SPEED:
-		return mod * CmpAny(file1->GetKBpsDown(), file2->GetKBpsDown());
+		return mod * CmpAny(file1->GetDisplayKBpsDown(), file2->GetDisplayKBpsDown());
 
 	case COLUMN_DL_PROGRESS:
 		return mod * CmpAny(file1->GetPercentCompleted(), file2->GetPercentCompleted());

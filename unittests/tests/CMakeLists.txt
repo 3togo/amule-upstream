@@ -2619,6 +2619,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 					${CMAKE_CURRENT_SOURCE_DIR}/DisplayRatesIntegrationTest.py $<TARGET_FILE:amuled>
 			)
 			set_tests_properties (DisplayRatesIntegrationTest PROPERTIES TIMEOUT 90)
+			add_test (NAME DownloadDisplayRatesIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/DownloadDisplayRatesIntegrationTest.py $<TARGET_FILE:amuled>
+			)
 			add_test (NAME UploadRefillIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/UploadRefillIntegrationTest.py

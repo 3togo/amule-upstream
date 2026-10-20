@@ -190,7 +190,6 @@ void CUpDownClient::Init()
 	m_byChatstate = MS_NONE;
 	m_nKadState = KS_NONE;
 	m_nChatCaptchaState = CA_NONE;
-	m_cShowDR = 0;
 	m_reqfile = NULL; // No file required yet
 	m_nTransferredUp = 0;
 	m_lastUploadDisplayUpdate = 0;

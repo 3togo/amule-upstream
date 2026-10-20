@@ -200,7 +200,17 @@ public:
 	uint16 GetPartMetNumber() const;
 	uint64 GetTransferred() const { return transferred; }
 	const CPath &GetFullName() const { return m_fullname; }
+	// Smoothed rate retained for the time-remaining estimate.
 	float GetKBpsDown() const { return kBpsDown; }
+	uint32 GetDisplayDownloadRate() const
+	{
+#ifdef CLIENT_GUI
+		return m_kbpsDown;
+#else
+		return m_displayDownloadRate;
+#endif
+	}
+	float GetDisplayKBpsDown() const { return static_cast<float>(GetDisplayDownloadRate()) / 1024.0f; }
 	double GetPercentCompleted() const { return percentcompleted; }
 
 #ifndef CLIENT_GUI
@@ -402,6 +412,10 @@ private:
 	uint64 m_iGainDueToCompression;
 	uint32 m_iTotalPacketsSavedDueToICH;
 	float kBpsDown;
+#ifndef CLIENT_GUI
+	void PublishDisplayDownloadRate();
+	uint32 m_displayDownloadRate = 0;
+#endif
 	CPath m_fullname;        // path/name of the met file
 	CPath m_partmetfilename; // name of the met file
 	CPath m_PartPath;        // path/name of the partfile

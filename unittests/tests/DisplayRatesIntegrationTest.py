@@ -47,7 +47,8 @@ class DisplayRateMirror:
                 fields = self.files.setdefault(int.from_bytes(value, 'big'), {})
                 fields.update({key: int.from_bytes(data, 'big') for key, data, _ in children
                                if key in (C['EC_TAG_KNOWNFILE_UPLOAD_SPEED'],
-                                          C['EC_TAG_KNOWNFILE_UPLOADING_COUNT'])})
+                                          C['EC_TAG_KNOWNFILE_UPLOADING_COUNT'], C['EC_TAG_PARTFILE_SPEED'],
+                                          C['EC_TAG_PARTFILE_SOURCE_COUNT_XFER'])})
             elif name == C['EC_TAG_CLIENT']:
                 present = set()
                 for _, peer_id, fields in children:
@@ -55,7 +56,9 @@ class DisplayRateMirror:
                     present.add(peer_id)
                     peer = self.peers.setdefault(peer_id, {})
                     peer.update({key: int.from_bytes(data, 'big') for key, data, _ in fields
-                                 if key == C['EC_TAG_CLIENT_UP_SPEED']})
+                                 if key in (C['EC_TAG_CLIENT_UP_SPEED'], C['EC_TAG_CLIENT_DOWNLOAD_STATE'])})
+                    peer.update({key: float(data.rstrip(b'\0')) for key, data, _ in fields
+                                 if key == C['EC_TAG_CLIENT_DOWN_SPEED']})
                 self.peers = {key: value for key, value in self.peers.items() if key in present}
         op, stats = self.ec.call(C['EC_OP_STAT_REQ'])
         assert op == C['EC_OP_STATS'], op
@@ -65,6 +68,15 @@ class DisplayRateMirror:
         uploading = sum(fields.get(C['EC_TAG_KNOWNFILE_UPLOADING_COUNT'], 0)
                         for fields in self.files.values())
         return total, peers, files, uploading
+
+    def poll_downloads(self):
+        self.poll()
+        op, stats = self.ec.call(C['EC_OP_STAT_REQ'])
+        assert op == C['EC_OP_STATS'], op
+        peers = sum(fields.get(C['EC_TAG_CLIENT_DOWN_SPEED'], 0) * 1024 for fields in self.peers.values())
+        files = sum(fields.get(C['EC_TAG_PARTFILE_SPEED'], 0) for fields in self.files.values())
+        downloading = sum(fields.get(C['EC_TAG_PARTFILE_SOURCE_COUNT_XFER'], 0) for fields in self.files.values())
+        return stats[C['EC_TAG_STATS_DL_SPEED']][0], peers, files, downloading
 
     def check_active(self, expected_rate, slots):
         # A 30-second total average is still far below the cap after two seconds.

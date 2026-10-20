@@ -99,6 +99,7 @@ public:
 	uint32 GetFullIPNumeric() const { return m_dwUserIP; }
 	uint16 GetKadPort() const { return m_nKadPort; }
 	float GetKBpsDown() const { return m_kBpsDown; }
+	float GetDisplayKBpsDown() const { return m_kBpsDown; }
 	uint32 GetIP() const { return m_dwUserIP; }
 	uint16 GetLastDownloadingPart() const { return m_lastDownloadingPart; }
 	uint16 GetNextRequestedPart() const { return m_nextRequestedPart; }

@@ -131,6 +131,7 @@ public:
 	wxString GetFullIP() const;
 	uint16 GetKadPort() const;
 	float GetKBpsDown() const;
+	float GetDisplayKBpsDown() const;
 	uint32 GetIP() const;
 	uint16 GetLastDownloadingPart() const;
 	uint16 GetNextRequestedPart() const;

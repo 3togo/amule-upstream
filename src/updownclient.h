@@ -461,7 +461,15 @@ public:
 
 	const BitVector &GetPartStatus() const { return m_downPartStatus; }
 	const BitVector &GetUpPartStatus() const { return m_upPartStatus; }
+	// Smoothed rate for pipelining and slow-source decisions.
 	float GetKBpsDown() const { return kBpsDown; }
+	uint32 GetDisplayDownloadRate() const
+	{
+		return GetDownloadState() == DS_DOWNLOADING
+			       ? CDisplayRateCounter::ClampRate(m_displayDownloadRate.GetRate())
+			       : 0;
+	}
+	float GetDisplayKBpsDown() const { return static_cast<float>(GetDisplayDownloadRate()) / 1024.0f; }
 	float CalculateKBpsDown();
 	uint16 GetRemoteQueueRank() const { return m_nRemoteQueueRank; }
 	uint16 GetOldRemoteQueueRank() const { return m_nOldRemoteQueueRank; }
@@ -626,7 +634,7 @@ public:
 
 	/// Per-tick poke from CPartFile::Process. Re-arms this client's socket if it suspended last
 	/// tick because the global CDownloadBandwidthThrottler bucket was empty, and returns the
-	/// client's current observed download speed for the per-file kBpsDown display sum. The
+	/// client's current observed download speed for the per-file smoothed rate sum. The
 	/// download cap (thePrefs::GetMaxDownload()) is enforced globally inside the throttler, not
 	/// per client.
 	float TickDownloadAndMeasure();
@@ -803,6 +811,7 @@ private:
 	// Upload data rate computation. Atomic: CUploadDiskIOThread reads the rate.
 	std::atomic<uint32> m_nUpDatarate;
 	CDisplayRateCounter m_displayUploadRate;
+	CDisplayRateCounter m_displayDownloadRate;
 	uint32 m_nSumForAvgUpDataRate;
 	std::list<TransferredData> m_AvarageUDR_list;
 
@@ -938,7 +947,6 @@ private:
 	wxString m_clientFilename;
 	uint64 m_nTransferredDown;
 	uint16 m_lastDownloadingPart; // last Part that was downloading
-	uint16 m_cShowDR;
 	uint64 m_dwLastBlockReceived;
 	uint16 m_nRemoteQueueRank;
 	uint16 m_nOldRemoteQueueRank;
