@@ -50,6 +50,16 @@
 //	members of CUpDownClient
 //	which are mainly used for uploading functions
 
+void CUpDownClient::ResetDisplayUploadRate()
+{
+	m_displayUploadRate.Reset();
+	if (m_socket) {
+		// These bytes may have reached the peer before the core accounted for them.
+		// Leave the accounting counters intact; only the new display window starts empty.
+		m_socket->GetSentFileBytesForDisplayAndReset();
+	}
+}
+
 void CUpDownClient::SetUploadState(uint8 eNewState)
 {
 	if (eNewState != m_nUploadState) {
@@ -62,7 +72,6 @@ void CUpDownClient::SetUploadState(uint8 eNewState)
 		}
 		if (m_nUploadState == US_UPLOADING) {
 			m_nUpDatarate = 0;
-			m_displayUploadRate.Reset();
 			m_nSumForAvgUpDataRate = 0;
 			m_AvarageUDR_list.clear();
 		}
@@ -74,6 +83,9 @@ void CUpDownClient::SetUploadState(uint8 eNewState)
 
 		// don't add any final cleanups for US_NONE here
 		const bool changedActivity = m_nUploadState == US_UPLOADING || eNewState == US_UPLOADING;
+		if (changedActivity) {
+			ResetDisplayUploadRate();
+		}
 		m_nUploadState = eNewState;
 		if (changedActivity && m_uploadingfile) {
 			Notify_SharedFilesUpdateItem(m_uploadingfile);
@@ -268,7 +280,7 @@ void CUpDownClient::SetUploadFileID(CKnownFile *newreqfile)
 	CKnownFile *previousFile = m_uploadingfile;
 	// A peer can change shares without leaving its upload slot. Its recent display
 	// bytes belong to the old share, not to the share it has just requested.
-	m_displayUploadRate.Reset();
+	ResetDisplayUploadRate();
 	if (m_uploadingfile) {
 		m_uploadingfile->RemoveUploadingClient(this);
 		m_uploadingfile->UpdateUpPartsFrequency(this, false); // Decrement
@@ -470,6 +482,7 @@ uint32 CUpDownClient::SendBlockData()
 	uint64 sentBytesCompleteFile = 0;
 	uint64 sentBytesPartFile = 0;
 	uint64 sentBytesPayload = 0;
+	uint64 displayBytes = 0;
 
 	if (m_socket) {
 		CEMSocket *s = m_socket;
@@ -478,6 +491,7 @@ uint32 CUpDownClient::SendBlockData()
 		// data to, which also updates the grand totals.
 		sentBytesCompleteFile = s->GetSentBytesCompleteFileSinceLastCallAndReset();
 		sentBytesPartFile = s->GetSentBytesPartFileSinceLastCallAndReset();
+		displayBytes = s->GetSentFileBytesForDisplayAndReset();
 
 		m_nTransferredUp += sentBytesCompleteFile + sentBytesPartFile;
 		credits->AddUploaded(sentBytesCompleteFile + sentBytesPartFile,
@@ -525,7 +539,7 @@ uint32 CUpDownClient::SendBlockData()
 
 	const uint32 previousRate = GetDisplayUploadDatarate();
 	if (IsDownloading()) {
-		m_displayUploadRate.Add(sentBytesCompleteFile + sentBytesPartFile, curTick);
+		m_displayUploadRate.Add(displayBytes, curTick);
 		m_displayUploadRate.CalculateRate(curTick);
 	}
 	if (GetDisplayUploadDatarate() != previousRate && m_uploadingfile) {

@@ -58,7 +58,8 @@ class DisplayRateMirror:
                     present.add(peer_id)
                     peer = self.peers.setdefault(peer_id, {})
                     peer.update({key: int.from_bytes(data, 'big') for key, data, _ in fields
-                                 if key in (C['EC_TAG_CLIENT_UP_SPEED'], C['EC_TAG_CLIENT_DOWNLOAD_STATE'])})
+                                 if key in (C['EC_TAG_CLIENT_UP_SPEED'], C['EC_TAG_CLIENT_DOWNLOAD_STATE'],
+                                            C['EC_TAG_CLIENT_UPLOAD_SESSION'])})
                     peer.update({key: float(data.rstrip(b'\0')) for key, data, _ in fields
                                  if key == C['EC_TAG_CLIENT_DOWN_SPEED']})
                 self.peers = {key: value for key, value in self.peers.items() if key in present}
@@ -102,7 +103,7 @@ class DisplayRatesObserver:
     def close(self):
         self.partial.sock.close()
 
-    def check_file_switch(self, sockets, file_hash, switched):
+    def check_file_switch(self, sockets, file_hash, switched, received):
         from UploadRefillIntegrationTest import send
         for mirror in self.mirrors:
             assert mirror.poll()[1] > 0, 'switch test missed the recent upload window'
@@ -112,8 +113,19 @@ class DisplayRatesObserver:
         while not all(event.is_set() for event in switched):
             assert time.monotonic() < deadline, 'peers did not receive the new file status'
             time.sleep(0.01)
+        # A later accounting tick must not repopulate the new file's empty window
+        # with bytes that were sent before the switch (daemon ticks are 300 ms).
+        time.sleep(0.35)
         for mirror in self.mirrors:
-            total, peers, files, uploading = mirror.poll()
+            deadline = time.monotonic() + 5
+            while True:
+                total, peers, files, uploading = mirror.poll()
+                accounted = sum(peer.get(C['EC_TAG_CLIENT_UPLOAD_SESSION'], 0)
+                                for peer in mirror.peers.values())
+                if accounted >= sum(received):
+                    break
+                assert time.monotonic() < deadline, ('switch discarded transfer accounting', accounted, received)
+                time.sleep(0.01)
             assert uploading == len(sockets), 'file switch lost the upload slots'
             assert peers == files == 0, ('new share inherited old upload bytes', total, peers, files)
 

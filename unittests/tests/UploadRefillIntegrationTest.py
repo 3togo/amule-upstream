@@ -211,8 +211,9 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_
                         time.sleep(0.01)
                     # The last payload is still inside its one-second window. Switching
                     # shares must not assign that file's recent bytes to the new share.
-                    time.sleep(0.15)
-                    observer.check_file_switch(sockets, files['switch.bin'], switched)
+                    # Switch immediately: bytes received by the peer may still await
+                    # the daemon's next 300 ms accounting tick.
+                    observer.check_file_switch(sockets, files['switch.bin'], switched, received)
                     observer.check_idle(received)
                 mib = sum(delivered) / 1024**2
                 return dict(seconds=elapsed, slots=slots, rate_kib=rate, compress=compress, pause_ms=pause_ms,

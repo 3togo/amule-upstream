@@ -810,6 +810,7 @@ private:
 
 	// Upload data rate computation. Atomic: CUploadDiskIOThread reads the rate.
 	std::atomic<uint32> m_nUpDatarate;
+	void ResetDisplayUploadRate();
 	CDisplayRateCounter m_displayUploadRate;
 	CDisplayRateCounter m_displayDownloadRate;
 	uint32 m_nSumForAvgUpDataRate;
