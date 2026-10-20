@@ -3966,6 +3966,8 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		} else {
 			response = new CECPacket(EC_OP_FAILED);
 			response->AddTag(CECTag(EC_TAG_STRING, error));
+			if (theApp->serverlist->IsServerMetDownloading())
+				response->AddTag(CECTag(EC_TAG_SERVER_UPDATE_BUSY, static_cast<uint8>(1)));
 		}
 		break;
 	}

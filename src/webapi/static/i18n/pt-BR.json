@@ -665,7 +665,6 @@
   "prefs_field_files_mmap_enabled": "Usar MMAP: acesso a arquivos mapeados em memória (menor uso de memória)",
   "prefs_field_directories_follow_symlinks": "Seguir links simbólicos nas pastas compartilhadas",
   "client_detail_os": "SO",
-  "prefs_action_servers_update": "Baixar agora a lista de servidores desta URL e substituir a atual",
   "shared_prio_release": "Lançamento",
   "client_detail_ul_total": "Total enviado",
   "client_detail_origin": "Origem",

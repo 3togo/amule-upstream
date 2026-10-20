@@ -3738,8 +3738,13 @@ CHttpServer::Response UrlFetchOp(
 	}
 	std::string ec_err;
 	if (IsEcFailedResponse(ec_resp, ec_err)) {
+		const CECTag *busy = ec_resp->GetTagByName(EC_TAG_SERVER_UPDATE_BUSY);
+		const int status = spec.op == EC_OP_SERVER_UPDATE_FROM_URL && busy && busy->IsInt() &&
+						   busy->GetInt() != 0
+					   ? 409
+					   : 400;
 		delete ec_resp;
-		return ErrorResponse(400, "amuled_rejected", ec_err.c_str());
+		return ErrorResponse(status, "amuled_rejected", ec_err.c_str());
 	}
 	delete ec_resp;
 

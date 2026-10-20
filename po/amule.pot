@@ -2257,8 +2257,8 @@ msgstr[1] ""
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr ""
 
-#: src/EditServerListDlg.cpp src/muuli_wdr.cpp
-msgid "Edit sources…"
+#: src/EditServerListDlg.cpp
+msgid "Edit server list sources"
 msgstr ""
 
 #: src/EditServerListDlg.cpp
@@ -5063,6 +5063,10 @@ msgid "retries"
 msgstr ""
 
 #: src/muuli_wdr.cpp
+msgid "Edit sources…"
+msgstr ""
+
+#: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
 msgstr ""
 
@@ -5664,7 +5668,7 @@ msgstr ""
 msgid "Click this button to reset the log."
 msgstr ""
 
-#: src/muuli_wdr.cpp
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
 msgid "Update server list"
 msgstr ""
 
@@ -7762,6 +7766,10 @@ msgstr ""
 
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
 msgstr ""
 
 #: src/ServerWnd.cpp

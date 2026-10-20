@@ -127,9 +127,8 @@ const TABS = [
       { key: "update_list_at_startup", type: "bool" },
       { key: "update_list_from_server", type: "bool" },
       { key: "update_list_from_client", type: "bool" },
-      { key: "update_urls", type: "textarea", adminOnly: true,
+      { key: "update_urls", type: "server_sources", adminOnly: true,
         action: { path: "servers_update",
-                  titleKey: "prefs_action_servers_update",
                   toastKey: "prefs_action_servers_update_toast" } },
     ] },
     { legendKey: "prefs_group_server_conn", fields: [
@@ -495,7 +494,7 @@ export default function Preferences({ isGuest }) {
             if (f.type === "button") continue;
             const cat = catOf(tab, f);
             let val = (catGet(p, cat) || {})[f.key];
-            if (f.type === "textarea" && Array.isArray(val)) val = val.join("\n");
+            if ((f.type === "textarea" || f.type === "server_sources") && Array.isArray(val)) val = val.join("\n");
             else if (f.scale && typeof val === "number") val = Math.round(val / f.scale);
             v[cat + "." + f.key] = val;
           }
@@ -582,7 +581,7 @@ export default function Preferences({ isGuest }) {
           </select>
         </div>`;
     }
-    if (f.type === "textarea") {
+    if (f.type === "server_sources") {
       const unsaved = (val || "") !== savedSources;
       return html`
         <div class=${"field field-wide" + subCls}>
@@ -592,7 +591,7 @@ export default function Preferences({ isGuest }) {
           <button class="btn btn-primary" type="button" disabled=${disabled || busy || unsaved}
                   title=${t(unsaved ? "prefs_sources_apply_first" : "prefs_field_servers_update_list")}
                   onClick=${() => runAction(f.action)}>${t("prefs_field_servers_update_list")}</button>
-          <p class="hint">${t("prefs_sources_saved_help")}</p>
+          <p class="hint">${t(unsaved ? "prefs_sources_apply_first" : "prefs_sources_saved_help")}</p>
           <label for="server-one-off">${t("prefs_sources_one_off")}</label>
           <div class="field-action">
             <input class="input" id="server-one-off" type="text" disabled=${disabled}
@@ -603,6 +602,14 @@ export default function Preferences({ isGuest }) {
               ${t("prefs_sources_download_once")}
             </button>
           </div>
+        </div>`;
+    }
+    if (f.type === "textarea") {
+      return html`
+        <div class=${"field field-wide" + subCls}>
+          <label for=${id}>${label}</label>
+          <textarea id=${id} rows="4" disabled=${disabled}
+                    value=${val == null ? "" : val} onInput=${(e) => setVal(id, e.target.value)}></textarea>
         </div>`;
     }
     const input = html`
@@ -654,7 +661,7 @@ export default function Preferences({ isGuest }) {
           if (f.type === "password") {
             if (typeof val !== "string" || val === "") continue;
             out = val;
-          } else if (f.type === "textarea") {
+          } else if (f.type === "server_sources") {
             out = String(val || "").split("\n").map((s) => s.trim()).filter(Boolean);
           } else if (f.type === "select") {
             // proxy_type reads "" when the daemon has no type set. Skip it

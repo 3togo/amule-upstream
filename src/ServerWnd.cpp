@@ -132,6 +132,9 @@ CServerWnd::CServerWnd(wxWindow *pParent /*=NULL*/, int splitter_pos)
 	// produced on Mac and Windows.
 	CastChild(IDC_NODESLISTURL, wxTextCtrl)->SetValue(thePrefs::GetKadNodesUrl());
 
+	auto *updateSources = CastChild(ID_UPDATELIST, wxButton);
+	SetButtonLabelAndBitmap(updateSources, _("Update server list"), "amule:reload");
+	updateSources->SetToolTip(_("Download and merge every saved source"));
 	auto *sourceField = CastChild(IDC_SERVERLISTURL, wxTextCtrl);
 	sourceField->SetToolTip(_("Download this server.met URL once without saving it."));
 

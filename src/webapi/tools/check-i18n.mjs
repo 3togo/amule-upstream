@@ -117,7 +117,7 @@ for (const tab of TABS) {
       // Action buttons carry their own tooltip + toast keys, equally derived
       // from the table and equally invisible when absent.
       for (const k of ["titleKey", "toastKey"]) {
-        if (f.action && !(f.action[k] in en)) missingLabels.push(f.action[k]);
+        if (f.action && !(k === "titleKey" && f.type === "server_sources") && !(f.action[k] in en)) missingLabels.push(f.action[k]);
       }
     }
   }

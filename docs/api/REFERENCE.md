@@ -2102,7 +2102,7 @@ curl -s -X PATCH -H "Authorization: Bearer $TOKEN" \
 
 **Auth:** `ADMIN`
 
-With no body or `{}`, downloads and merges all configured `servers.update_urls` in order. With `url`, downloads that source once without changing preferences. Failed sources do not stop a configured-list update. Cancellation stops the sequence. An empty configured list, invalid URL or download already in progress is rejected with HTTP 400 and the daemon’s reason.
+With no body or `{}`, downloads and merges all configured `servers.update_urls` in order. With `url`, downloads that source once without changing preferences. Failed sources do not stop a configured-list update. Cancellation stops the sequence. An empty configured list or invalid URL is rejected with HTTP 400 and the daemon’s reason. A download already in progress returns HTTP 409 Conflict.
 
 **Body:**
 

@@ -594,7 +594,6 @@
   "shared_media_refresh_all_started_other": "Opnieuw uitlezen van media-metadata van {n} bestanden. Voortgang staat in het aMule logbestand.",
   "prefs_action_kad_update": "Download de Kad-nodelijst nu vanuit deze URL en vervang de huidige versie (Kad herstart)",
   "prefs_advanced_warning": "Waarschuwing: dit zijn expertinstellingen. Verkeerde waardes kunnen prestaties of connectiviteit verslechteren. Verander ze alleen als u weet wat u doet.",
-  "prefs_action_servers_update": "Download de serverlijst nu vanuit deze URL en vervang de huidige",
   "prefs_action_ipfilter_update": "Download het IP-filter nu vanuit deze URL en vervang de huidige",
   "prefs_creds_hint": "Typ een wachtwoord om het in te stellen of te veranderen. Opgeslagen wachtwoorden kunnen niet getoond worden dus door dit leeg te houden behoud u de huidige versie.",
   "prefs_creds_guest_hint": "Gastsessies kunnen status en lijsten lezen, maar kunnen niets wijzigen. Als u dit uitschakelt, wordt het opgeslagen gastwachtwoord gewist.",

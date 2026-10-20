@@ -112,7 +112,6 @@
   "prefs_field_files_mmap_enabled": "Использовать MMAP: доступ к файлам с отображением в память (экономит память)",
   "prefs_field_directories_follow_symlinks": "Переходить по символическим ссылкам в общих папках",
   "client_detail_os": "ОС",
-  "prefs_action_servers_update": "Загрузить список серверов по этому URL сейчас и заменить текущий",
   "shared_prio_release": "Выпуск",
   "client_detail_ul_total": "Всего отдано",
   "client_detail_origin": "Источник",

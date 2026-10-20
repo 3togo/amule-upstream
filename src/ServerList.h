@@ -67,6 +67,7 @@ public:
 		bool showDialog = false,
 		bool automatic = false,
 		wxString *error = nullptr);
+	bool IsServerMetDownloading() const { return m_serverMetDownloading; }
 	bool DownloadFinished(uint32 result);
 	void AutoDownloadFinished(uint32 result);
 	uint32 GetAvgFile() const;

@@ -273,7 +273,6 @@
   "prefs_field_files_mmap_enabled": "Fes servir MMAP: accés a fitxers mapats en memòria (menys ús de memòria)",
   "prefs_field_directories_follow_symlinks": "Segueix els enllaços simbòlics de les carpetes compartides",
   "client_detail_os": "SO",
-  "prefs_action_servers_update": "Baixa ara la llista de servidors d'aquest URL i substitueix l'actual",
   "shared_prio_release": "Llançament",
   "common_err_forbidden": "Prohibit: {message}",
   "shared_detail_group_sharing": "Compartició",

@@ -93,7 +93,7 @@ void EditServerListDlg::SetText(const wxString &text)
 void EditServerListSources(wxWindow *parent)
 {
 	EditServerListDlg dlg(parent,
-		_("Edit sources…"),
+		_("Edit server list sources"),
 		_("Enter one server.met URL per line.\nSaving replaces the source list and removes comment "
 		  "lines."),
 		wxEmptyString);

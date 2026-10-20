@@ -165,15 +165,16 @@ def run(binary, root, responses, sources, expected, *, url=None, startup=False,
             # The current sequence must retain its snapshot despite live edits and another request.
             source_file.write_text(source_text(['/changed']))
             expected_source_file = source_file.read_bytes()
-            op, _ = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'],
+            op, refusal = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'],
                             [string(C['EC_TAG_SERVERS_UPDATE_URL'], base + '/overlap')])
             assert op == C['EC_OP_FAILED'], op
+            assert refusal[C['EC_TAG_SERVER_UPDATE_BUSY']][0] == 1, refusal
             if api_binary:
                 try:
                     api_post(endpoint, '/servers_update', {}, token)
                     raise AssertionError('overlapping API update was accepted')
                 except HTTPError as error:
-                    assert error.code == 400, error.code
+                    assert error.code == 409, error.code
                     assert 'already in progress' in error.read().decode()
             wait_for(proc, lambda: 'A server list download is already in progress.' in
                      (root / 'logfile').read_text(errors='replace'), root)

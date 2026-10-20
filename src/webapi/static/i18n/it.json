@@ -947,7 +947,6 @@
   "prefs_field_servers_manual_servers_high_priority": "Assegna priorità alta ai server aggiunti manualmente",
   "prefs_field_kad_update_url": "URL di aggiornamento dei nodi Kad",
   "prefs_action_enter_url": "Inserisci un URL",
-  "prefs_action_servers_update": "Scarica ora la lista server da questo URL e sostituisci quella attuale",
   "prefs_action_servers_update_toast": "Aggiornamento della lista server…",
   "prefs_action_kad_update": "Scarica ora la lista dei nodi Kad da questo URL e sostituisci quella attuale (Kad si riavvia)",
   "prefs_action_kad_update_toast": "Aggiornamento della lista dei nodi Kad…",

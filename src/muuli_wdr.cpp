@@ -2717,6 +2717,9 @@ wxSizer *serverListDlgUp( wxWindow *parent, bool call_fit, bool set_sizer )
 
     wxBoxSizer *item1 = new wxBoxSizer( wxHORIZONTAL );
 
+    wxStaticText *serverCount = new wxStaticText( parent, wxID_ANY, "" );
+    serverCount->SetName( "serverListLabel" );
+    item1->Add( serverCount, wxSizerFlags().Center().Border(wxRIGHT, 5) );
     wxButton *item2 = new wxButton( parent, ID_UPDATELIST, _("Update server list") );
     item2->SetName( "updateList" );
     item1->Add( item2, wxSizerFlags().Center() );
@@ -2735,9 +2738,6 @@ wxSizer *serverListDlgUp( wxWindow *parent, bool call_fit, bool set_sizer )
     wxButton *downloadOnce = new wxButton( parent, wxID_ANY, _("Download once") );
     downloadOnce->SetName( "downloadServerListOnce" );
     item1->Add( downloadOnce, wxSizerFlags().Center().Border(wxLEFT, 5) );
-    wxStaticText *serverCount = new wxStaticText( parent, wxID_ANY, "" );
-    serverCount->SetName( "serverListLabel" );
-    item1->Add( serverCount, wxSizerFlags().Center().Border(wxLEFT, 5) );
     item1->AddStretchSpacer(1);
     // Placeholder label -- CServerWnd's ctor calls UpdateED2KConnectButton() right after
     // construction, which sets the real label and bitmap for the current state. Kept on this top
@@ -4635,27 +4635,8 @@ wxBitmap amuleSpecial( size_t index )
     return wxNullBitmap;
 }
 
-void SetConnectButtonState(
-	wxButton *button, EConnButtonState state, bool enabled, const wxString &networkName)
+void SetButtonLabelAndBitmap(wxButton *button, const wxString &label, const wxString &artId)
 {
-	// networkName ("ED2K" / "Kad") is folded into the label itself, not concatenated after
-	// translation: the button sits in the same spot on both tabs, so without it there is
-	// nothing on the button telling you which network "Disconnect" affects (issue #402 review).
-	wxString label;
-	wxString artId;
-	switch (state) {
-	case ConnButtonConnecting:
-		label = wxString(CFormat(_("Cancel %s")) % networkName);
-		artId = "amule:toolbar_connecting";
-		break;
-	case ConnButtonConnected:
-		label = wxString(CFormat(_("Disconnect %s")) % networkName);
-		artId = "amule:toolbar_disconnect";
-		break;
-	default:
-		label = wxString(CFormat(_("Connect %s")) % networkName);
-		artId = "amule:toolbar_connect";
-	}
 	// The button sits inline next to a one-line URL field, where the art's native 32x32 toolbar
 	// size is too big (issue #402 review: "the button and the icon are too big") -- request the
 	// SVG rasterized straight at a more modest logical size instead of the toolbar's native
@@ -4682,14 +4663,38 @@ void SetConnectButtonState(
 	button->SetLabel(label);
 #endif
 
-	button->Enable(enabled);
-
 	// SetBitmap() grows the button's best size; without a re-layout here, a pane laid out
 	// before its first UpdateXConnectButton() call -- the Servers pane is visible at startup,
 	// unlike Kad's notebook page, which is first laid out only once shown, after its bitmap
 	// already landed -- paints with the stale text-only measurement, so the icon overlaps the
 	// label until the next window resize (#663 review).
 	button->GetParent()->Layout();
+}
+
+void SetConnectButtonState(
+	wxButton *button, EConnButtonState state, bool enabled, const wxString &networkName)
+{
+	// networkName ("ED2K" / "Kad") is folded into the label itself, not concatenated after
+	// translation: the button sits in the same spot on both tabs, so without it there is
+	// nothing on the button telling you which network "Disconnect" affects (issue #402 review).
+	wxString label;
+	wxString artId;
+	switch (state) {
+	case ConnButtonConnecting:
+		label = wxString(CFormat(_("Cancel %s")) % networkName);
+		artId = "amule:toolbar_connecting";
+		break;
+	case ConnButtonConnected:
+		label = wxString(CFormat(_("Disconnect %s")) % networkName);
+		artId = "amule:toolbar_disconnect";
+		break;
+	default:
+		label = wxString(CFormat(_("Connect %s")) % networkName);
+		artId = "amule:toolbar_connect";
+	}
+	SetButtonLabelAndBitmap(button, label, artId);
+
+	button->Enable(enabled);
 }
 
 wxBitmap amuleDlgImages( size_t index )

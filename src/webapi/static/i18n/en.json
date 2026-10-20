@@ -946,7 +946,6 @@
   "prefs_field_servers_manual_servers_high_priority": "Set manually added servers to High Priority",
   "prefs_field_kad_update_url": "Kad nodes update URL",
   "prefs_action_enter_url": "Enter a URL",
-  "prefs_action_servers_update": "Download the server list from this URL now and replace the current one",
   "prefs_action_servers_update_toast": "Updating server list…",
   "prefs_action_kad_update": "Download the Kad node list from this URL now and replace the current one (Kad restarts)",
   "prefs_action_kad_update_toast": "Updating Kad node list…",
