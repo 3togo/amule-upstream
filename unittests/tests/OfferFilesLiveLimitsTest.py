@@ -13,6 +13,7 @@ import time
 import zlib
 
 from OfferFilesInteropTest import C, connect, daemon, exact, shared, stop, wait_for
+from OfferFilesInteropPeer import login_tags
 
 
 def uint32_tag(name, value):
@@ -69,8 +70,7 @@ class Server:
                 if body[0] == 1:
                     fields = [('offerfiles_v', 1), ('offerfiles_batch_max', 2),
                               ('offerfiles_min_interval_ms', 500), (0x88, 6), (0x89, 201)]
-                    request = b'\x03\x0c\x00offerfiles_v\x01\x00\x00\x00'
-                    if body.endswith(request):
+                    if login_tags(body[1:]).get(b'offerfiles_v') == 1:
                         identity = (bytes(22) + struct.pack('<I', len(fields))
                                     + b''.join(uint32_tag(*field) for field in fields))
                     else:
@@ -174,6 +174,59 @@ def empty_library(binary):
                 stream.close()
 
 
+def known_file_after_idle(binary, enabled):
+    with tempfile.TemporaryDirectory(prefix='amule-offerfiles-known-file-') as tmp:
+        root = Path(tmp) / 'client'
+        server = Server()
+        process = stream = None
+        parked = root / 'parked.bin'
+        original = None
+
+        def prepare(client_root):
+            nonlocal original
+            original = next((client_root / 'Incoming').iterdir())
+            original.rename(parked)
+
+        try:
+            process, stream, ec = daemon(binary, root, 2, 'known-file', enabled, prepare,
+                                         sections={'Debug': {'Cat_KnownFileList': 1}})
+            config = configparser.ConfigParser()
+            config.read(root / 'amule.conf')
+            server.destination = ('127.0.0.1', config.getint('eMule', 'Port') + 3)
+            connect(ec, server.port)
+            wait_for(lambda: ec.call(C['EC_OP_GET_CONNSTATE'])[1][C['EC_TAG_CONNSTATE']][0] & 1,
+                     timeout=15)
+            wait_for(lambda: server.offers, timeout=15)
+            # Drain the initial library, then let a further eligible tick mark
+            # publication idle. Legacy scheduling needs its full minute here.
+            time.sleep(3 if enabled else 62)
+            assert server.offers == [1], server.offers
+            # Restore the original name and mtime: this must take the known-file
+            # path, without an asynchronous hash job waking the publisher.
+            parked.rename(original)
+            assert ec.call(C['EC_OP_SHAREDFILES_RELOAD'])[0] == C['EC_OP_NOOP']
+            wait_for(lambda: original.name in shared(ec), timeout=10)
+            text = (root / 'logfile').read_text(errors='replace')
+            # Release binaries omit debug diagnostics; Debug also proves that
+            # this exercised the known-file route rather than rehashing.
+            if 'KnownFileList:' in text:
+                assert f"Added known file '{original.name}' to shares" in text, text[-4000:]
+            wait_for(lambda: len(server.offers) == 2, timeout=5)
+            assert server.offers == [1, 1], server.offers
+            assert not server.errors, server.errors
+            print(f'Known file woke idle publication (v1={enabled}): PASS')
+        except BaseException:
+            if (root / 'logfile').exists():
+                print((root / 'logfile').read_text(errors='replace')[-12000:])
+            raise
+        finally:
+            server.close()
+            if process:
+                stop(process)
+            if stream:
+                stream.close()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('daemon')
@@ -181,4 +234,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if not args.legacy_only:
         live_limits(args.daemon)
+        known_file_after_idle(args.daemon, True)
     empty_library(args.daemon)
+    known_file_after_idle(args.daemon, False)

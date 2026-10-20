@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 aMule Team
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Controlled interoperability with the published ed2k-server v0.9.81 binary.
+"""Controlled interoperability with the published ed2k-server v0.9.82 binary.
 
 Never connects to a public server. Checks the server's source index via its
 loopback admin API, and records the actual client frames through a local relay.
@@ -31,7 +31,7 @@ from DaemonConfig import write_amule_conf
 from ShareWatcherMoveIntegrationTest import shared
 
 from AllSearchIntegrationTest import C, EC, exact, free_ports, string, tag
-from OfferFilesInteropPeer import CompletionSource, SearchObserver
+from OfferFilesInteropPeer import CompletionSource, SearchObserver, login_tags
 
 
 def wait_for(check, timeout=60):
@@ -100,10 +100,7 @@ class Relay:
                 body = exact(source, length)
                 if outgoing and body[0] == 0x01:  # OP_LOGINREQUEST
                     payload = body[1:]
-                    assert len(payload) >= 26
-                    count = struct.unpack_from('<I', payload, 22)[0]
-                    request = b'\x03\x0c\x00offerfiles_v\x01\x00\x00\x00'
-                    self.logins.append((count, payload.endswith(request)))
+                    self.logins.append(login_tags(payload))
                 if not outgoing and body[0] == 0x40 and self.ident_before_id and not pending_id:
                     pending_id = header + body
                     continue
@@ -428,7 +425,7 @@ level="info"
         stats = json_get(admin, 'stats')
         assert not relay.errors, relay.errors
         assert relay.logins and all(
-            login == ((5, True) if client_enabled else (4, False))
+            (login.get(b'offerfiles_v') == 1 if client_enabled else b'offerfiles_v' not in login)
             for login in relay.logins), relay.logins
         assert all(0 < n <= 200 and n < hard for _, n, _ in relay.offers), relay.offers
         if capable:

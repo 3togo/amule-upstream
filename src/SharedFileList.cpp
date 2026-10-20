@@ -713,6 +713,9 @@ bool CSharedFileList::AddFile(CKnownFile *pFile)
 
 	CKnownFileMap::value_type entry(pFile->GetFileHash(), pFile);
 	if (m_Files_map.insert(entry).second) {
+		// Known files added by a reload or watcher bypass SafeAddKFile.
+		// Every new shared entry must wake an idle ED2K publisher.
+		m_lastPublishED2KFlag = true;
 		m_listGeneration.fetch_add(1, std::memory_order_relaxed);
 		/* Keywords to publish on Kad */
 		m_keywords->AddKeywords(pFile);
