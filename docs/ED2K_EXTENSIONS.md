@@ -98,10 +98,12 @@ The implementation request and reusable-conventions discussion are in
 With the experimental setting enabled, `OP_LOGINREQUEST` contains one additional
 tag, `offerfiles_v = 1`, after the four standard login tags. It is a string-named
 uint32 tag: type `0x03`, a uint16 name length, the case-sensitive name, and a
-uint32 value. The login tag count is five. With the setting disabled, the tag
-count remains four and the request is absent. A server that does not understand
-this tag ignores it. A v1 server advertises and applies its policy only to a
-client that asked; absence of an advertisement keeps this client at legacy pace.
+uint32 value. The login tag count is five before other optional extensions
+(such as the IPv6 address tag) are added. With the setting disabled, the four
+standard tags and any other enabled extensions remain, and the request is absent.
+A server that does not understand this tag ignores it. A v1 server advertises and
+applies its policy only to a client that asked; absence of an advertisement keeps
+this client at legacy pace.
 
 One post-login `OP_SERVERIDENT` packet carries each field exactly once:
 

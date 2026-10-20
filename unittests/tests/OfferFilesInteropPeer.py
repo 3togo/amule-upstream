@@ -32,7 +32,7 @@ def receive(sock, with_protocol=False):
     return (protocol, *decoded) if with_protocol else decoded
 
 
-def tags(data, offset, count):
+def tags(data, offset, count, types=None):
     result = {}
     for _ in range(count):
         kind = data[offset]
@@ -53,13 +53,32 @@ def tags(data, offset, count):
             else:
                 length = kind - 0x10
             value = data[offset:offset + length].decode('utf-8')
+        elif kind == 1:  # Hash tags include the optional login IPv6 address.
+            length = 16
+            value = data[offset:offset + length]
         else:
             length = {3: 4, 8: 2, 9: 1, 11: 8}[kind]
             value = int.from_bytes(data[offset:offset + length], 'little')
+        assert offset + length <= len(data), 'truncated tag value'
         offset += length
         assert name not in result, name
         result[name] = value
+        if types is not None:
+            types[name] = kind
     return result, offset
+
+
+def login_tags(payload):
+    """Decode login extensions independently of tag order and other opt-ins."""
+    assert len(payload) >= 26, 'truncated login'
+    count = struct.unpack_from('<I', payload, 22)[0]
+    types = {}
+    fields, end = tags(payload, 26, count, types)
+    if b'offerfiles_v' in fields:
+        assert types[b'offerfiles_v'] == 3, 'OFFERFILES request must use uint32'
+    assert end == len(payload), 'login tag count does not match its payload'
+    assert {b'\x01', b'\x11', b'\x20', b'\xfb'} <= fields.keys(), fields
+    return fields
 
 
 class SearchObserver:
