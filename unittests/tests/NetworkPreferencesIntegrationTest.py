@@ -172,6 +172,10 @@ def run(daemon_binary, api_binary):
         assert struct.unpack_from('<I', saved, 1)[0] == 3, 'disabled ED2K lost live server edits'
 
         # A core started disabled must leave an uninitialized list untouched on exit.
+        # Use a fresh minimal record: accidentally loading and saving it would add
+        # normalized tags, so the byte comparison detects that regression too.
+        unloaded = server_met(4664)
+        (core / 'server.met').write_bytes(unloaded)
         with (root / 'console.log').open('a') as console:
             daemon = subprocess.Popen([daemon_binary, '-c', str(core), '--disable-fatal'], env=env,
                                       stdout=console, stderr=subprocess.STDOUT)
@@ -186,7 +190,7 @@ def run(daemon_binary, api_binary):
                 stop_daemon(daemon)
             else:
                 stop(daemon)
-        assert (core / 'server.met').read_bytes() == saved, 'uninitialized list overwrote saved data'
+        assert (core / 'server.met').read_bytes() == unloaded, 'uninitialized list overwrote saved data'
 
 
 if __name__ == '__main__':

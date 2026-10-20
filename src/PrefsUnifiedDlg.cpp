@@ -1077,6 +1077,13 @@ void PrefsUnifiedDlg::UpdateNetworkPreferences()
 	auto *kad = CastChild(IDC_NETWORKKAD, wxCheckBox);
 	ed2k->SetValue(m_ed2kEdit.Merge(ed2k->GetValue(), thePrefs::GetNetworkED2K()));
 	kad->SetValue(m_kadEdit.Merge(kad->GetValue(), thePrefs::GetNetworkKademlia()));
+	EnableServerTab(ed2k->GetValue());
+	wxSpinEvent event;
+	OnTCPClientPortChange(event);
+	// Refresh dependencies without simulating a user click: a remote Kad update
+	// must not silently change a staged UDP preference.
+	FindWindow(IDC_UDPENABLE)->Enable(!kad->GetValue());
+	FindWindow(IDC_UDPPORT)->Enable(CastChild(IDC_UDPENABLE, wxCheckBox)->GetValue());
 }
 
 bool PrefsUnifiedDlg::TransferFromWindow()
