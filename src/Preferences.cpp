@@ -272,6 +272,10 @@ bool CPreferences::s_bCryptLayerRequested;
 bool CPreferences::s_IsClientCryptLayerRequired;
 uint32 CPreferences::s_dwKadUDPKey;
 uint8 CPreferences::s_byCryptTCPPaddingLength;
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+bool CPreferences::s_LugdunumNatCallbackEnabled;
+bool CPreferences::s_LowIdHolePunchEnabled;
+#endif
 
 wxString CPreferences::s_Ed2kURL;
 wxString CPreferences::s_KadURL;
@@ -1486,6 +1490,16 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	// There is no need for GUI items for this two.
 	s_MiscList.push_back(MkCfg_Int("/Obfuscation/CryptoPaddingLenght", s_byCryptTCPPaddingLength, 254));
 	s_MiscList.push_back(MkCfg_Int("/Obfuscation/CryptoKadUDPKey", s_dwKadUDPKey, GetRandomUint32()));
+#endif
+
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+	// Runtime opt-in for Lugdunum's NAT callback: off by default, so turning on
+	// ENABLE_NATT_SERVER_COORDINATION (e.g. via ENABLE_ALL_EXPERIMENTAL in CI/tester builds) does
+	// not by itself enrol on a live server. No widget: flip it in amule.conf for a live run.
+	s_MiscList.push_back(new Cfg_Bool("/eMule/LugdunumNatCallback", s_LugdunumNatCallbackEnabled, false));
+	// Same rationale, for ed2k-server's LowID hole punch: off by default, independent of
+	// the Lugdunum setting -- a server speaks one protocol or the other, never both.
+	s_MiscList.push_back(new Cfg_Bool("/eMule/LowIdHolePunch", s_LowIdHolePunchEnabled, false));
 #endif
 
 	/** Power management */
