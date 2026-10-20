@@ -39,9 +39,50 @@ inline double ReadMegabits(const wxString &text, double fallback)
 	return wxNumberFormatter::FromString(text, &value) && std::isfinite(value) && value >= 0 ? value
 												 : fallback;
 }
-inline double ReadMegabits(wxSpinCtrlDouble *input)
+// Share one fallback between previews, spin events, and OK. GetValue() is not a
+// safe fallback: GTK can derive zero or a partial number from invalid text.
+class MegabitInputState
 {
-	return ReadMegabits(input->GetTextValue(), input->GetValue());
-}
+public:
+	double Update(double value)
+	{
+		if (std::isfinite(value) && value >= 0) {
+			m_value = value;
+			m_validText = true;
+		}
+		return m_value;
+	}
+
+	double Read(const wxString &text)
+	{
+		const double value = ReadMegabits(text, -1);
+		m_validText = value >= 0;
+		if (m_validText) {
+			m_value = value;
+		}
+		return m_value;
+	}
+	double Read(wxSpinCtrlDouble *input) { return Read(input->GetTextValue()); }
+
+	// Native focus loss can first send a spin event with zero or a partial
+	// number for invalid text. Restore our fallback before that value is read.
+	double Spin(wxSpinCtrlDouble *input, double value)
+	{
+		return m_validText ? Update(value) : Commit(input);
+	}
+
+	double Commit(wxSpinCtrlDouble *input)
+	{
+		if (m_validText) {
+			Read(input);
+		}
+		input->SetValue(m_value);
+		return Read(input);
+	}
+
+private:
+	double m_value = 0;
+	bool m_validText = true;
+};
 } // namespace BandwidthRateConversion
 #endif

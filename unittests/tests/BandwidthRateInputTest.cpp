@@ -91,9 +91,46 @@ void TestInput()
 	input.SetDigits(4);
 	for (int rate : { 0, 10, 1280, 125000, maximum }) {
 		input.SetValue(ToMegabits(rate));
-		Check(FromMegabits(ReadMegabits(&input), maximum) == rate,
+		MegabitInputState state;
+		state.Update(ToMegabits(rate));
+		Check(FromMegabits(state.Read(&input), maximum) == rate,
 			"Accepting an untouched control must preserve its limit");
 	}
+	// GTK GetValue() reads invalid native text as zero rather than retaining the
+	// previous number. Exercise the real control, not just the string parser.
+	for (int rate : { 0, 1, 10, 1280, 125000, maximum }) {
+		const double fallback = ToMegabits(rate);
+		MegabitInputState state;
+		state.Update(fallback);
+		for (const wxString &text : { wxString(), wxString("invalid"), wxString("nan") }) {
+			input.SetValue(fallback);
+			input.SetValue(text);
+			Check(FromMegabits(state.Read(&input), maximum) == rate,
+				"Invalid control text must preserve the last valid limit");
+		}
+	}
+	// A spin after an edit must also replace the fallback used by previews and OK.
+	MegabitInputState state;
+	state.Update(10.5);
+	Check(state.Read(wxNumberFormatter::ToString(20.5, 4)) == 20.5,
+		"A successful text edit must replace the fallback");
+	state.Update(30.5);
+	Check(state.Read("invalid") == 30.5,
+		"An invalid preview after spinning must preserve the spun value");
+	input.SetValue(wxString("invalid"));
+	Check(state.Read(&input) == 30.5, "OK and the preview must use the same fallback after invalid text");
+	// Simulate GTK normalizing invalid text before sending its focus-loss spin.
+	input.SetValue(0.0);
+	Check(state.Spin(&input, 0.0) == 30.5 && input.GetValue() == 30.5,
+		"A native invalid-text commit must restore the last valid value");
+	state.Read("invalid");
+	input.SetValue(0.0);
+	Check(state.Commit(&input) == 30.5,
+		"Focus loss without a spin event must also restore the last valid value");
+	input.SetValue(40.5);
+	Check(state.Spin(&input, 40.5) == 40.5, "A valid spin must still change the limit");
+	Check(state.Read(wxNumberFormatter::ToString(0.0, 4)) == 0,
+		"An explicit zero must still select unlimited");
 	const wxString typed = wxNumberFormatter::ToString(ToMegabits(125000), 4);
 	Check(FromMegabits(ReadMegabits(typed, 0), maximum) == 125000,
 		"A text preview must parse a gigabit rate before focus loss");
@@ -109,6 +146,8 @@ int main(int argc, char **argv)
 	if (!wxTheApp->CallOnInit()) {
 		result = 1;
 	} else {
+		// Locale initialization warnings must not open a modal GUI in a headless test.
+		delete wxLog::SetActiveTarget(new wxLogStderr());
 		const int language =
 			argc > 1 && wxString(argv[1]) == "it" ? wxLANGUAGE_ITALIAN : wxLANGUAGE_ENGLISH_US;
 		wxLocale locale;

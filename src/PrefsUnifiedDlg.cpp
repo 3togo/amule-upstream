@@ -2668,6 +2668,7 @@ void PrefsUnifiedDlg::OnScrollBarChange(wxScrollEvent &event)
 
 void PrefsUnifiedDlg::OnBandwidthCalculator(wxCommandEvent &WXUNUSED(event))
 {
+	BandwidthRateConversion::MegabitInputState values[2];
 	wxDialog dialog(this, wxID_ANY, _("Bandwidth calculator"));
 	auto *layout = new wxBoxSizer(wxVERTICAL);
 	layout->Add(new wxStaticText(&dialog, wxID_ANY, _("Enter limits in Mbit/s. Zero means unlimited.")),
@@ -2694,7 +2695,8 @@ void PrefsUnifiedDlg::OnBandwidthCalculator(wxCommandEvent &WXUNUSED(event))
 			BandwidthRateConversion::ToMegabits(value),
 			0.1);
 		input->SetDigits(4);
-		inputs[index++] = input;
+		inputs[index] = input;
+		values[index].Update(BandwidthRateConversion::ToMegabits(value));
 		grid->Add(input, wxSizerFlags().CenterVertical());
 		auto *result = new wxStaticText(&dialog,
 			wxID_ANY,
@@ -2710,15 +2712,20 @@ void PrefsUnifiedDlg::OnBandwidthCalculator(wxCommandEvent &WXUNUSED(event))
 						    wxString::Format(_("KiB/s (%.2f MiB/s)"), rate / 1024.0));
 		};
 		input->Bind(wxEVT_SPINCTRLDOUBLE,
-			[refresh](wxSpinDoubleEvent &event) { refresh(event.GetValue()); });
-		input->Bind(wxEVT_TEXT, [refresh, value = input->GetValue()](wxCommandEvent &event) mutable {
+			[refresh, input, &value = values[index]](
+				wxSpinDoubleEvent &event) { refresh(value.Spin(input, event.GetValue())); });
+		input->Bind(wxEVT_TEXT, [refresh, &value = values[index]](wxCommandEvent &event) {
 			// Do not call GetValue() while typing: native GTK controls may commit
 			// and reformat the text, interrupting an unfinished decimal.
-			value = BandwidthRateConversion::ReadMegabits(event.GetString(), value);
-			refresh(value);
+			refresh(value.Read(event.GetString()));
 			event.Skip();
 		});
-		refresh(input->GetValue());
+		input->Bind(wxEVT_KILL_FOCUS, [refresh, input, &value = values[index]](wxFocusEvent &event) {
+			refresh(value.Commit(input));
+			event.Skip();
+		});
+		refresh(values[index].Read(input));
+		++index;
 	}
 	layout->Add(grid, wxSizerFlags().Border(wxALL, 10));
 	layout->Add(
@@ -2728,10 +2735,11 @@ void PrefsUnifiedDlg::OnBandwidthCalculator(wxCommandEvent &WXUNUSED(event))
 	if (dialog.ShowModal() == wxID_OK) {
 		int index = 0;
 		for (int id : { IDC_MAXDOWN, IDC_MAXUP }) {
-			auto *input = inputs[index++];
+			auto *input = inputs[index];
 			auto *limit = CastChild(id, wxSpinCtrl);
 			limit->SetValue(BandwidthRateConversion::FromMegabits(
-				BandwidthRateConversion::ReadMegabits(input), limit->GetMax()));
+				values[index].Read(input), limit->GetMax()));
+			++index;
 		}
 		wxSpinEvent changed(wxEVT_SPINCTRL, IDC_MAXUP);
 		changed.SetPosition(CastChild(IDC_MAXUP, wxSpinCtrl)->GetValue());
