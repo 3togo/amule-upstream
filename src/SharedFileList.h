@@ -26,6 +26,9 @@
 #ifndef SHAREDFILELIST_H
 #define SHAREDFILELIST_H
 
+#include "KadPublishCursor.h"
+#include "KadPublishPolicy.h" // Needed for SKadPublishFacts
+#include "MD4Hash.h"
 #include "SharedFilesReloadLatch.h" // Needed for CSharedFilesReloadLatch
 #include <atomic>                   // Needed for std::atomic (m_listGeneration, reloading)
 #include <functional>
@@ -90,6 +93,22 @@ public:
 	bool IsReloadPending() const { return m_reloadLatch.IsPending(); }
 	void SafeAddKFile(CKnownFile *toadd, bool bOnlyAdd = false);
 	void RemoveFile(CKnownFile *toremove);
+	// Core event thread only. Revalidate the confirmed identity and path before unlinking.
+	// On failure leave lists/uploads intact. removeOnly is the desktop's explicit
+	// fallback after a failed unlink; EC never requests it.
+	bool CanDeleteFileFromDisk() const { return true; }
+	enum class DeleteFileResult
+	{
+		Deleted,
+		Changed,
+		Failed
+	};
+	DeleteFileResult DeleteFileFromDisk(const CMD4Hash &hash,
+		uint32 ecid,
+		const wxString &directory,
+		const wxString &name,
+		wxString &error,
+		bool removeOnly = false);
 	CKnownFile *GetFileByID(const CMD4Hash &filehash);
 	short GetFilePriorityByID(const CMD4Hash &filehash);
 	const CKnownFile *GetFileByIndex(unsigned int index) const;
@@ -176,6 +195,8 @@ public:
 
 	/* Kad Stuff */
 	void Publish();
+	//! The publish gate, PublishSrc() and StorePacket() all decide from these facts.
+	static SKadPublishFacts CurrentKadPublishFacts();
 	void AddKeywords(CKnownFile *pFile);
 	void RemoveKeywords(CKnownFile *pFile);
 	// This is actually unused, but keep it here - will be needed later.
@@ -215,6 +236,7 @@ private:
 	typedef std::list<CThreadTask *> TaskList;
 
 	bool AddFile(CKnownFile *pFile);
+	CKnownFile *GetNextKadFile(CKadPublishCursor<CMD4Hash> &cursor);
 
 	// Re-key m_pathIndex for an already-shared file whose on-disk path changed. A partfile
 	// shared while downloading is keyed under Temp (or "" before SetFilePath ran) and moves to
@@ -403,8 +425,8 @@ private:
 
 	/* Kad Stuff */
 	CPublishKeywordList *m_keywords;
-	unsigned int m_currFileSrc;
-	unsigned int m_currFileNotes;
+	CKadPublishCursor<CMD4Hash> m_srcPublishCursor;
+	CKadPublishCursor<CMD4Hash> m_notesPublishCursor;
 	unsigned int m_currFileKey;
 	uint32 m_lastPublishKadSrc;
 	uint32 m_lastPublishKadNotes;

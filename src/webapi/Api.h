@@ -82,8 +82,9 @@ public:
 
 	// Synchronous preflight for the SSE path. Runs on the I/O thread BEFORE the worker thread
 	// is spawned and BEFORE the streaming-session budget is touched. boost::none admits; a
-	// 401/403/429 short-circuits without a slot.
-	boost::optional<CHttpServer::Response> PreflightEvents(const CHttpServer::Request &req);
+	// 401/403/429 short-circuits without a slot. Sets `may_use_reserve` for an admin.
+	boost::optional<CHttpServer::Response> PreflightEvents(
+		const CHttpServer::Request &req, bool &may_use_reserve);
 	// CORS for transport-built replies (408 / 413 / 431); see the .cpp.
 	void StampCorsForTransport(
 		std::map<std::string, std::string> &headers, const std::string &origin_header);
@@ -177,7 +178,9 @@ private:
 	CHttpServer::Response HandleGeoipUpdate(const CHttpServer::Request &);
 	// single shared-file detail (GET / HEAD). `key` = 32-char MD4 hash.
 	CHttpServer::Response HandleSharedDetail(const CHttpServer::Request &, const std::string &key);
-	// shared file priority PATCH. `key` = hash OR ECID.
+	// Delete a complete shared file with a required confirmed_target. `key` = hash.
+	CHttpServer::Response HandleSharedDelete(const CHttpServer::Request &, const std::string &key);
+	// shared file priority PATCH. `key` = hash.
 	CHttpServer::Response HandleSharedPatch(const CHttpServer::Request &, const std::string &key);
 	// bulk shared-priority PATCH over a `hashes` array (#358).
 	CHttpServer::Response HandleSharedBulkPatch(const CHttpServer::Request &);

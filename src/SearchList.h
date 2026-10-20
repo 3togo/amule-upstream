@@ -82,7 +82,7 @@ public:
 	struct CSearchParams
 	{
 		/** Prevents accidental use of uninitialized variables. */
-		CSearchParams() { minSize = maxSize = availability = 0; }
+		CSearchParams() { minSize = maxSize = availability = minBitrateKbps = minLength = 0; }
 
 		//! The actual string to search for.
 		wxString searchString;
@@ -98,6 +98,16 @@ public:
 		uint64_t maxSize;
 		//! The minimum available (source-count), zero for any.
 		uint32_t availability;
+		//! The minimum media bitrate in kilobits per second, zero for any.
+		//! Kad applies this filter; eD2k servers may ignore it.
+		uint32_t minBitrateKbps;
+		//! Minimum media duration in seconds, zero for any.
+		uint32_t minLength;
+		//! Optional media metadata filters.
+		wxString codec;
+		wxString title;
+		wxString album;
+		wxString artist;
 	};
 
 	/** Constructor. */
@@ -293,13 +303,20 @@ public:
 	/**
 	 * Persists every currently-held search (query string, kind, start time, and its full
 	 * result tree) to StoredSearches.met, so results survive a restart (issue #641 Phase
-	 * 3). Called from OnExit() before this object is destroyed -- the destructor drains
-	 * everything via RemoveResults(), so this must run first. "View Files" browse tabs are
-	 * not searches (see GetKnownSearchIds()) and are never persisted. Bounded at
-	 * MAX_STORED_SEARCHES / MAX_STORED_RESULTS_PER_SEARCH; anything beyond that is dropped
-	 * with a log line rather than silently.
+	 * 3). Called periodically after changes and from OnExit() before this object is destroyed --
+	 * the destructor drains everything via RemoveResults(), so shutdown must save first.
+	 * "View Files" browse tabs are not searches (see GetKnownSearchIds()) and are never
+	 * persisted. Bounded at MAX_STORED_SEARCHES / MAX_STORED_RESULTS_PER_SEARCH; anything
+	 * beyond that is dropped with a log line during clean shutdown rather than silently.
 	 */
-	void StoreSearches() const;
+	bool StoreSearches(bool reportTruncation = true) const;
+
+	/**
+	 * Coalesces search-state changes into a periodic write. Called from the core timer;
+	 * changes are written no more than once every 30 seconds, with an additional write
+	 * during clean shutdown through StoreSearches().
+	 */
+	void StoreSearchesIfDirty(uint64_t uptimeMs);
 
 	/**
 	 * Reloads whatever StoreSearches() last wrote, reconstructing each search's query
@@ -381,6 +398,15 @@ public:
 	 * @param serverPort The Port of the server sending the results.
 	 */
 	void ProcessUDPSearchAnswer(const CMemFile &packet, bool optUTF8, uint32 serverIP, uint16 serverPort);
+
+	/**
+	 * Tells if the current global search sent its request to a server at this IP.
+	 *
+	 * Matches the IP only: a server can answer from a port other than the one we asked.
+	 *
+	 * @param serverIP The IP of the server sending the results.
+	 */
+	bool WasServerAsked(uint32 serverIP) const;
 
 	/**
 	 * Adds a result in the form of a kad search keyword to the specified result list.
@@ -494,10 +520,6 @@ private:
 	//! This smart pointer is used to safely prevent leaks.
 	typedef CSmartPtr<CMemFile> CMemFilePtr;
 
-	/** Create a basic search-packet for the given search-type. */
-	CMemFilePtr CreateSearchData(
-		CSearchParams &params, SearchType type, bool supports64bit, bool &packetUsing64bit);
-
 	//! Timer used for global search intervals.
 	CTimer m_searchTimer;
 
@@ -517,6 +539,9 @@ private:
 
 	//! The current packet used for searches.
 	std::unique_ptr<CPacket> m_searchPacket;
+
+	//! ECIDs of the servers the current global search sent a UDP request to.
+	std::set<uint32> m_askedServers;
 
 	//! Does the current search packet contain 64bit values?
 	bool m_64bitSearchPacket;
@@ -577,6 +602,13 @@ private:
 	//! Search_Removed broadcast during teardown: the GUI is being dismantled around us and
 	//! there is no tab left worth closing.
 	bool m_shuttingDown;
+
+	//! A persisted search or result changed since the last successful StoreSearches() call.
+	bool m_storedSearchesDirty;
+	//! Last periodic save attempt, used to rate-limit both successful writes and retries.
+	uint64_t m_lastStoredSearchesAttemptMs;
+
+	void MarkStoredSearchesDirty(uint32_t searchID);
 
 	//! Queue of servers to ask when doing global searches.
 	//! TODO: Replace with 'cookie' system.

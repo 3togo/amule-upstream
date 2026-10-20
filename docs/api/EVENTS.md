@@ -106,6 +106,8 @@ If the daemon restarts between steps 1 and 2, or the ring buffer overflows on a 
 
 `GET /api/v1/events` opens the stream. Auth runs synchronously BEFORE the worker thread is spawned and before the 32-slot streaming budget is touched, so an unauthenticated client can't tie up a slot for the read-timeout window.
 
+Four of the 32 slots are kept for admin streams, so guests can hold at most 28 and cannot lock the admin out of live updates. A stream over the cap gets `503 too_many_streams` with `Retry-After: 10`.
+
 `HEAD` returns the stream's headers and no body. Any other method is `405` with `Allow: GET, HEAD`, like every other route. A trailing slash is stripped first, so `/api/v1/events/` opens the same stream.
 
 ```sh
@@ -143,6 +145,10 @@ Content-Type: application/json
 
 {"error":{"code":"unauthorized","message":"missing bearer token or session cookie"}}
 ```
+
+### Session end
+
+A stream lasts only as long as the session that opened it. Each time the stream wakes, for an event or the 15 s heartbeat, it checks the token again. A logout, a password change, disabling guest access, or token expiry closes the stream, and no event goes out after that. There is no closing event frame: the stream just ends, and the reconnect gets the `401` above. A browser `EventSource` does not retry after a non-200 answer (`readyState` becomes `CLOSED`), so treat that as "sign in again".
 
 ### Response headers
 
@@ -328,7 +334,7 @@ Downloads only, but it rides the `comments` channel, not `downloads` -- `?channe
 
 #### `shared_added` / `shared_updated`
 
-Identical to the REST [`/api/v1/shared`](REFERENCE.md#get-apiv1shared) list-item shape. `_updated` fires on any field-level change including `priority`, `priority_auto`, `uploaded_bytes_session`, `uploaded_bytes_total`, `request_count_*`, `accepted_request_count_*` and `hashed_part_count` — clients see live upload counters (and priority changes, and a running hash) without polling.
+Identical to the REST [`/api/v1/shared`](REFERENCE.md#get-apiv1shared) list-item shape. `_updated` fires on any field-level change including `priority`, `priority_auto`, `incomplete`, `uploaded_bytes_session`, `uploaded_bytes_total`, `request_count_*`, `accepted_request_count_*` and `hashed_part_count` — clients see live upload counters (and priority changes, and a running hash) without polling.
 
 ```json
 {
@@ -338,6 +344,7 @@ Identical to the REST [`/api/v1/shared`](REFERENCE.md#get-apiv1shared) list-item
   "size_bytes":       3217,
   "priority":         "normal",
   "priority_auto":    false,
+  "incomplete":       false,
   "sources":          { "complete": 12 },
   "uploaded_bytes_session":         5242880,
   "uploaded_bytes_total":           314572800,
@@ -353,6 +360,8 @@ Identical to the REST [`/api/v1/shared`](REFERENCE.md#get-apiv1shared) list-item
   "media": { "duration_seconds": 5400, "bitrate_kilobits_per_second": 1500, "codec": "H.264", "artist": "", "album": "", "title": "" }
 }
 ```
+
+`incomplete` is `true` for an active or completing partfile and `false` once complete. Completion emits `shared_updated` even when the shared statistics stay unchanged, so complete-file actions can become enabled without reloading the view. Download progress or status changes that leave `incomplete` unchanged do not themselves emit a shared update.
 
 `media` is always present, and `null` on a file with no probed metadata -- the same object [`GET /shared`](REFERENCE.md#get-apiv1shared) carries, so the byte-for-byte parity promised above holds for it too. A metadata re-extraction changes it and therefore fires a `shared_updated`, which is the only way a subscriber learns a probe landed: the refresh endpoint answers `202` with no result.
 
@@ -465,6 +474,16 @@ One event per message, **inbound and outbound alike**. An outbound one is how a 
 `message` is identical to a `messages[]` entry on [`GET /api/v1/chats/{address}/messages`](REFERENCE.md#get-apiv1chatsaddressmessages) - including `sent_at`, which is `null` rather than `0` for an unstamped message, exactly as the REST row spells it. `address` is the current IPv4 `ip:port` when available and not shared with another conversation, otherwise the hash. `hash` remains the separate stable identity. `name` falls back to the uppercase hash when known, otherwise `"IP: <ip> Port: <port>"`, matching desktop `ChatPeerFallbackName`.
 
 There is no separate "conversation started" event: a conversation that did not exist yet is implied by the first message carrying its `address`.
+
+#### `chat_session_updated`
+
+Emitted when a pending CAPTCHA changes, including expiry on peer disconnect or
+an answer sent by another client, even when no new message arrives. Re-read
+`GET /chats` for the pending image. A `null` id retires the old challenge.
+
+```json
+{ "address": "203.0.113.42:4662", "hash": "0123456789abcdef0123456789abcdef", "pending_captcha_id": null }
+```
 
 #### `chat_session_closed`
 

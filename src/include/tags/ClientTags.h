@@ -102,7 +102,10 @@ enum ServerCapabilites
 	SRVCAP_LARGEFILES = 0x0100,
 	SRVCAP_SUPPORTCRYPT = 0x0200,
 	SRVCAP_REQUESTCRYPT = 0x0400,
-	SRVCAP_REQUIRECRYPT = 0x0800
+	SRVCAP_REQUIRECRYPT = 0x0800,
+	// Lugdunum's NAT callback opt-in (#1991): Lugdunum then hands out odd LowIDs and forwards
+	// callbacks. Sent only under ENABLE_NATT_SERVER_COORDINATION; see docs/NAT_T_Protocol.md.
+	SRVCAP_NATTRAVERSAL = 0x1000
 };
 
 // aMule used to use these names

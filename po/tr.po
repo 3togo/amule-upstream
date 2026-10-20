@@ -196,6 +196,15 @@ msgstr "Şimdi tekrar başlat"
 msgid "Later"
 msgstr "Daha sonra"
 
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+msgid "The connected core does not support deleting complete files from disk."
+msgstr ""
+
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+#, fuzzy
+msgid "Delete from disk"
+msgstr "Kad üzerinden al"
+
 #: src/GuiEvents.cpp
 #, c-format
 msgid ""
@@ -219,26 +228,6 @@ msgid ""
 "%s\n"
 "The files are deleted and no longer shared. This cannot be undone."
 msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy
-msgid "Delete from disk"
-msgstr "Kad üzerinden al"
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Skipped deleting '%s': the selected file has changed."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Deleted '%s' from disk."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy, c-format
-msgid "Could not delete '%s' from disk."
-msgstr "Kategori silinemedi: %s"
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -332,6 +321,22 @@ msgid "Now, exiting main app..."
 msgstr "Ana uygulamadan çıkılıyor…"
 
 #: src/amule.cpp
+msgid "Saving window settings..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving client credits..."
+msgstr ""
+"\n"
+"Yazılım oluşturuluyor…\n"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Stopping helper applications..."
+msgstr "Uygulamadan çıkar."
+
+#: src/amule.cpp
 #, c-format
 msgid "Terminating amuleweb instance with pid '%d' ... "
 msgstr "Amuleweb oturumu pid `%d' ile sonlandırılıyor… "
@@ -361,12 +366,31 @@ msgid "aMule OnExit: Terminating core."
 msgstr "aMule Çıkışında: Çekirdek imha ediliyor."
 
 #: src/amule.cpp
+#, fuzzy
+msgid "Saving search results..."
+msgstr "Arama Sonucu"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving downloads and shared files..."
+msgstr "Paylaşılan dosyalar yeniden yükleniyor…"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Flushing download buffers..."
+msgstr "İndirilen dosyanın karma değeri hesaplanıyor: %s"
+
+#: src/amule.cpp
 msgid "aMule shutdown completed."
 msgstr "aMule kapatılma işlemi tamamlandı."
 
 #: src/amule.cpp
 msgid "Memory debug results for aMule exit:"
 msgstr "aMule çıkışı için hafıza hata raporlama sonuçları:"
+
+#: src/amule.cpp
+msgid "Finishing shutdown..."
+msgstr ""
 
 #: src/amule.cpp
 #, fuzzy, c-format
@@ -485,6 +509,11 @@ msgstr "Kad başlangıç düğümleri (nodes.dat)"
 
 #: src/amule.cpp
 #, c-format
+msgid "Not starting %s: it is neither next to aMule nor on PATH."
+msgstr ""
+
+#: src/amule.cpp
+#, c-format
 msgid "web server running on pid %d"
 msgstr "web sunucusu pid %d üzerinde çalışıyor"
 
@@ -503,13 +532,31 @@ msgid "Could not write the amuleapi EC token to %s; amuleapi will fall back to i
 msgstr "amuleapi Harici Bağlantı jetonu %s konumuna yazılamadı; amuleapi yapılandırılmış parolasına dönüş yapacaktır."
 
 #: src/amule.cpp
+msgid "An exception occurred while launching amuleapi."
+msgstr ""
+
+#: src/amule.cpp
 #, c-format
 msgid "amuleapi running on pid %d"
 msgstr "amuleapi pid %d üzerinde çalışıyor"
 
 #: src/amule.cpp
+msgid "Could not launch amuleapi during automatic restart."
+msgstr ""
+
+#: src/amule.cpp
 msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot be run. Please install the package containing aMule's REST API server, or build aMule from source with -DBUILD_AMULEAPI=YES and install it."
 msgstr "amuleapi'nın başlangıçta çalışmasını istediniz, fakat amuleapi ikilisi çalıştırılamıyor. Lütfen aMule REST API sunucusunu içeren paketi yükleyin veya aMule' yi -DBUILD_AMULEAPI=YES seçeneği ile derleyin ve kurun."
+
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Could not remove the amuleapi EC token file: %s"
+msgstr "amuleapi parolası kaydedilemedi: %s"
+
+#: src/amule.cpp
+#, c-format
+msgid "amuleapi will restart in %u seconds."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -659,6 +706,28 @@ msgstr ""
 #, c-format
 msgid "Disk space preallocation for file '%s' failed: %s"
 msgstr "%s dosyası için diskte yer ayırma başarısız oldu: %s"
+
+#: src/amule.cpp
+msgid "Stopping network services..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving source seeds..."
+msgstr "Kaynak Girdileri"
+
+#: src/amule.cpp
+msgid "Stopping background downloads and workers..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Closing connections..."
+msgstr " bağlanıyor…"
+
+#: src/amule.cpp
+msgid "Saving known files and statistics..."
+msgstr ""
 
 #: src/amule.cpp
 msgid "ERROR: can't open logfile"
@@ -1183,6 +1252,22 @@ msgstr "Tekrar bağlanma başlatılamadı; kısa zamanda yeniden denenecek."
 msgid "Ready"
 msgstr "Hazır"
 
+#: src/amule-remote-gui.cpp
+msgid "*** Solve the CAPTCHA and send its text as a message."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA passed; your message was delivered."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA failed; send another message to try again."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA failed; no attempts remain."
+msgstr ""
+
 #: src/amule-remote-gui.cpp src/TransferWnd.cpp
 msgid "All"
 msgstr "Tümü"
@@ -1221,6 +1306,10 @@ msgstr "Kategori silinemedi: %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "'%s' dizini '%s' sınıfı için oluşturulamadı. '%s' dizini kullanılıyor."
+
+#: src/amule-remote-gui.cpp
+msgid "The core did not confirm deleting the file. Refresh and try again."
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 #, c-format
@@ -2330,6 +2419,11 @@ msgid "Unauthorized access attempt from %s. Connection closed."
 msgstr "%s üzerinden yetkilendirilmemiş giriş denemesi. Bağlantı kesildi."
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid partfile command target."
+msgstr "Geçersiz dosya adı."
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote PartFile command failed: FileHash not found: %s"
 msgstr "Uzak Parça Dosyası komutu başarısız: Dosya Adreslemesi bulunamadı: %s"
@@ -2338,6 +2432,20 @@ msgstr "Uzak Parça Dosyası komutu başarısız: Dosya Adreslemesi bulunamadı:
 #, c-format
 msgid "FileHash not found: %s"
 msgstr "Dosya adreslemesi bulunamadı: %s"
+
+#: src/ExternalConn.cpp
+#, fuzzy, c-format
+msgid "Cannot cancel a finished download: %s"
+msgstr "Aktarım tamamlandı: %s"
+
+#: src/ExternalConn.cpp
+msgid "The selected download has changed or is completing. Refresh and try again."
+msgstr ""
+
+#: src/ExternalConn.cpp
+#, fuzzy, c-format
+msgid "No such category: %u"
+msgstr "Böyle bir kategori yok."
 
 #: src/ExternalConn.cpp
 msgid "OOPS! OpCode processing error!"
@@ -2427,6 +2535,11 @@ msgid "Version check is not available on this daemon."
 msgstr "Bu daemon üzerinde sürüm kontrolü mevcut değildir."
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid complete-file deletion target."
+msgstr "Geçersiz dosya adı."
+
+#: src/ExternalConn.cpp
 msgid "File not found."
 msgstr "Dosya bulunamadı."
 
@@ -2478,6 +2591,10 @@ msgstr "Dosya, ortam üst verileri çıkarılmasına uygun değil (bir ses/video
 #: src/ExternalConn.cpp
 msgid "Empty chat message"
 msgstr "Boş sohbet mesajı"
+
+#: src/ExternalConn.cpp
+msgid "CAPTCHA challenge is no longer pending"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Unknown chat target"
@@ -2794,6 +2911,11 @@ msgstr "Dosya ön izlemesi"
 #: src/FileLaunch.cpp
 #, c-format
 msgid "Media-player command '%s' was not run: %s"
+msgstr ""
+
+#: src/FileLaunch.cpp
+#, c-format
+msgid "The configured video player is unavailable inside aMule's Flatpak sandbox: %s. Programs installed on the host are not directly available here. Completed files can still open with the desktop's default application; previewing an unfinished download needs a player the sandbox can run, such as a self-contained player saved in your home folder."
 msgstr ""
 
 #: src/FileLaunch.cpp
@@ -3136,6 +3258,11 @@ msgstr "Evet"
 msgid "Failed to open MaxMindDB database '%s': %s"
 msgstr "'%s' MaxMindDB veri tabanının açılması başarısız oldu: %s"
 
+#: src/geoip/MaxMindDBDatabase.cpp
+#, fuzzy, c-format
+msgid "Failed to replace MaxMindDB database '%s': %s"
+msgstr "'%s' MaxMindDB veri tabanının açılması başarısız oldu: %s"
+
 #: src/HTTPDownload.cpp
 msgid "Downloading..."
 msgstr "Aktarılıyor…"
@@ -3143,6 +3270,11 @@ msgstr "Aktarılıyor…"
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "HTTP aktarımı iptal edildi"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "HTTP download of %s stopped: it is larger than %u MiB."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 msgid "The URL to download can't be empty"
@@ -3215,25 +3347,15 @@ msgstr "Yeni %s unsurunu %s konumundan indir"
 msgid "Download of %s file failed, aborting update."
 msgstr "%s dosyasının indirilmesi başarısız oldu, güncelleme iptal ediliyor."
 
-#: src/IP2Country.cpp src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "%s dosyası silinemedi. Güncelleme iptal edildi."
-
 #: src/IP2Country.cpp
 #, c-format
-msgid "Failed to rename %s file, aborting update."
-msgstr "%s dosyası yeniden adlandırılamadı. Güncelleme iptal edildi."
+msgid "Error updating %s"
+msgstr "%s unsurunun güncellemesinde hata oluştu"
 
 #: src/IP2Country.cpp src/IPFilter.cpp
 #, c-format
 msgid "Successfully updated %s"
 msgstr "%s başarıyla güncellendi."
-
-#: src/IP2Country.cpp
-#, c-format
-msgid "Error updating %s"
-msgstr "%s unsurunun güncellemesinde hata oluştu"
 
 #: src/IP2Country.cpp
 msgid "DB-IP download failed for the current month - retrying with the previous month's URL."
@@ -3271,6 +3393,11 @@ msgid "%u malformed line was discarded."
 msgid_plural "%u malformed lines were discarded."
 msgstr[0] "%u adet bozuk satır göz ardı edildi."
 msgstr[1] "%u adet bozuk satır göz ardı edildi."
+
+#: src/IPFilter.cpp
+#, c-format
+msgid "Failed to remove %s file, aborting update."
+msgstr "%s dosyası silinemedi. Güncelleme iptal edildi."
 
 #: src/IPFilter.cpp
 #, c-format
@@ -3765,6 +3892,15 @@ msgid "Hashing"
 msgstr "Adresleniyor"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Allocating"
+msgstr "Ayrılıyor"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
+#: src/TransferWnd.cpp
+msgid "Stopped"
+msgstr "Durduruldu"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
 msgid "Completing"
 msgstr "Tamamlanıyor"
 
@@ -3781,6 +3917,10 @@ msgstr "Duraklatıldı"
 #: src/TransferWnd.cpp
 msgid "Erroneous"
 msgstr "Hatalı"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Insufficient disk space"
+msgstr "Yetersiz disk alanı"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
 #: src/TransferWnd.cpp
@@ -3876,6 +4016,11 @@ msgid "WARNING: "
 msgstr "UYARI: "
 
 #: src/MediaProbe.cpp
+#, c-format
+msgid "Media metadata: not using %s, because another user owns it or a folder above it."
+msgstr ""
+
+#: src/MediaProbe.cpp
 msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
 msgstr "Ortam üst verileri: hiçbir ffprobe ikilisi bulunamadı. ffmpeg'i kurun veya ffprobe yolunu ayarlarda tanımlayın; süre, bir hızı ve kodlama bilgileri alınamayacaktır."
 
@@ -3946,6 +4091,23 @@ msgstr[1] "%u başka paylaşılan dosya artık mevcut değil (tek tek listelenme
 msgid "Close"
 msgstr "Kapat"
 
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit column to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit visible columns to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+#, fuzzy
+msgid "Show all columns (keep widths)"
+msgstr "Tüm yorumları göster"
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Restore default columns and widths"
+msgstr ""
+
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
 msgstr "Kes"
@@ -3973,7 +4135,7 @@ msgstr "Tümünü Seç"
 msgid "KiB/s"
 msgstr "KiB/s"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Unlimited"
 msgstr "Sınırsız"
 
@@ -4044,11 +4206,11 @@ msgstr "UDP port: Hazır değil"
 msgid "Client Information"
 msgstr "Yazılım Bilgisi"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Upload limit"
 msgstr "Gönderim sınırı"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Download limit"
 msgstr "Aktarım sınırı"
 
@@ -4846,12 +5008,26 @@ msgid "Video Player"
 msgstr "Ortam Çalıcısı"
 
 #: src/muuli_wdr.cpp
-msgid "Bandwidth limits"
-msgstr "Bağlantı sınırları"
+msgid "Line capacities"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Upload"
 msgstr "Gönderme"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth limits"
+msgstr "Bağlantı sınırları"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable download limit"
+msgstr "Aktarım sınırı"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable upload limit"
+msgstr "Gönderim sınırı"
 
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
@@ -4948,6 +5124,30 @@ msgid ""
 "A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
 "\n"
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
+
+#: src/muuli_wdr.cpp src/PeerCapabilities.h
+msgid "IPv6"
+msgstr "IPv6"
+
+#: src/muuli_wdr.cpp
+msgid "Address families:"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 only"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 and IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Takes effect after restarting aMule."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Advertise my IPv6 address to other peers"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5066,6 +5266,18 @@ msgstr "Gönderilenler"
 #: src/muuli_wdr.cpp
 msgid "Add new shared files with auto priority"
 msgstr "Dosyaları paylaşılanlara otomatik öncelikle ekle"
+
+#: src/muuli_wdr.cpp
+msgid "Verify local data of requested shared files every"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Re-read requested complete files in the background and compare them with their stored MD4/AICH hashes, as Verify Local Data does. Corrupt parts stop being shared. Uploads continue during the check."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "days (0 = off)"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Intelligent Corruption Handling (I.C.H.)"
@@ -5223,14 +5435,6 @@ msgid "Connections Graph Scale: 100 "
 msgstr "Bağlantı Grafik Ölçüsü: 100 "
 
 #: src/muuli_wdr.cpp
-msgid "Download graph scale:"
-msgstr "İndirme grafik ölçüsü:"
-
-#: src/muuli_wdr.cpp
-msgid "Upload graph scale:"
-msgstr "Gönderme grafik ölçüsü:"
-
-#: src/muuli_wdr.cpp
 msgid "Colors: "
 msgstr "Renkler: "
 
@@ -5341,6 +5545,26 @@ msgstr "Sunucu bağlantısı yenileme sıklığı: devre dışı"
 #: src/muuli_wdr.cpp
 msgid "Disable computer's timed standby mode"
 msgstr "Bilgisayarın devre dışı kalma kipini etkisiz hale getir"
+
+#: src/muuli_wdr.cpp
+msgid "Appearance: "
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow system"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Light mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Dark mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Appearance changes take effect after restarting aMule."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Skin to use: "
@@ -5853,12 +6077,13 @@ msgid "Download the GeoIP database from the selected source."
 msgstr "Seçili kaynaktan GeoIP veri tabanını indir."
 
 #: src/muuli_wdr.cpp
-msgid "Auto-update on startup"
+#, fuzzy
+msgid "Auto-update on startup and weekly"
 msgstr "Başlangıçta otomatik olarak güncelle"
 
 #: src/muuli_wdr.cpp
-msgid "Re-download the GeoIP database from the selected source every time aMule starts."
-msgstr "aMule her başladığında, GeoIP veri tabanını seçili kaynaktan tekrar indir."
+msgid "Check for a newer GeoIP database at startup and every week while aMule is running."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Filter incoming messages (except current chat):"
@@ -6136,10 +6361,6 @@ msgstr "diğerleri"
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Incomplete"
 msgstr "Tamamlanmamış"
-
-#: src/OtherFunctions.cpp src/PartFile.cpp src/TransferWnd.cpp
-msgid "Stopped"
-msgstr "Durduruldu"
 
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Video"
@@ -6463,14 +6684,6 @@ msgid "ICH: Recovered corrupted part %i for %s -> Saved bytes: %s"
 msgstr "ICH: Bozulan %i parçası %s dosyasındaydı ve kurtarıldı -> Kaydedilen miktar: %s bayt"
 
 #: src/PartFile.cpp
-msgid "Allocating"
-msgstr "Ayrılıyor"
-
-#: src/PartFile.cpp
-msgid "Insufficient disk space"
-msgstr "Yetersiz disk alanı"
-
-#: src/PartFile.cpp
 #, c-format
 msgid "ERROR: Failed to open partfile '%s'"
 msgstr "HATA: Parça dosyası '%s' açılamıyor"
@@ -6482,10 +6695,6 @@ msgstr "Genişletilmiş kaynak değişimi"
 #: src/PeerCapabilities.h
 msgid "NAT traversal (uTP)"
 msgstr "NAT geçişi (uTP)"
-
-#: src/PeerCapabilities.h
-msgid "IPv6"
-msgstr "IPv6"
 
 #: src/PeerCapabilities.h
 msgid "Buddy info pull"
@@ -6516,37 +6725,46 @@ msgstr "TCP portu numarası, UDP soketi TCP+3 olduğundan 65532' den yüksek ola
 msgid "Default port will be used (%d)"
 msgstr "Varsayılan port kullanılacak (%d)"
 
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Connection"
-msgstr "Bağlantı"
+#: src/BandwidthLimitSlider.h
+msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
+msgstr ""
 
-#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
-msgid "Directories"
-msgstr "Dizinler"
-
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Servers"
-msgstr "Sunucular"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Security"
-msgstr "Güvenlik"
+#: src/BandwidthLimitSlider.h
+#, fuzzy, c-format
+msgid "KiB/s (%.2f MiB/s)"
+msgstr "%.1f MiB/s"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Interface"
 msgstr "Arayüz"
 
-#: src/PrefsUnifiedDlg.cpp
-msgid "IP2Country"
-msgstr "IP2Country"
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Connection"
+msgstr "Bağlantı"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Proxy"
 msgstr "Vekil sunucu"
 
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Servers"
+msgstr "Sunucular"
+
+#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
+msgid "Directories"
+msgstr "Dizinler"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Events"
+msgstr "Olaylar"
+
 #: src/PrefsUnifiedDlg.cpp
 msgid "Filters"
 msgstr "Süzgeçler"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Security"
+msgstr "Güvenlik"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Remote Controls"
@@ -6557,12 +6775,12 @@ msgid "Online Signature"
 msgstr "Çevrimiçi İmza"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Advanced"
-msgstr "Gelişmiş"
+msgid "IP2Country"
+msgstr "IP2Country"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Events"
-msgstr "Olaylar"
+msgid "Advanced"
+msgstr "Gelişmiş"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Debugging"
@@ -6673,6 +6891,11 @@ msgstr "- UDP Portu değişti.\n"
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect port changed.\n"
 msgstr "- Dışarıdan bağlantı portu değişti.\n"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "- Address families changed.\n"
+msgstr "- Ağ arayüz bağlaması değişti.\n"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect acceptance changed.\n"
@@ -7121,6 +7344,11 @@ msgid "Only saving the first %u of %u results for search \"%s\"."
 msgstr "Sadece ilk %u sonuç, toplam %u sonuç üzerinden, \"%s\" araması için kaydediliyor."
 
 #: src/SearchList.cpp
+#, fuzzy, c-format
+msgid "IO error while saving %s: %s"
+msgstr "%s dosyası okumada IO hatası: %s"
+
+#: src/SearchList.cpp
 msgid "WARNING: Stored search list corrupted, contains invalid header."
 msgstr "UYARI: kaydedilmiş arama listesi bozuk, geçersiz başlık içeriyor."
 
@@ -7164,11 +7392,6 @@ msgstr "Kad araması: bir eşten daha, daha geniş sonuçlar talep edildi."
 #: src/SearchList.cpp
 msgid "Kad search: no peer left to reask for more results (cap reached or no responses yet)."
 msgstr "Kad araması: daha fazla sonucu tekrar talep edecek eş kalmadı (sınıra ulaşıldı veya henüz cevap alınamadı)."
-
-#: src/SearchList.cpp
-#, c-format
-msgid "Error %u: %s\n"
-msgstr "Hata %u: %s\n"
 
 #: src/SearchListCtrl.cpp
 msgid "FileID"
@@ -7238,6 +7461,11 @@ msgstr "Ağa bağlan."
 #: src/SearchModeIcons.h
 msgid "Search eD2k servers and Kad, using whichever networks are available."
 msgstr ""
+
+#: src/SearchPacket.cpp
+#, c-format
+msgid "Error %u: %s\n"
+msgstr "Hata %u: %s\n"
 
 #: src/SearchProgressReport.cpp
 msgid "running"
@@ -7894,6 +8122,20 @@ msgstr[0] "Ortam üst verileri %u paylaşılan dosya için tekrar çıkarılıyo
 msgstr[1] "Ortam üst verileri %u paylaşılan dosya için tekrar çıkarılıyor"
 
 #: src/SharedFileList.cpp
+msgid "The selected file has changed or is not a complete file."
+msgstr ""
+
+#: src/SharedFileList.cpp
+#, fuzzy, c-format
+msgid "Could not delete '%s' from disk."
+msgstr "Kategori silinemedi: %s"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Deleted '%s' from disk."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Now sharing file: %s"
 msgstr "Artık paylaşılan dosya: %s"
@@ -8131,6 +8373,11 @@ msgstr "Dosya Adı"
 #: src/SourceListCtrl.cpp
 msgid "A4AF"
 msgstr "A4AF"
+
+#: src/SplashScreen.cpp
+#, fuzzy
+msgid "Closing aMule"
+msgstr "aMule'yi Göster"
 
 #: src/Statistics.cpp
 #, c-format
@@ -9044,6 +9291,11 @@ msgstr ""
 
 #: src/ThreadTasks.cpp
 #, c-format
+msgid "Verify Local Data: missing MD4 hashes for %s, so it was not checked."
+msgstr ""
+
+#: src/ThreadTasks.cpp
+#, c-format
 msgid "Verify Local Data: %s was removed or changed during the check, which did not finish."
 msgstr ""
 
@@ -9911,6 +10163,19 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Download graph scale:"
+#~ msgstr "İndirme grafik ölçüsü:"
+
+#~ msgid "Upload graph scale:"
+#~ msgstr "Gönderme grafik ölçüsü:"
+
+#, c-format
+#~ msgid "Failed to rename %s file, aborting update."
+#~ msgstr "%s dosyası yeniden adlandırılamadı. Güncelleme iptal edildi."
+
+#~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
+#~ msgstr "aMule her başladığında, GeoIP veri tabanını seçili kaynaktan tekrar indir."
 
 #~ msgid "WARNING: Canceled file list corrupted, contains invalid header."
 #~ msgstr "UYARI: İptal edilen dosya listesi bozuk. Geçersiz başlık içeriyor."

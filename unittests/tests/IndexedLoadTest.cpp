@@ -9,7 +9,9 @@
 #include <wx/file.h>
 #include <thread>
 #include <chrono>
+#include <string>
 #include <tags/FileTags.h>
+#include <protocol/kad/Constants.h>
 #ifdef __linux__
 #include <unistd.h>
 #endif
@@ -58,11 +60,11 @@ static bool WaitForLoad(CIndexed &index)
 class DiskEntry : public CKeyEntry
 {
 public:
-	DiskEntry()
+	explicit DiskEntry(const wxString &name = "fixture.bin")
 	: CKeyEntry(std::make_shared<PublishTracking>())
 	{
 		m_uSize = 123;
-		SetFileName("fixture.bin");
+		SetFileName(name);
 		AddTag(new CTagString(TAG_FILETYPE, "Program"), 0);
 		m_publishingIPs = new PublishingIPList;
 		m_publishingIPs->push_back({ 0x01020304, time(nullptr), CKadAICHHashList::INVALID_INDEX });
@@ -86,7 +88,8 @@ TEST(IndexedLoad, KeywordVersionsThreeAndFourRoundTrip)
 			file.WriteUInt128(CUInt128(3u));
 			file.WriteUInt32(1);
 			file.WriteUInt32(time(nullptr) + 3600);
-			DiskEntry entry;
+			DiskEntry entry(wxString::FromUTF8("Клим café 東京.bin"));
+			entry.AddTag(new CTagString("artist", wxString::FromUTF8("Ñandú 서울 中国")), 0);
 			entry.WritePublishTrackingDataToFile(&file, version == 4);
 			entry.WriteTagList(&file);
 		}
@@ -98,7 +101,15 @@ TEST(IndexedLoad, KeywordVersionsThreeAndFourRoundTrip)
 			ASSERT_EQUALS(1u, index.m_totalIndexKeyword);
 			ASSERT_EQUALS(size_t(1), index.GetFileKeyCount());
 		}
-		{
+		for (unsigned cycle = 0; cycle < 3; ++cycle) {
+			// Check the saved bytes as well as the entry count: a Latin-1 read
+			// preserves the entry but encodes its strings again on every save.
+			CFile saved(temp.path + "key_index.dat");
+			std::string bytes(saved.GetLength(), '\0');
+			saved.Read(bytes.data(), bytes.size());
+			ASSERT_TRUE(bytes.find("Клим café 東京.bin") != std::string::npos);
+			ASSERT_TRUE(bytes.find("Ñandú 서울 中国") != std::string::npos);
+			saved.Close();
 			CIndexed reloaded(temp.path, CUInt128(1u));
 			ASSERT_TRUE(WaitForLoad(reloaded));
 			ASSERT_EQUALS(1u, reloaded.m_totalIndexKeyword);
@@ -639,4 +650,85 @@ TEST(IndexedLoad, StopBeforeAdoptionDoesNotQuarantineCorruption)
 	CFile original(temp.path + "key_index.dat");
 	ASSERT_EQUALS(uint64_t(4), original.GetLength());
 	ASSERT_EQUALS(99u, original.ReadUInt32());
+}
+
+static CEntry *NoteEntry(uint32_t ip, time_t lifetime)
+{
+	CEntry *entry = new CEntry();
+	entry->m_uIP = ip;
+	entry->m_uUDPport = 4672;
+	entry->m_tLifeTime = lifetime;
+	entry->AddTag(new CTagString(TAG_DESCRIPTION, "note"), ip);
+	return entry;
+}
+
+TEST(IndexedLoad, NotesExpire)
+{
+	TempIndex temp;
+	CIndexed index(temp.path, CUInt128(1u));
+	ASSERT_TRUE(WaitForLoad(index));
+	uint8_t load = 0;
+	const time_t now = time(nullptr);
+	// AddNotes refuses an entry that has already expired, so this one ages out after insertion.
+	CEntry *stale = NoteEntry(0x01020304, now + 1);
+	ASSERT_TRUE(index.AddNotes(CUInt128(2u), CUInt128(3u), stale, load));
+	stale->m_tLifeTime = now - 1;
+	ASSERT_TRUE(index.AddNotes(CUInt128(4u), CUInt128(5u), NoteEntry(0x01020305, now + 3600), load));
+	ASSERT_EQUALS(2u, index.m_totalIndexNotes);
+	index.Expire(now);
+	ASSERT_EQUALS(1u, index.m_totalIndexNotes);
+	CEntry *expired = NoteEntry(0x01020306, now - 1);
+	ASSERT_FALSE(index.AddNotes(CUInt128(6u), CUInt128(7u), expired, load));
+	delete expired;
+}
+
+TEST(IndexedLoad, NotesStopAtGlobalCap)
+{
+	TempIndex temp;
+	CIndexed index(temp.path, CUInt128(1u));
+	ASSERT_TRUE(WaitForLoad(index));
+	uint8_t load = 0;
+	const time_t lifetime = time(nullptr) + 3600;
+	for (uint32_t i = 0; i < KADEMLIAMAXNOTES; ++i) {
+		ASSERT_TRUE(index.AddNotes(CUInt128(i + 10), CUInt128(1u), NoteEntry(i + 1, lifetime), load));
+	}
+	ASSERT_EQUALS(uint32_t(KADEMLIAMAXNOTES), index.m_totalIndexNotes);
+	CEntry *refused = NoteEntry(0x7f000001, lifetime);
+	ASSERT_FALSE(index.AddNotes(CUInt128(9u), CUInt128(1u), refused, load));
+	ASSERT_EQUALS(100u, unsigned(load));
+	delete refused;
+	// A publisher refreshing its own note still gets through.
+	ASSERT_TRUE(index.AddNotes(CUInt128(10u), CUInt128(1u), NoteEntry(1, lifetime), load));
+	ASSERT_EQUALS(uint32_t(KADEMLIAMAXNOTES), index.m_totalIndexNotes);
+}
+
+static CEntry *SourceEntry(uint32_t ip, time_t lifetime, uint32_t extraTagBytes)
+{
+	CEntry *entry = new CEntry();
+	entry->m_uIP = ip;
+	entry->m_uTCPport = 4662;
+	entry->m_uUDPport = 4672;
+	entry->m_tLifeTime = lifetime;
+	entry->m_extraTagBytes = extraTagBytes;
+	entry->AddTag(new CTagVarInt(TAG_SOURCETYPE, 1), ip);
+	return entry;
+}
+
+TEST(IndexedLoad, ExtraTagBytesAreCountedAndRecounted)
+{
+	TempIndex temp;
+	CIndexed index(temp.path, CUInt128(1u));
+	ASSERT_TRUE(WaitForLoad(index));
+	uint8_t load = 0;
+	const time_t now = time(nullptr);
+	CEntry *stale = SourceEntry(0x01020304, now + 1, 1000);
+	ASSERT_TRUE(index.AddSources(CUInt128(2u), CUInt128(3u), stale, load));
+	ASSERT_TRUE(
+		index.AddSources(CUInt128(4u), CUInt128(5u), SourceEntry(0x01020305, now + 3600, 500), load));
+	ASSERT_EQUALS(1500u, index.GetExtraTagBytes());
+	ASSERT_TRUE(index.HasRoomForExtraTags(KADEMLIAMAXEXTRATAGBYTES - 1500));
+	ASSERT_FALSE(index.HasRoomForExtraTags(KADEMLIAMAXEXTRATAGBYTES - 1499));
+	stale->m_tLifeTime = now - 1;
+	index.Expire(now);
+	ASSERT_EQUALS(500u, index.GetExtraTagBytes());
 }

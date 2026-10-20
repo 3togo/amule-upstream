@@ -31,6 +31,8 @@
 #include <wx/intl.h>     // Needed for wxLocale
 #include <wx/timer.h>    // Needed for wxTimer (startup splash poll)
 
+#include "AmuleApiRestart.h"
+
 #include "Types.h"    // Needed for int32, uint16 and uint64
 #include <functional> // Needed for std::function (DeferShutDownToOuterLoop)
 #include <map>
@@ -48,6 +50,7 @@
 #define GEOIP_GUI 1
 #endif
 
+class CTerminationProcessAmuleApi;
 class CAbstractFile;
 class CKnownFile;
 class CSplashScreen;
@@ -59,6 +62,7 @@ class CPreferences;
 class CDownloadQueue;
 class CUploadQueue;
 class CPartFileWriteThread;
+class CPartMetWriter;
 class CPartFileHashThread;
 class CMediaProbeThread;
 class CFreeSpaceThread;
@@ -436,6 +440,7 @@ public:
 	CUploadQueue *uploadqueue;
 	CPartFileWriteThread *partFileWriteThread;
 	CPartFileHashThread *partFileHashThread;
+	CPartMetWriter *partMetWriter;
 	CMediaProbeThread *mediaProbeThread;
 	CFreeSpaceThread *freeSpaceThread;
 	CServerConnect *serverconnect;
@@ -470,6 +475,7 @@ public:
 	wxLocale m_locale;
 
 	void ShutDown();
+	void ReportShutdownStatus(const wxString &status);
 
 	wxString GetLog(bool reset = false);
 	wxString GetServerLog(bool reset = false);
@@ -590,11 +596,17 @@ protected:
 	// process IDs are 32-bit DWORDs. `long` was right on LLP64 only by accident.
 	int webserver_pid;
 	int amuleapi_pid;
+	CTerminationProcessAmuleApi *m_amuleApiProcess = nullptr;
+	AmuleApiRestart m_amuleApiRestart;
+	bool m_amuleApiStopping = false;
+	void StartAmuleApi(bool startup);
+	void ScheduleAmuleApiRestart();
+	bool ClearAmuleApiToken();
 
 	// Ephemeral EC credential for the amuleapi we spawn. Generated fresh every start, handed
 	// over through a 0600 file in the config dir that the child deletes as soon as it has read
-	// it, and accepted by the EC server alongside the configured password for the rest of this
-	// run.
+	// it, and accepted by the EC server alongside the configured password for the lifetime of
+	// that child.
 	//
 	// The point is that amuleapi never needs the value in amule.conf. That stored value IS the
 	// credential -- the challenge hashes it directly -- so a compromised network-facing daemon
@@ -612,6 +624,8 @@ protected:
 	CTimer *core_timer;
 
 public:
+	void OnAmuleApiTerminated(int pid, int status);
+
 	// The ephemeral EC credential handed to the spawned amuleapi, empty when none was issued.
 	// The EC server's authentication path accepts it alongside the configured password.
 	const wxString &GetEcToken() const { return m_ecToken; }
@@ -658,6 +672,8 @@ private:
 
 #ifndef AMULE_DAEMON
 
+class CShutdownStatus;
+
 class CamuleGuiBase
 {
 public:
@@ -676,10 +692,17 @@ public:
 	bool CopyTextToClipboard(wxString strText);
 	void ResetTitle();
 
-	/// Asks MSW to follow the desktop's light/dark setting; other platforms already do. Must be
-	/// called from OnInit() before the first window is created: wx answers CannotChange once one
-	/// exists, so anywhere later silently does nothing.
-	static void FollowSystemAppearance();
+	// Values persisted in /GUI/Appearance. Keep these stable for existing configs.
+	enum class AppearanceChoice
+	{
+		System = 0,
+		Light = 1,
+		Dark = 2
+	};
+
+	/// Apply the GUI-local appearance preference after opening the configuration and
+	/// before creating any windows (required by wxMSW).
+	static void ApplyConfiguredAppearance();
 
 	/// Applies the stored tooltip delay, which wx keeps process-wide.
 	static void ApplyToolTipDelay();
@@ -736,7 +759,13 @@ class CamuleGuiApp : public CamuleApp, public CamuleGuiBase
 	virtual void MacOpenURL(const wxString &url);
 #endif
 
+	void BeginShutdownStatus();
+	CShutdownStatus *m_shutdownStatus = nullptr;
+
 public:
+	void UpdateShutdownStatus(const wxString &status);
+	void FinishShutdownStatus();
+
 	virtual int ShowAlert(wxString msg, wxString title, int flags);
 
 	void ShutDown(wxCloseEvent &evt);

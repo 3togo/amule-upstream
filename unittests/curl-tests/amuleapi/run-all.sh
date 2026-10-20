@@ -144,8 +144,8 @@ run_phase() {
 	# amuleapi has no --password: it takes the EC credential from the
 	# ephemeral token the core writes when it spawns amuleapi, or from
 	# amuleapi.conf. Nothing spawns it here, so seed the config file.
-	sed -i'.bak' "s|^Password=.*|Password=$EC_PASSWORD|" /tmp/amuleapi-regtest/amuleapi.conf
-	rm -f /tmp/amuleapi-regtest/amuleapi.conf.bak
+	printf '%s\n' "$EC_PASSWORD" | "$BIN" --config-dir=/tmp/amuleapi-regtest \
+		--set-ec-pass-stdin > /dev/null 2>&1
 	# 27-static-frontend exercises the static-frontend serve path, and
 	# 40-http-conformance asserts the trailing-slash rule stops at the
 	# API prefix by checking the static root still answers 200 -- which
@@ -290,6 +290,8 @@ PHASES=(
 	43-client-protocol-extensions.sh
 	44-base-path.sh
 	45-all-search.sh
+	46-sse-session-end.sh
+	47-shared-delete.sh
 	99-peer-fixture-teardown.sh
 )
 

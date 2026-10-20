@@ -20,6 +20,7 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		ClientTCPSocket.cpp
 		ClientUDPSocket.cpp
 		CorruptionBlackBox.cpp
+		CompletedFileDeletion.cpp
 		DownloadBandwidthThrottler.cpp
 		DownloadClient.cpp
 		DownloadQueue.cpp
@@ -38,6 +39,7 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		MuleUDPSocket.cpp
 		SearchFile.cpp
 		SearchList.cpp
+		SearchPacket.cpp
 		ServerConnect.cpp
 		ServerList.cpp
 		ServerMet.cpp
@@ -53,8 +55,10 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		UploadQueue.cpp
 		PartFileWriteThread.cpp
 		PartFileHashThread.cpp
+		PartMetWriter.cpp
 		MediaProbeThread.cpp
 		FreeSpaceThread.cpp
+		FreeSpaceSamples.cpp
 		ThreadTasks.cpp
 	)
 
@@ -102,6 +106,7 @@ if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 		ClientDetailDialog.cpp
 		ClientHistoryListCtrl.cpp
 		ClientNameCell.cpp
+		ClientNameCellDrawing.cpp
 		ClientRowListCtrl.cpp
 		ClientContextActions.cpp
 		ClientsListCtrl.cpp
@@ -125,6 +130,7 @@ if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 		SearchDlg.cpp
 			SearchHistory.cpp
 		SearchListCtrl.cpp
+		SearchColumnFit.cpp
 		SearchListModel.cpp
 		ServerListCtrl.cpp
 		ServerWnd.cpp

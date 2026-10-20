@@ -37,7 +37,8 @@
 
 #include <common/Format.h>
 
-#include "AppImageEnv.h" // Needed for GetSanitizedExecEnv
+#include "AppImageEnv.h"      // Needed for GetSanitizedExecEnv
+#include "HelperBinaryPath.h" // Needed for FindProgram
 #include "Logger.h"
 #include "libs/common/Path.h"
 
@@ -47,6 +48,8 @@
 // after-free. Managing ffprobe with native primitives keeps the whole lifecycle on this thread.
 #ifdef __WXMSW__
 #include <windows.h>
+#include <aclapi.h> // Needed for GetNamedSecurityInfoW
+#include <sddl.h>   // Needed for ConvertStringSidToSidW
 #else
 #include <csignal>
 #include <fcntl.h>
@@ -90,6 +93,12 @@ int RunBoundedFFProbe(const wxString &exe,
 	int exitCode = kSpawnFailed;
 
 #ifdef __WXMSW__
+	const wxString program = FindProgram(exe);
+	if (program.IsEmpty()) {
+		wxRemoveFile(tmpPath);
+		return kSpawnFailed;
+	}
+
 	SECURITY_ATTRIBUTES sa;
 	sa.nLength = sizeof(sa);
 	sa.bInheritHandle = TRUE;
@@ -118,7 +127,7 @@ int RunBoundedFFProbe(const wxString &exe,
 	}
 
 	// Quote each token for the single command-line string CreateProcess wants.
-	wxString cmdLine = wxT("\"") + exe + wxT("\"");
+	wxString cmdLine = wxT("\"") + program + wxT("\"");
 	for (const wxString &a : argv) {
 		cmdLine += wxT(" \"") + a + wxT("\"");
 	}
@@ -314,8 +323,7 @@ constexpr unsigned kDetectTimeoutMs = 3000;
 //
 // Goes through RunBoundedFFProbe because that puts a deadline on a binary that never returns and is
 // callable off the main thread; wxExecute is neither (see the include-block note above). Bare
-// `ffprobe` still resolves through PATH: posix_spawnp and CreateProcess with a null application
-// name both search it.
+// `ffprobe` still resolves through PATH: posix_spawnp searches it, and on Windows FindProgram does.
 bool CanRun(const wxString &binary)
 {
 	// Detection is never cancelled part-way; only the timeout bounds it.
@@ -354,20 +362,105 @@ wxArrayString WellKnownPaths()
 	return paths;
 }
 
+#ifdef __WXMSW__
+// True if `path` is owned by this user, Administrators, SYSTEM or TrustedInstaller.
+bool HasTrustedOwner(const wxString &path)
+{
+	PSID owner = nullptr;
+	PSECURITY_DESCRIPTOR sd = nullptr;
+	if (::GetNamedSecurityInfoW(path.wc_str(),
+		    SE_FILE_OBJECT,
+		    OWNER_SECURITY_INFORMATION,
+		    &owner,
+		    nullptr,
+		    nullptr,
+		    nullptr,
+		    &sd) != ERROR_SUCCESS) {
+		return false;
+	}
+	bool trusted = ::IsWellKnownSid(owner, WinBuiltinAdministratorsSid) ||
+		       ::IsWellKnownSid(owner, WinLocalSystemSid);
+	if (!trusted) {
+		PSID installer = nullptr;
+		if (::ConvertStringSidToSidW(
+			    L"S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464", &installer)) {
+			trusted = ::EqualSid(owner, installer) != FALSE;
+			::LocalFree(installer);
+		}
+	}
+	if (!trusted) {
+		HANDLE token = nullptr;
+		if (::OpenProcessToken(::GetCurrentProcess(), TOKEN_QUERY, &token)) {
+			DWORD size = 0;
+			::GetTokenInformation(token, TokenUser, nullptr, 0, &size);
+			std::vector<BYTE> user(size);
+			if (size && ::GetTokenInformation(token, TokenUser, user.data(), size, &size)) {
+				trusted = ::EqualSid(owner,
+						  reinterpret_cast<TOKEN_USER *>(user.data())->User.Sid) !=
+					  FALSE;
+			}
+			::CloseHandle(token);
+		}
+	}
+	::LocalFree(sd);
+	return trusted;
+}
+
+// Any account may create C:\ffmpeg or a folder under C:\ProgramData, so a well-known path is
+// used only if the file and every folder above it have a trusted owner. Otherwise another user
+// could plant an ffprobe.exe, or a DLL beside a real one, that would run as us.
+bool IsTrustedLocation(const wxString &file)
+{
+	wxFileName name(file);
+	if (!HasTrustedOwner(name.GetFullPath())) {
+		return false;
+	}
+	while (name.GetDirCount() > 0) {
+		if (!HasTrustedOwner(name.GetPath())) {
+			return false;
+		}
+		name.RemoveLastDir();
+	}
+	return true;
+}
+
+#else
+bool IsTrustedLocation(const wxString &)
+{
+	return true;
+}
+#endif
+
 } // anonymous namespace
 
 wxString AutoDetectPath()
 {
-	// Fast path: bare `ffprobe` on PATH, which is what most Linux and BSD installs give for
-	// free. On macOS and Windows this often fails even when ffprobe IS installed, because GUI-
-	// launched processes get a minimal PATH (launchd's lacks /opt/homebrew; Windows GUI apps
-	// can miss choco/scoop).
+	// Fast path: ffprobe on PATH, which is what most Linux and BSD installs give for free. On
+	// macOS and Windows this often fails even when ffprobe IS installed, because GUI-launched
+	// processes get a minimal PATH (launchd's lacks /opt/homebrew; Windows GUI apps can miss
+	// choco/scoop).
+#ifdef __WXMSW__
+	const wxString onPath = FindProgram(wxT("ffprobe"));
+	if (!onPath.IsEmpty() && CanRun(onPath)) {
+		return onPath;
+	}
+#else
 	if (CanRun(wxT("ffprobe"))) {
 		return wxT("ffprobe");
 	}
+#endif
 
 	for (const wxString &candidate : WellKnownPaths()) {
-		if (wxFileName::FileExists(candidate) && CanRun(candidate)) {
+		if (!wxFileName::FileExists(candidate)) {
+			continue;
+		}
+		if (!IsTrustedLocation(candidate)) {
+			AddLogLineN(CFormat(_("Media metadata: not using %s, because another user owns it "
+					      "or a folder above it.")) %
+				    candidate);
+			continue;
+		}
+		if (CanRun(candidate)) {
 			return candidate;
 		}
 	}

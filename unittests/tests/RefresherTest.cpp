@@ -2716,6 +2716,7 @@ TEST(Refresher, PrefsSchemaIsWellFormed)
 		// Rows that round-trip a value need a backing member; rows that
 		// never do must not have one.
 		const bool needs_member = f.access == PrefAccess::ReadWrite ||
+					  f.access == PrefAccess::AdminRead ||
 					  f.access == PrefAccess::ReadOnly || f.access == PrefAccess::Bespoke;
 		ASSERT_TRUE(needs_member == (f.member != nullptr));
 
@@ -2758,7 +2759,7 @@ TEST(Refresher, PrefsSchemaIsWellFormed)
 // API states the positive fact and the schema undoes the EC negation on read and write alike.
 TEST(Refresher, PrefsSchemaIrregularitiesStayContained)
 {
-	std::size_t inverted = 0, foreign_group = 0, bespoke = 0;
+	std::size_t inverted = 0, foreign_group = 0, bespoke = 0, admin_read = 0;
 	for (std::size_t i = 0; i < PrefSchemaSize(); ++i) {
 		const PrefField &f = PrefSchema()[i];
 		if (f.invert) {
@@ -2774,10 +2775,19 @@ TEST(Refresher, PrefsSchemaIrregularitiesStayContained)
 			++bespoke;
 			ASSERT_EQUALS(std::string("guest_enabled"), std::string(f.key));
 		}
+		// Hidden from guests: the REST reference lists each one.
+		if (f.access == PrefAccess::AdminRead) {
+			++admin_read;
+			const std::string id = std::string(f.category) + "." + f.key;
+			ASSERT_TRUE(id == "connection.proxy_user" || id == "geoip.custom_update_url" ||
+				    id == "geoip.maxmind_license" || id == "servers.update_url" ||
+				    id == "security.ipfilter_update_url" || id == "kad.update_url");
+		}
 	}
 	ASSERT_EQUALS(static_cast<std::size_t>(2), inverted);
 	ASSERT_EQUALS(static_cast<std::size_t>(1), foreign_group);
 	ASSERT_EQUALS(static_cast<std::size_t>(1), bespoke);
+	ASSERT_EQUALS(static_cast<std::size_t>(6), admin_read);
 
 	// One category is gated on a tag proving the daemon has it. That tag must be one of the
 	// category's own value-encoded rows: a presence-encoded one is absent whenever it is false,
@@ -3717,7 +3727,7 @@ TEST(PrefsSchema, AnUnboundedNumericRowIsADeliberateChoice)
 {
 	// The forcing function. A new numeric row that leaves its ceiling at the full uint32 range
 	// fails here until someone puts it on this list, which is the review conversation the eight
-	// fields in #1174 never had. Both entries below were resolved to genuine uint32 members in
+	// fields in #1174 never had. The entries below were resolved to genuine uint32 members in
 	// the core during that audit.
 	static const char *const kKnownUnbounded[] = {
 		"files.min_free_space_mebibytes",
@@ -3791,4 +3801,110 @@ TEST(Refresher, OfficeExclusionDecodesExplicitValue)
 		ParsePreferencesFromPacket(&response, prefs, categories);
 		ASSERT_EQUALS(enabled, prefs.directories.exclude_office_documents);
 	}
+}
+
+TEST(Refresher, ChatCaptchaDecodesAndSurvivesIncrementalPolling)
+{
+	std::vector<ChatSessionSnapshot> cache;
+	std::uint32_t cursor = 0;
+	std::vector<ChatSessionSnapshot> fresh;
+	std::vector<ChatSessionClosure> closed;
+	CECPacket resp(EC_OP_CHAT_SESSIONS);
+	resp.AddTag(CECTag(EC_TAG_CHAT_MSG_ID, static_cast<uint32_t>(2)));
+	CECTag session = MakeChatSession(kPeerA, "alice");
+	CECTag challenge(EC_TAG_CHAT_MESSAGE, wxString("solve"));
+	challenge.AddTag(CECTag(EC_TAG_CHAT_MSG_ID, static_cast<uint32_t>(1)));
+	challenge.AddTag(CECTag(EC_TAG_CHAT_MESSAGE_KIND, static_cast<uint8_t>(1)));
+	challenge.AddTag(CECTag(EC_TAG_CHAT_CAPTCHA_IMAGE, wxString("Qk0=")));
+	session.AddTag(challenge);
+	CECTag result(EC_TAG_CHAT_MESSAGE, wxString("failed"));
+	result.AddTag(CECTag(EC_TAG_CHAT_MSG_ID, static_cast<uint32_t>(2)));
+	result.AddTag(CECTag(EC_TAG_CHAT_MESSAGE_KIND, static_cast<uint8_t>(2)));
+	result.AddTag(CECTag(EC_TAG_CHAT_CAPTCHA_STATUS, static_cast<uint8_t>(1)));
+	session.AddTag(result);
+	resp.AddTag(session);
+	ApplyChatSessions(&resp, cache, cursor, fresh, closed);
+	ASSERT_EQUALS(static_cast<size_t>(1), cache.size());
+	ASSERT_EQUALS(static_cast<uint8_t>(1), cache[0].messages[0].kind);
+	ASSERT_EQUALS(std::string("Qk0="), cache[0].messages[0].captcha_image);
+	ASSERT_EQUALS(static_cast<uint8_t>(2), fresh[0].messages[1].kind);
+	ASSERT_EQUALS(static_cast<uint8_t>(1), fresh[0].messages[1].captcha_status);
+	CECPacket next(EC_OP_CHAT_SESSIONS);
+	next.AddTag(CECTag(EC_TAG_CHAT_MSG_ID, static_cast<uint32_t>(2)));
+	next.AddTag(MakeChatSession(kPeerA, "alice"));
+	fresh.clear();
+	closed.clear();
+	ApplyChatSessions(&next, cache, cursor, fresh, closed);
+	ASSERT_TRUE(fresh.empty());
+	ASSERT_EQUALS(static_cast<size_t>(2), cache[0].messages.size());
+	ASSERT_EQUALS(std::string("Qk0="), cache[0].messages[0].captcha_image);
+}
+
+TEST(Refresher, PendingCaptchaSurvivesHistoryEvictionAndExpiresWithoutMessage)
+{
+	std::vector<ChatSessionSnapshot> cache;
+	std::uint32_t cursor = 0;
+	std::vector<ChatSessionSnapshot> changes;
+	std::vector<ChatSessionClosure> closed;
+	const auto poll = [&](uint32_t id, bool image) {
+		CECPacket response(EC_OP_CHAT_SESSIONS);
+		CECTag session = MakeChatSession(kPeerA, "alice");
+		session.AddTag(CECTag(EC_TAG_CHAT_CAPTCHA_ID, id));
+		if (image)
+			session.AddTag(CECTag(EC_TAG_CHAT_CAPTCHA_IMAGE, wxString("Qk0=")));
+		response.AddTag(session);
+		changes.clear();
+		ApplyChatSessions(&response, cache, cursor, changes, closed);
+	};
+	// Recovery with no transcript row, including a cursor beyond the challenge.
+	cursor = 300;
+	poll(42, true);
+	ASSERT_EQUALS(static_cast<size_t>(1), changes.size());
+	ASSERT_TRUE(changes[0].pending_captcha_changed);
+	ASSERT_TRUE(cache[0].messages.empty());
+	ASSERT_EQUALS(std::string("Qk0="), cache[0].pending_captcha_image);
+	// The next poll acknowledges the image; omission must retain it.
+	poll(42, false);
+	ASSERT_TRUE(changes.empty());
+	ASSERT_EQUALS(std::string("Qk0="), cache[0].pending_captcha_image);
+	// A new challenge may never inherit the previous image.
+	poll(43, false);
+	ASSERT_TRUE(cache[0].pending_captcha_image.empty());
+	ASSERT_EQUALS(static_cast<size_t>(1), changes.size());
+	poll(43, true);
+	ASSERT_EQUALS(std::string("Qk0="), cache[0].pending_captcha_image);
+	poll(0, false);
+	ASSERT_EQUALS(static_cast<size_t>(1), changes.size());
+	ASSERT_TRUE(changes[0].pending_captcha_changed);
+	ASSERT_TRUE(changes[0].messages.empty());
+	ASSERT_EQUALS(static_cast<uint32_t>(0), cache[0].pending_captcha_id);
+	ASSERT_TRUE(cache[0].pending_captcha_image.empty());
+	poll(0, false);
+	ASSERT_TRUE(changes.empty());
+}
+
+TEST(PrefsSchema, SharedFileReverifyDefaultsOffAndUsesBoundedUint32)
+{
+	webapi::PreferencesSnapshot prefs;
+	ASSERT_EQUALS(static_cast<std::uint32_t>(0), prefs.files.shared_file_reverify_days);
+	const webapi::PrefField *field = nullptr;
+	for (std::size_t i = 0; i < webapi::PrefSchemaSize(); ++i) {
+		const auto &candidate = webapi::PrefSchema()[i];
+		if (std::string(candidate.category) == "files" &&
+			std::string(candidate.key) == "shared_file_reverify_days") {
+			field = &candidate;
+		}
+	}
+	ASSERT_TRUE(field != nullptr);
+	ASSERT_TRUE(field->type == webapi::PrefType::Uint32);
+	ASSERT_TRUE(field->access == webapi::PrefAccess::ReadWrite);
+	ASSERT_EQUALS(static_cast<std::uint32_t>(0), field->min);
+	ASSERT_EQUALS(static_cast<std::uint32_t>(3650u), field->max);
+	CECPacket response(EC_OP_SET_PREFERENCES);
+	CECEmptyTag files(EC_TAG_PREFS_FILES);
+	files.AddTag(CECTag(EC_TAG_FILES_SHARED_REVERIFY_DAYS, static_cast<uint32>(3650u)));
+	response.AddTag(files);
+	std::vector<webapi::CategorySnapshot> categories;
+	webapi::ParsePreferencesFromPacket(&response, prefs, categories);
+	ASSERT_EQUALS(static_cast<std::uint32_t>(3650u), prefs.files.shared_file_reverify_days);
 }

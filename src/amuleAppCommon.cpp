@@ -948,6 +948,10 @@ bool CamuleAppCommon::InitCommon(int argc, wxChar **argv)
 		wxConfig::Set(new CamuleFileConfig("", "", thePrefs::GetConfigDir() + m_configFile));
 	}
 
+#ifndef AMULE_DAEMON
+	CamuleGuiBase::ApplyConfiguredAppearance();
+#endif
+
 	// The config holds the EC password, which is the credential itself rather than a verifier
 	// -- anything that can read this file can drive the daemon. It is created with whatever the
 	// umask allows, group-writable by default on Debian and Ubuntu. Tightened here rather than
@@ -1135,13 +1139,6 @@ bool CamuleAppCommon::CheckPassedLink(const wxString &in, wxString &out, int cat
 		}
 	}
 
-	// Each link is one line of ED2KLinks: a line break inside one would forge more lines.
-	if (link.find_first_of("\r\n") != wxString::npos) {
-		AddLogLineCS(
-			CFormat(_("Invalid eD2k link \"%s\" - ERROR: %s")) % link % "line break in link");
-		return false;
-	}
-
 	try {
 		CScopedPtr<CED2KLink> uri(CED2KLink::CreateLinkFromUrl(link));
 		if (uri.get()->GetKind() == CED2KLink::kFile) {
@@ -1152,11 +1149,19 @@ bool CamuleAppCommon::CheckPassedLink(const wxString &in, wxString &out, int cat
 		} else {
 			out = uri.get()->GetLink();
 		}
-		return true;
 	} catch (const wxString &err) {
 		AddLogLineCS(CFormat(_("Invalid eD2k link \"%s\" - ERROR: %s")) % link % err);
+		return false;
 	}
-	return false;
+
+	// Each link is one line of ED2KLinks: a line break inside one would forge more lines. Checked
+	// on what is written, since GetLink() returns decoded text.
+	if (out.find_first_of("\r\n") != wxString::npos) {
+		AddLogLineCS(
+			CFormat(_("Invalid eD2k link \"%s\" - ERROR: %s")) % link % "line break in link");
+		return false;
+	}
+	return true;
 }
 
 /**

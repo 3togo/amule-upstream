@@ -225,8 +225,16 @@ public:
 	// Raw and unvalidated, so an unsupported value can be reported as written; map it with
 	// AddressFamilyPolicy::FamiliesFromSetting().
 	static long GetAddressFamiliesSetting() { return s_addressFamiliesSetting; }
+	static void SetAddressFamiliesSetting(long val) { s_addressFamiliesSetting = val; }
 	// The user's word that the ed2k TCP port accepts inbound IPv6: nothing can test it from outside.
 	static bool GetAdvertiseIPv6() { return s_advertiseIPv6; }
+	static void SetAdvertiseIPv6(bool val) { s_advertiseIPv6 = val; }
+#ifdef CLIENT_GUI
+	// Whether the daemon's last prefs reply carried EC_TAG_CONN_ADDRESS_FAMILIES; absent means an
+	// old daemon or one without ENABLE_IPV6, which is not the same as "IPv4 only".
+	static bool GetAddressFamiliesTagSupported() { return s_addressFamiliesTagSupported; }
+	static void SetAddressFamiliesTagSupported(bool val) { s_addressFamiliesTagSupported = val; }
+#endif
 #endif
 	static uint16 GetPort() { return s_port; }
 	static void SetPort(uint16 val);
@@ -244,6 +252,14 @@ public:
 	static uint32 GetMaxUpload() { return s_maxupload; }
 	static uint32 GetSlotAllocation() { return s_slotallocation; }
 	static bool IsICHEnabled() { return s_ICH; }
+	// Request-triggered verification interval in days; zero disables automatic checks.
+	static uint32 GetSharedFileReverifyDays() { return s_sharedFileReverifyDays; }
+	static void SetSharedFileReverifyDays(uint32 days)
+	{
+		if (days <= 3650) {
+			s_sharedFileReverifyDays = days;
+		}
+	}
 	static void SetICHEnabled(bool val) { s_ICH = val; }
 	static bool IsTrustingEveryHash() { return s_AICHTrustEveryHash; }
 	static void SetTrustingEveryHash(bool val) { s_AICHTrustEveryHash = val; }
@@ -817,6 +833,17 @@ public:
 	static uint32 GetKadUDPKey() { return s_dwKadUDPKey; }
 	static uint8 GetCryptTCPPaddingLength() { return s_byCryptTCPPaddingLength; }
 
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+	// Runtime opt-in for Lugdunum's NAT callback: gates the login opt-in, the
+	// OP_NAT_CALLBACKREQUEST send and keeping LowID server sources. amule.conf-only, off by
+	// default -- no widget, no EC tag.
+	static bool IsLugdunumNatCallbackEnabled() { return s_LugdunumNatCallbackEnabled; }
+	// Runtime opt-in for ed2k-server's LowID hole punch: gates the CT_EMULE_UDPPORTS login tag,
+	// the OP_SERVER_NATT_KEEPALIVE send, the OP_LOWID_HOLEPUNCH_REQUEST send and keeping LowID
+	// server sources from such a server. amule.conf-only, off by default -- no widget, no EC tag.
+	static bool IsLowIdHolePunchEnabled() { return s_LowIdHolePunchEnabled; }
+#endif
+
 	static void SetClientCryptLayerSupported(bool v) { s_IsClientCryptLayerSupported = v; }
 	static void SetClientCryptLayerRequested(bool v) { s_bCryptLayerRequested = v; }
 	static void SetClientCryptLayerRequired(bool v) { s_IsClientCryptLayerRequired = v; }
@@ -948,6 +975,9 @@ protected:
 #ifdef ENABLE_IPV6
 	static long s_addressFamiliesSetting;
 	static bool s_advertiseIPv6;
+#ifdef CLIENT_GUI
+	static bool s_addressFamiliesTagSupported;
+#endif
 #endif
 	static uint16 s_port;
 	static uint16 s_udpport;
@@ -973,6 +1003,7 @@ protected:
 	static CPath s_incomingdir;
 	static CPath s_tempdir;
 	static bool s_ICH;
+	static uint32 s_sharedFileReverifyDays;
 	static bool s_AICHTrustEveryHash;
 
 	////////////// GUI
@@ -1177,6 +1208,10 @@ protected:
 	static bool s_bCryptLayerRequested;
 	static uint32 s_dwKadUDPKey;
 	static uint8 s_byCryptTCPPaddingLength;
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+	static bool s_LugdunumNatCallbackEnabled;
+	static bool s_LowIdHolePunchEnabled;
+#endif
 
 	// GeoIP / IP2Country
 	static bool s_GeoIPEnabled;

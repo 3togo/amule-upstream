@@ -74,10 +74,11 @@
 #include "SearchList.h"                      // Needed for searchlist lookup
 #include "NetworkFunctions.h"                // Needed for Uint32toStringIP (Kad note author)
 #include <tags/FileTags.h>                   // Needed for TAG_FILERATING / TAG_DESCRIPTION
+#include "Statistics.h"                      // Needed for theStats::GetUptimeMillis
 #include "ThreadTasks.h"                     // Needed for CThreadScheduler and CVerifyLocalDataTask
 
-#include "kademlia/kademlia/UDPFirewallTester.h" // Needed for CUDPFirewallTester (PublishSrc)
-#include "KadCallbackPolicy.h"                   // Needed for NeedsBuddy / CanPublishSource
+#include "KadCallbackPolicy.h" // Needed for CanPublishSource
+#include "SharedFileList.h"    // Needed for CSharedFileList::CurrentKadPublishFacts
 #endif
 
 CFileStatistic::CFileStatistic(CKnownFile *parent)
@@ -410,7 +411,10 @@ void CKnownFile::VerifyLocalData() const
 			    GetFileName());
 		return;
 	}
-	CThreadScheduler::AddTask(new CVerifyLocalDataTask(this));
+	// Replace a queued automatic check so this explicit request runs at high priority
+	// and reports success. A running automatic check restarts as manual; an existing
+	// manual check keeps its progress.
+	CThreadScheduler::AddTask(new CVerifyLocalDataTask(this), CThreadScheduler::Overwrite::LowerPriority);
 }
 
 // Live upload activity summarised from m_ClientUploadList (issue #466). Core-only: the list is
@@ -423,6 +427,27 @@ uint32 CKnownFile::GetUploadDatarate() const
 		total += ref.GetUploadDatarate();
 	}
 	return total;
+}
+
+void CKnownFile::MaybeScheduleVerification()
+{
+	const uint32 days = thePrefs::GetSharedFileReverifyDays();
+	if (days == 0 || IsPartFile()) {
+		return;
+	}
+	const uint64 uptime = theStats::GetUptimeMillis();
+	const time_t now = time(nullptr);
+	if (now <= 0 ||
+		!m_autoVerifySchedule.IsDue(days, m_verifyResult.date, static_cast<uint64>(now), uptime)) {
+		return;
+	}
+	// Avoid even constructing a snapshot on every request while another check is pending.
+	// AddTaskIfNoneOfType rechecks under the scheduler lock before taking ownership.
+	if (!CThreadScheduler::HasTaskOfType("VerifyLocalData") &&
+		CThreadScheduler::AddTaskIfNoneOfType(
+			new CVerifyLocalDataTask(this, CVerifyLocalDataTask::Mode::Automatic))) {
+		m_autoVerifySchedule.OnQueued(uptime);
+	}
 }
 
 void CKnownFile::WritePartStatus(CMemFile *file)
@@ -1514,9 +1539,12 @@ bool CAbstractFile::RequestKadNoteSearch()
 
 bool CKnownFile::PublishSrc()
 {
-	const bool udpFirewalled = Kademlia::CUDPFirewallTester::IsFirewalledUDP(true);
-	const bool needsBuddy = Kademlia::NeedsBuddy(
-		theApp->IsFirewalled(), udpFirewalled, Kademlia::CUDPFirewallTester::IsVerified());
+	const SKadPublishFacts facts = CSharedFileList::CurrentKadPublishFacts();
+	if (!PublishesToKad(facts)) {
+		return false;
+	}
+	// Only a buddy route is tracked, so gaining or losing a buddy republishes at once.
+	const bool needsBuddy = DecideKadSourcePublish(facts) == EKadSourcePublish::Buddy;
 	uint32 buddyIP = 0;
 	uint16 buddyPort = 0;
 	if (needsBuddy) {

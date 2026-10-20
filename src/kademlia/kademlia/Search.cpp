@@ -38,7 +38,6 @@ Any mod that changes anything within the Kademlia side will not be allowed to ad
 there client on the eMule forum..
 */
 
-#include "../../KadCallbackPolicy.h"
 #include "Search.h"
 #include "../../GetTickCount.h"
 
@@ -61,7 +60,11 @@ there client on the eMule forum..
 #include "../net/KademliaUDPListener.h"
 #include "../utils/KadClientSearcher.h"
 #include "../../amule.h"
+#ifdef ENABLE_IPV6
+#include "../../AdvertisedIPv6.h"
+#endif
 #include "../../SharedFileList.h"
+#include "../../KadPublishPolicy.h" // Needed for DecideKadSourcePublish
 #include "../../DownloadQueue.h"
 #include "../../PartFile.h"
 #include "../../SHAHashSet.h" // Needed for CAICHHash on Kad keyword storage
@@ -77,6 +80,7 @@ there client on the eMule forum..
 #include "../../NetworkFunctions.h" // Needed for KadIPPortToString
 #endif
 #include "../../GuiEvents.h"
+#include "../../KadBuddyIdLayout.h"
 
 ////////////////////////////////////////
 using namespace Kademlia;
@@ -782,59 +786,62 @@ void CSearch::StorePacket()
 			// firewalled Kad, 6 firewalled with direct callback (supports >4GB).
 			// 2 cannot be used, as older clients will not work with it.
 
-			bool directCallback = false;
-			if (theApp->IsFirewalled()) {
-				const bool udpFirewalled =
-					Kademlia::CUDPFirewallTester::IsFirewalledUDP(true);
-				directCallback = (Kademlia::CKademlia::IsRunning() &&
-						  Kademlia::DirectCallbackAvailable(theApp->IsFirewalled(),
-							  udpFirewalled,
-							  Kademlia::CUDPFirewallTester::IsVerified()));
-				if (directCallback) {
-					// firewalled, but direct udp callback is possible so no need for
-					// buddies We are not firewalled..
-					taglist.push_back(new CTagVarInt(TAG_SOURCETYPE, 6));
-					taglist.push_back(
-						new CTagVarInt(TAG_SOURCEPORT, thePrefs::GetPort()));
-					if (!CKademlia::GetPrefs()->GetUseExternKadPort()) {
-						taglist.push_back(new CTagInt16(TAG_SOURCEUPORT,
-							CKademlia::GetPrefs()->GetInternKadPort()));
-					}
-					if (from->GetVersion() >= 2) {
-						taglist.push_back(
-							new CTagVarInt(TAG_FILESIZE, file->GetFileSize()));
-					}
-				} else if (theApp->clientlist->GetBuddy()) { // We are firewalled, make sure
-									     // we have a buddy.
-					// We send the ID to our buddy so they can do a callback.
-					CUInt128 buddyID(true);
-					buddyID ^= CKademlia::GetPrefs()->GetKadID();
-					taglist.push_back(
-						new CTagInt8(TAG_SOURCETYPE, file->IsLargeFile() ? 5 : 3));
-					taglist.push_back(new CTagVarInt(
-						TAG_SERVERIP, theApp->clientlist->GetBuddy()->GetIP()));
-					taglist.push_back(new CTagVarInt(TAG_SERVERPORT,
-						theApp->clientlist->GetBuddy()->GetUDPPort()));
-					uint8_t hashBytes[16];
-					buddyID.ToByteArray(hashBytes);
-					taglist.push_back(
-						new CTagString(TAG_BUDDYHASH, CMD4Hash(hashBytes).Encode()));
-					taglist.push_back(
-						new CTagVarInt(TAG_SOURCEPORT, thePrefs::GetPort()));
-					if (!CKademlia::GetPrefs()->GetUseExternKadPort()) {
-						taglist.push_back(new CTagInt16(TAG_SOURCEUPORT,
-							CKademlia::GetPrefs()->GetInternKadPort()));
-					}
-					if (from->GetVersion() >= 2) {
-						taglist.push_back(
-							new CTagVarInt(TAG_FILESIZE, file->GetFileSize()));
-					}
-				} else {
-					// No callback route remains. Let the next shared-file pass retry.
-					file->SetLastPublishTimeKadSrc(0, 0);
-					PrepareToStop();
-					break;
+			const EKadSourcePublish publishAs =
+				DecideKadSourcePublish(CSharedFileList::CurrentKadPublishFacts());
+			if (publishAs == EKadSourcePublish::DirectCallback) {
+				// firewalled, but direct udp callback is possible so no need for
+				// buddies We are not firewalled..
+				taglist.push_back(new CTagVarInt(TAG_SOURCETYPE, 6));
+				taglist.push_back(new CTagVarInt(TAG_SOURCEPORT, thePrefs::GetPort()));
+				if (!CKademlia::GetPrefs()->GetUseExternKadPort()) {
+					taglist.push_back(new CTagInt16(
+						TAG_SOURCEUPORT, CKademlia::GetPrefs()->GetInternKadPort()));
 				}
+				if (from->GetVersion() >= 2) {
+					taglist.push_back(new CTagVarInt(TAG_FILESIZE, file->GetFileSize()));
+				}
+			} else if (publishAs == EKadSourcePublish::Buddy) {
+				// We send the ID to our buddy so they can do a callback.
+				CUInt128 buddyID(true);
+				buddyID ^= CKademlia::GetPrefs()->GetKadID();
+				taglist.push_back(new CTagInt8(TAG_SOURCETYPE, file->IsLargeFile() ? 5 : 3));
+				taglist.push_back(new CTagVarInt(
+					TAG_SERVERIP, theApp->clientlist->GetBuddy()->GetIP()));
+				taglist.push_back(new CTagVarInt(
+					TAG_SERVERPORT, theApp->clientlist->GetBuddy()->GetUDPPort()));
+				uint8_t hashBytes[16];
+				buddyID.ToByteArray(hashBytes);
+				// eMule, emule-qt and eMuleAI all publish TAG_BUDDYHASH in their own layout
+				// (#1835).
+				uint8_t emuleLayout[16];
+				ConvertBuddyIdLayout(hashBytes, emuleLayout);
+				taglist.push_back(
+					new CTagString(TAG_BUDDYHASH, CMD4Hash(emuleLayout).Encode()));
+				taglist.push_back(new CTagVarInt(TAG_SOURCEPORT, thePrefs::GetPort()));
+				if (!CKademlia::GetPrefs()->GetUseExternKadPort()) {
+					taglist.push_back(new CTagInt16(
+						TAG_SOURCEUPORT, CKademlia::GetPrefs()->GetInternKadPort()));
+				}
+				if (from->GetVersion() >= 2) {
+					taglist.push_back(new CTagVarInt(TAG_FILESIZE, file->GetFileSize()));
+				}
+			} else if (publishAs == EKadSourcePublish::IPv6Only) {
+				// A firewalled source with no buddy to relay a callback: peers reach us only
+				// at the "ip6" tag added below.
+				taglist.push_back(new CTagInt8(TAG_SOURCETYPE, file->IsLargeFile() ? 5 : 3));
+				taglist.push_back(new CTagVarInt(TAG_SOURCEPORT, thePrefs::GetPort()));
+				if (!CKademlia::GetPrefs()->GetUseExternKadPort()) {
+					taglist.push_back(new CTagInt16(
+						TAG_SOURCEUPORT, CKademlia::GetPrefs()->GetInternKadPort()));
+				}
+				if (from->GetVersion() >= 2) {
+					taglist.push_back(new CTagVarInt(TAG_FILESIZE, file->GetFileSize()));
+				}
+			} else if (publishAs == EKadSourcePublish::None) {
+				// No callback route remains. Let the next shared-file pass retry.
+				file->SetLastPublishTimeKadSrc(0, 0);
+				PrepareToStop();
+				break;
 			} else {
 				// We're not firewalled..
 				taglist.push_back(new CTagInt8(TAG_SOURCETYPE, file->IsLargeFile() ? 4 : 1));
@@ -850,6 +857,14 @@ void CSearch::StorePacket()
 
 			taglist.push_back(
 				new CTagInt8(TAG_ENCRYPTION, CPrefs::GetMyConnectOptions(true, true)));
+#ifdef ENABLE_IPV6
+			if (const std::optional<CNetworkAddress> ipv6 = AdvertisedIPv6ForPeers()) {
+				uint8_t bytes[16];
+				if (ipv6->ToIPv6Bytes(bytes)) {
+					taglist.push_back(new CTagString(TAG_IPV6, EncodeIPv6HexTag(bytes)));
+				}
+			}
+#endif
 
 			CKademlia::GetUDPListener()->SendPublishSourcePacket(*from, m_target, id, taglist);
 			m_totalRequestAnswers++;
@@ -1136,7 +1151,11 @@ void CSearch::ProcessResultFile(const CUInt128 &answer, TagPtrList *info)
 				printf("Invalid buddy-hash: '%s'\n", (const char *)tag->GetStr().fn_str());
 #endif
 			}
-			buddy.SetValueBE(hash.GetHash());
+			// eMule, emule-qt and eMuleAI publish TAG_BUDDYHASH in their own layout; convert to
+			// aMule's to get the real buddy ID (#1835).
+			uint8_t canonical[16];
+			ConvertBuddyIdLayout(hash.GetHash(), canonical);
+			buddy.SetValueBE(canonical);
 		} else if (!tag->GetName().Cmp(TAG_ENCRYPTION)) {
 			byCryptOptions = (uint8)tag->GetInt();
 		} else if (!tag->GetName().Cmp(TAG_IPV6) || !tag->GetName().Cmp(TAG_SERVINGBUDDYIPV6)) {
@@ -1216,7 +1235,10 @@ void CSearch::ProcessResultNotes(const CUInt128 &answer, TagPtrList *info)
 		} else if (!tag->GetName().Cmp(TAG_SOURCEPORT)) {
 			entry->m_uTCPport = tag->GetInt();
 		} else if (!tag->GetName().Cmp(TAG_FILENAME)) {
-			entry->SetFileName(tag->GetStr());
+			// The first name wins, as on the publish path: a second one is a malformed answer.
+			if (entry->GetCommonFileName().IsEmpty()) {
+				entry->SetFileName(tag->GetStr());
+			}
 		} else if (!tag->GetName().Cmp(TAG_DESCRIPTION) || !tag->GetName().Cmp(TAG_FILERATING)) {
 			// Kept whatever it says: the comment filter applies when notes are shown.
 			entry->AddTag(tag, entry->m_uIP);
@@ -1317,11 +1339,11 @@ void CSearch::ProcessResultKeyword(
 			if (tag->IsBsob() && (tag->GetBsobSize() == 8)) {
 				// Kad1.0 uint64 type using a BSOB.
 				size = PeekUInt64(tag->GetBsob());
-			} else {
-				wxASSERT(tag->IsInt());
+				bFileSize = true;
+			} else if (tag->IsInt()) {
 				size = tag->GetInt();
+				bFileSize = true;
 			}
-			bFileSize = true;
 		} else if (tag->GetName() == TAG_FILETYPE) {
 			type = tag->GetStr();
 		} else if (tag->GetName() == TAG_FILEFORMAT) {

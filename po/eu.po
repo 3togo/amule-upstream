@@ -198,6 +198,15 @@ msgstr "Berrabiarazi orain"
 msgid "Later"
 msgstr "Geroago"
 
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+msgid "The connected core does not support deleting complete files from disk."
+msgstr ""
+
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+#, fuzzy
+msgid "Delete from disk"
+msgstr "Lortu Kad-etik"
+
 #: src/GuiEvents.cpp
 #, c-format
 msgid ""
@@ -221,26 +230,6 @@ msgid ""
 "%s\n"
 "The files are deleted and no longer shared. This cannot be undone."
 msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy
-msgid "Delete from disk"
-msgstr "Lortu Kad-etik"
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Skipped deleting '%s': the selected file has changed."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Deleted '%s' from disk."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy, c-format
-msgid "Could not delete '%s' from disk."
-msgstr "Aldiroko deskarga fitxategientzat karpeta"
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -327,6 +316,22 @@ msgid "Now, exiting main app..."
 msgstr "Orain, aplikazio nagusia ixten..."
 
 #: src/amule.cpp
+msgid "Saving window settings..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving client credits..."
+msgstr ""
+"\n"
+"Bezeroa sortzen...\n"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Stopping helper applications..."
+msgstr "Aplikaziotik ateratzen da."
+
+#: src/amule.cpp
 #, c-format
 msgid "Terminating amuleweb instance with pid '%d' ... "
 msgstr "'%d' pid-a duen amuleweb instantzia amaitzen ... "
@@ -356,12 +361,31 @@ msgid "aMule OnExit: Terminating core."
 msgstr "aMule irteten: Muina ixten."
 
 #: src/amule.cpp
+#, fuzzy
+msgid "Saving search results..."
+msgstr "Bilaketa emaitza"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving downloads and shared files..."
+msgstr "Partekatutako fitxategiak birkargatzen..."
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Flushing download buffers..."
+msgstr "fitxategia ezabatzen:%s"
+
+#: src/amule.cpp
 msgid "aMule shutdown completed."
 msgstr "aMule itzaltzea osaturik."
 
 #: src/amule.cpp
 msgid "Memory debug results for aMule exit:"
 msgstr "aMule ixtearen memoria arazte irteera:"
+
+#: src/amule.cpp
+msgid "Finishing shutdown..."
+msgstr ""
 
 #: src/amule.cpp
 #, fuzzy, c-format
@@ -483,6 +507,11 @@ msgstr "Kad abioko nodoak (nodes.dat)"
 
 #: src/amule.cpp
 #, c-format
+msgid "Not starting %s: it is neither next to aMule nor on PATH."
+msgstr ""
+
+#: src/amule.cpp
+#, c-format
 msgid "web server running on pid %d"
 msgstr "web zerbitzaria abiarazirik %d pid-arekin"
 
@@ -501,13 +530,31 @@ msgid "Could not write the amuleapi EC token to %s; amuleapi will fall back to i
 msgstr ""
 
 #: src/amule.cpp
+msgid "An exception occurred while launching amuleapi."
+msgstr ""
+
+#: src/amule.cpp
 #, c-format
 msgid "amuleapi running on pid %d"
 msgstr "amuleapi %d pid-ean exekutatzen"
 
 #: src/amule.cpp
+msgid "Could not launch amuleapi during automatic restart."
+msgstr ""
+
+#: src/amule.cpp
 msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot be run. Please install the package containing aMule's REST API server, or build aMule from source with -DBUILD_AMULEAPI=YES and install it."
 msgstr "Abioan amuleapi exekutatzeko eskatu duzu, baina amuleapi bitarra ezin da exekutatu. Mesedez, instalatu aMule-ren REST API zerbitzaria duen paketea, edo eraiki aMule iturburutik -DBUILD_AMULEAPI=YES aukerarekin eta instalatu."
+
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Could not remove the amuleapi EC token file: %s"
+msgstr "Ezin izan da amuleapi pasahitza gorde: %s"
+
+#: src/amule.cpp
+#, c-format
+msgid "amuleapi will restart in %u seconds."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -657,6 +704,28 @@ msgstr ""
 #, c-format
 msgid "Disk space preallocation for file '%s' failed: %s"
 msgstr "Disko aurresleipenak huts egin du '%s' fitxategiarentzat: %s"
+
+#: src/amule.cpp
+msgid "Stopping network services..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving source seeds..."
+msgstr "Jatorri haziak"
+
+#: src/amule.cpp
+msgid "Stopping background downloads and workers..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Closing connections..."
+msgstr " konektatzen..."
+
+#: src/amule.cpp
+msgid "Saving known files and statistics..."
+msgstr ""
 
 #: src/amule.cpp
 msgid "ERROR: can't open logfile"
@@ -1184,6 +1253,22 @@ msgstr "Ezin izan da berriz konektatzea hasi; laster saiatuko da berriro."
 msgid "Ready"
 msgstr "Prest"
 
+#: src/amule-remote-gui.cpp
+msgid "*** Solve the CAPTCHA and send its text as a message."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA passed; your message was delivered."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA failed; send another message to try again."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA failed; no attempts remain."
+msgstr ""
+
 #: src/amule-remote-gui.cpp src/TransferWnd.cpp
 msgid "All"
 msgstr "Guztiak"
@@ -1222,6 +1307,10 @@ msgstr "Aldiroko deskarga fitxategientzat karpeta"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Ezin da '%s' direktorioa sortu '%s' kategoriarentzat, '%s' direktorioa mantenduko da."
+
+#: src/amule-remote-gui.cpp
+msgid "The core did not confirm deleting the file. Refresh and try again."
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 #, c-format
@@ -2339,6 +2428,11 @@ msgid "Unauthorized access attempt from %s. Connection closed."
 msgstr "Baimendu gabeko sarrera saiakera %s-tik. Konexioa itxia."
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid partfile command target."
+msgstr "Fitxategi izen baliogabea."
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote PartFile command failed: FileHash not found: %s"
 msgstr "Urruneko ZatiFitxategi komandoak huts egin du: Ez da %s fitxategi egiaztapena aurkitu"
@@ -2347,6 +2441,20 @@ msgstr "Urruneko ZatiFitxategi komandoak huts egin du: Ez da %s fitxategi egiazt
 #, c-format
 msgid "FileHash not found: %s"
 msgstr "Ez da %s fitxategi egiaztapena aurkitu"
+
+#: src/ExternalConn.cpp
+#, fuzzy, c-format
+msgid "Cannot cancel a finished download: %s"
+msgstr "Deskarga amaiturik: %s"
+
+#: src/ExternalConn.cpp
+msgid "The selected download has changed or is completing. Refresh and try again."
+msgstr ""
+
+#: src/ExternalConn.cpp
+#, fuzzy, c-format
+msgid "No such category: %u"
+msgstr "Itxi elkarrizketa saio hau."
 
 #: src/ExternalConn.cpp
 msgid "OOPS! OpCode processing error!"
@@ -2436,6 +2544,11 @@ msgid "Version check is not available on this daemon."
 msgstr "Bertsio-egiaztapena ez dago erabilgarri deabru honetan."
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid complete-file deletion target."
+msgstr "Fitxategi izen baliogabea."
+
+#: src/ExternalConn.cpp
 msgid "File not found."
 msgstr "Fitxategia ez da aurkitu."
 
@@ -2490,6 +2603,10 @@ msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Empty chat message"
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "CAPTCHA challenge is no longer pending"
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2808,6 +2925,11 @@ msgstr "Fitxategi aurreikuspena"
 #: src/FileLaunch.cpp
 #, c-format
 msgid "Media-player command '%s' was not run: %s"
+msgstr ""
+
+#: src/FileLaunch.cpp
+#, c-format
+msgid "The configured video player is unavailable inside aMule's Flatpak sandbox: %s. Programs installed on the host are not directly available here. Completed files can still open with the desktop's default application; previewing an unfinished download needs a player the sandbox can run, such as a self-contained player saved in your home folder."
 msgstr ""
 
 #: src/FileLaunch.cpp
@@ -3150,6 +3272,11 @@ msgstr "Bai"
 msgid "Failed to open MaxMindDB database '%s': %s"
 msgstr "Huts egin du irekitzerakoan: %s (%s)"
 
+#: src/geoip/MaxMindDBDatabase.cpp
+#, fuzzy, c-format
+msgid "Failed to replace MaxMindDB database '%s': %s"
+msgstr "Huts egin du irekitzerakoan: %s (%s)"
+
 #: src/HTTPDownload.cpp
 msgid "Downloading..."
 msgstr "Deskargatzen..."
@@ -3157,6 +3284,11 @@ msgstr "Deskargatzen..."
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "HTTP deskarga utzia"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "HTTP download of %s stopped: it is larger than %u MiB."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 msgid "The URL to download can't be empty"
@@ -3229,25 +3361,15 @@ msgstr "Deskargatu %s berria %s(e)tik"
 msgid "Download of %s file failed, aborting update."
 msgstr "%s fitxategiaren deskargak huts egin du; eguneratzea abortatzen."
 
-#: src/IP2Country.cpp src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "Huts %s fitxategia ezabatzean, eguneraketa baztertzen."
-
 #: src/IP2Country.cpp
 #, c-format
-msgid "Failed to rename %s file, aborting update."
-msgstr "Huts %s fitxategia berrizendatzean, eguneraketa baztertzen."
+msgid "Error updating %s"
+msgstr "Errorea %s eguneratzean"
 
 #: src/IP2Country.cpp src/IPFilter.cpp
 #, c-format
 msgid "Successfully updated %s"
 msgstr "%s behar bezala eguneratu da"
-
-#: src/IP2Country.cpp
-#, c-format
-msgid "Error updating %s"
-msgstr "Errorea %s eguneratzean"
 
 #: src/IP2Country.cpp
 msgid "DB-IP download failed for the current month - retrying with the previous month's URL."
@@ -3285,6 +3407,11 @@ msgid "%u malformed line was discarded."
 msgid_plural "%u malformed lines were discarded."
 msgstr[0] "Gaizki eratutako lerro %u alde batetara utzi da."
 msgstr[1] "Gaizki eratutako %u lerro alde batetara utzi dira."
+
+#: src/IPFilter.cpp
+#, c-format
+msgid "Failed to remove %s file, aborting update."
+msgstr "Huts %s fitxategia ezabatzean, eguneraketa baztertzen."
 
 #: src/IPFilter.cpp
 #, c-format
@@ -3779,6 +3906,15 @@ msgid "Hashing"
 msgstr "Aztertzen"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Allocating"
+msgstr "Esleitzen"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
+#: src/TransferWnd.cpp
+msgid "Stopped"
+msgstr "Gelditua"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
 msgid "Completing"
 msgstr "Osotzen"
 
@@ -3795,6 +3931,10 @@ msgstr "Geraturik"
 #: src/TransferWnd.cpp
 msgid "Erroneous"
 msgstr "Akasdun"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Insufficient disk space"
+msgstr "Disko leku askieza"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
 #: src/TransferWnd.cpp
@@ -3891,6 +4031,11 @@ msgid "WARNING: "
 msgstr "OHARRA: "
 
 #: src/MediaProbe.cpp
+#, c-format
+msgid "Media metadata: not using %s, because another user owns it or a folder above it."
+msgstr ""
+
+#: src/MediaProbe.cpp
 msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
 msgstr ""
 
@@ -3961,6 +4106,23 @@ msgstr[1] ""
 msgid "Close"
 msgstr "Itxi"
 
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit column to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit visible columns to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+#, fuzzy
+msgid "Show all columns (keep widths)"
+msgstr "Erakutsi iruzkin guztiak"
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Restore default columns and widths"
+msgstr ""
+
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
 msgstr "Ebaki"
@@ -3988,7 +4150,7 @@ msgstr "Hautatu dena"
 msgid "KiB/s"
 msgstr ""
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Unlimited"
 msgstr "Mugarik gabea"
 
@@ -4059,11 +4221,11 @@ msgstr "UDP ataka: Ez dago prest"
 msgid "Client Information"
 msgstr "Bezero argibidea"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Upload limit"
 msgstr "Igoera muga"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Download limit"
 msgstr "Deskarga muga"
 
@@ -4867,12 +5029,26 @@ msgid "Video Player"
 msgstr "Bideo-erreproduzigailua"
 
 #: src/muuli_wdr.cpp
-msgid "Bandwidth limits"
-msgstr "Konexio mugak"
+msgid "Line capacities"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Upload"
 msgstr "Igo"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth limits"
+msgstr "Konexio mugak"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable download limit"
+msgstr "Deskarga muga"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable upload limit"
+msgstr "Igoera muga"
 
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
@@ -4969,6 +5145,30 @@ msgid ""
 "A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
 "\n"
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
+
+#: src/muuli_wdr.cpp src/PeerCapabilities.h
+msgid "IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Address families:"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 only"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 and IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Takes effect after restarting aMule."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Advertise my IPv6 address to other peers"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5087,6 +5287,18 @@ msgstr "Igoerak"
 #: src/muuli_wdr.cpp
 msgid "Add new shared files with auto priority"
 msgstr "Gehitu partekatutako fitxategi berriak auto-lehentasunarekin"
+
+#: src/muuli_wdr.cpp
+msgid "Verify local data of requested shared files every"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Re-read requested complete files in the background and compare them with their stored MD4/AICH hashes, as Verify Local Data does. Corrupt parts stop being shared. Uploads continue during the check."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "days (0 = off)"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Intelligent Corruption Handling (I.C.H.)"
@@ -5243,14 +5455,6 @@ msgid "Connections Graph Scale: 100 "
 msgstr "Konexio graf eskala: 100 "
 
 #: src/muuli_wdr.cpp
-msgid "Download graph scale:"
-msgstr "Deskarga grafiko eskala:"
-
-#: src/muuli_wdr.cpp
-msgid "Upload graph scale:"
-msgstr "Igoera grafiko eskala:"
-
-#: src/muuli_wdr.cpp
 #, fuzzy
 msgid "Colors: "
 msgstr "Koloreak: "
@@ -5362,6 +5566,26 @@ msgstr "Zerbitzari konexio berritze aldia: Ezgaiturik"
 #: src/muuli_wdr.cpp
 msgid "Disable computer's timed standby mode"
 msgstr "Ezgaitu ordenagailu ordulariaren bigarren planoko modua"
+
+#: src/muuli_wdr.cpp
+msgid "Appearance: "
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow system"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Light mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Dark mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Appearance changes take effect after restarting aMule."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Skin to use: "
@@ -5876,12 +6100,13 @@ msgid "Download the GeoIP database from the selected source."
 msgstr "Deskargatu GeoIP datu-basea hautatutako iturburutik."
 
 #: src/muuli_wdr.cpp
-msgid "Auto-update on startup"
+#, fuzzy
+msgid "Auto-update on startup and weekly"
 msgstr "Eguneratu automatikoki abioan"
 
 #: src/muuli_wdr.cpp
-msgid "Re-download the GeoIP database from the selected source every time aMule starts."
-msgstr "Berriz deskargatu GeoIP datu-basea hautatutako iturburutik aMule abiarazten den bakoitzean."
+msgid "Check for a newer GeoIP database at startup and every week while aMule is running."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Filter incoming messages (except current chat):"
@@ -6160,10 +6385,6 @@ msgstr "Beste denak"
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Incomplete"
 msgstr "Amaitugabea"
-
-#: src/OtherFunctions.cpp src/PartFile.cpp src/TransferWnd.cpp
-msgid "Stopped"
-msgstr "Gelditua"
 
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Video"
@@ -6493,14 +6714,6 @@ msgid "ICH: Recovered corrupted part %i for %s -> Saved bytes: %s"
 msgstr "ICH: Hondaturiko %i zatia %s-rena -> Gordetako byte-ak: %s"
 
 #: src/PartFile.cpp
-msgid "Allocating"
-msgstr "Esleitzen"
-
-#: src/PartFile.cpp
-msgid "Insufficient disk space"
-msgstr "Disko leku askieza"
-
-#: src/PartFile.cpp
 #, c-format
 msgid "ERROR: Failed to open partfile '%s'"
 msgstr "ERROREA: Huts '%s' zati fitxategia irekitzean"
@@ -6512,10 +6725,6 @@ msgstr "Jatorri trukaketa"
 
 #: src/PeerCapabilities.h
 msgid "NAT traversal (uTP)"
-msgstr ""
-
-#: src/PeerCapabilities.h
-msgid "IPv6"
 msgstr ""
 
 #: src/PeerCapabilities.h
@@ -6548,37 +6757,46 @@ msgstr "TCP ataka ezin da 65532 baino altuagoa izan UDP socket-a TCP+3 bait da"
 msgid "Default port will be used (%d)"
 msgstr "Lehenetsiriko ataka erabiliko da (%d)"
 
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Connection"
-msgstr "Konexioa"
+#: src/BandwidthLimitSlider.h
+msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
+msgstr ""
 
-#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
-msgid "Directories"
-msgstr "Direktorioak"
-
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Servers"
-msgstr "Zerbitzariak"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Security"
-msgstr "Segurtasuna"
+#: src/BandwidthLimitSlider.h
+#, c-format
+msgid "KiB/s (%.2f MiB/s)"
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Interface"
 msgstr "Interfazea"
 
-#: src/PrefsUnifiedDlg.cpp
-msgid "IP2Country"
-msgstr "IP2Country"
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Connection"
+msgstr "Konexioa"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Proxy"
 msgstr "Proxy-a"
 
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Servers"
+msgstr "Zerbitzariak"
+
+#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
+msgid "Directories"
+msgstr "Direktorioak"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Events"
+msgstr "Gertaerak"
+
 #: src/PrefsUnifiedDlg.cpp
 msgid "Filters"
 msgstr "Iragazkiak"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Security"
+msgstr "Segurtasuna"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Remote Controls"
@@ -6589,12 +6807,12 @@ msgid "Online Signature"
 msgstr "Sinadura linean"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Advanced"
-msgstr "Aurreratua"
+msgid "IP2Country"
+msgstr "IP2Country"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Events"
-msgstr "Gertaerak"
+msgid "Advanced"
+msgstr "Aurreratua"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Debugging"
@@ -6705,6 +6923,11 @@ msgstr "- UDP - ataka aldaturik.\n"
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect port changed.\n"
 msgstr "- Kanpo konexio ataka aldatua.\n"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "- Address families changed.\n"
+msgstr "- Sareko interfazearen lotura aldatu da.\n"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect acceptance changed.\n"
@@ -7151,6 +7374,11 @@ msgid "Only saving the first %u of %u results for search \"%s\"."
 msgstr ""
 
 #: src/SearchList.cpp
+#, fuzzy, c-format
+msgid "IO error while saving %s: %s"
+msgstr "SI errorea %s fitxategia irakurtzean: %s"
+
+#: src/SearchList.cpp
 #, fuzzy
 msgid "WARNING: Stored search list corrupted, contains invalid header."
 msgstr "Abisua: Fitxategi ezagun zerrenda hondaturik dago, buru baliogabeak ditu."
@@ -7196,11 +7424,6 @@ msgstr "Kad bilaketa: emaitza zabalagoak eskatu zaizkio beste pare bati."
 #: src/SearchList.cpp
 msgid "Kad search: no peer left to reask for more results (cap reached or no responses yet)."
 msgstr "Kad bilaketa: ez dago pare gehiagorik emaitza gehiago eskatzeko (muga iritsi da edo oraindik ez dago erantzunik)."
-
-#: src/SearchList.cpp
-#, fuzzy, c-format
-msgid "Error %u: %s\n"
-msgstr "Huts GeoIP.dat deskargatzean"
 
 #: src/SearchListCtrl.cpp
 msgid "FileID"
@@ -7271,6 +7494,11 @@ msgstr "Sarera konektatu."
 #: src/SearchModeIcons.h
 msgid "Search eD2k servers and Kad, using whichever networks are available."
 msgstr ""
+
+#: src/SearchPacket.cpp
+#, fuzzy, c-format
+msgid "Error %u: %s\n"
+msgstr "Huts GeoIP.dat deskargatzean"
 
 #: src/SearchProgressReport.cpp
 #, fuzzy
@@ -7935,6 +8163,20 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: src/SharedFileList.cpp
+msgid "The selected file has changed or is not a complete file."
+msgstr ""
+
+#: src/SharedFileList.cpp
+#, fuzzy, c-format
+msgid "Could not delete '%s' from disk."
+msgstr "Aldiroko deskarga fitxategientzat karpeta"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Deleted '%s' from disk."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, fuzzy, c-format
 msgid "Now sharing file: %s"
 msgstr "Errorea %s fitxategia gordetzerakoan: %s"
@@ -8175,6 +8417,11 @@ msgstr "Urruneko fitxategiaren izena"
 #: src/SourceListCtrl.cpp
 msgid "A4AF"
 msgstr "A4AF"
+
+#: src/SplashScreen.cpp
+#, fuzzy
+msgid "Closing aMule"
+msgstr "aMule erakutsi"
 
 #: src/Statistics.cpp
 #, c-format
@@ -9088,6 +9335,11 @@ msgstr ""
 
 #: src/ThreadTasks.cpp
 #, c-format
+msgid "Verify Local Data: missing MD4 hashes for %s, so it was not checked."
+msgstr ""
+
+#: src/ThreadTasks.cpp
+#, c-format
 msgid "Verify Local Data: %s was removed or changed during the check, which did not finish."
 msgstr ""
 
@@ -9949,6 +10201,19 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Download graph scale:"
+#~ msgstr "Deskarga grafiko eskala:"
+
+#~ msgid "Upload graph scale:"
+#~ msgstr "Igoera grafiko eskala:"
+
+#, c-format
+#~ msgid "Failed to rename %s file, aborting update."
+#~ msgstr "Huts %s fitxategia berrizendatzean, eguneraketa baztertzen."
+
+#~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
+#~ msgstr "Berriz deskargatu GeoIP datu-basea hautatutako iturburutik aMule abiarazten den bakoitzean."
 
 #~ msgid "WARNING: Canceled file list corrupted, contains invalid header."
 #~ msgstr "Abisua: Utzitako fitxategi zerrenda hondaturik dago, buru baliogabeak ditu."

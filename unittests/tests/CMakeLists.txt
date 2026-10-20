@@ -9,9 +9,10 @@ function (add_application_test_stubs target)
 endfunction()
 
 find_package (Python3 QUIET COMPONENTS Interpreter)
+
 if (Python3_Interpreter_FOUND)
 	add_test (NAME IntegrationFixtureUnitTest
-		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/IntegrationFixtureUnitTest.py -v
+		COMMAND ${Python3_EXECUTABLE} -u ${CMAKE_CURRENT_SOURCE_DIR}/IntegrationFixtureUnitTest.py -v
 	)
 endif ()
 
@@ -32,12 +33,15 @@ if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 		${CMAKE_SOURCE_DIR}/src/icons/icon_data.c
 	)
 	target_include_directories (IconArtworkTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
-	target_link_libraries (IconArtworkTest PRIVATE wxWidgets::CORE)
+	find_package (Threads REQUIRED)
+	target_link_libraries (IconArtworkTest PRIVATE wxWidgets::CORE Threads::Threads)
 	if (WIN32)
 		# wx core imports Common Controls v6 entry points. Match the GUI's
 		# activation context and DPI awareness before the DLL loader runs.
 		target_sources (IconArtworkTest PRIVATE IconArtworkTest.rc)
 		target_include_directories (IconArtworkTest PRIVATE ${CMAKE_SOURCE_DIR})
+		# MiniDumpWriteDump for the hang watchdog.
+		target_link_libraries (IconArtworkTest PRIVATE dbghelp)
 	endif()
 	if (APPLE)
 		target_sources (IconArtworkTest PRIVATE ${CMAKE_SOURCE_DIR}/src/MenuIcons_mac.mm)
@@ -46,6 +50,11 @@ if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 	add_test (NAME IconArtworkTest COMMAND IconArtworkTest)
 	set_tests_properties (IconArtworkTest PROPERTIES SKIP_RETURN_CODE 77 LABELS "gui")
 	if (UNIX AND NOT APPLE)
+		add_test (NAME IconArtworkHeadlessTest
+			COMMAND ${CMAKE_COMMAND}
+				-DICON_ARTWORK_TEST=$<TARGET_FILE:IconArtworkTest>
+				-P ${CMAKE_CURRENT_SOURCE_DIR}/IconArtworkHeadlessTest.cmake
+		)
 		add_test (NAME IconArtworkDarkTest COMMAND IconArtworkTest)
 		add_test (NAME IconArtworkHighContrastTest COMMAND IconArtworkTest)
 		set_tests_properties (IconArtworkDarkTest PROPERTIES
@@ -71,6 +80,18 @@ target_include_directories (IPFilterIPv6Test PRIVATE
 )
 target_link_libraries (IPFilterIPv6Test muleunit mulecommon ${Boost_LIBRARIES})
 
+# EC push delivery resumes after the recursion cap without a socket completion.
+add_executable (ECNotificationDrainTest ECNotificationDrainTest.cpp)
+add_test (NAME ECNotificationDrainTest COMMAND ECNotificationDrainTest)
+target_include_directories (ECNotificationDrainTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (ECNotificationDrainTest muleunit mulecommon)
+
+# Source and notes publication traversal without a running Kad instance.
+add_executable (KadPublishCursorTest KadPublishCursorTest.cpp)
+add_test (NAME KadPublishCursorTest COMMAND KadPublishCursorTest)
+target_include_directories (KadPublishCursorTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (KadPublishCursorTest muleunit mulecommon)
+
 # Callback and buddy eligibility without a running Kad instance.
 add_executable (KadCallbackPolicyTest KadCallbackPolicyTest.cpp)
 add_test (NAME KadCallbackPolicyTest COMMAND KadCallbackPolicyTest)
@@ -92,6 +113,12 @@ target_include_directories (KadBuddyCallbackTest PRIVATE
 )
 target_link_libraries (KadBuddyCallbackTest muleunit mulecommon)
 
+# Byte-order conversion between aMule's and eMule's TAG_BUDDYHASH layouts (#1835).
+add_executable (KadBuddyIdLayoutTest KadBuddyIdLayoutTest.cpp)
+add_test (NAME KadBuddyIdLayoutTest COMMAND KadBuddyIdLayoutTest)
+target_include_directories (KadBuddyIdLayoutTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (KadBuddyIdLayoutTest muleunit mulecommon)
+
 # Buddy keepalives and receive expiry with a deterministic monotonic clock.
 add_executable (KadBuddyLivenessTest KadBuddyLivenessTest.cpp)
 add_test (NAME KadBuddyLivenessTest COMMAND KadBuddyLivenessTest)
@@ -106,6 +133,24 @@ target_include_directories (KadFirewallRecheckTest PRIVATE
 	${CMAKE_SOURCE_DIR}/src/include
 )
 target_link_libraries (KadFirewallRecheckTest muleunit mulecommon)
+
+# Firewall-check replies: each peer we asked answers each kind once.
+add_executable (KadFirewallCheckRequestsTest KadFirewallCheckRequestsTest.cpp)
+add_test (NAME KadFirewallCheckRequestsTest COMMAND KadFirewallCheckRequestsTest)
+target_include_directories (KadFirewallCheckRequestsTest PRIVATE
+	${CMAKE_SOURCE_DIR}/src
+	${CMAKE_SOURCE_DIR}/src/include
+)
+target_link_libraries (KadFirewallCheckRequestsTest muleunit mulecommon)
+
+# Our Kad public IP: a change needs reports from two /24s.
+add_executable (KadPublicIPVoteTest KadPublicIPVoteTest.cpp)
+add_test (NAME KadPublicIPVoteTest COMMAND KadPublicIPVoteTest)
+target_include_directories (KadPublicIPVoteTest PRIVATE
+	${CMAKE_SOURCE_DIR}/src
+	${CMAKE_SOURCE_DIR}/src/include
+)
+target_link_libraries (KadPublicIPVoteTest muleunit mulecommon)
 
 # Production UDP verification queries with a deterministic clock.
 add_executable (KadUDPFirewallIntegrationTest
@@ -131,6 +176,12 @@ add_test (NAME ProtocolPeerIdentityTest COMMAND ProtocolPeerIdentityTest)
 target_include_directories (ProtocolPeerIdentityTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (ProtocolPeerIdentityTest muleunit mulecommon)
 
+# Per-socket refill thresholds use original payload, independent of statistics resets.
+add_executable (UploadRefillTest UploadRefillTest.cpp)
+add_test (NAME UploadRefillTest COMMAND UploadRefillTest)
+target_include_directories (UploadRefillTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (UploadRefillTest muleunit mulecommon)
+
 # The done-list cap, without live clients.
 add_executable (UploadBlockListsTest UploadBlockListsTest.cpp)
 add_test (NAME UploadBlockListsTest COMMAND UploadBlockListsTest)
@@ -141,6 +192,16 @@ add_executable (DeadSourceKeyTest DeadSourceKeyTest.cpp)
 add_test (NAME DeadSourceKeyTest COMMAND DeadSourceKeyTest)
 target_include_directories (DeadSourceKeyTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (DeadSourceKeyTest muleunit mulecommon)
+
+add_executable (ChatStateTest ChatStateTest.cpp)
+add_test (NAME ChatStateTest COMMAND ChatStateTest)
+target_include_directories (ChatStateTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (ChatStateTest muleunit mulecommon)
+
+add_executable (KadPublishPolicyTest KadPublishPolicyTest.cpp)
+add_test (NAME KadPublishPolicyTest COMMAND KadPublishPolicyTest)
+target_include_directories (KadPublishPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (KadPublishPolicyTest muleunit mulecommon)
 
 add_executable (AdvertisedIPv6Test AdvertisedIPv6Test.cpp)
 add_test (NAME AdvertisedIPv6Test COMMAND AdvertisedIPv6Test)
@@ -255,6 +316,14 @@ target_include_directories (NatRendezvousProtocolTest PRIVATE
 	${Boost_INCLUDE_DIR}
 )
 target_link_libraries (NatRendezvousProtocolTest muleunit ${Boost_LIBRARIES})
+
+# Lugdunum NAT callback codecs and the OP_IDCHANGE fields, without the application.
+add_executable (LugdunumNatTraversalTest LugdunumNatTraversalTest.cpp)
+target_include_directories (LugdunumNatTraversalTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_BINARY_DIR})
+target_compile_features (LugdunumNatTraversalTest PRIVATE cxx_std_17)
+target_compile_definitions (LugdunumNatTraversalTest PRIVATE ENABLE_NATT_SERVER_COORDINATION)
+target_link_libraries (LugdunumNatTraversalTest muleunit mulecommon)
+add_test (NAME LugdunumNatTraversalTest COMMAND LugdunumNatTraversalTest)
 
 # The buffering between libutp and the eD2k stack: the would-block contract
 # CEMSocket depends on, and the close that must happen exactly once. Header-only
@@ -388,7 +457,8 @@ target_link_libraries (UtpSocketTransportTest
 
 add_executable (LibSocketTransportTest
 	LibSocketTransportTest.cpp
-	${CMAKE_SOURCE_DIR}/src/LibSocket.cpp
+	# The test includes LibSocket.cpp so it can drain the process-global io_context
+	# after joining CAsioService, including completions that intentionally queue no event.
 	# Same reason NetworkFunctionsTest compiles it: LibSocket.cpp includes
 	# LibSocketAsio.cpp, whose Windows interface-resolution path calls
 	# DetectNetworkInterfaces(), and this target does not link mulesocket.
@@ -422,6 +492,7 @@ endif()
 
 add_executable (PacketTest
 	PacketTest.cpp
+	ServerUDPPacketQueueTest.cpp
 	${CMAKE_SOURCE_DIR}/src/Packet.cpp
 	${CMAKE_SOURCE_DIR}/src/MemFile.cpp
 	${CMAKE_SOURCE_DIR}/src/SafeFile.cpp
@@ -618,6 +689,25 @@ target_link_libraries (ECPrefsDiffTest
 	mulecommon
 )
 
+# amulecmd download status text, using synthetic EC tags without a live core.
+add_executable (ECPartFileStatusTest
+	ECPartFileStatusTest.cpp
+	# ECSpecialTags.cpp also contains the statistics-tree text formatter.
+	${CMAKE_SOURCE_DIR}/src/OtherFunctions.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+)
+add_test (NAME ECPartFileStatusTest COMMAND ECPartFileStatusTest)
+target_include_directories (ECPartFileStatusTest PRIVATE
+	${CMAKE_BINARY_DIR}
+	${CMAKE_SOURCE_DIR}/src
+	${CMAKE_SOURCE_DIR}/src/include
+	${CMAKE_SOURCE_DIR}/src/libs
+	${CMAKE_BINARY_DIR}/src/libs
+	${CMAKE_BINARY_DIR}/src/libs/ec/cpp
+)
+target_link_libraries (ECPartFileStatusTest muleunit ec mulecommon mulesocket)
+
 add_executable (ECIdDiffTest
 	ECIdDiffTest.cpp
 	# See the note on CValueMapTest below: libec.a references DoECLogLine /
@@ -731,6 +821,28 @@ target_include_directories (CValueMapTest
 target_link_libraries (CValueMapTest
 	muleunit
 	ec
+	mulecommon
+)
+
+# Where a preferences page sits in the sidebar while other pages are hidden: the
+# row is the page's position among the pages shown, not its pages[] index.
+# Header-only, so it needs no wx and no GUI.
+add_executable (PrefsPageRowsTest
+	PrefsPageRowsTest.cpp
+)
+
+add_test (NAME PrefsPageRowsTest
+	COMMAND PrefsPageRowsTest
+)
+
+target_include_directories (PrefsPageRowsTest
+	PRIVATE ${CMAKE_BINARY_DIR}
+	PRIVATE ${CMAKE_SOURCE_DIR}/src
+	PRIVATE ${CMAKE_SOURCE_DIR}/src/include
+)
+
+target_link_libraries (PrefsPageRowsTest
+	muleunit
 	mulecommon
 )
 
@@ -896,6 +1008,51 @@ target_link_libraries (KadSourceAddressPolicyTest
 	muleunit
 	${Boost_LIBRARIES}
 )
+
+# OP_FOUNDSOURCES / OP_FOUNDSOURCES_OBFU source record parsing, without the application.
+add_executable (ServerSourceRecordsTest ServerSourceRecordsTest.cpp)
+add_test (NAME ServerSourceRecordsTest COMMAND ServerSourceRecordsTest)
+target_include_directories (ServerSourceRecordsTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (ServerSourceRecordsTest muleunit mulecommon)
+
+# Which address an OP_FOUNDSOURCES / OP_FOUNDSOURCES_OBFU sentinel source is contacted on, without
+# the application.
+add_executable (ServerIPv6SourcePolicyTest
+	ServerIPv6SourcePolicyTest.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/Format.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/strerror_r.c
+	${CMAKE_SOURCE_DIR}/src/NetworkAddress.cpp
+)
+
+add_test (NAME ServerIPv6SourcePolicyTest
+	COMMAND ServerIPv6SourcePolicyTest
+)
+
+target_include_directories (ServerIPv6SourcePolicyTest
+	PRIVATE ${CMAKE_BINARY_DIR}
+	PRIVATE ${CMAKE_SOURCE_DIR}/src
+	PRIVATE ${CMAKE_SOURCE_DIR}/src/include
+	PRIVATE ${Boost_INCLUDE_DIR}
+)
+
+target_link_libraries (ServerIPv6SourcePolicyTest
+	muleunit
+	${Boost_LIBRARIES}
+)
+
+# Whether an eD2k login should carry CT_MOD_IP_V6 and the CT_SERVER_FLAGS 0x1000 bit, without the
+# application.
+add_executable (ServerLoginIPv6Test ServerLoginIPv6Test.cpp)
+add_test (NAME ServerLoginIPv6Test COMMAND ServerLoginIPv6Test)
+target_include_directories (ServerLoginIPv6Test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (ServerLoginIPv6Test muleunit mulecommon)
+
+# Whether to send OP_IPV6_UPDATE on a server connection and its 16-byte payload, without the
+# application.
+add_executable (ServerIPv6UpdateTest ServerIPv6UpdateTest.cpp)
+add_test (NAME ServerIPv6UpdateTest COMMAND ServerIPv6UpdateTest)
+target_include_directories (ServerIPv6UpdateTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
+target_link_libraries (ServerIPv6UpdateTest muleunit mulecommon)
 
 # Canonical address matching for upload-queue UDP lookups, without the application.
 add_executable (UploadQueueAddressPolicyTest
@@ -1067,6 +1224,27 @@ target_link_libraries (SafeKadTest
 	mulecommon
 )
 
+# CFileAutoClose's known size, used by the main thread's part-file size checks.
+add_executable (FileAutoCloseTest
+	FileAutoCloseTest.cpp
+	${CMAKE_SOURCE_DIR}/src/FileAutoClose.cpp
+	${CMAKE_SOURCE_DIR}/src/SafeFile.cpp
+	${CMAKE_SOURCE_DIR}/src/CFile.cpp
+	${CMAKE_SOURCE_DIR}/src/MemFile.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+	${CMAKE_SOURCE_DIR}/src/Tag.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/Path.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/Format.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/strerror_r.c
+)
+add_test (NAME FileAutoCloseTest COMMAND FileAutoCloseTest)
+target_include_directories (FileAutoCloseTest PRIVATE
+	${CMAKE_BINARY_DIR}
+	${CMAKE_SOURCE_DIR}/src
+	${CMAKE_SOURCE_DIR}/src/include
+)
+target_link_libraries (FileAutoCloseTest muleunit)
+
 add_executable (FileDataIOTest
 	FileDataIOTest.cpp
 	${CMAKE_SOURCE_DIR}/src/SafeFile.cpp
@@ -1090,6 +1268,55 @@ target_include_directories (FileDataIOTest
 )
 
 target_link_libraries (FileDataIOTest
+	muleunit
+)
+
+add_executable (FreeSpaceSamplesTest
+	FreeSpaceSamplesTest.cpp
+	${CMAKE_SOURCE_DIR}/src/FreeSpaceSamples.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/Path.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/Format.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/strerror_r.c
+)
+
+add_test (NAME FreeSpaceSamplesTest
+	COMMAND FreeSpaceSamplesTest
+)
+
+target_include_directories (FreeSpaceSamplesTest
+	PRIVATE ${CMAKE_BINARY_DIR}
+	PRIVATE ${CMAKE_SOURCE_DIR}/src
+	PRIVATE ${CMAKE_SOURCE_DIR}/src/include
+)
+
+target_link_libraries (FreeSpaceSamplesTest
+	muleunit
+)
+
+add_executable (PartMetWriterTest
+	PartMetWriterTest.cpp
+	${CMAKE_SOURCE_DIR}/src/PartMetWriter.cpp
+	${CMAKE_SOURCE_DIR}/src/SafeFile.cpp
+	${CMAKE_SOURCE_DIR}/src/CFile.cpp
+	${CMAKE_SOURCE_DIR}/src/MemFile.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+	${CMAKE_SOURCE_DIR}/src/Tag.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/Path.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/Format.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/strerror_r.c
+)
+
+add_test (NAME PartMetWriterTest
+	COMMAND PartMetWriterTest
+)
+
+target_include_directories (PartMetWriterTest
+	PRIVATE ${CMAKE_BINARY_DIR}
+	PRIVATE ${CMAKE_SOURCE_DIR}/src
+	PRIVATE ${CMAKE_SOURCE_DIR}/src/include
+)
+
+target_link_libraries (PartMetWriterTest
 	muleunit
 )
 
@@ -1362,6 +1589,25 @@ target_link_libraries (TextFileTest
 	muleunit
 )
 
+add_executable (ECFileConfigTest ECFileConfigTest.cpp)
+add_test (NAME ECFileConfigTest COMMAND ECFileConfigTest)
+target_include_directories (ECFileConfigTest PRIVATE
+	${CMAKE_SOURCE_DIR}/src
+	${CMAKE_SOURCE_DIR}/src/include
+)
+target_link_libraries (ECFileConfigTest muleunit mulecommon)
+
+# Offline command-line coverage, including native Windows path forms.
+if (Python3_Interpreter_FOUND)
+	foreach (connector IN ITEMS amulecmd amuleweb)
+		if (TARGET ${connector})
+			add_test (NAME ConnectorConfigPathTest-${connector}
+				COMMAND ${Python3_EXECUTABLE}
+					${CMAKE_CURRENT_SOURCE_DIR}/ConnectorConfigPathTest.py $<TARGET_FILE:${connector}>)
+		endif ()
+	endforeach ()
+endif ()
+
 add_executable (OtherFunctionsTest
 	OtherFunctionsTest.cpp
 	${CMAKE_SOURCE_DIR}/src/OtherFunctions.cpp
@@ -1528,7 +1774,7 @@ target_link_libraries (ChatSessionStoreTest
 	mulecommon
 )
 
-# Queue bookkeeping only; the scheduler is never started, so no task runs.
+# Queue bookkeeping and the one-per-type limit for queued and running tasks.
 add_executable (ThreadSchedulerTest
 	ThreadSchedulerTest.cpp
 	${CMAKE_SOURCE_DIR}/src/ThreadScheduler.cpp
@@ -1544,6 +1790,11 @@ target_link_libraries (ThreadSchedulerTest
 	muleunit
 	mulecommon
 )
+
+add_executable (SharedFileVerifyScheduleTest SharedFileVerifyScheduleTest.cpp)
+add_test (NAME SharedFileVerifyScheduleTest COMMAND SharedFileVerifyScheduleTest)
+target_include_directories (SharedFileVerifyScheduleTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (SharedFileVerifyScheduleTest muleunit mulecommon)
 
 add_executable (MediaProbeParseTest
 	MediaProbeParseTest.cpp
@@ -2007,6 +2258,40 @@ target_link_libraries (BrowseStoreTest
 	mulecommon
 )
 
+if (TARGET wxWidgets::CORE)
+    function (add_native_list_test name)
+        add_executable (${name}
+            ${name}.cpp
+            NativeListTestMain.cpp
+            ${CMAKE_SOURCE_DIR}/src/MuleDataViewCtrl.cpp
+            ${CMAKE_SOURCE_DIR}/src/MuleVirtualDataViewCtrl.cpp
+            ${CMAKE_SOURCE_DIR}/src/MuleBarRenderer.cpp
+            ${CMAKE_SOURCE_DIR}/src/MuleIconTextRenderer.cpp
+            ${CMAKE_SOURCE_DIR}/src/ListColumnStore.cpp
+            ${CMAKE_SOURCE_DIR}/src/BarShader.cpp
+            ${CMAKE_SOURCE_DIR}/src/MuleColour.cpp
+            ${CMAKE_SOURCE_DIR}/src/GetTickCount.cpp
+            ${ARGN}
+        )
+        if (WIN32)
+            target_sources (${name} PRIVATE DialogLayoutTest.rc)
+        endif()
+        target_include_directories (${name} PRIVATE
+            ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+            ${CMAKE_SOURCE_DIR}/src/libs
+        )
+        target_link_libraries (${name} PRIVATE wxWidgets::CORE mulecommon)
+        add_test (NAME ${name} COMMAND ${name})
+        set_tests_properties (${name} PROPERTIES SKIP_RETURN_CODE 77)
+    endfunction()
+
+    add_native_list_test (ColumnLayoutTest)
+    add_native_list_test (ColumnFitTest
+        ${CMAKE_SOURCE_DIR}/src/SearchColumnFit.cpp
+        ${CMAKE_SOURCE_DIR}/src/ClientNameCellDrawing.cpp
+    )
+endif()
+
 # CListColumnStore maps a column id to its persistence key and default width.
 # The key is the on-disk config format, so the id a caller registers has to be
 # the id it looks the column up by -- a registry that renumbered stored ids
@@ -2298,6 +2583,12 @@ target_link_libraries (HelperBinaryPathTest muleunit mulecommon wxWidgets::BASE)
 # Linux only: the Windows and macOS autostart backends write the user's own registry and
 # LaunchAgents; the XDG one follows $XDG_CONFIG_HOME into a scratch directory.
 if (UNIX AND NOT APPLE)
+	# Unix execvp lookup and the shared Flatpak/host config environment rules.
+	add_executable (PlayerExecutableTest PlayerExecutableTest.cpp)
+	add_test (NAME PlayerExecutableTest COMMAND PlayerExecutableTest)
+	target_include_directories (PlayerExecutableTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+	target_link_libraries (PlayerExecutableTest muleunit mulecommon wxWidgets::BASE)
+
 	add_executable (AutostartManagerTest
 		AutostartManagerTest.cpp
 		${CMAKE_SOURCE_DIR}/src/AutostartManager.cpp
@@ -2316,11 +2607,38 @@ endif()
 option (ENABLE_INTEGRATION_TESTS
 	"Register tests that run real aMule programs on loopback. Timing-sensitive, so off for package builds"
 	OFF)
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND Python3_Interpreter_FOUND)
+	add_test (NAME UnicodeCommandLineIntegrationTest
+		COMMAND ${Python3_EXECUTABLE}
+			${CMAKE_CURRENT_SOURCE_DIR}/UnicodeCommandLineIntegrationTest.py $<TARGET_FILE:amuled>
+	)
+endif ()
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 	if (Python3_Interpreter_FOUND)
 		add_test (NAME KadDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled>)
 		add_test (NAME KadPopulatedDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled> --populated)
 		set_tests_properties (KadPopulatedDistributionECTest PROPERTIES SKIP_RETURN_CODE 77)
+		target_compile_definitions (amuled PRIVATE AMULE_API_RESTART_TEST_HOOK)
+		add_test (NAME AmuleApiRestartIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiRestartIntegrationTest.py $<TARGET_FILE:amuled>
+		)
+		if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+			add_test (NAME UploadRefillIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/UploadRefillIntegrationTest.py
+					$<TARGET_FILE:amuled> --seconds 3
+			)
+			add_test (NAME UploadRefillCompressedIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/UploadRefillIntegrationTest.py
+					$<TARGET_FILE:amuled> --seconds 3 --compress
+			)
+		endif()
+		add_test (NAME PathDefaultsIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/PathDefaultsIntegrationTest.py $<TARGET_FILE:amuled>
+		)
 		add_test (NAME LogfilePathIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/LogfilePathIntegrationTest.py $<TARGET_FILE:amuled>
@@ -2332,6 +2650,14 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 		add_test (NAME AllSearchIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/AllSearchIntegrationTest.py $<TARGET_FILE:amuled>
+		)
+		add_test (NAME CategoryTagECTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/CategoryTagECTest.py $<TARGET_FILE:amuled>
+		)
+		add_test (NAME KadSourceTagsECTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/KadSourceTagsECTest.py $<TARGET_FILE:amuled>
 		)
 		add_test (NAME KadLookupECTest
 			COMMAND ${Python3_EXECUTABLE}
@@ -2346,10 +2672,53 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/ShareWatcherMoveIntegrationTest.py $<TARGET_FILE:amuled>
 		)
+		if (BUILD_AMULEAPI)
+			add_test (NAME ChatCaptchaIntegrationTest
+				COMMAND ${Python3_EXECUTABLE}
+					${CMAKE_SOURCE_DIR}/unittests/curl-tests/amuleapi/chat-captcha-peer.py
+					--amuled $<TARGET_FILE:amuled> --amuleapi $<TARGET_FILE:amuleapi>
+			)
+		endif ()
+		add_test (NAME SharedFileReverifyIntegrationTest
+			COMMAND ${Python3_EXECUTABLE} -u
+				${CMAKE_CURRENT_SOURCE_DIR}/SharedFileReverifyIntegrationTest.py $<TARGET_FILE:amuled>
+		)
 		add_test (NAME KnownHistoryIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/KnownHistoryIntegrationTest.py $<TARGET_FILE:amuled>
 		)
+		add_test (NAME PacketReceiveIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/PacketReceiveIntegrationTest.py $<TARGET_FILE:amuled>
+		)
+		add_test (NAME ServerTrustIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/ServerTrustIntegrationTest.py $<TARGET_FILE:amuled>
+		)
+		# The ed2k helper writes ED2KLinks too; checked when it is built.
+		set (ED2K_HELPER "")
+		if (BUILD_ED2K)
+			set (ED2K_HELPER $<TARGET_FILE:ed2k>)
+		endif ()
+		add_test (NAME ED2KLinkIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/ED2KLinkIntegrationTest.py $<TARGET_FILE:amuled>
+				${ED2K_HELPER}
+		)
+		add_test (NAME CancelCompletedIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/CancelCompletedIntegrationTest.py $<TARGET_FILE:amuled>
+		)
+		add_test (NAME UnwritableTagIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/UnwritableTagIntegrationTest.py $<TARGET_FILE:amuled>
+		)
+		if (BUILD_AMULECMD)
+			add_test (NAME RemoteConfPermissionsTest
+				COMMAND ${Python3_EXECUTABLE}
+					${CMAKE_CURRENT_SOURCE_DIR}/RemoteConfPermissionsTest.py $<TARGET_FILE:amulecmd>
+			)
+		endif ()
 		if (BUILD_AMULEAPI AND BUILD_AMULECMD)
 			add_test (NAME AllSearchClientCapabilityTest
 				COMMAND ${Python3_EXECUTABLE}
@@ -2367,10 +2736,39 @@ if (TARGET wxWidgets::CORE)
 	if (WIN32)
 		target_sources (DialogLayoutTest PRIVATE DialogLayoutTest.rc)
 	endif()
-	target_include_directories (DialogLayoutTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
-	target_link_libraries (DialogLayoutTest PRIVATE wxWidgets::CORE)
+	target_include_directories (DialogLayoutTest PRIVATE
+		${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/libs)
+	target_link_libraries (DialogLayoutTest PRIVATE wxWidgets::CORE mulecommon)
 	add_test (NAME DialogLayoutTest COMMAND DialogLayoutTest)
 	set_tests_properties (DialogLayoutTest PROPERTIES SKIP_RETURN_CODE 77)
+	add_executable (BandwidthLimitSliderTest BandwidthLimitSliderTest.cpp)
+	if (WIN32)
+		target_sources (BandwidthLimitSliderTest PRIVATE DialogLayoutTest.rc)
+	endif()
+	target_include_directories (BandwidthLimitSliderTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+	target_link_libraries (BandwidthLimitSliderTest PRIVATE wxWidgets::CORE)
+	add_test (NAME BandwidthLimitSliderTest COMMAND BandwidthLimitSliderTest)
+	set_tests_properties (BandwidthLimitSliderTest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
+# Shutdown repainting must not dispatch callbacks against partially destroyed core objects.
+if (TARGET wxWidgets::CORE)
+	add_executable (ShutdownStatusTest
+		ShutdownStatusTest.cpp
+		${CMAKE_SOURCE_DIR}/src/SplashScreen.cpp
+		${CMAKE_SOURCE_DIR}/src/CamuleArtProvider.cpp
+		${CMAKE_SOURCE_DIR}/src/icons/icon_data.c
+		${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+	)
+	if (WIN32)
+		target_sources (ShutdownStatusTest PRIVATE DialogLayoutTest.rc)
+	endif()
+	target_include_directories (ShutdownStatusTest PRIVATE
+		${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs
+		${CMAKE_SOURCE_DIR}/src/include ${CMAKE_BINARY_DIR})
+	target_link_libraries (ShutdownStatusTest PRIVATE wxWidgets::CORE mulecommon)
+	add_test (NAME ShutdownStatusTest COMMAND ShutdownStatusTest)
+	set_tests_properties (ShutdownStatusTest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # Exercise production consensus with explicit, fail-fast application stubs.
@@ -2548,4 +2946,176 @@ endif()
 if (Python3_Interpreter_FOUND)
 	add_test (NAME FlatpakPermissionTest COMMAND ${Python3_EXECUTABLE}
 		${CMAKE_SOURCE_DIR}/packaging/linux/flatpak/test_permissions.py -v)
+endif()
+
+# Download block reservations: no peer objects or network state.
+add_executable (BlockReservationTest BlockReservationTest.cpp)
+target_include_directories (BlockReservationTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (BlockReservationTest muleunit mulecommon)
+add_test (NAME BlockReservationTest COMMAND BlockReservationTest)
+
+add_executable (DiskSpaceResumeBudgetTest DiskSpaceResumeBudgetTest.cpp)
+target_include_directories (DiskSpaceResumeBudgetTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (DiskSpaceResumeBudgetTest muleunit mulecommon)
+add_test (NAME DiskSpaceResumeBudgetTest COMMAND DiskSpaceResumeBudgetTest)
+
+add_executable (GeoIPUpdateScheduleTest GeoIPUpdateScheduleTest.cpp)
+target_include_directories (GeoIPUpdateScheduleTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (GeoIPUpdateScheduleTest muleunit mulecommon)
+add_test (NAME GeoIPUpdateScheduleTest COMMAND GeoIPUpdateScheduleTest)
+
+if (ENABLE_IP2COUNTRY)
+	add_executable (MaxMindDBUpdateTest
+		MaxMindDBUpdateTest.cpp
+		${CMAKE_SOURCE_DIR}/src/geoip/MaxMindDBDatabase.cpp
+		${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+	)
+	target_include_directories (MaxMindDBUpdateTest PRIVATE
+		${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+	)
+	target_link_libraries (MaxMindDBUpdateTest muleunit mulecommon MaxMindDB::Shared)
+	add_test (NAME MaxMindDBUpdateTest COMMAND MaxMindDBUpdateTest)
+endif()
+
+# Run the production query parser and packet writer without starting the application.
+# Link only the packet writer so no network/application stubs or linker stripping is needed.
+add_executable (SearchPacketTest
+	SearchPacketTest.cpp
+	SearchMetadataPacketTest.cpp
+	${CMAKE_SOURCE_DIR}/src/SearchPacket.cpp
+	${CMAKE_SOURCE_DIR}/src/Parser.cpp
+	${CMAKE_SOURCE_DIR}/src/Scanner.cpp
+	${CMAKE_SOURCE_DIR}/src/MemFile.cpp
+	${CMAKE_SOURCE_DIR}/src/SafeFile.cpp
+	${CMAKE_SOURCE_DIR}/src/Tag.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+)
+target_compile_definitions (SearchPacketTest PRIVATE AMULE_DAEMON)
+target_include_directories (SearchPacketTest PRIVATE
+	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+	${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs
+	${CMAKE_BINARY_DIR}/src/libs/ec/cpp
+)
+target_link_libraries (SearchPacketTest PRIVATE muleunit mulecommon)
+if (ENABLE_NLS AND Intl_FOUND)
+	target_include_directories (SearchPacketTest PRIVATE ${Intl_INCLUDE_DIRS})
+	target_link_libraries (SearchPacketTest PRIVATE ${Intl_LIBRARIES})
+endif()
+add_test (NAME SearchPacketTest COMMAND SearchPacketTest)
+
+# Retry scheduling for the core-supervised API child.
+add_executable (AmuleApiRestartTest AmuleApiRestartTest.cpp)
+add_test (NAME AmuleApiRestartTest COMMAND AmuleApiRestartTest)
+target_include_directories (AmuleApiRestartTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (AmuleApiRestartTest muleunit mulecommon)
+
+# Pipe draining and process-observer lifetime without starting the application.
+add_executable (AmuleApiProcessTest
+	AmuleApiProcessTest.cpp
+	${CMAKE_SOURCE_DIR}/src/TerminationProcessAmuleApi.cpp
+	${CMAKE_SOURCE_DIR}/src/TerminationProcess.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+)
+add_application_test_stubs (AmuleApiProcessTest)
+target_compile_definitions (AmuleApiProcessTest PRIVATE AMULE_DAEMON wxUSE_GUI=0)
+target_include_directories (AmuleApiProcessTest PRIVATE
+	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+)
+target_link_libraries (AmuleApiProcessTest muleunit mulecommon wxWidgets::BASE)
+add_test (NAME AmuleApiProcessTest COMMAND AmuleApiProcessTest)
+
+# Disposable files, offline daemon, and real EC/REST deletion including unlink failure.
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND UNIX AND NOT APPLE)
+	find_package (Python3 QUIET COMPONENTS Interpreter)
+	if (Python3_Interpreter_FOUND)
+		add_test (NAME SharedMembershipIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/SharedMembershipIntegrationTest.py
+				$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
+		)
+		add_test (NAME CompletedFileDeleteIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/CompletedFileDeleteIntegrationTest.py
+				$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
+		)
+		set_tests_properties (CompletedFileDeleteIntegrationTest PROPERTIES SKIP_RETURN_CODE 77)
+		add_test (NAME CompletedFileDeleteCapabilityTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/CompletedFileDeleteCapabilityTest.py
+				$<TARGET_FILE:amuleapi>
+		)
+	endif ()
+endif ()
+
+find_program (AMULE_TEST_NODE_EXECUTABLE NAMES node nodejs)
+if (AMULE_TEST_NODE_EXECUTABLE)
+	add_test (NAME DownloadDeleteTest
+		COMMAND ${AMULE_TEST_NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/DownloadDeleteTest.mjs)
+endif ()
+
+# Obfuscation cipher wire compatibility, using the production buffer and cipher.
+add_executable (RC4Test
+	RC4Test.cpp
+	${CMAKE_SOURCE_DIR}/src/RC4Encrypt.cpp
+	${CMAKE_SOURCE_DIR}/src/MemFile.cpp
+	${CMAKE_SOURCE_DIR}/src/SafeFile.cpp
+	${CMAKE_SOURCE_DIR}/src/Tag.cpp
+)
+target_include_directories (RC4Test PRIVATE
+	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
+target_link_libraries (RC4Test muleunit mulecommon CRYPTOPP::CRYPTOPP)
+add_test (NAME RC4Test COMMAND RC4Test)
+
+# Password setup is offline: no daemon, HTTP listener or public network access.
+if (BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
+	add_test (NAME AmuleApiPasswordInputTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiPasswordInputTest.py
+			$<TARGET_FILE:amuleapi>
+	)
+endif ()
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
+	add_test (NAME AmuleApiEcPasswordIntegrationTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiEcPasswordIntegrationTest.py
+			$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
+	)
+endif ()
+
+# Download diagnostics must never expose URL credentials to log/status readers.
+add_executable (DownloadUrlTest DownloadUrlTest.cpp)
+target_include_directories (DownloadUrlTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (DownloadUrlTest muleunit mulecommon)
+add_test (NAME DownloadUrlTest COMMAND DownloadUrlTest)
+
+if (ENABLE_INTEGRATION_TESTS AND ENABLE_IP2COUNTRY AND BUILD_DAEMON AND BUILD_AMULEAPI AND UNIX AND NOT APPLE)
+	find_package (Python3 QUIET COMPONENTS Interpreter)
+	if (Python3_Interpreter_FOUND)
+		add_test (NAME UpdateUrlPrivacyTest
+			COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/UpdateUrlPrivacyTest.py
+				$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>)
+	endif ()
+endif ()
+
+add_executable (WindowGeometryTest WindowGeometryTest.cpp)
+target_include_directories (WindowGeometryTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (WindowGeometryTest muleunit mulecommon)
+add_test (NAME WindowGeometryTest COMMAND WindowGeometryTest)
+
+add_executable (BandwidthRateConversionTest BandwidthRateConversionTest.cpp)
+target_include_directories (BandwidthRateConversionTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (BandwidthRateConversionTest muleunit mulecommon)
+add_test (NAME BandwidthRateConversionTest COMMAND BandwidthRateConversionTest)
+
+# Exercise the localized text path shared by calculator previews and OK.
+if (TARGET wxWidgets::CORE)
+	add_executable (BandwidthRateInputTest BandwidthRateInputTest.cpp)
+	if (WIN32)
+		target_sources (BandwidthRateInputTest PRIVATE DialogLayoutTest.rc)
+	endif()
+	target_include_directories (BandwidthRateInputTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+	target_link_libraries (BandwidthRateInputTest PRIVATE wxWidgets::CORE)
+	add_test (NAME BandwidthRateInputEnglishTest COMMAND BandwidthRateInputTest en)
+	add_test (NAME BandwidthRateInputItalianTest COMMAND BandwidthRateInputTest it)
+	set_tests_properties (BandwidthRateInputEnglishTest BandwidthRateInputItalianTest
+		PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
 endif()

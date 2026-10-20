@@ -32,6 +32,7 @@
 #include "ChatSessionStore.h"
 #include "CanonicalPeerIndex.h"
 #include "TrackedClientRecord.h"
+#include "kademlia/kademlia/FirewallCheckRequests.h"
 
 #include <deque>
 #include <set>
@@ -226,6 +227,11 @@ public:
 	 */
 	const IDMap &GetClientList();
 
+#ifdef ENABLE_IPV6
+	//! Mark eligible connected peers to receive the current IPv6 on their next outbound write.
+	void MarkIPv6ChangeNotificationPending();
+#endif
+
 	/**
 	 * Adds a source to the list of dead sources.
 	 */
@@ -272,6 +278,7 @@ public:
 
 	void AddKadFirewallRequest(uint32 ip);
 	bool IsKadFirewallCheckIP(uint32 ip) const;
+	bool TakeKadFirewallReply(uint32 ip, Kademlia::CFirewallCheckRequests::Reply reply);
 
 	// Direct Callback list
 	void AddDirectCallbackClient(CUpDownClient *toAdd);
@@ -353,13 +360,7 @@ private:
 	CClientRef m_pBuddy;
 	uint8 m_nBuddyStatus;
 
-	typedef struct
-	{
-		uint32 ip;
-		uint64 inserted;
-	} IpAndTicks;
-	typedef std::list<IpAndTicks> IpAndTicksList;
-	IpAndTicksList m_firewallCheckRequests;
+	Kademlia::CFirewallCheckRequests m_firewallCheckRequests;
 
 	typedef CClientRefList DirectCallbackList;
 	DirectCallbackList m_currentDirectCallbacks;

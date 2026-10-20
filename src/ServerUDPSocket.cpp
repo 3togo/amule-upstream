@@ -44,6 +44,8 @@
 #include "updownclient.h" // Needed for SF_REMOTE_SERVER
 #include "GuiEvents.h"    // Needed for Notify_*
 #include "Preferences.h"
+#include "IPFilter.h"         // Needed for CIPFilter
+#include "NetworkFunctions.h" // Needed for IsGoodServerIP
 #include "EncryptedDatagramSocket.h"
 #include "RandomFunctions.h"
 #include "ServerConnect.h"
@@ -132,7 +134,10 @@ void CServerUDPSocket::ProcessPacket(CMemFile &packet, uint8 opcode, uint32 ip, 
 		// sources, and search results and found sources are processed as 16.40 does.
 		switch (opcode) {
 		case OP_GLOBSEARCHRES: {
-
+			if (!theApp->searchlist->WasServerAsked(ip)) {
+				throw wxString(CFormat("Unrequested OP_GLOBSEARCHRES packet from %s:%d") %
+					       Uint32toStringIP(ip) % port);
+			}
 			do {
 				theApp->searchlist->ProcessUDPSearchAnswer(packet, true, ip, port - 4);
 
@@ -156,6 +161,11 @@ void CServerUDPSocket::ProcessPacket(CMemFile &packet, uint8 opcode, uint32 ip, 
 			break;
 		}
 		case OP_GLOBFOUNDSOURCES: {
+			if (!theApp->serverlist->GetServerByIP(ip)) {
+				throw wxString(
+					CFormat("OP_GLOBFOUNDSOURCES packet from unknown server %s:%d") %
+					Uint32toStringIP(ip) % port);
+			}
 			// process all source packets
 			do {
 				CMD4Hash fileid = packet.ReadHash();
@@ -378,7 +388,7 @@ void CServerUDPSocket::OnReceiveError(int errorCode, uint32 ip, uint16 port)
 void CServerUDPSocket::SendPacket(
 	CPacket *packet, CServer *host, bool delPacket, bool rawpacket, uint16 port_offset)
 {
-	ServerUDPPacket item = { NULL, 0, 0, "" };
+	ServerUDPPacket item;
 
 	if (host->HasDynIP()) {
 		item.addr = host->GetDynIP();
@@ -408,7 +418,7 @@ void CServerUDPSocket::SendPacket(
 		item.port = host->GetObfuscationPortUDP();
 
 		CMemFile encryptedpacket(pRawPacket + 2, uRawPacketSize - 2);
-		item.packet = new CPacket(encryptedpacket, pRawPacket[0], pRawPacket[1]);
+		item.packet = std::make_unique<CPacket>(encryptedpacket, pRawPacket[0], pRawPacket[1]);
 		delete[] pRawPacket;
 
 		if (delPacket) {
@@ -421,26 +431,28 @@ void CServerUDPSocket::SendPacket(
 				host->GetListName() % host->GetObfuscationPortUDP() %
 				(rawpacket ? "True" : "False") % packet->GetOpCode());
 		if (delPacket) {
-			item.packet = packet;
+			item.packet.reset(packet);
 		} else {
-			item.packet = new CPacket(*packet);
+			item.packet = std::make_unique<CPacket>(*packet);
 		}
 	}
 
-	m_queue.push_back(item);
+	if (!m_queue.Push(std::move(item))) {
+		AddDebugLogLineN(logServerUDP, "Dropping server UDP packet: pending DNS queue is full.");
+		return;
+	}
 
 	// If there is more than one item in the queue,
 	// then we are already waiting for a dns query.
-	if (m_queue.size() == 1) {
+	if (m_queue.Size() == 1) {
 		SendQueue();
 	}
 }
 
 void CServerUDPSocket::SendQueue()
 {
-	while (!m_queue.empty()) {
-		ServerUDPPacket item = m_queue.front();
-		CPacket *packet = item.packet;
+	while (!m_queue.Empty()) {
+		ServerUDPPacket &item = m_queue.Front();
 
 		// Do we need to do a DNS lookup before sending?
 		wxASSERT(item.ip || !item.addr.IsEmpty());
@@ -491,8 +503,7 @@ void CServerUDPSocket::SendQueue()
 									item.addr);
 							// Let the packet queued, and wait for resolution
 							// Meanwhile, send other packets.
-							m_queue.pop_front();
-							m_queue.push_back(item);
+							m_queue.RotateFront();
 							return;
 						}
 					}
@@ -512,8 +523,14 @@ void CServerUDPSocket::SendQueue()
 			AddDebugLogLineN(
 				logServerUDP, "Sending a UDP packet to a server: " + update->GetAddress());
 			// Don't encrypt, as this is already either encrypted or refused to encrypt.
-			CMuleUDPSocket::SendPacket(packet, item.ip, item.port, false, NULL, false, 0);
-			m_queue.pop_front();
+			ServerUDPPacket outgoing = m_queue.Pop();
+			CMuleUDPSocket::SendPacket(outgoing.packet.release(),
+				outgoing.ip,
+				outgoing.port,
+				false,
+				nullptr,
+				false,
+				0);
 		} else {
 			AddDebugLogLineN(logServerUDP,
 				"Sending a UDP packet to a server no in serverlist: " +
@@ -525,15 +542,14 @@ void CServerUDPSocket::SendQueue()
 
 void CServerUDPSocket::DropQueuedPacket()
 {
-	delete m_queue.front().packet;
-	m_queue.pop_front();
+	m_queue.Pop();
 }
 
 void CServerUDPSocket::OnHostnameResolved(uint32 ip)
 {
-	wxCHECK_RET(m_queue.size(), "DNS query returned, but no packets are queued.");
+	wxCHECK_RET(m_queue.Size(), "DNS query returned, but no packets are queued.");
 
-	ServerUDPPacket item = m_queue.front();
+	const ServerUDPPacket &item = m_queue.Front();
 	wxCHECK_RET(!item.ip && !item.addr.IsEmpty(), "DNS resolution not expected.");
 
 	/* An asynchronous database routine completed. */
@@ -544,13 +560,20 @@ void CServerUDPSocket::OnHostnameResolved(uint32 ip)
 			update->SetDNSError(true);
 		}
 		DropQueuedPacket();
+	} else if (!IsGoodServerIP(ip, thePrefs::FilterLanIPs()) || theApp->ipfilter->IsFiltered(ip, true)) {
+		// The checks the TCP connect makes: the name may point anywhere. Marked as a DNS error so
+		// later packets are dropped until the next lookup; with neither that nor an IP set,
+		// SendQueue() would wait for a lookup that is not running, and stall the queue.
+		if (update) {
+			update->SetDNSError(true);
+		}
+		AddDebugLogLineN(logServerUDP,
+			CFormat("Not sending to %s (%s): filtered") % item.addr % Uint32toStringIP(ip));
+		DropQueuedPacket();
 	} else {
 		if (update) {
 			update->SetID(ip);
 		}
-
-		item.addr.Clear();
-		item.ip = ip;
 	}
 
 	SendQueue();

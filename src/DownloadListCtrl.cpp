@@ -36,6 +36,7 @@
 #include "DataToText.h"       // Needed for PriorityToStr
 #include "DownloadQueue.h"
 #include "FileDetailDialog.h" // Needed for CFileDetailDialog
+#include "FileRenameDialog.h" // Needed for AskNewFileName
 #include "FileLaunch.h"       // Needed for FileLaunch::Open / Reveal
 #include "GuiEvents.h"        // Needed for CoreNotify_*, Notify_DownloadCtrlDoItemSelectionChanged
 #include "Logger.h"
@@ -466,10 +467,7 @@ void CDownloadListCtrl::OnItemRightClicked(wxDataViewEvent &event)
 	AppendMenuIcon(m_menu, MP_PAUSE, _("&Pause"), MenuIcon::Pause);
 	AppendMenuIcon(m_menu, MP_RESUME, _("&Resume"), MenuIcon::Resume);
 	AppendMenuIcon(m_menu, MP_CLEARCOMPLETED, _("C&lear completed"), MenuIcon::ClearCompleted);
-#ifndef CLIENT_GUI
-	// Monolithic only: EC has no delete-from-disk opcode yet.
 	m_menu->Append(MP_DELETEFROMDISK, _("Delete file from &disk"));
-#endif
 	m_menu->AppendSeparator();
 	wxMenu *extendedmenu = new wxMenu();
 	extendedmenu->Append(MP_SWAP_A4AF_TO_THIS, _("Swap every A4AF to this file now"));
@@ -534,9 +532,8 @@ void CDownloadListCtrl::OnItemRightClicked(wxDataViewEvent &event)
 	m_menu->Enable(MP_STOP, canStop);
 	m_menu->Enable(MP_RESUME, fileResumable);
 	m_menu->Enable(MP_CLEARCOMPLETED, CastByID(ID_BTNCLRCOMPL, GetParent(), wxButton)->IsEnabled());
-#ifndef CLIENT_GUI
-	m_menu->Enable(MP_DELETEFROMDISK, file->IsCompleted());
-#endif
+	m_menu->Enable(
+		MP_DELETEFROMDISK, file->IsCompleted() && theApp->sharedfiles->CanDeleteFileFromDisk());
 
 	wxString view;
 	if (file->IsPartFile()) {
@@ -608,7 +605,6 @@ void CDownloadListCtrl::OnCancelFile(wxCommandEvent &WXUNUSED(event))
 
 void CDownloadListCtrl::OnDeleteFromDisk(wxCommandEvent &WXUNUSED(event))
 {
-#ifndef CLIENT_GUI
 	// Finished rows only: an in-progress part file is cancelled with Cancel, which also
 	// removes its bytes. A completed row has no Cancel, so deleting from disk goes here.
 	std::vector<CKnownFile *> files;
@@ -619,7 +615,6 @@ void CDownloadListCtrl::OnDeleteFromDisk(wxCommandEvent &WXUNUSED(event))
 		}
 	}
 	MuleNotify::CompletedFiles_DeleteFromDisk(files, this);
-#endif
 }
 
 void CDownloadListCtrl::OnSetPriority(wxCommandEvent &event)
@@ -867,12 +862,19 @@ bool CDownloadListCtrl::OnListKey(wxKeyEvent &event)
 			CPartFile *file = reinterpret_cast<CPartFile *>(selected.front());
 			// Currently renaming of completed files causes problem with kad
 			if (file->IsPartFile()) {
-				wxString strNewName = ::wxGetTextFromUser(_("Enter new name for this file:"),
-					_("File rename"),
-					file->GetFileName().GetPrintable());
-				CPath newName = CPath(strNewName);
-				if (newName.IsOk() && (newName != file->GetFileName())) {
-					theApp->sharedfiles->RenameFile(file, newName);
+				const uint32 fileID = file->ECID();
+				wxString newName;
+				if (!AskNewFileName(this, file->GetFileName(), newName)) {
+					return true;
+				}
+				// Downloads can disappear or complete while the modal event loop runs.
+				if (!HasItemData(selected.front()) || file->ECID() != fileID ||
+					!file->IsPartFile()) {
+					return true;
+				}
+				CPath newPath(newName);
+				if (newPath.IsOk() && (newPath != file->GetFileName())) {
+					theApp->sharedfiles->RenameFile(file, newPath);
 				}
 			}
 		}

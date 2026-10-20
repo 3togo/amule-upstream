@@ -2,7 +2,6 @@
 # Copyright (c) 2026 aMule Team
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Exercise large-index handoff and restart/failure in an isolated real daemon."""
-import hashlib
 import os
 import socket
 import struct
@@ -12,6 +11,7 @@ import tempfile
 import time
 from pathlib import Path
 from AllSearchIntegrationTest import C, connect_daemon, free_ports, retry_port_collisions
+from DaemonConfig import write_amule_conf
 
 
 def wait_adopted(ec, proc, count):
@@ -33,7 +33,7 @@ def wait_adopted(ec, proc, count):
 def keyword_round_trip(udp_port, key_id, publish):
     """Publish over the real UDP listener and request the stored keyword result."""
     file_id = bytes(12) + struct.pack('<I', 0x12345678)
-    name = b'recovered-index-fixture.bin'
+    name = 'Клим café 東京 서울 中国.bin'.encode('utf-8')
     tags = (b'\x02\x01\x00\x01' + struct.pack('<H', len(name)) + name
             + b'\x03\x01\x00\x02' + struct.pack('<I', 4096)
             + b'\x02\x01\x00\x03\x07\x00Program')
@@ -64,28 +64,8 @@ def run(binary):
             persisted.write(struct.pack('<III', 1, int(time.time()), count))
             for i in range(1, count + 1):
                 persisted.write(bytes(12) + struct.pack('<II', i, int(time.time()) + 3600))
-        (root / 'amule.conf').write_text(f"""[eMule]
-Nick=review
-Port={peer_port}
-UDPPort={udp_port}
-Address=127.0.0.1
-ConnectToKad=1
-Autoconnect=0
-ConnectToED2K=0
-NewVersionCheck=0
-Reconnect=0
-Serverlist=0
-Ed2kServersUrl=
-KadNodesUrl=
-TempDir={root}/Temp
-IncomingDir={root}/Incoming
-Language=en_US
-[ExternalConnect]
-AcceptExternalConnections=1
-ECAddress=127.0.0.1
-ECPort={port}
-ECPassword={hashlib.md5(b'regression').hexdigest()}
-""")
+        write_amule_conf(root, port, Port=peer_port, UDPPort=udp_port, ConnectToKad=1,
+                         Autoconnect=0)
         with (root / 'stdout.log').open('w') as log:
             env = dict(os.environ, XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8')
             proc = subprocess.Popen([binary, '-c', str(root)], stdout=log, stderr=log, env=env)

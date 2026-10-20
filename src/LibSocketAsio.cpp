@@ -65,6 +65,7 @@
 #include "LibSocket.h"
 #include "AddressFamilyPolicyAsio.h" // ListenerBindFor, for a listener that follows the policy
 #include "NetworkAddressAsio.h"
+#include "PeerAddressing.h"  // Needed for OutboundIPv6Source
 #include "StreamTransport.h" // IStreamTransport, for the attached-stream branches
 #include "GuiEvents.h"       // CoreNotify_LibSocket*, the transport event bridge
 #include <wx/thread.h>       // wxMutex
@@ -117,6 +118,15 @@ void SetSocketBindInterface(const wxString &iface)
 {
 	s_bindToInterface = iface;
 }
+
+#ifdef ENABLE_IPV6
+static CNetworkAddress s_advertisedIPv6 = CNetworkAddress::Absent();
+
+void SetSocketAdvertisedIPv6(const CNetworkAddress &advertised)
+{
+	s_advertisedIPv6 = advertised;
+}
+#endif
 
 // Mark a freshly-created socket close-on-exec so subprocesses launched via wxExecute()
 // (preview-with-vlc, etc.) do not inherit and pin our listen / UDP file descriptors.
@@ -553,6 +563,16 @@ public:
 			m_socket->close(ignore);
 			return FailConnect(boost::asio::error::no_such_device);
 		}
+		const CNetworkAddress source = PeerAddressing::OutboundIPv6Source(s_advertisedIPv6, target);
+		if (source.IsPresent()) {
+			// A failed bind leaves the socket unbound, so the system still picks a source.
+			m_socket->bind(ip::tcp::endpoint(NetworkAddressAsio::ToAsioAddress(source), 0), ec);
+			if (ec) {
+				AddDebugLogLineN(logAsio,
+					CFormat("Cannot leave from advertised %s: %s") % source.ToWxString() %
+						ec.message());
+			}
+		}
 
 		return RunConnect(ip::tcp::endpoint(asioTarget->address, port), wait);
 	}
@@ -660,11 +680,13 @@ public:
 		}
 
 		if (m_sendBuffer.load(std::memory_order_acquire)) {
-			m_blocksWrite.store(true, std::memory_order_release);
 			// Close the lost-wakeup window with HandleSend: the old send may have
 			// completed between the first buffer check and publishing m_blocksWrite.
 			// If it did, this write is no longer blocked and can be accepted now.
-			if (m_sendBuffer.load(std::memory_order_acquire)) {
+			// These operations and HandleSend's CAS/exchange need a common seq_cst
+			// order: release/acquire alone allows both sides to miss the other's update.
+			m_blocksWrite.store(true, std::memory_order_seq_cst);
+			if (m_sendBuffer.load(std::memory_order_seq_cst)) {
 				AddDebugLogLineF(logAsio,
 					CFormat("Write blocks %d %p %s") % nbytes % m_sendBuffer.load() %
 						m_IP);
@@ -927,8 +949,8 @@ private:
 		// Atomically clear m_sendBuffer only if it still points to the buffer we just finished
 		// sending. A racing Write() on the throttler thread may have already swapped in a new
 		// buffer.
-		m_sendBuffer.compare_exchange_strong(sentBuffer, nullptr, std::memory_order_release);
-		const bool writeWasBlocked = m_blocksWrite.exchange(false, std::memory_order_acq_rel);
+		m_sendBuffer.compare_exchange_strong(sentBuffer, nullptr, std::memory_order_seq_cst);
+		const bool writeWasBlocked = m_blocksWrite.exchange(false, std::memory_order_seq_cst);
 
 		CLibSocket *wrapper = m_libSocket.load(std::memory_order_acquire);
 		if (!wrapper) {

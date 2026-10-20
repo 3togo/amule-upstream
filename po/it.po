@@ -20,7 +20,7 @@ msgstr ""
 "Project-Id-Version: aMule 2.3.3\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-09 07:35+0000\n"
+"PO-Revision-Date: 2026-10-14 10:18+0000\n"
 "Last-Translator: got3nks <got3nks@users.noreply.github.com>\n"
 "Language-Team: SebastianoPistore.info@protonmail.ch\n"
 "Language: it\n"
@@ -206,6 +206,15 @@ msgstr "Riavvia ora"
 msgid "Later"
 msgstr "Più tardi"
 
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+#, fuzzy
+msgid "The connected core does not support deleting complete files from disk."
+msgstr "Il core connesso non supporta la diagnostica delle ricerche Kad."
+
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+msgid "Delete from disk"
+msgstr "Elimina dal disco"
+
 #: src/GuiEvents.cpp
 #, c-format
 msgid ""
@@ -238,25 +247,6 @@ msgstr ""
 "\n"
 "%s\n"
 "I file vengono eliminati e non sono più condivisi. L'operazione non può essere annullata."
-
-#: src/GuiEvents.cpp
-msgid "Delete from disk"
-msgstr "Elimina dal disco"
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Skipped deleting '%s': the selected file has changed."
-msgstr "Eliminazione di '%s' saltata: il file selezionato è cambiato."
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Deleted '%s' from disk."
-msgstr "'%s' eliminato dal disco."
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Could not delete '%s' from disk."
-msgstr "Impossibile eliminare '%s' dal disco."
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -357,6 +347,22 @@ msgid "Now, exiting main app..."
 msgstr "Chiusura dell'applicazione..."
 
 #: src/amule.cpp
+msgid "Saving window settings..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving client credits..."
+msgstr ""
+"\n"
+"Creazione del client in corso...\n"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Stopping helper applications..."
+msgstr "Esce dall'applicazione."
+
+#: src/amule.cpp
 #, c-format
 msgid "Terminating amuleweb instance with pid '%d' ... "
 msgstr "Sto terminando l'istanza di amuleweb con pid `%d' ... "
@@ -386,12 +392,31 @@ msgid "aMule OnExit: Terminating core."
 msgstr "aMule in fase di chiusura: Terminazione del core."
 
 #: src/amule.cpp
+#, fuzzy
+msgid "Saving search results..."
+msgstr "Risultato della ricerca"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving downloads and shared files..."
+msgstr "Ricarica file condivisi in corso..."
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Flushing download buffers..."
+msgstr "Hashing del file scaricato in corso: %s"
+
+#: src/amule.cpp
 msgid "aMule shutdown completed."
 msgstr "aMule, arresto completato."
 
 #: src/amule.cpp
 msgid "Memory debug results for aMule exit:"
 msgstr "Risultati del debug della memoria per la chiusura di aMule:"
+
+#: src/amule.cpp
+msgid "Finishing shutdown..."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -511,6 +536,11 @@ msgstr "Nodi di bootstrap Kad (nodes.dat)"
 
 #: src/amule.cpp
 #, c-format
+msgid "Not starting %s: it is neither next to aMule nor on PATH."
+msgstr ""
+
+#: src/amule.cpp
+#, c-format
 msgid "web server running on pid %d"
 msgstr "web server in esecuzione su pid %d"
 
@@ -529,13 +559,31 @@ msgid "Could not write the amuleapi EC token to %s; amuleapi will fall back to i
 msgstr "Impossibile scrivere il token EC di amuleapi in %s; amuleapi userà la password configurata."
 
 #: src/amule.cpp
+msgid "An exception occurred while launching amuleapi."
+msgstr ""
+
+#: src/amule.cpp
 #, c-format
 msgid "amuleapi running on pid %d"
 msgstr "amuleapi in esecuzione su pid %d"
 
 #: src/amule.cpp
+msgid "Could not launch amuleapi during automatic restart."
+msgstr ""
+
+#: src/amule.cpp
 msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot be run. Please install the package containing aMule's REST API server, or build aMule from source with -DBUILD_AMULEAPI=YES and install it."
 msgstr "Hai scelto di lanciare amuleapi all'avvio, ma il programma amuleapi non può essere eseguito. Installa il pacchetto contenente amuleapi, oppure compila aMule dai sorgenti con -DBUILD_AMULEAPI=YES e installalo."
+
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Could not remove the amuleapi EC token file: %s"
+msgstr "Impossibile salvare la password di amuleapi: %s"
+
+#: src/amule.cpp
+#, c-format
+msgid "amuleapi will restart in %u seconds."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -685,6 +733,28 @@ msgstr "Verifica Dati Locali: un altro file di nome '%s' nelle tue cartelle cond
 #, c-format
 msgid "Disk space preallocation for file '%s' failed: %s"
 msgstr "Preallocazione dello spazio su disco per il file '%s' fallita: %s"
+
+#: src/amule.cpp
+msgid "Stopping network services..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving source seeds..."
+msgstr "Fonti salvate"
+
+#: src/amule.cpp
+msgid "Stopping background downloads and workers..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Closing connections..."
+msgstr " si sta connettendo..."
+
+#: src/amule.cpp
+msgid "Saving known files and statistics..."
+msgstr ""
 
 #: src/amule.cpp
 msgid "ERROR: can't open logfile"
@@ -1209,6 +1279,22 @@ msgstr "Impossibile avviare la riconnessione; nuovo tentativo a breve."
 msgid "Ready"
 msgstr "Pronto"
 
+#: src/amule-remote-gui.cpp
+msgid "*** Solve the CAPTCHA and send its text as a message."
+msgstr "*** Risolvi il CAPTCHA e invia il testo come messaggio."
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA passed; your message was delivered."
+msgstr "*** CAPTCHA superato; il tuo messaggio è stato consegnato."
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA failed; send another message to try again."
+msgstr "*** CAPTCHA non superato; invia un altro messaggio per riprovare."
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA failed; no attempts remain."
+msgstr "*** CAPTCHA non superato; non restano altri tentativi."
+
 #: src/amule-remote-gui.cpp src/TransferWnd.cpp
 msgid "All"
 msgstr "Tutto"
@@ -1247,6 +1333,10 @@ msgstr "Impossibile eliminare la categoria: %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Impossibile creare la directory '%s' per la categoria '%s', verrà mantenuta la directory '%s'."
+
+#: src/amule-remote-gui.cpp
+msgid "The core did not confirm deleting the file. Refresh and try again."
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 #, c-format
@@ -2354,6 +2444,11 @@ msgid "Unauthorized access attempt from %s. Connection closed."
 msgstr "Tentativo di accesso non autorizzato da %s. Connessione terminata."
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid partfile command target."
+msgstr "Nome file non valido."
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote PartFile command failed: FileHash not found: %s"
 msgstr "Comando Partfile remoto fallito: hash del file non trovato: %s"
@@ -2362,6 +2457,20 @@ msgstr "Comando Partfile remoto fallito: hash del file non trovato: %s"
 #, c-format
 msgid "FileHash not found: %s"
 msgstr "Hash del file non trovato: %s"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Cannot cancel a finished download: %s"
+msgstr "Impossibile annullare un download completato: %s"
+
+#: src/ExternalConn.cpp
+msgid "The selected download has changed or is completing. Refresh and try again."
+msgstr ""
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "No such category: %u"
+msgstr "Categoria inesistente: %u"
 
 #: src/ExternalConn.cpp
 msgid "OOPS! OpCode processing error!"
@@ -2451,6 +2560,11 @@ msgid "Version check is not available on this daemon."
 msgstr "Il controllo versione non è disponibile su questo demone."
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid complete-file deletion target."
+msgstr "Nome file non valido."
+
+#: src/ExternalConn.cpp
 msgid "File not found."
 msgstr "File non trovato."
 
@@ -2502,6 +2616,10 @@ msgstr "Il file non è idoneo all'estrazione dei metadati multimediali (non è u
 #: src/ExternalConn.cpp
 msgid "Empty chat message"
 msgstr "Messaggio di chat vuoto"
+
+#: src/ExternalConn.cpp
+msgid "CAPTCHA challenge is no longer pending"
+msgstr "Il CAPTCHA non è più in attesa di risposta"
 
 #: src/ExternalConn.cpp
 msgid "Unknown chat target"
@@ -2789,27 +2907,27 @@ msgstr "OK"
 
 #: src/ExternalCommand.cpp
 msgid "The command has no executable."
-msgstr ""
+msgstr "Il comando non indica un eseguibile."
 
 #: src/ExternalCommand.cpp
 msgid "The command template or an argument contains a NUL character."
-msgstr ""
+msgstr "Il modello del comando o un argomento contiene un carattere NUL."
 
 #: src/ExternalCommand.cpp
 msgid "An event value cannot select the executable."
-msgstr ""
+msgstr "Un valore dell’evento non può determinare l’eseguibile."
 
 #: src/ExternalCommand.cpp
 msgid "An event value would be used as interpreter code, a script name, or an unsupported launcher argument."
-msgstr ""
+msgstr "Un valore dell’evento verrebbe usato come codice per un interprete, come nome di uno script o come argomento non supportato del programma di avvio."
 
 #: src/ExternalCommand.cpp
 msgid "A command-shell argument contains a double quote, percent sign, exclamation mark, or line break."
-msgstr ""
+msgstr "Un argomento per la shell dei comandi contiene virgolette doppie, un segno di percentuale, un punto esclamativo o un a capo."
 
 #: src/ExternalCommand.cpp
 msgid "cmd.exe requires a fixed builtin or an explicit .exe, .com, .bat, or .cmd target followed by separate data arguments."
-msgstr ""
+msgstr "cmd.exe richiede un comando interno fisso o un file .exe, .com, .bat o .cmd esplicito, seguito da argomenti di dati separati."
 
 #: src/FileLaunch.cpp
 msgid "File preview"
@@ -2818,6 +2936,11 @@ msgstr "Anteprima"
 #: src/FileLaunch.cpp
 #, c-format
 msgid "Media-player command '%s' was not run: %s"
+msgstr "Il comando del lettore multimediale ‘%s’ non è stato eseguito: %s"
+
+#: src/FileLaunch.cpp
+#, c-format
+msgid "The configured video player is unavailable inside aMule's Flatpak sandbox: %s. Programs installed on the host are not directly available here. Completed files can still open with the desktop's default application; previewing an unfinished download needs a player the sandbox can run, such as a self-contained player saved in your home folder."
 msgstr ""
 
 #: src/FileLaunch.cpp
@@ -3160,6 +3283,11 @@ msgstr "Sì"
 msgid "Failed to open MaxMindDB database '%s': %s"
 msgstr "Impossibile aprire il database MaxMindDB '%s': %s"
 
+#: src/geoip/MaxMindDBDatabase.cpp
+#, c-format
+msgid "Failed to replace MaxMindDB database '%s': %s"
+msgstr "Impossibile sostituire il database MaxMindDB ‘%s’: %s"
+
 #: src/HTTPDownload.cpp
 msgid "Downloading..."
 msgstr "Scaricamento in corso..."
@@ -3167,6 +3295,11 @@ msgstr "Scaricamento in corso..."
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "Download HTTP cancellato"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "HTTP download of %s stopped: it is larger than %u MiB."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 msgid "The URL to download can't be empty"
@@ -3239,25 +3372,15 @@ msgstr "Scaricamento in corso di nuovo %s da %s"
 msgid "Download of %s file failed, aborting update."
 msgstr "Scaricamento del file %s fallito, interruzione aggiornamento."
 
-#: src/IP2Country.cpp src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "Impossibile rimuovere %s file, interruzione aggiornamento."
-
 #: src/IP2Country.cpp
 #, c-format
-msgid "Failed to rename %s file, aborting update."
-msgstr "Impossibile rinominare %s file, interruzione aggiornamento."
+msgid "Error updating %s"
+msgstr "Errore durante l'aggiornamento di %s"
 
 #: src/IP2Country.cpp src/IPFilter.cpp
 #, c-format
 msgid "Successfully updated %s"
 msgstr "%s aggiornato con successo"
-
-#: src/IP2Country.cpp
-#, c-format
-msgid "Error updating %s"
-msgstr "Errore durante l'aggiornamento di %s"
 
 #: src/IP2Country.cpp
 msgid "DB-IP download failed for the current month - retrying with the previous month's URL."
@@ -3298,6 +3421,11 @@ msgstr[1] "%u righe non valide sono state scartate."
 
 #: src/IPFilter.cpp
 #, c-format
+msgid "Failed to remove %s file, aborting update."
+msgstr "Impossibile rimuovere %s file, interruzione aggiornamento."
+
+#: src/IPFilter.cpp
+#, c-format
 msgid "Failed to rename new %s file, aborting update."
 msgstr "Impossibile rinominare il nuovo file %s, interruzione aggiornamento."
 
@@ -3307,33 +3435,32 @@ msgstr "Filtro IP pronto"
 
 #: src/KadContactHistogram.h
 msgid "Contacts grouped by the first twelve bits of their KadID. Blue: all contacts; green: verified addresses. The marker shows your own KadID; clustering near it is expected."
-msgstr ""
+msgstr "Contatti raggruppati in base ai primi dodici bit del loro KadID. Blu: tutti i contatti; verde: indirizzi verificati. Il marcatore indica il tuo KadID; è normale che i contatti si concentrino vicino a esso."
 
 #: src/KadContactHistogram.h
 msgid "Loading contact distribution..."
-msgstr ""
+msgstr "Caricamento della distribuzione dei contatti..."
 
 #: src/KadContactHistogram.h
 msgid "This core does not send the contact distribution. Update the core to see the chart."
-msgstr ""
+msgstr "Questo core non invia la distribuzione dei contatti. Aggiorna il core per vedere il grafico."
 
 #: src/KadContactHistogram.h
 msgid "The core sent contact distribution data that could not be read."
-msgstr ""
+msgstr "Il core ha inviato dati sulla distribuzione dei contatti che non è stato possibile leggere."
 
 #: src/KadContactHistogram.h
 #, c-format
 msgid "Routing-table contacts: %u; verified: %u; distinct /24s: %u"
-msgstr ""
+msgstr "Contatti nella tabella di routing: %u; verificati: %u; /24 distinti: %u"
 
 #: src/KadDlg.cpp
 msgid "Requesting Kad lookup diagnostics..."
-msgstr ""
+msgstr "Richiesta della diagnostica delle ricerche Kad..."
 
 #: src/KadDlg.cpp
-#, fuzzy
 msgid "The connected core does not support Kad lookup diagnostics."
-msgstr "Il demone connesso non supporta la ricerca su tutte le reti."
+msgstr "Il core connesso non supporta la diagnostica delle ricerche Kad."
 
 #: src/KadDlg.cpp src/muuli_wdr.cpp src/StatisticsDlg.cpp
 msgid "Current"
@@ -3382,20 +3509,19 @@ msgstr "Continuare?"
 
 #: src/KadLookupView.h
 msgid "Kad lookup diagnostics"
-msgstr ""
+msgstr "Diagnostica delle ricerche Kad"
 
 #: src/KadLookupView.h
-#, fuzzy
 msgid "The core does not support Kad lookup diagnostics."
-msgstr "Il demone connesso non supporta la ricerca su tutte le reti."
+msgstr "Il core non supporta la diagnostica delle ricerche Kad."
 
 #: src/KadLookupView.h
 msgid "Invalid Kad lookup diagnostics reply."
-msgstr ""
+msgstr "Risposta non valida alla richiesta di diagnostica delle ricerche Kad."
 
 #: src/KadLookupView.h
 msgid "Connection lost. Reconnect and request lookup diagnostics again."
-msgstr ""
+msgstr "Connessione persa. Riconnettiti e richiedi di nuovo la diagnostica delle ricerche."
 
 #: src/kademlia/kademlia/SearchManager.cpp
 msgid "Kademlia: search keyword too short"
@@ -3435,120 +3561,109 @@ msgstr[0] "Scritto %d contatto Kad"
 msgstr[1] "Scritti %d contatti Kad"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "Node"
-msgstr "Nodi (0)"
+msgstr "Nodo"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "Complete node"
-msgstr "Completati"
+msgstr "Nodo completo"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "File"
 msgstr "File"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Keyword"
-msgstr ""
+msgstr "Parola chiave"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Notes"
-msgstr ""
+msgstr "Note"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Publish file"
-msgstr ""
+msgstr "Pubblicazione file"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Publish keyword"
-msgstr ""
+msgstr "Pubblicazione parola chiave"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Publish notes"
-msgstr ""
+msgstr "Pubblicazione note"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "Find buddy"
-msgstr "Nessun amico"
+msgstr "Ricerca amico"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "Find source"
-msgstr "Fonti del file:"
+msgstr "Ricerca fonti"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "Special node"
-msgstr "Nuovo nodo"
+msgstr "Nodo speciale"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "UDP firewall check"
-msgstr "firewalled"
+msgstr "Verifica firewall UDP"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 #, c-format
 msgid "type %u"
-msgstr ""
+msgstr "tipo %u"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 #, c-format
 msgid "Lookup %s (%s, %s): %u peers, %u overdue routing requests, %u omitted peers, %u evicted referrals"
-msgstr ""
+msgstr "Ricerca %s (%s, %s): %u peer, %u richieste di routing in ritardo, %u peer omessi, %u segnalazioni scartate"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "active lookup"
-msgstr ""
+msgstr "ricerca attiva"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "finished lookup"
-msgstr "completata"
+msgstr "ricerca terminata"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Keyword: %s"
-msgstr "Filtrati: %s"
+msgstr "Parola chiave: %s"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 #, c-format
 msgid "%s [%s], distance %s, Kad version %u (%s): %u routing requests, %u replies, last RTT %u ms, %u item requests, %u result packets, %u result records"
-msgstr ""
+msgstr "%s [%s], distanza %s, versione Kad %u (%s): %u richieste di routing, %u risposte, ultimo RTT %u ms, %u richieste di elementi, %u pacchetti di risultati, %u record di risultati"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "awaiting reply"
-msgstr ""
+msgstr "in attesa di risposta"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "reply received"
-msgstr "Non ricevuto"
+msgstr "risposta ricevuta"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 #, c-format
 msgid "+%u ms: %s referred %s (distance %s, %s)"
-msgstr ""
+msgstr "+%u ms: %s ha segnalato %s (distanza %s, %s)"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "closer to target"
-msgstr ""
+msgstr "più vicino all’obiettivo"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "no closer to target"
-msgstr "Destinatario della chat sconosciuto"
+msgstr "non più vicino all’obiettivo"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Overdue means a routing request unanswered for at least 3 seconds; late replies may still arrive. Result records are received records, not unique files. Only bounded recent history is retained."
-msgstr ""
+msgstr "“In ritardo” indica una richiesta di routing senza risposta da almeno 3 secondi; le risposte tardive possono ancora arrivare. I record di risultati sono i record ricevuti, non file distinti. Viene conservata solo una cronologia recente limitata."
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "No Kad lookup history available."
-msgstr "nessuna opzione disponibile"
+msgstr "Nessuna cronologia delle ricerche Kad disponibile."
 
 #: src/KnownFile.cpp
 msgid "Kad user"
@@ -3791,6 +3906,15 @@ msgid "Hashing"
 msgstr "Hashing in corso"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Allocating"
+msgstr "Allocazione in corso"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
+#: src/TransferWnd.cpp
+msgid "Stopped"
+msgstr "Fermo"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
 msgid "Completing"
 msgstr "In completamento"
 
@@ -3807,6 +3931,10 @@ msgstr "In pausa"
 #: src/TransferWnd.cpp
 msgid "Erroneous"
 msgstr "Errato"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Insufficient disk space"
+msgstr "Spazio su disco insufficiente"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
 #: src/TransferWnd.cpp
@@ -3902,6 +4030,11 @@ msgid "WARNING: "
 msgstr "ATTENZIONE: "
 
 #: src/MediaProbe.cpp
+#, c-format
+msgid "Media metadata: not using %s, because another user owns it or a folder above it."
+msgstr ""
+
+#: src/MediaProbe.cpp
 msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
 msgstr "Metadati multimediali: nessun eseguibile ffprobe trovato. Installa ffmpeg oppure imposta il percorso di ffprobe nelle preferenze; durata, bitrate e codec non verranno estratti."
 
@@ -3972,6 +4105,23 @@ msgstr[1] "Altri %u file condivisi non esistono più (non elencati singolarmente
 msgid "Close"
 msgstr "Chiudi"
 
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit column to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit visible columns to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+#, fuzzy
+msgid "Show all columns (keep widths)"
+msgstr "Mostra tutti i commenti"
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Restore default columns and widths"
+msgstr ""
+
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
 msgstr "Taglia"
@@ -3999,7 +4149,7 @@ msgstr "Seleziona tutto"
 msgid "KiB/s"
 msgstr "KiB/s"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Unlimited"
 msgstr "Illimitato"
 
@@ -4070,11 +4220,11 @@ msgstr "Porta UDP: Non disponibile"
 msgid "Client Information"
 msgstr "Informazioni client"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Upload limit"
 msgstr "Limite di invio"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Download limit"
 msgstr "Limite di scaricamento"
 
@@ -4871,12 +5021,26 @@ msgid "Video Player"
 msgstr "Riproduttore video"
 
 #: src/muuli_wdr.cpp
-msgid "Bandwidth limits"
-msgstr "Limiti di banda"
+msgid "Line capacities"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Upload"
 msgstr "Upload"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth limits"
+msgstr "Limiti di banda"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable download limit"
+msgstr "Limite di scaricamento"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable upload limit"
+msgstr "Limite di invio"
 
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
@@ -4985,6 +5149,30 @@ msgstr ""
 "La versione dichiarata da un nodo può essere obsoleta o inesatta, quindi questa opzione può scartare hash validi e non rende affidabili quelli accettati. I nodi di versione sconosciuta vengono comunque accettati.\n"
 "\n"
 "Dettaglio tecnico: rifiuta i tag di pubblicazione AICH dei nodi che annunciano versioni del protocollo Kad inferiori a 0x09."
+
+#: src/muuli_wdr.cpp src/PeerCapabilities.h
+msgid "IPv6"
+msgstr "IPv6"
+
+#: src/muuli_wdr.cpp
+msgid "Address families:"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 only"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 and IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Takes effect after restarting aMule."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Advertise my IPv6 address to other peers"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Remove dead server after"
@@ -5101,6 +5289,18 @@ msgstr "Upload"
 #: src/muuli_wdr.cpp
 msgid "Add new shared files with auto priority"
 msgstr "Assegna priorità automatica ai nuovi file condivisi"
+
+#: src/muuli_wdr.cpp
+msgid "Verify local data of requested shared files every"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Re-read requested complete files in the background and compare them with their stored MD4/AICH hashes, as Verify Local Data does. Corrupt parts stop being shared. Uploads continue during the check."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "days (0 = off)"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Intelligent Corruption Handling (I.C.H.)"
@@ -5255,14 +5455,6 @@ msgid "Connections Graph Scale: 100 "
 msgstr "Scala grafico connessioni: 100 "
 
 #: src/muuli_wdr.cpp
-msgid "Download graph scale:"
-msgstr "Scala grafico di scaricamento:"
-
-#: src/muuli_wdr.cpp
-msgid "Upload graph scale:"
-msgstr "Scala grafico d'invio:"
-
-#: src/muuli_wdr.cpp
 msgid "Colors: "
 msgstr "Colori: "
 
@@ -5373,6 +5565,26 @@ msgstr "Intervallo aggiornamento connessione al server: disabilitato"
 #: src/muuli_wdr.cpp
 msgid "Disable computer's timed standby mode"
 msgstr "Disabilita la modalità standby a tempo"
+
+#: src/muuli_wdr.cpp
+msgid "Appearance: "
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow system"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Light mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Dark mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Appearance changes take effect after restarting aMule."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Skin to use: "
@@ -5648,7 +5860,7 @@ msgstr "Inserisci l'URL di un file nodes.dat e premi il pulsante a sinistra per 
 
 #: src/muuli_wdr.cpp
 msgid "Lookup diagnostics"
-msgstr ""
+msgstr "Diagnostica delle ricerche"
 
 #: src/muuli_wdr.cpp
 msgid "Nodes stats"
@@ -5885,12 +6097,12 @@ msgid "Download the GeoIP database from the selected source."
 msgstr "Scarica il database GeoIP dalla sorgente selezionata."
 
 #: src/muuli_wdr.cpp
-msgid "Auto-update on startup"
-msgstr "Aggiornamento automatico all'avvio"
+msgid "Auto-update on startup and weekly"
+msgstr "Aggiornamento automatico all’avvio e settimanale"
 
 #: src/muuli_wdr.cpp
-msgid "Re-download the GeoIP database from the selected source every time aMule starts."
-msgstr "Riscarica il database GeoIP dalla sorgente selezionata ogni volta che aMule si avvia."
+msgid "Check for a newer GeoIP database at startup and every week while aMule is running."
+msgstr "Controlla se è disponibile un database GeoIP più recente all’avvio e ogni settimana mentre aMule è in esecuzione."
 
 #: src/muuli_wdr.cpp
 msgid "Filter incoming messages (except current chat):"
@@ -6168,10 +6380,6 @@ msgstr "tutti gli altri"
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Incomplete"
 msgstr "Incompleti"
-
-#: src/OtherFunctions.cpp src/PartFile.cpp src/TransferWnd.cpp
-msgid "Stopped"
-msgstr "Fermo"
 
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Video"
@@ -6495,14 +6703,6 @@ msgid "ICH: Recovered corrupted part %i for %s -> Saved bytes: %s"
 msgstr "ICH: recuperata parte danneggiata %i in %s -> risparmiati byte: %s"
 
 #: src/PartFile.cpp
-msgid "Allocating"
-msgstr "Allocazione in corso"
-
-#: src/PartFile.cpp
-msgid "Insufficient disk space"
-msgstr "Spazio su disco insufficiente"
-
-#: src/PartFile.cpp
 #, c-format
 msgid "ERROR: Failed to open partfile '%s'"
 msgstr "ERRORE: Apertura del file Part fallita '%s'"
@@ -6514,10 +6714,6 @@ msgstr "Scambio fonti esteso"
 #: src/PeerCapabilities.h
 msgid "NAT traversal (uTP)"
 msgstr "Attraversamento NAT (uTP)"
-
-#: src/PeerCapabilities.h
-msgid "IPv6"
-msgstr "IPv6"
 
 #: src/PeerCapabilities.h
 msgid "Buddy info pull"
@@ -6548,37 +6744,46 @@ msgstr "La porta TCP non può essere superiore a 65532 perché il socket UDP è 
 msgid "Default port will be used (%d)"
 msgstr "Sarà usata la porta predefinita (%d)"
 
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Connection"
-msgstr "Connessione"
+#: src/BandwidthLimitSlider.h
+msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
+msgstr ""
 
-#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
-msgid "Directories"
-msgstr "Directory"
-
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Servers"
-msgstr "Server"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Security"
-msgstr "Sicurezza"
+#: src/BandwidthLimitSlider.h
+#, fuzzy, c-format
+msgid "KiB/s (%.2f MiB/s)"
+msgstr "%.1f MiB/s"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Interface"
 msgstr "Interfaccia"
 
-#: src/PrefsUnifiedDlg.cpp
-msgid "IP2Country"
-msgstr "IP2Country"
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Connection"
+msgstr "Connessione"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Proxy"
 msgstr "Proxy"
 
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Servers"
+msgstr "Server"
+
+#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
+msgid "Directories"
+msgstr "Directory"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Events"
+msgstr "Eventi"
+
 #: src/PrefsUnifiedDlg.cpp
 msgid "Filters"
 msgstr "Filtri"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Security"
+msgstr "Sicurezza"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Remote Controls"
@@ -6589,12 +6794,12 @@ msgid "Online Signature"
 msgstr "Online Signature"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Advanced"
-msgstr "Avanzato"
+msgid "IP2Country"
+msgstr "IP2Country"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Events"
-msgstr "Eventi"
+msgid "Advanced"
+msgstr "Avanzato"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Debugging"
@@ -6704,6 +6909,11 @@ msgstr "- Modifica della porta UDP.\n"
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect port changed.\n"
 msgstr "- Porta della connessione esterna modificata. \n"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "- Address families changed.\n"
+msgstr "- Associazione all'indirizzo locale modificata.\n"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect acceptance changed.\n"
@@ -7040,6 +7250,9 @@ msgid ""
 "Chat and observed download completions support GUI commands with a remote core.\n"
 "Already completed downloads do not run commands at first sync or reconnect."
 msgstr ""
+"I comandi del core devono essere configurati nel file amule.conf del demone. \n"
+"Con un core remoto, i comandi GUI sono supportati per la chat e per i download di cui si osserva il completamento. \n"
+"I download già completati non eseguono comandi alla prima sincronizzazione o alla riconnessione."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "The following variables will be replaced:"
@@ -7152,6 +7365,11 @@ msgid "Only saving the first %u of %u results for search \"%s\"."
 msgstr "Verranno salvati solo i primi %u risultati su %u per la ricerca \"%s\"."
 
 #: src/SearchList.cpp
+#, fuzzy, c-format
+msgid "IO error while saving %s: %s"
+msgstr "Errore I/O durante la lettura del file %s: %s"
+
+#: src/SearchList.cpp
 msgid "WARNING: Stored search list corrupted, contains invalid header."
 msgstr "ATTENZIONE: la lista delle ricerche salvate è danneggiata, contiene un'intestazione non valida."
 
@@ -7194,11 +7412,6 @@ msgstr "Ricerca Kad: richiesti risultati più ampi a un altro peer."
 #: src/SearchList.cpp
 msgid "Kad search: no peer left to reask for more results (cap reached or no responses yet)."
 msgstr "Ricerca Kad: nessun peer rimasto a cui richiedere altri risultati (limite raggiunto o nessuna risposta ancora ricevuta)."
-
-#: src/SearchList.cpp
-#, c-format
-msgid "Error %u: %s\n"
-msgstr "Errore %u: %s\n"
 
 #: src/SearchListCtrl.cpp
 msgid "FileID"
@@ -7264,6 +7477,11 @@ msgstr "Cerca sulla rete Kad."
 #: src/SearchModeIcons.h
 msgid "Search eD2k servers and Kad, using whichever networks are available."
 msgstr "Cerca sui server eD2k e su Kad, usando le reti disponibili."
+
+#: src/SearchPacket.cpp
+#, c-format
+msgid "Error %u: %s\n"
+msgstr "Errore %u: %s\n"
 
 #: src/SearchProgressReport.cpp
 msgid "running"
@@ -7919,6 +8137,20 @@ msgstr[0] "Riestrazione dei metadati multimediali per %u file condiviso"
 msgstr[1] "Riestrazione dei metadati multimediali per %u file condivisi"
 
 #: src/SharedFileList.cpp
+msgid "The selected file has changed or is not a complete file."
+msgstr ""
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Could not delete '%s' from disk."
+msgstr "Impossibile eliminare '%s' dal disco."
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Deleted '%s' from disk."
+msgstr "'%s' eliminato dal disco."
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Now sharing file: %s"
 msgstr "Ora in condivisione il file: %s"
@@ -8156,6 +8388,11 @@ msgstr "Nome file remoto"
 #: src/SourceListCtrl.cpp
 msgid "A4AF"
 msgstr "A4AF"
+
+#: src/SplashScreen.cpp
+#, fuzzy
+msgid "Closing aMule"
+msgstr "Mostra aMule"
 
 #: src/Statistics.cpp
 #, c-format
@@ -9070,6 +9307,11 @@ msgid "Verify Local Data: %s is empty, so there is nothing to check."
 msgstr "Verifica Dati Locali: %s è vuoto, quindi non c'è nulla da controllare."
 
 #: src/ThreadTasks.cpp
+#, fuzzy, c-format
+msgid "Verify Local Data: missing MD4 hashes for %s, so it was not checked."
+msgstr "Verifica Dati Locali: impossibile leggere %s, quindi non è stato controllato."
+
+#: src/ThreadTasks.cpp
 #, c-format
 msgid "Verify Local Data: %s was removed or changed during the check, which did not finish."
 msgstr "Verifica Dati Locali: %s è stato rimosso o modificato durante il controllo, che non è stato completato."
@@ -9148,7 +9390,7 @@ msgstr "Sospensione invio del file: %s"
 #: src/UserEvents.cpp
 #, c-format
 msgid "Command '%s' was not run on '%s' event: %s"
-msgstr ""
+msgstr "Il comando ‘%s’ non è stato eseguito per l’evento ‘%s’: %s"
 
 #: src/UserEvents.cpp
 #, c-format
@@ -9160,9 +9402,8 @@ msgid "Download completed"
 msgstr "Download completato"
 
 #: src/UserEvents.h
-#, fuzzy
 msgid "The full path to the file (empty in remote GUI mode)."
-msgstr "Il percorso completo del file."
+msgstr "Il percorso completo del file (vuoto in modalità GUI remota)."
 
 #: src/UserEvents.h
 msgid "The name of the file without path component."
@@ -9924,20 +10165,37 @@ msgstr "Rimozione dei dati utente in $APPDATA\\aMule..."
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
 msgid "Kad could not read %s. It was renamed to %s.bad, and a new index will be saved at shutdown."
-msgstr ""
+msgstr "Kad non è riuscito a leggere %s. È stato rinominato in %s.bad e un nuovo indice verrà salvato alla chiusura."
 
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
 msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
-msgstr ""
+msgstr "Kad non è riuscito a conservare l’indice illeggibile %s come %s.bad. Il file originale non verrà sovrascritto."
 
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not load its saved index. Existing index files were preserved."
-msgstr ""
+msgstr "Kad non è riuscito a caricare l’indice salvato. I file di indice esistenti sono stati conservati."
 
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
-msgstr ""
+msgstr "Kad non è riuscito a salvare un indice. La copia precedente del file è stata conservata."
+
+#, c-format
+#~ msgid "Skipped deleting '%s': the selected file has changed."
+#~ msgstr "Eliminazione di '%s' saltata: il file selezionato è cambiato."
+
+#~ msgid "Download graph scale:"
+#~ msgstr "Scala grafico di scaricamento:"
+
+#~ msgid "Upload graph scale:"
+#~ msgstr "Scala grafico d'invio:"
+
+#, c-format
+#~ msgid "Failed to rename %s file, aborting update."
+#~ msgstr "Impossibile rinominare %s file, interruzione aggiornamento."
+
+#~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
+#~ msgstr "Riscarica il database GeoIP dalla sorgente selezionata ogni volta che aMule si avvia."
 
 #~ msgid "WARNING: Canceled file list corrupted, contains invalid header."
 #~ msgstr "ATTENZIONE: la lista dei file conosciuti è danneggiata, contiene un'intestazione non valida."

@@ -56,6 +56,7 @@ class CKnownFile;
 class CMemFile;
 class CAICHHash;
 enum class EContactRoute;
+struct SContactFacts;
 
 enum EChatCaptchaState
 {
@@ -250,6 +251,8 @@ public:
 	}
 	uint32 GetConnectIP() const { return m_connectAddress.ToIPv4NetworkOrderOrZero(); }
 	const CNetworkAddress &GetConnectAddress() const { return m_connectAddress; }
+	//! The current TCP target, which may promote a validated peer IPv6 without changing its identity.
+	CNetworkAddress GetDialAddress() const;
 	//! Whether the peer has an IPv4 form, from the best address known so far.
 	bool HasPeerIPv4() const;
 	uint32 GetUserIDHybrid() const { return m_nUserIDHybrid; }
@@ -308,13 +311,24 @@ public:
 	//! Whether a socket whose stream died may be dialled again over TCP: every refusal
 	//! CheckContactPreconditions() makes, asked without acting on the answer.
 	bool IsRedialAllowed() const;
-	//! Whether this client is callable by dialling its native IPv6 address, unless that address
-	//! already failed to answer a callback dial.
+	//! Whether this client is callable by dialling an IPv6 address -- its native one, or the one it
+	//! advertised -- unless that address already failed to answer a dial.
 	bool IsCallableIPv6Contact() const;
 
 private:
 	//! How this client is reached: Refuse exactly where CheckContactPreconditions() declines it.
 	EContactRoute ContactRoute() const;
+	SContactFacts ContactFactsFor(const CNetworkAddress &address) const;
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+	//! Sends OP_NAT_CALLBACKREQUEST for this LowID source when the Lugdunum preconditions hold.
+	//! Called from TryToContact's LowID->LowID decline, so at most once per source: a
+	//! DS_LOWTOLOWIP source is not asked again.
+	void TrySendLugdunumNatCallbackRequest() const;
+	//! Sends OP_LOWID_HOLEPUNCH_REQUEST (ed2k-server) for this LowID source when its
+	//! preconditions hold. Mutually exclusive with the Lugdunum callback per server.
+	//! Called from TryToContact's LowID->LowID decline, so at most once per source.
+	void TrySendLowIdHolePunchRequest() const;
+#endif
 
 public:
 	void ProcessSharedFileList(const uint8_t *pachPacket, uint32 nSize, wxString &pszDirectory);
@@ -484,8 +498,20 @@ public:
 
 	// chat
 	uint8 GetChatState() { return m_byChatstate; }
-	void SetChatState(uint8 nNewS) { m_byChatstate = nNewS; }
+	void SetChatState(uint8 nNewS)
+	{
+		m_byChatstate = nNewS;
+		if (nNewS == MS_NONE &&
+			(m_nChatCaptchaState == CA_ACCEPTING || m_nChatCaptchaState == CA_CAPTCHARECV ||
+				m_nChatCaptchaState == CA_SOLUTIONSENT)) {
+			m_nChatCaptchaState = CA_NONE;
+		}
+	}
 	EChatCaptchaState GetChatCaptchaState() const { return (EChatCaptchaState)m_nChatCaptchaState; }
+	uint32 GetPendingChatCaptchaId() const
+	{
+		return GetChatCaptchaState() == CA_CAPTCHARECV && IsConnected() ? m_chatCaptchaId : 0;
+	}
 	void ProcessCaptchaRequest(CMemFile *data);
 	void ProcessCaptchaReqRes(uint8 nStatus);
 	void ProcessChatMessage(wxString message);
@@ -596,6 +622,12 @@ public:
 
 	/// Sends a packet. False if there is no socket or the send failed.
 	bool SendPacket(CPacket *packet, bool delpacket = true, bool controlpacket = true);
+#ifdef ENABLE_IPV6
+	//! Queue a deferred OP_CHANGE_CLIENT_IP for this hello-complete IPv6 peer.
+	void MarkIPv6ChangeNotificationPending();
+	//! Allows deferred IPv6 notifications after the current connection's hello exchange.
+	void MarkIPv6ChangeConnectionReady();
+#endif
 
 	/// Per-tick poke from CPartFile::Process. Re-arms this client's socket if it suspended last
 	/// tick because the global CDownloadBandwidthThrottler bucket was empty, and returns the
@@ -655,6 +687,11 @@ public:
 	//! Only meaningful while HasModIPv6() is true.
 	const uint8_t *GetModIPv6() const { return m_modIPv6; }
 	bool HasModIPv6() const { return m_hasModIPv6; }
+#ifdef ENABLE_IPV6
+	//! Replaces a peer's advertised IPv6 after OP_CHANGE_CLIENT_IP validation.
+	void UpdateModIPv6(const CNetworkAddress &address);
+	void SendPendingIPv6Change();
+#endif
 	//! The peer's serving buddy's IPv6 address from CT_EMULE_SERVINGBUDDYIPV6, big-endian, 16
 	//! bytes. Only meaningful while HasServingBuddyIPv6() is true.
 	const uint8_t *GetServingBuddyIPv6() const { return m_servingBuddyIPv6; }
@@ -750,6 +787,10 @@ public:
 	bool HasDisabledSharedFiles() const { return m_fNoViewSharedFiles; }
 
 private:
+	// Sends OP_MESSAGE on the open connection, without SendChatMessage()'s chat bookkeeping.
+	void SendChatPacket(const wxString &message);
+	void RefreshObfuscationState();
+
 	CClientCredits *credits;
 	CFriend *m_Friend;
 
@@ -800,6 +841,9 @@ private:
 	CNetworkAddress m_userAddress;
 	CNetworkAddress m_connectAddress;
 	bool m_dialingIPv6;
+	bool m_preserveIdentityOnHello;
+	CNetworkAddress m_preparedDialAddress;
+	CNetworkAddress m_dialledIPv6Address;
 	CNetworkAddress m_unansweredIPv6Address;
 	uint32 m_dwServerIP;
 	uint32 m_nUserIDHybrid;
@@ -918,6 +962,7 @@ private:
 	wxString m_strComment;
 	uint8 m_byChatstate;
 	uint8 m_nChatCaptchaState;
+	uint32 m_chatCaptchaId = 0;
 	uint8 m_cCaptchasSent;
 	int8 m_iRating;
 	uint8 m_cMessagesReceived; // count of chatmessages he sent to me
@@ -954,6 +999,10 @@ private:
 	/* Kad Stuff */
 	uint8_t m_achBuddyID[16];
 	bool m_bBuddyIDValid;
+	// KADEMLIA_CALLBACK_REQ reads the published buddy hash as a pre-fix aMule wrote it (#1835).
+	bool m_bBuddyIdUseAmuleLayout = false;
+	// A KADEMLIA_CALLBACK_REQ was sent and the source has not called back since.
+	bool m_bBuddyCallbackUnanswered = false;
 	uint32 m_nBuddyIP;
 	uint16 m_nBuddyPort;
 
@@ -967,6 +1016,10 @@ private:
 	uint8_t m_servingBuddyIPv6[16];
 	bool m_hasModIPv6;
 	bool m_hasServingBuddyIPv6;
+#ifdef ENABLE_IPV6
+	bool m_pendingIPv6Change;
+	bool m_ipv6ChangeHelloComplete;
+#endif
 
 	Kademlia::CBuddyLiveness m_buddyLiveness;
 	uint64_t m_dwDirectCallbackTimeout;

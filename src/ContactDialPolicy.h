@@ -28,6 +28,8 @@
 #include "NetworkAddress.h"
 #include "PeerAddressing.h" // Needed for HasEd2kWireForm
 
+#include <vector>
+
 enum class EContactRoute
 {
 	Legacy,
@@ -43,6 +45,77 @@ struct SContactFacts
 	bool familyPermitted = false;
 	bool proxyEnabled = false;
 };
+
+/**
+ * The addresses an outbound contact must pass the IP filter and ban list on: the dial target and,
+ * when the target is a peer's advertised IPv6, the address the peer is known by, so dialling the
+ * advertised address never bypasses a filter or ban on either. Both are the same address on every
+ * other route.
+ */
+inline std::vector<CNetworkAddress> ContactSecurityAddresses(
+	const CNetworkAddress &target, const CNetworkAddress &connectAddress)
+{
+	std::vector<CNetworkAddress> addresses{ target };
+	if (connectAddress.IsPresent() && connectAddress != target) {
+		addresses.push_back(connectAddress);
+	}
+	return addresses;
+}
+
+/**
+ * Whether dialAddress is an IPv6 target other than the address the peer is known by: its advertised
+ * IPv6, dialled in place of its IPv4 identity or of the native address it last connected from. A
+ * failed dial of this kind is remembered as unanswered so the next attempt falls back to that
+ * identity.
+ */
+inline bool IsAdvertisedIPv6Dial(const CNetworkAddress &dialAddress, const CNetworkAddress &connectAddress)
+{
+	return dialAddress.IsIPv6() && !dialAddress.IsIPv4Mapped() && connectAddress.IsPresent() &&
+	       dialAddress != connectAddress;
+}
+
+/**
+ * Whether a dial that ended should mark its target unanswered: an advertised IPv6 dial that never
+ * completed the hellos, whatever it was for. A chat or a browse finds a dead address as surely as a
+ * transfer.
+ */
+inline bool IsUnansweredAdvertisedDial(
+	bool helloIncomplete, const CNetworkAddress &dialAddress, const CNetworkAddress &connectAddress)
+{
+	return helloIncomplete && IsAdvertisedIPv6Dial(dialAddress, connectAddress);
+}
+
+/** uTP framing is IPv4-only, so an IPv6 dial target goes over TCP. */
+inline bool ShouldTryIPv4Utp(const CNetworkAddress &dialAddress)
+{
+	return !(dialAddress.IsIPv6() && !dialAddress.IsIPv4Mapped());
+}
+
+/**
+ * Returns a peer's advertised IPv6 as the TCP target only when this node is explicitly configured
+ * for dual stack and has selected a global local IPv6. The local address proves that an IPv6 source
+ * route exists; it is not the peer target. Otherwise the existing target stays intact.
+ *
+ * It replaces an IPv4 identity, and also the native IPv6 a peer last connected from: that is
+ * usually a temporary address, which expires within a day, while the advertised one is the stable
+ * address the peer accepts on. An unanswered advertisement falls back to the existing target rather
+ * than being retried forever.
+ */
+inline CNetworkAddress PromotePeerIPv6ForDial(const CNetworkAddress &current,
+	const CNetworkAddress &peerIPv6,
+	const CNetworkAddress &unansweredIPv6,
+	bool dualStackConfigured,
+	const CNetworkAddress &localIPv6,
+	bool proxyEnabled)
+{
+	const bool knownPeer = PeerAddressing::HasEd2kWireForm(current) ||
+			       (current.IsIPv6() && !current.IsIPv4Mapped() && !current.IsUnspecified());
+	if (knownPeer && dualStackConfigured && !proxyEnabled && peerIPv6 != unansweredIPv6 &&
+		peerIPv6.IsGloballyRoutableIPv6() && localIPv6.IsGloballyRoutableIPv6()) {
+		return peerIPv6;
+	}
+	return current;
+}
 
 /**
  * How to reach a client.
@@ -64,6 +137,18 @@ inline EContactRoute DecideContactRoute(const SContactFacts &facts)
 		return EContactRoute::DialIPv6;
 	}
 	return EContactRoute::Refuse;
+}
+
+/**
+ * Whether a peer that would otherwise be waited on for a callback can be dialled now. @a dialFacts
+ * must describe the target the contact will really dial, not the IPv4 identity a greeted LowID is
+ * checked at: for a LowID that advertised an IPv6, that target is the advertised IPv6. A target
+ * that went unanswered is not dialled again, so the peer falls back to the callback.
+ */
+inline bool IsDialableWithoutCallback(const SContactFacts &dialFacts, const CNetworkAddress &unansweredIPv6)
+{
+	return DecideContactRoute(dialFacts) == EContactRoute::DialIPv6 &&
+	       dialFacts.contactAddress != unansweredIPv6;
 }
 
 #endif // CONTACT_DIAL_POLICY_H

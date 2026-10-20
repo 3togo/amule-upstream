@@ -144,7 +144,7 @@ const PrefField kSchema[] = {
 	PREF_STR("connection", "proxy_host", EC_TAG_PROXY_HOST, PrefAccess::ReadWrite, proxy_host),
 	PREF_U16("connection", "proxy_port", EC_TAG_PROXY_PORT, 65535u, PrefAccess::ReadWrite, proxy_port),
 	PREF_ENUM("connection", "proxy_type", EC_TAG_PROXY_TYPE, kProxyTypes, PrefAccess::ReadWrite, proxy_type),
-	PREF_STR("connection", "proxy_user", EC_TAG_PROXY_USER, PrefAccess::ReadWrite, proxy_user),
+	PREF_STR("connection", "proxy_user", EC_TAG_PROXY_USER, PrefAccess::AdminRead, proxy_user),
 	PREF_BOOL("connection", "reconnect_on_connection_loss", EC_TAG_CONN_RECONNECT, PrefEnc::Presence, false, PrefAccess::ReadWrite, reconnect_on_connection_loss),
 	// 65532, not 65535: SetPort() substitutes DEFAULT_TCP_PORT when val + 3 exceeds 65535, the
 	// server UDP socket being TCP+3. A 65534 here was a 200 that left the daemon on 4662.
@@ -177,6 +177,7 @@ const PrefField kSchema[] = {
 	PREF_STR("files", "ffprobe_path", EC_TAG_FILES_MEDIA_FFPROBE_PATH, PrefAccess::ReadWrite, files.ffprobe_path),
 	PREF_BOOL("files", "ich_enabled", EC_TAG_FILES_ICH_ENABLED, PrefEnc::Presence, false, PrefAccess::ReadWrite, files.ich_enabled),
 	PREF_BOOL("files", "media_metadata_enabled", EC_TAG_FILES_MEDIA_METADATA_ENABLED, PrefEnc::Presence, false, PrefAccess::ReadWrite, files.media_metadata_enabled),
+	PREF_U32("files", "shared_file_reverify_days", EC_TAG_FILES_SHARED_REVERIFY_DAYS, 3650, PrefAccess::ReadWrite, files.shared_file_reverify_days),
 	PREF_U32("files", "min_free_space_mebibytes", EC_TAG_FILES_MIN_FREE_SPACE, 0xFFFFFFFFu, PrefAccess::ReadWrite, files.min_free_space_mebibytes),
 	PREF_BOOL_GATED("files", "mmap_enabled", EC_TAG_FILES_MMAP_ENABLED, PrefEnc::Presence, false, PrefAccess::ReadWrite, files.mmap_enabled, "mmap_supported"),
 	PREF_BOOL("files", "mmap_supported", EC_TAG_FILES_MMAP_SUPPORTED, PrefEnc::Presence, false, PrefAccess::ReadOnly, files.mmap_supported),
@@ -200,7 +201,7 @@ const PrefField kSchema[] = {
 	PREF_BOOL("servers", "smart_lowid_check_enabled", EC_TAG_SERVERS_SMART_ID_CHECK, PrefEnc::Presence, false, PrefAccess::ReadWrite, servers.smart_lowid_check_enabled),
 	PREF_BOOL("servers", "update_list_from_client", EC_TAG_SERVERS_ADD_FROM_CLIENT, PrefEnc::Presence, false, PrefAccess::ReadWrite, servers.update_list_from_client),
 	PREF_BOOL("servers", "update_list_from_server", EC_TAG_SERVERS_ADD_FROM_SERVER, PrefEnc::Presence, false, PrefAccess::ReadWrite, servers.update_list_from_server),
-	PREF_STR("servers", "update_url", EC_TAG_SERVERS_UPDATE_URL, PrefAccess::ReadWrite, servers.update_url),
+	PREF_STR("servers", "update_url", EC_TAG_SERVERS_UPDATE_URL, PrefAccess::AdminRead, servers.update_url),
 	PREF_BOOL("servers", "server_priority_system_enabled", EC_TAG_SERVERS_USE_SCORE_SYSTEM, PrefEnc::Presence, false, PrefAccess::ReadWrite, servers.server_priority_system_enabled),
 
 	// [security]
@@ -209,7 +210,7 @@ const PrefField kSchema[] = {
 	PREF_BOOL("security", "ipfilter_clients_enabled", EC_TAG_IPFILTER_CLIENTS, PrefEnc::Presence, false, PrefAccess::ReadWrite, security.ipfilter_clients_enabled),
 	PREF_BOOL("security", "ipfilter_include_lan_ips", EC_TAG_IPFILTER_FILTER_LAN, PrefEnc::Presence, false, PrefAccess::ReadWrite, security.ipfilter_include_lan_ips),
 	PREF_BOOL("security", "ipfilter_servers_enabled", EC_TAG_IPFILTER_SERVERS, PrefEnc::Presence, false, PrefAccess::ReadWrite, security.ipfilter_servers_enabled),
-	PREF_STR("security", "ipfilter_update_url", EC_TAG_IPFILTER_UPDATE_URL, PrefAccess::ReadWrite, security.ipfilter_update_url),
+	PREF_STR("security", "ipfilter_update_url", EC_TAG_IPFILTER_UPDATE_URL, PrefAccess::AdminRead, security.ipfilter_update_url),
 	PREF_BOOL("security", "protocol_obfuscation_enabled", EC_TAG_SECURITY_OBFUSCATION_SUPPORTED, PrefEnc::Presence, false, PrefAccess::ReadWrite, security.protocol_obfuscation_enabled),
 	PREF_BOOL("security", "obfuscation_requested", EC_TAG_SECURITY_OBFUSCATION_REQUESTED, PrefEnc::Presence, false, PrefAccess::ReadWrite, security.obfuscation_requested),
 	PREF_BOOL("security", "obfuscation_required", EC_TAG_SECURITY_OBFUSCATION_REQUIRED, PrefEnc::Presence, false, PrefAccess::ReadWrite, security.obfuscation_required),
@@ -287,7 +288,7 @@ const PrefField kSchema[] = {
 	PREF_BOOL("advanced", "verbose_logging", EC_TAG_CORETW_VERBOSE, PrefEnc::Presence, false, PrefAccess::ReadWrite, advanced.verbose_logging),
 
 	// [kad] (EC group: KADEMLIA)
-	PREF_STR("kad", "update_url", EC_TAG_KADEMLIA_UPDATE_URL, PrefAccess::ReadWrite, kad.update_url),
+	PREF_STR("kad", "update_url", EC_TAG_KADEMLIA_UPDATE_URL, PrefAccess::AdminRead, kad.update_url),
 	// A 3.2+ core always sends PROTOCOL10 as a value tag, so its presence is the capability: a
 	// pre-3.2 core neither sends nor applies the two options below.
 	PREF_BOOL("kad", "protocol10_supported", EC_TAG_KADEMLIA_PROTOCOL10, PrefEnc::Presence, false, PrefAccess::ReadOnly, kad.protocol10_supported),
@@ -296,14 +297,14 @@ const PrefField kSchema[] = {
 
 	// [geoip] (EC group: IP2COUNTRY)
 	PREF_BOOL("geoip", "auto_update_enabled", EC_TAG_IP2COUNTRY_AUTO_UPDATE, PrefEnc::Value, false, PrefAccess::ReadWrite, geoip.auto_update_enabled),
-	PREF_STR("geoip", "custom_update_url", EC_TAG_IP2COUNTRY_CUSTOM_URL, PrefAccess::ReadWrite, geoip.custom_update_url),
+	PREF_STR("geoip", "custom_update_url", EC_TAG_IP2COUNTRY_CUSTOM_URL, PrefAccess::AdminRead, geoip.custom_update_url),
 	PREF_BOOL("geoip", "db_loaded", EC_TAG_IP2COUNTRY_DB_LOADED, PrefEnc::Value, false, PrefAccess::ReadOnly, geoip.db_loaded),
 	PREF_STR("geoip", "db_path", EC_TAG_IP2COUNTRY_DB_PATH, PrefAccess::ReadOnly, geoip.db_path),
 	PREF_BOOL("geoip", "download_in_progress", EC_TAG_IP2COUNTRY_DOWNLOADING, PrefEnc::Value, false, PrefAccess::ReadOnly, geoip.download_in_progress),
 	PREF_BOOL("geoip", "enabled", EC_TAG_IP2COUNTRY_ENABLED, PrefEnc::Value, false, PrefAccess::ReadWrite, geoip.enabled),
 	PREF_STR("geoip", "last_update_status", EC_TAG_IP2COUNTRY_LAST_RESULT, PrefAccess::ReadOnly, geoip.last_update_status),
 	PREF_STR("geoip", "loaded_source", EC_TAG_IP2COUNTRY_LOADED_SOURCE, PrefAccess::ReadOnly, geoip.loaded_source),
-	PREF_STR("geoip", "maxmind_license", EC_TAG_IP2COUNTRY_MAXMIND_LICENSE, PrefAccess::ReadWrite, geoip.maxmind_license),
+	PREF_STR("geoip", "maxmind_license", EC_TAG_IP2COUNTRY_MAXMIND_LICENSE, PrefAccess::AdminRead, geoip.maxmind_license),
 	PREF_ENUM("geoip", "source", EC_TAG_IP2COUNTRY_SOURCE, kIp2CountrySources, PrefAccess::ReadWrite, geoip.source),
 	PREF_BOOL("geoip", "supported", EC_TAG_IP2COUNTRY_SUPPORTED, PrefEnc::Value, false, PrefAccess::ReadOnly, geoip.supported),
 	// `update_now` is POST /geoip/update, an action, not a setting. The row stays Rejected

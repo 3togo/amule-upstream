@@ -327,6 +327,12 @@ void CUpDownClient::AddReqBlock(Requested_Block_Struct *reqblock, bool bSignalIO
 		return;
 	}
 
+	// Even a request for a previously corrupt part may trigger a due recheck after repair.
+	// Verification is asynchronous and does not gate this upload on its completion.
+	if (theApp->uploadqueue->IsDownloading(this) && !m_bIOError) {
+		srcfile->MaybeScheduleVerification();
+	}
+
 	// A block in a part a check found corrupt. Peers are told we lack those parts, so this is a
 	// stale part status or a misbehaving client: end the session and send the current status.
 	if (!srcfile->IsPartFile() &&
@@ -460,14 +466,13 @@ uint32 CUpDownClient::SendBlockData()
 			GetUserAddress(),
 			theApp->CryptoAvailable());
 
-		sentBytesPayload = s->GetSentPayloadSinceLastCallAndReset();
-		m_nCurQueueSessionPayloadUp += sentBytesPayload;
-
-		// Wake the disk I/O thread so it re-checks its buffer condition against the freshly
-		// updated m_nCurQueueSessionPayloadUp, rather than waiting out its 100 ms timeout
-		// before noticing curPayload advanced.
-		if (sentBytesPayload > 0 && theApp->uploadDiskIOThread) {
-			theApp->uploadDiskIOThread->SocketNeedsMoreData();
+		{
+			// PrepareRead holds this lock while reading the session total and peeking
+			// at the socket counter. Transfer both together so a refill wake cannot
+			// see the reset counter before the session total includes those bytes.
+			wxMutexLocker lockBlockLists(m_blockListLock);
+			sentBytesPayload = s->GetSentPayloadSinceLastCallAndReset();
+			m_nCurQueueSessionPayloadUp += static_cast<sint64>(sentBytesPayload);
 		}
 
 		if (theApp->uploadqueue->CheckForTimeOver(this)) {

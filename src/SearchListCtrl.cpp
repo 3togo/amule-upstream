@@ -35,12 +35,13 @@
 #include <common/Format.h> // Needed for CFormat
 #include <tags/FileTags.h> // Needed for FT_MEDIA_LENGTH / _BITRATE / _CODEC
 
-#include "amule.h"            // Needed for theApp
-#include "Server.h"           // Needed for CServer
-#include "ServerConnect.h"    // Needed for CServerConnect
-#include "SearchList.h"       // Needed for CSearchFile
-#include "updownclient.h"     // Needed for BROWSE_IN_PROGRESS
-#include "BrowseListModel.h"  // Needed for CBrowseListModel
+#include "amule.h"           // Needed for theApp
+#include "Server.h"          // Needed for CServer
+#include "ServerConnect.h"   // Needed for CServerConnect
+#include "SearchList.h"      // Needed for CSearchFile
+#include "updownclient.h"    // Needed for BROWSE_IN_PROGRESS
+#include "BrowseListModel.h" // Needed for CBrowseListModel
+#include "SearchColumnFit.h"
 #include "SearchListModel.h"  // Needed for CSearchListModel
 #include "GetTickCount.h"     // Needed for GetTickCount64()
 #include "CommentDialogLst.h" // Needed for CCommentDialogLst (Kad comments/ratings)
@@ -204,6 +205,8 @@ CSearchListCtrl::CSearchListCtrl(
 	// Default sort is by name, ascending.
 	m_sort_orders.emplace_back(CSearchListModel::COL_NAME, 0);
 	ShowSortCaret(CSearchListModel::COL_NAME, 0);
+
+	CaptureDefaultColumnState();
 
 	// Only load settings for first list, otherwise sync with current lists
 	if (s_lists.empty()) {
@@ -609,30 +612,7 @@ void CSearchListCtrl::SyncLists(CSearchListCtrl *src, CSearchListCtrl *dst)
 {
 	wxCHECK_RET(src && dst, "NULL argument in SyncLists");
 
-	for (unsigned i = 0; i < src->RealColumnCount(); ++i) {
-		// Hidden state has to travel with the width: copying width alone
-		// would leave the other tabs showing a column this one has hidden.
-		const int col = static_cast<int>(i);
-		const bool hidden = src->IsColumnHidden(col);
-		if (dst->IsColumnHidden(col) != hidden) {
-			dst->SetColumnHidden(col, hidden, src->GetColumn(i)->GetWidth());
-		}
-		if (!hidden && dst->GetColumn(i)->GetWidth() != src->GetColumn(i)->GetWidth()) {
-			dst->GetColumn(i)->SetWidth(src->GetColumn(i)->GetWidth());
-		}
-	}
-	dst->UpdateExpanderColumn();
-
-	// Re-baseline what dst's idle poll compares against, so the widths just written read as the
-	// status quo rather than as a drag the user made there. Without this the mirror echoes: dst
-	// notices "its" widths moved and mirrors them straight back.
-	//
-	// The echo does not die out on its own. GTK clamps a column to a minimum taken from its
-	// header and contents, so a width that fits one tab comes back wider in another holding
-	// different results, and the two hand it back and forth indefinitely. It showed up on
-	// columns empty in one of the tabs, since those are the ones whose clamped minimum differs
-	// (issue #1022).
-	dst->ResetKnownWidths();
+	dst->CopyColumnLayoutFrom(*src);
 
 	if (dst->m_sort_orders.empty() || src->m_sort_orders.empty() ||
 		dst->m_sort_orders.front() != src->m_sort_orders.front()) {
@@ -666,18 +646,26 @@ int CSearchListCtrl::CompareByColumn(const wxDataViewItem &item1,
 
 void CSearchListCtrl::GetDisplayOrder(wxDataViewItemArray &ordered) const
 {
-	std::vector<CSearchFile *> files;
-	BuildDisplayOrder(files);
-
 	ordered.Clear();
-	ordered.Alloc(files.size());
-	for (CSearchFile *file : files) {
-		ordered.Add(CSearchListModel::ToItem(file));
+	AppendDisplayOrder(wxDataViewItem(), ordered);
+}
+
+void CSearchListCtrl::GetColumnFitRows(wxDataViewItemArray &rows, size_t limit) const
+{
+	rows.Clear();
+	if (limit == 0 || !GetSearchId()) {
+		return;
 	}
+	SampleSearchColumnFitRows(*this, rows, limit);
 }
 
 wxString CSearchListCtrl::GetRowLabel(const wxDataViewItem &item) const
 {
+	if (m_model->IsFolder(item)) {
+		wxVariant name;
+		m_model->GetValue(name, item, CSearchListModel::COL_NAME);
+		return name.GetString();
+	}
 	return CSearchListModel::ToFile(item)->GetFileName().GetPrintable();
 }
 
@@ -789,6 +777,11 @@ void CSearchListCtrl::OnIdleHook()
 	}
 }
 
+void CSearchListCtrl::OnColumnVisibilityChanged()
+{
+	SyncOtherLists(this);
+}
+
 void CSearchListCtrl::OnColumnWidthsChanged()
 {
 	// The base persists the new widths; this list additionally mirrors them to
@@ -866,11 +859,11 @@ void CSearchListCtrl::OnRightClick(wxDataViewEvent &event)
 
 void CSearchListCtrl::OnItemActivated(wxDataViewEvent &event)
 {
-	CSearchFile *file = CSearchListModel::ToFile(event.GetItem());
-	if (!file) {
+	const wxDataViewItem item = event.GetItem();
+	if (!item.IsOk()) {
 		return;
 	}
-	if (file->HasChildren()) {
+	if (m_model->IsFolder(item) || CSearchListModel::ToFile(item)->HasChildren()) {
 		if (IsExpanded(event.GetItem())) {
 			Collapse(event.GetItem());
 		} else {
@@ -1023,47 +1016,31 @@ void CSearchListCtrl::OnRelatedSearch(wxCommandEvent &WXUNUSED(event))
 	}
 }
 
-void CSearchListCtrl::BuildDisplayOrder(std::vector<CSearchFile *> &ordered) const
+void CSearchListCtrl::AppendDisplayOrder(const wxDataViewItem &parent, wxDataViewItemArray &ordered) const
 {
-	// The model yields top-level rows in arrival order, so they go through this list's own
-	// comparator -- the one CSearchListModel::Compare() uses -- to match what is on screen
-	// under the current sort. GetItemByRow()/GetRowByItem() would be the direct route but exist
-	// only in wx's generic implementation.
-	const auto byDisplayOrder = [this](const CSearchFile *f1, const CSearchFile *f2) {
-		return CompareFiles(f1, f2) < 0;
-	};
+	// The model yields rows in arrival order, so they go through its Compare() with the sort
+	// column wx passes it, to match what is on screen. GetItemByRow()/GetRowByItem() would be
+	// the direct route but exist only in wx's generic implementation. A browse puts folders
+	// among the rows, so nothing here may treat a row as a CSearchFile.
+	const wxDataViewColumn *sortColumn = GetSortingColumn();
+	const unsigned column = sortColumn ? sortColumn->GetModelColumn() : 0;
+	const bool ascending = sortColumn ? sortColumn->IsSortOrderAscending() : true;
 
-	wxDataViewItemArray roots;
-	m_model->GetChildren(wxDataViewItem(), roots);
+	wxDataViewItemArray children;
+	m_model->GetChildren(parent, children);
+	std::vector<wxDataViewItem> rows(children.begin(), children.end());
+	std::sort(rows.begin(), rows.end(), [&](const wxDataViewItem &a, const wxDataViewItem &b) {
+		return m_model->Compare(a, b, column, ascending) < 0;
+	});
 
-	std::vector<CSearchFile *> parents;
-	parents.reserve(roots.GetCount());
-	for (size_t i = 0; i < roots.GetCount(); ++i) {
-		parents.push_back(CSearchListModel::ToFile(roots[i]));
-	}
-	std::sort(parents.begin(), parents.end(), byDisplayOrder);
-
-	// An expanded group's children occupy rows of their own, so they belong here too: callers
+	// An expanded row's children occupy rows of their own, so they belong here too: callers
 	// count rows against what is on screen and select ranges of them. Leaving them out made a
 	// page overshoot and skipped every child in the range.
-	ordered.clear();
-	ordered.reserve(parents.size());
-	for (CSearchFile *parent : parents) {
-		ordered.push_back(parent);
-
-		const wxDataViewItem item = CSearchListModel::ToItem(parent);
-		if (!IsExpanded(item)) {
-			continue;
+	for (const wxDataViewItem &row : rows) {
+		ordered.Add(row);
+		if (m_model->IsContainer(row) && IsExpanded(row)) {
+			AppendDisplayOrder(row, ordered);
 		}
-		wxDataViewItemArray kids;
-		m_model->GetChildren(item, kids);
-		std::vector<CSearchFile *> children;
-		children.reserve(kids.GetCount());
-		for (size_t i = 0; i < kids.GetCount(); ++i) {
-			children.push_back(CSearchListModel::ToFile(kids[i]));
-		}
-		std::sort(children.begin(), children.end(), byDisplayOrder);
-		ordered.insert(ordered.end(), children.begin(), children.end());
 	}
 }
 

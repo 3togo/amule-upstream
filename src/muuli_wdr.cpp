@@ -36,7 +36,9 @@
 
 // Include private header
 #include "muuli_wdr.h"
+#include "BandwidthLimitSlider.h"
 
+#include "amule.h" // CamuleGuiBase::AppearanceChoice values for the appearance selector
 #include "amuleDlg.h" // Needed for CLIENT_SKIN_SIZE (clientImages' artIds static_assert)
 #include "KadContactHistogram.h"
 #include "DialogLayout.h" // Scrollable details dialogs
@@ -1507,37 +1509,56 @@ wxSizer *PreferencesConnectionTab( wxWindow *parent, bool call_fit, bool set_siz
 {
     wxBoxSizer *item0 = new wxBoxSizer( wxVERTICAL );
 
-    wxStaticBox *item2 = new wxStaticBox( parent, -1, _("Bandwidth limits") );
-    wxStaticBoxSizer *item1 = new wxStaticBoxSizer( item2, wxVERTICAL );
+    wxStaticBox *capacityBox = new wxStaticBox( parent, wxID_ANY, _("Line capacities") );
+    wxStaticBoxSizer *capacitySizer = new wxStaticBoxSizer( capacityBox, wxVERTICAL );
+    wxFlexGridSizer *capacityGrid = new wxFlexGridSizer( 3, 5, 5 );
+    capacityGrid->AddGrowableCol( 2 );
+    capacityGrid->Add( new wxStaticText(capacityBox, wxID_ANY, _("Download")), wxSizerFlags().CenterVertical() );
+    wxSpinCtrl *downloadCapacity = new wxSpinCtrl(capacityBox, IDC_DOWNLOAD_CAP, "12500", wxDefaultPosition, wxDefaultSize, 0, 3, 1000000, 12500);
+    capacityGrid->Add( downloadCapacity, wxSizerFlags().CenterVertical() );
+    wxStaticText *downloadCapacityEquivalent = new wxStaticText(capacityBox, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxST_NO_AUTORESIZE);
+    capacityGrid->Add( downloadCapacityEquivalent, wxSizerFlags().CenterVertical() );
+    capacityGrid->Add( new wxStaticText(capacityBox, wxID_ANY, _("Upload")), wxSizerFlags().CenterVertical() );
+    wxSpinCtrl *uploadCapacity = new wxSpinCtrl(capacityBox, IDC_UPLOAD_CAP, "2500", wxDefaultPosition, wxDefaultSize, 0, 3, 1000000, 2500);
+    capacityGrid->Add( uploadCapacity, wxSizerFlags().CenterVertical() );
+    wxStaticText *uploadCapacityEquivalent = new wxStaticText(capacityBox, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxST_NO_AUTORESIZE);
+    capacityGrid->Add( uploadCapacityEquivalent, wxSizerFlags().CenterVertical() );
+    capacitySizer->Add( capacityGrid, wxSizerFlags().Expand() );
+    item0->Add( capacitySizer, wxSizerFlags().Expand() );
 
-    wxFlexGridSizer *item3 = new wxFlexGridSizer( 3, 0, 0 );
-    item3->AddGrowableCol( 0 );
+    wxStaticBox *limitBox = new wxStaticBox( parent, wxID_ANY, _("Bandwidth limits") );
+    wxStaticBoxSizer *limitSizer = new wxStaticBoxSizer( limitBox, wxVERTICAL );
+    wxFlexGridSizer *downloadRow = new wxFlexGridSizer( 3, 5, 5 );
+    downloadRow->AddGrowableCol( 2 );
+    wxCheckBox *downloadEnabled = new wxCheckBox(limitBox, IDC_DOWNLOAD_LIMIT_ENABLED, _("Enable download limit"));
+    downloadRow->Add( downloadEnabled, wxSizerFlags().CenterVertical() );
+    wxSpinCtrl *downloadLimit = new wxSpinCtrl(limitBox, IDC_MAXDOWN, "0", wxDefaultPosition, wxDefaultSize, 0, 0, 1000000, 0);
+    downloadRow->Add( downloadLimit, wxSizerFlags().CenterVertical() );
+    wxStaticText *downloadEquivalent = new wxStaticText(limitBox, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxST_NO_AUTORESIZE);
+    downloadRow->Add( downloadEquivalent, wxSizerFlags().CenterVertical() );
+    limitSizer->Add( downloadRow, wxSizerFlags().Expand() );
+    limitSizer->Add( new BandwidthLimitSlider(limitBox, IDC_DOWNLOAD_LIMIT_SLIDER, downloadLimit, downloadCapacity, downloadEnabled, downloadEquivalent, downloadCapacityEquivalent), wxSizerFlags().Expand() );
 
-    wxStaticText *item4 = new wxStaticText( item2, -1, _("Download"), wxDefaultPosition, wxDefaultSize, 0 );
-    item3->Add( item4, 0, wxALIGN_CENTER_VERTICAL, 0 );
+    wxFlexGridSizer *uploadRow = new wxFlexGridSizer( 3, 5, 5 );
+    uploadRow->AddGrowableCol( 2 );
+    wxCheckBox *uploadEnabled = new wxCheckBox(limitBox, IDC_UPLOAD_LIMIT_ENABLED, _("Enable upload limit"));
+    uploadRow->Add( uploadEnabled, wxSizerFlags().CenterVertical() );
+    wxSpinCtrl *uploadLimit = new wxSpinCtrl(limitBox, IDC_MAXUP, "10", wxDefaultPosition, wxDefaultSize, 0, 0, 1000000, 10);
+    uploadRow->Add( uploadLimit, wxSizerFlags().CenterVertical() );
+    wxStaticText *uploadEquivalent = new wxStaticText(limitBox, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxST_NO_AUTORESIZE);
+    uploadRow->Add( uploadEquivalent, wxSizerFlags().CenterVertical() );
+    limitSizer->Add( uploadRow, wxSizerFlags().Expand().Border(wxTOP, 5) );
+    limitSizer->Add( new BandwidthLimitSlider(limitBox, IDC_UPLOAD_LIMIT_SLIDER, uploadLimit, uploadCapacity, uploadEnabled, uploadEquivalent, uploadCapacityEquivalent), wxSizerFlags().Expand() );
 
-    wxSpinCtrl *item5 = new wxSpinCtrl( item2, IDC_MAXDOWN, "0", wxDefaultPosition, wxDefaultSize, 0, 0, 1000000, 0 );
-    item3->Add( item5, 0, wxALIGN_CENTER_VERTICAL, 0 );
-
-    wxStaticText *item6 = new wxStaticText( item2, -1, _("KiB/s"), wxDefaultPosition, wxDefaultSize, 0 );
-    item3->Add( item6, wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
-    wxStaticText *item7 = new wxStaticText( item2, -1, _("Upload"), wxDefaultPosition, wxDefaultSize, 0 );
-    item3->Add( item7, 0, wxALIGN_CENTER_VERTICAL, 0 );
-
-    wxSpinCtrl *item8 = new wxSpinCtrl( item2, IDC_MAXUP, "10", wxDefaultPosition, wxDefaultSize, 0, 0, 1000000, 10 );
-    item3->Add( item8, wxSizerFlags().CenterVertical() );
-
-    wxStaticText *item9 = new wxStaticText( item2, -1, _("KiB/s"), wxDefaultPosition, wxDefaultSize, 0 );
-    item3->Add( item9, wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
-    wxStaticText *item10 = new wxStaticText( item2, -1, _("Slot Allocation"), wxDefaultPosition, wxDefaultSize, 0 );
-    item3->Add( item10, wxSizerFlags().CenterVertical().Border(wxLEFT, 20) );
-    wxSpinCtrl *item11 = new wxSpinCtrl( item2, IDC_SLOTALLOC, "10", wxDefaultPosition, wxDefaultSize, 0, 1, 100000, 10 );
-    item3->Add( item11, wxSizerFlags().CenterVertical() );
-
-    wxStaticText *item12 = new wxStaticText( item2, -1, _("KiB/s"), wxDefaultPosition, wxDefaultSize, 0 );
-    item3->Add( item12, wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
-    item1->Add( item3, wxSizerFlags().Expand().CenterVertical().Border(wxALL, 0) );
-    item0->Add( item1, wxSizerFlags().Expand().CenterHorizontal() );
+    wxBoxSizer *slotRow = new wxBoxSizer( wxHORIZONTAL );
+    slotRow->Add( new wxStaticText(limitBox, wxID_ANY, _("Slot Allocation")), wxSizerFlags().CenterVertical() );
+    slotRow->Add( new wxSpinCtrl(limitBox, IDC_SLOTALLOC, "10", wxDefaultPosition, wxDefaultSize, 0, 1, 100000, 10), wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
+    slotRow->Add( new wxStaticText(limitBox, wxID_ANY, _("KiB/s")), wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
+    slotRow->AddStretchSpacer();
+    slotRow->Add(new wxButton(limitBox, IDC_BANDWIDTH_CALCULATOR, _("Bandwidth calculator...")),
+        wxSizerFlags().CenterVertical().Border(wxLEFT, 5));
+    limitSizer->Add( slotRow, wxSizerFlags().Expand().Border(wxTOP, 5) );
+    item0->Add( limitSizer, wxSizerFlags().Expand() );
     wxStaticBox *item14 = new wxStaticBox( parent, -1, _("Ports") );
     wxStaticBoxSizer *item13 = new wxStaticBoxSizer( item14, wxVERTICAL );
 
@@ -1669,6 +1690,27 @@ wxSizer *PreferencesConnectionTab( wxWindow *parent, bool call_fit, bool set_siz
     kadProtoSizer->Add( strictAichChk, wxSizerFlags().CenterVertical().Border(wxLEFT|wxRIGHT|wxBOTTOM, 5) );
 
     item0->Add( kadProtoSizer, wxSizerFlags().Expand().CenterVertical().Border(wxTOP, 5) );
+
+#ifdef ENABLE_IPV6
+    wxStaticBox *addressFamilyBox = new wxStaticBox( parent, IDC_ADDRESSFAMILIESBOX, _("IPv6") );
+    wxStaticBoxSizer *addressFamilySizer = new wxStaticBoxSizer( addressFamilyBox, wxVERTICAL );
+
+    wxBoxSizer *addressFamilyRow = new wxBoxSizer( wxHORIZONTAL );
+    addressFamilyRow->Add( new wxStaticText( addressFamilyBox, -1, _("Address families:") ), wxSizerFlags().CenterVertical() );
+    wxString addressFamilyChoices[] = { _("IPv4 only"), _("IPv4 and IPv6") };
+    wxChoice *addressFamilyChoice = new wxChoice( addressFamilyBox, IDC_ADDRESSFAMILIES, wxDefaultPosition, wxDefaultSize, 2, addressFamilyChoices, 0 );
+    addressFamilyRow->Add( addressFamilyChoice, wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
+    addressFamilySizer->Add( addressFamilyRow, wxSizerFlags().CenterVertical().Border(wxLEFT|wxRIGHT|wxTOP, 5) );
+
+    wxStaticText *addressFamilyNote = new wxStaticText( addressFamilyBox, -1, _("Takes effect after restarting aMule."), wxDefaultPosition, wxDefaultSize, 0 );
+    addressFamilySizer->Add( addressFamilyNote, wxSizerFlags().CenterVertical().Border(wxLEFT|wxRIGHT|wxBOTTOM, 5) );
+
+    wxCheckBox *advertiseIPv6Chk = new wxCheckBox( addressFamilyBox, IDC_ADVERTISEIPV6, _("Advertise my IPv6 address to other peers"), wxDefaultPosition, wxDefaultSize, 0 );
+    addressFamilySizer->Add( advertiseIPv6Chk, wxSizerFlags().CenterVertical().Border(wxLEFT|wxRIGHT|wxBOTTOM, 5) );
+
+    item0->Add( addressFamilySizer, wxSizerFlags().Expand().CenterVertical().Border(wxTOP, 5) );
+#endif
+
     if (set_sizer)
     {
         parent->SetSizer( item0 );
@@ -1798,6 +1840,15 @@ wxSizer *PreferencesFilesTab( wxWindow *parent, bool call_fit, bool set_sizer )
 
     wxCheckBox *item21 = new wxCheckBox( item20, IDC_UAP, _("Add new shared files with auto priority"), wxDefaultPosition, wxDefaultSize, 0 );
     item19->Add( item21, wxSizerFlags().CenterVertical().Border(wxRIGHT, 0) );
+    // Same layout as the free-space row: the spin control is right-aligned before its unit.
+    wxFlexGridSizer *reverifySizer = new wxFlexGridSizer( 3, 0, 0 );
+    reverifySizer->AddGrowableCol( 0 );
+    reverifySizer->Add( new wxStaticText( item20, -1, _("Verify local data of requested shared files every") ), 0, wxALIGN_CENTER_VERTICAL, 0 );
+    wxSpinCtrl *reverifyDays = new wxSpinCtrl( item20, IDC_SHAREDFILEREVERIFYDAYS, "0", wxDefaultPosition, wxDefaultSize, 0, 0, 3650, 0 );
+    reverifyDays->SetToolTip( _("Re-read requested complete files in the background and compare them with their stored MD4/AICH hashes, as Verify Local Data does. Corrupt parts stop being shared. Uploads continue during the check.") );
+    reverifySizer->Add( reverifyDays, 0, wxALIGN_CENTER_VERTICAL, 0 );
+    reverifySizer->Add( new wxStaticText( item20, -1, _("days (0 = off)") ), wxSizerFlags().Center().Border(wxLEFT, 5) );
+    item19->Add( reverifySizer, wxSizerFlags().Expand().CenterVertical() );
     item0->Add( item19, wxSizerFlags().Expand().CenterVertical().Border(wxLEFT|wxRIGHT|wxBOTTOM, 0) );
 
     // Intelligent Corruption Handling -- an advanced option, placed after the
@@ -2072,24 +2123,6 @@ wxSizer *PreferencesStatisticsTab( wxWindow *parent, bool call_fit, bool set_siz
     item1->Add( item7, wxSizerFlags().Expand().CenterVertical().Border(wxTOP, 5) );
     wxSlider *item8 = new wxSlider( item2, IDC_SLIDER4, 100, 2, 200, wxDefaultPosition, wxSize(100,-1), wxSL_HORIZONTAL );
     item1->Add( item8, wxSizerFlags().Expand().CenterVertical() );
-    wxFlexGridSizer *item9 = new wxFlexGridSizer( 3, 0, 0 );
-    item9->AddGrowableCol( 0 );
-
-    wxStaticText *item10 = new wxStaticText( item2, -1, _("Download graph scale:"), wxDefaultPosition, wxDefaultSize, 0 );
-    item9->Add( item10, 0, wxALIGN_CENTER_VERTICAL, 0 );
-
-    wxSpinCtrl *item11 = new wxSpinCtrl( item2, IDC_DOWNLOAD_CAP, "3", wxDefaultPosition, wxDefaultSize, 0, 3, 1000000, 3 );
-    item9->Add( item11, wxSizerFlags().CenterVertical() );
-
-    wxStaticText *item12 = new wxStaticText( item2, -1, _("KiB/s"), wxDefaultPosition, wxDefaultSize, 0 );
-    item9->Add( item12, wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
-    wxStaticText *item13 = new wxStaticText( item2, -1, _("Upload graph scale:"), wxDefaultPosition, wxDefaultSize, 0 );
-    item9->Add( item13, wxSizerFlags().CenterVertical().Border(wxTOP, 5) );
-    wxSpinCtrl *item14 = new wxSpinCtrl( item2, IDC_UPLOAD_CAP, "3", wxDefaultPosition, wxDefaultSize, 0, 3, 1000000, 3 );
-    item9->Add( item14, wxSizerFlags().CenterVertical().Border(wxTOP, 5) );
-    wxStaticText *item15 = new wxStaticText( item2, -1, _("KiB/s"), wxDefaultPosition, wxDefaultSize, 0 );
-    item9->Add( item15, wxSizerFlags().CenterVertical().Border(wxLEFT|wxTOP, 5) );
-    item1->Add( item9, wxSizerFlags().Expand().CenterVertical().Border(wxTOP, 5) );
     wxFlexGridSizer *item16 = new wxFlexGridSizer( 3, 0, 0 );
     item16->AddGrowableCol( 0 );
 
@@ -2210,6 +2243,21 @@ wxSizer *PreferencesaMuleTweaksTab( wxWindow *parent, bool call_fit, bool set_si
 wxSizer *PreferencesGuiTweaksTab( wxWindow *parent, bool call_fit, bool set_sizer )
 {
     wxBoxSizer *item0 = new wxBoxSizer( wxVERTICAL );
+#if wxCHECK_VERSION(3, 3, 0)
+    wxBoxSizer *appearanceRow = new wxBoxSizer(wxHORIZONTAL);
+    appearanceRow->Add(new wxStaticText(parent, wxID_ANY, _("Appearance: ")),
+        wxSizerFlags().CenterVertical());
+    auto *appearance = new wxChoice(parent, IDC_APPEARANCE);
+    appearance->Insert(_("Follow system"), static_cast<unsigned int>(CamuleGuiBase::AppearanceChoice::System));
+    // Not plain "Light": wx's own catalogs translate that as the font weight, and
+    // untranslated languages would show it.
+    appearance->Insert(_("Light mode"),static_cast<unsigned int>(CamuleGuiBase::AppearanceChoice::Light));
+    appearance->Insert(_("Dark mode"), static_cast<unsigned int>(CamuleGuiBase::AppearanceChoice::Dark));
+    appearanceRow->Add(appearance, wxSizerFlags().CenterVertical());
+    item0->Add(appearanceRow, wxSizerFlags().Expand().Border(wxTOP|wxBOTTOM, 5));
+    item0->Add(new wxStaticText(parent, wxID_ANY, _("Appearance changes take effect after restarting aMule.")),
+        wxSizerFlags().Border(wxBOTTOM, 10));
+#endif
 
     wxBoxSizer *item1 = new wxBoxSizer( wxHORIZONTAL );
 
@@ -3170,8 +3218,8 @@ wxSizer *PreferencesIP2CountryTab( wxWindow *parent, bool call_fit, bool set_siz
     wxButton *item24 = new wxButton( item3, IDC_GEOIP_UPDATE_NOW, _("Update now"), wxDefaultPosition, wxDefaultSize, 0 );
     item24->SetToolTip( _("Download the GeoIP database from the selected source.") );
     item23->Add( item24, wxSizerFlags().Border(wxRIGHT, 12) );
-    wxCheckBox *item25 = new wxCheckBox( item3, IDC_GEOIP_AUTOUPDATE, _("Auto-update on startup"), wxDefaultPosition, wxDefaultSize, 0 );
-    item25->SetToolTip( _("Re-download the GeoIP database from the selected source every time aMule starts.") );
+    wxCheckBox *item25 = new wxCheckBox( item3, IDC_GEOIP_AUTOUPDATE, _("Auto-update on startup and weekly"), wxDefaultPosition, wxDefaultSize, 0 );
+    item25->SetToolTip( _("Check for a newer GeoIP database at startup and every week while aMule is running.") );
     item23->Add( item25, wxSizerFlags().CenterVertical() );
     item2->Add( item23, wxSizerFlags().Border(wxALL, 4) );
 

@@ -221,6 +221,8 @@ private:
 	bool m_sidebarMeasured = false;
 #endif
 	void EnableServerTab(bool enable);
+	//! pages[] index of each sidebar row, in row order.
+	std::vector<unsigned> ShownPages() const;
 #ifdef __WXMAC__
 	void OnShowMeasureSidebar(wxShowEvent &event);
 #endif
@@ -244,6 +246,9 @@ private:
 	void OnButtonColorChange(wxCommandEvent &event);
 	void OnButtonIPFilterReload(wxCommandEvent &event);
 	void OnButtonIPFilterUpdate(wxCommandEvent &event);
+#ifdef ENABLE_IPV6
+	void OnAddressFamiliesChange(wxCommandEvent &event);
+#endif
 #if defined(ENABLE_IP2COUNTRY) || defined(CLIENT_GUI)
 	void OnGeoIPSourceChange(wxCommandEvent &event);
 	void OnGeoIPUpdateNow(wxCommandEvent &event);
@@ -288,6 +293,7 @@ public:
 	void HandleProtocolToggle(HandlerTarget scheme, int checkboxId, bool wanted);
 	void OnPrefsPageChange(wxDataViewEvent &event);
 	void OnScrollBarChange(wxScrollEvent &event);
+	void OnBandwidthCalculator(wxCommandEvent &event);
 	void OnRateLimitChanged(wxSpinEvent &event);
 	void OnTCPClientPortChange(wxSpinEvent &event);
 	void OnUserEventSelected(wxListEvent &event);
@@ -321,6 +327,11 @@ public:
 	// Enables the message-filter options from the checkboxes above them: the master switch gates
 	// all of them, and "Filter all messages" makes the rest moot.
 	void UpdateMessageFilterControls();
+
+#ifdef ENABLE_IPV6
+	// Enables the AdvertiseIPv6 checkbox only while dual stack is selected.
+	void UpdateAddressFamiliesControls();
+#endif
 
 	wxDECLARE_EVENT_TABLE();
 

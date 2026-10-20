@@ -32,6 +32,12 @@
 
 #include <protocol/ed2k/Client2Server/TCP.h>
 #include <protocol/ed2k/Client2Server/UDP.h>
+#ifdef ENABLE_IPV6
+#include "ServerIPv6Update.h" // Needed for ServerAcceptsIPv6Updates
+#endif
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+#include "NatServerHolePunch.h" // Needed for ServerAcceptsHolePunchRequest
+#endif
 
 // Server priority
 #define SRV_PR_LOW 2
@@ -167,6 +173,29 @@ public:
 	{
 		return (GetTCPFlags() & SRV_TCPFLG_TCPOBFUSCATION) != 0;
 	} // mapped to TCPFLAG_TCPOBFU
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+	// Lugdunum's NAT callback (eserver 17.15+). The bit alone is not proof: other servers use 0x1000
+	// unofficially in their flags.
+	bool SupportsLugdunumNatCallback() const { return (GetTCPFlags() & SRV_TCPFLG_NATTRAVERSAL) != 0; }
+	// ed2k-server's LowID hole punch (OP_LOWID_HOLEPUNCH_REQUEST).
+	bool SupportsLowIdHolePunch() const
+	{
+		return NatServerHolePunch::ServerAcceptsHolePunchRequest(GetTCPFlags());
+	}
+	// This session's OP_IDCHANGE came in the 24-byte form that answers our opt-in. Kept apart from
+	// GetSeenTcpPort(), which may legitimately be 0.
+	bool IsLugdunumNatCallbackActive() const { return m_bLugdunumNatCallbackActive; }
+	void SetLugdunumNatCallbackActive(bool active) { m_bLugdunumNatCallbackActive = active; }
+	// OP_IDCHANGE's optional 6th field, for this session only (0 when absent): on a LowID, our TCP
+	// port as the server sees it, NAT-mapped; on a HighID, our own listening port.
+	uint16 GetSeenTcpPort() const { return m_nSeenTcpPort; }
+	void SetSeenTcpPort(uint16 nPort) { m_nSeenTcpPort = nPort; }
+#endif
+#ifdef ENABLE_IPV6
+	bool SupportsIPv6Sources() const { return (GetTCPFlags() & SRV_TCPFLG_IPV6) != 0; }
+	// Whether this connection may receive OP_IPV6_UPDATE: set together with SRV_TCPFLG_IPV6.
+	bool SupportsIPv6Updates() const { return ServerAcceptsIPv6Updates(GetTCPFlags()); }
+#endif
 
 	const wxString &GetAuxPortsList() const { return m_auxPorts; }
 	void SetAuxPortsList(const wxString &val) { m_auxPorts = val; }
@@ -218,6 +247,10 @@ private:
 	uint32 m_dwIPServerKeyUDP;
 	uint16 m_nObfuscationPortTCP;
 	uint16 m_nObfuscationPortUDP;
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+	uint16 m_nSeenTcpPort = 0;
+	bool m_bLugdunumNatCallbackActive = false;
+#endif
 
 	time_t m_dwRealLastPingedTime;
 

@@ -47,7 +47,17 @@
 #include "Logger.h"
 #include <common/Format.h>
 #include "IPFilter.h"
-#include "GuiEvents.h" // Needed for Notify_*
+#include "NetworkFunctions.h" // Needed for IsGoodIP
+#include "GuiEvents.h"        // Needed for Notify_*
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+#include "LugdunumNatTraversal.h"   // Needed for ParseIdChangeFields
+#include "LugdunumNatCallbackLog.h" // Needed for LogForwardedCallback
+#include "NatServerHolePunch.h"     // Needed for ParseInfo, ParseFailure
+#include "NatServerHolePunchLog.h"  // Needed for LogInfo, LogFailure
+#endif
+#ifdef ENABLE_IPV6
+#include "AdvertisedIPv6.h" // Needed for AdvertisedIPv6ForPeers
+#endif
 #include <boost/system/error_code.hpp>
 
 // CServerSocket
@@ -288,6 +298,23 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 				} else {
 					cur_server->SetTCPFlags(0);
 				}
+#ifdef ENABLE_IPV6
+				if (cur_server->SupportsIPv6Sources()) {
+					AddDebugLogLineN(logServer,
+						"OP_IDCHANGE: server speaks the IPv6 source extension");
+				}
+#endif
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+				if (cur_server->SupportsLugdunumNatCallback()) {
+					AddDebugLogLineN(logServer,
+						"OP_IDCHANGE: server flags include Lugdunum's NAT callback "
+						"bit");
+				}
+				if (cur_server->SupportsLowIdHolePunch()) {
+					AddDebugLogLineN(logServer,
+						"OP_IDCHANGE: server accepts LowID hole punch requests");
+				}
+#endif
 				// copy TCP flags into the server in the server list
 				if (pServer) {
 					pServer->SetTCPFlags(cur_server->GetTCPFlags());
@@ -331,6 +358,23 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 					}
 				}
 			}
+
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+			if (cur_server != nullptr) {
+				const LugdunumNatTraversal::IdChangeFields idChange =
+					LugdunumNatTraversal::ParseIdChangeFields(packet, size);
+				const uint16 seenTcpPort =
+					idChange.hasYourPort ? static_cast<uint16>(idChange.yourPort) : 0;
+				cur_server->SetSeenTcpPort(seenTcpPort);
+				cur_server->SetLugdunumNatCallbackActive(
+					LugdunumNatTraversal::IsNatCallbackActive(idChange));
+				if (idChange.hasYourPort) {
+					AddDebugLogLineN(logServer,
+						CFormat("OP_IDCHANGE: server sees our TCP port as %u") %
+							seenTcpPort);
+				}
+			}
+#endif
 
 			if (new_id == 0) {
 				uint8 state = thePrefs::GetSmartIdState();
@@ -392,6 +436,17 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 				theApp->OnlineSig(); // Added By Bouc7
 			}
 
+#ifdef ENABLE_IPV6
+			// SetConnectionState(CS_CONNECTED) above is what makes serverconnect's
+			// connectedsocket (and so GetCurrentServer()) point at this connection;
+			// UpdateAdvertisedIPv6() needs it.
+			if (cur_server->SupportsIPv6Updates()) {
+				AddDebugLogLineN(logServer, "OP_IDCHANGE: server accepts OP_IPV6_UPDATE");
+				// The address may have changed between the login and this IDCHANGE.
+				serverconnect->UpdateAdvertisedIPv6(AdvertisedIPv6ForPeers());
+			}
+#endif
+
 			theApp->ShowConnectionState();
 
 			AddLogLineN(CFormat(_("New clientid is %u")) % new_id);
@@ -427,11 +482,18 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 			CMemFile sources(packet, size);
 			CMD4Hash fileid = sources.ReadHash();
 			if (CPartFile *file = theApp->downloadqueue->GetFileByID(fileid)) {
+				const CNetworkAddress *loginIPv6 = nullptr;
+#ifdef ENABLE_IPV6
+				if (IsIPv6SentinelParsingOn()) {
+					loginIPv6 = &GetLoginIPv6();
+				}
+#endif
 				file->AddSources(sources,
 					cur_server->GetIP(),
 					cur_server->GetPort(),
 					SF_LOCAL_SERVER,
-					(opcode == OP_FOUNDSOURCES_OBFU));
+					(opcode == OP_FOUNDSOURCES_OBFU),
+					loginIPv6);
 			} else {
 				AddDebugLogLineN(
 					logServer, "Sources received for unknown file: " + fileid.Encode());
@@ -508,6 +570,10 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 		// tecxx 1609 2002 - add server's serverlist to own serverlist
 		case OP_SERVERLIST: {
 			AddDebugLogLineN(logServer, "Server: OP_SERVERLIST");
+			// Only asked for when this is on (CServerConnect), so anything else is unsolicited.
+			if (!thePrefs::AddServersFromServer()) {
+				break;
+			}
 
 			// Stack-allocated wrapper so a CEOFException out of any of the ReadUInt*
 			// calls below -- an empty or truncated payload from a malicious server --
@@ -549,6 +615,14 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 				CMemFile data(packet, size);
 				uint32 dwIP = data.ReadUInt32();
 				uint16 nPort = data.ReadUInt16();
+				// The same rule as for sources: a server must not aim us at loopback or the
+				// LAN.
+				if (!IsGoodIP(dwIP, thePrefs::FilterLanIPs())) {
+					AddDebugLogLineN(logServer,
+						CFormat("Ignored callback request to %s") %
+							Uint32toStringIP(dwIP));
+					break;
+				}
 
 				uint8 byCryptOptions = 0;
 				CMD4Hash achUserHash;
@@ -589,6 +663,42 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 			AddDebugLogLineN(logServer, "Server: OP_CALLBACK_FAIL");
 			break;
 		}
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+		case OP_NAT_CALLBACKREQUESTED: {
+			AddDebugLogLineN(logServer, "Server: OP_NAT_CALLBACKREQUESTED");
+			theStats::AddDownOverheadServer(size);
+			// Logged only, as the wiki describes: no reply, no punch. Shares a handler
+			// with the UDP 0xA7 path (ClientUDPSocket.cpp), as NeoMule does.
+			const LugdunumNatTraversal::ForwardedCallback callback =
+				LugdunumNatTraversal::ParseForwardedCallback(packet, size);
+			if (callback.ok) {
+				LugdunumNatTraversal::LogForwardedCallback(
+					logServer, "OP_NAT_CALLBACKREQUESTED", callback);
+			}
+			break;
+		}
+		case NatServerTcp::OP_LOWID_HOLEPUNCH_INFO: {
+			AddDebugLogLineN(logServer, "Server: OP_LOWID_HOLEPUNCH_INFO");
+			theStats::AddDownOverheadServer(size);
+			// Logged only: no punch, no tunnel, no reply.
+			const std::optional<NatServerHolePunch::Info> info =
+				NatServerHolePunch::ParseInfo(packet, size);
+			if (info.has_value()) {
+				NatServerHolePunch::LogInfo(logServer, *info);
+			}
+			break;
+		}
+		case NatServerTcp::OP_LOWID_HOLEPUNCH_FAIL: {
+			AddDebugLogLineN(logServer, "Server: OP_LOWID_HOLEPUNCH_FAIL");
+			theStats::AddDownOverheadServer(size);
+			const std::optional<NatServerHolePunch::Failure> failure =
+				NatServerHolePunch::ParseFailure(packet, size);
+			if (failure.has_value()) {
+				NatServerHolePunch::LogFailure(logServer, *failure);
+			}
+			break;
+		}
+#endif
 		case OP_REJECT: {
 			AddDebugLogLineN(logServer, "Server: OP_REJECT");
 			AddLogLineN(_("Server rejected last command"));
@@ -752,7 +862,9 @@ void CServerSocket::OnHostnameResolved(uint32 ip)
 			serverconnect->NoteHostnameResolved();
 		}
 
-		if (theApp->ipfilter->IsFiltered(ip, true)) {
+		// A hostname skipped the address checks AddServer() makes, and a server can set its own
+		// with [emDynIP: ...], so check what it resolved to.
+		if (!IsGoodServerIP(ip, thePrefs::FilterLanIPs()) || theApp->ipfilter->IsFiltered(ip, true)) {
 			AddLogLineC(CFormat(_("Server IP %s (%s) is filtered.  Not connecting.")) %
 				    Uint32toStringIP(ip) % cur_server->GetAddress());
 			OnConnect(boost::system::errc::invalid_argument);

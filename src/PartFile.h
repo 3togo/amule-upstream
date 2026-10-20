@@ -31,6 +31,7 @@
 #include "FileArea.h"      // Needed for CFileArea (PartFileBufferedData)
 #include <array>           // Needed for std::array (m_ecTickState)
 #include <atomic>          // Needed for std::atomic (m_iWrites, flushed)
+#include <memory>          // Needed for std::shared_ptr (m_metSave)
 #include <mutex>           // Needed for std::mutex (m_hpartfileMutex)
 
 #include "OtherStructs.h"   // Needed for Requested_Block_Struct
@@ -41,6 +42,8 @@ class CSearchFile;
 class CMemFile;
 class CFileDataIO;
 class CED2KFileLink;
+class CNetworkAddress;
+struct CPartMetGen;
 
 // #define BUFFER_SIZE_LIMIT	500000 // Max bytes before forcing a flush
 #define BUFFER_TIME_LIMIT 60000 // Max milliseconds before forcing a flush
@@ -132,20 +135,20 @@ public:
 		const CPath &filename,
 		bool from_backup = false,
 		bool getsizeonly = false);
-	bool SavePartFile(bool Initial = false);
+	// Writes the .part.met on CPartMetWriter, or before returning if @a now.
+	bool SavePartFile(bool now = false);
+	const std::shared_ptr<class CPartMetSaveSlot> &GetMetSave() const { return m_metSave; }
 
-	// Mark/clear the in-memory dirty bit for the .part.met file.  See
-	// m_metDirty in the private section for the dirty-flag contract.
-	void MarkMetDirty() { m_metDirty = true; }
-	void ClearMetDirty() { m_metDirty = false; }
-	bool IsMetDirty() const { return m_metDirty; }
+	// Mark/clear the in-memory dirty state of the .part.met file. See m_metGen in the private
+	// section for the contract.
+	void MarkMetDirty() { ++m_metGen; }
+	void ClearMetDirty() { m_metSavedGen = m_metGen.load(); }
 
-	// Soft-dirty bit for upload-stat counters (AllTimeRequests, AllTimeAccepts,
-	// AllTimeTransferred), flipped by CFileStatistic so a popular sharer does not re-dirty the
-	// partfile on every served chunk. See m_statsDirty.
-	void MarkStatsDirty() { m_statsDirty = true; }
-	void ClearStatsDirty() { m_statsDirty = false; }
-	bool IsStatsDirty() const { return m_statsDirty; }
+	// Soft-dirty state for upload-stat counters (AllTimeRequests, AllTimeAccepts,
+	// AllTimeTransferred), marked by CFileStatistic so a popular sharer does not re-dirty the
+	// partfile on every served chunk. See m_statsGen.
+	void MarkStatsDirty() { ++m_statsGen; }
+	void ClearStatsDirty() { m_statsSavedGen = m_statsGen.load(); }
 	void PartFileHashFinished(CKnownFile *result);
 	bool HashSinglePart(uint16 partnumber); // true = ok , false = corrupted
 
@@ -169,12 +172,16 @@ public:
 		uint32 serverip,
 		uint16 serverport,
 		uint8 *pdebug_lowiddropped = NULL,
-		bool ed2kID = true);
+		bool ed2kID = true,
+		bool keepLowIdSource = false);
+	// loginIPv6: the IPv6 our login advertised, if any; only then may sentinel records appear.
+	// Server UDP answers never carry one: aMule's server UDP is IPv4 only.
 	void AddSources(CMemFile &sources,
 		uint32 serverip,
 		uint16 serverport,
 		unsigned origin,
-		bool bWithObfuscationAndHash);
+		bool bWithObfuscationAndHash,
+		const CNetworkAddress *loginIPv6 = nullptr);
 #ifdef CLIENT_GUI
 	uint8 GetStatus() const { return status; }
 	uint8 GetStatus(bool /*ignorepause = false*/) const { return status; }
@@ -372,7 +379,17 @@ private:
 	void CreatePartFile(bool isImporting = false);
 	void Init();
 
+	//! Probes the file's directory: blocks on a busy or hung mount. Off the main thread, or at
+	//! startup and shutdown.
 	bool CheckFreeDiskSpace(uint64 neededSpace = 0);
+	//! The same rule from CFreeSpaceThread's sample; false without a recent one taken since the
+	//! file was paused for space.
+	bool CachedFreeSpaceAllows() const;
+	//! Puts the writes the write thread refused for lack of space back in the buffer. True if
+	//! there were any.
+	bool PutBackRefusedWrites();
+	//! Logs the warning and pauses the file as insufficient.
+	void PauseForSpace();
 
 	bool IsCorruptedPart(uint16 partnumber);
 
@@ -396,6 +413,8 @@ private:
 	bool m_paused;
 	bool m_stopped;
 	bool m_insufficient;
+	//! When the file was last paused for lack of space (GetTickCount64).
+	uint64 m_insufficientSince = 0;
 	uint8 m_iDownPriority;
 	bool m_bAutoDownPriority;
 	uint8 status;
@@ -411,6 +430,16 @@ private:
 
 	void PerformFileComplete();
 	void WaitForUploadReads();
+
+	// Handles the .part.met saves CPartMetWriter finished: logs failures, and clears the dirty
+	// bits once the file on disk holds the current state. Main thread.
+	void ReapMetSaves();
+	bool HandleMetSaveResult(const CPartMetGen &gen, const struct CPartMetSaveResult &result);
+	CPartMetGen CurrentMetGen() const;
+	CPartMetGen SavedMetGen() const;
+	// Drops a queued .part.met save and waits for one being written, so neither lands after
+	// the files are moved or removed.
+	void WaitForMetSave();
 
 	uint64 m_lastRefreshedDLDisplay;
 
@@ -430,30 +459,40 @@ private:
 	// during destruction (avoids re-sharing a partfile being deleted).
 	bool m_inDestructor = false;
 
-	// Tick (GetTickCount) of the last successful SavePartFile. Used with m_statsDirty to
+	// Tick (GetTickCount) of the last successful SavePartFile. Used with m_statsGen to
 	// throttle soft-stat persistence to the STATS_HEARTBEAT_MS cadence (see FlushBuffer).
 	uint64 m_lastMetSaveTick = 0;
 
-	// Soft-dirty bit for upload-stat counters that increment every time a peer requests,
+	// Counts changes to upload-stat counters that increment every time a peer requests,
 	// accepts or transfers a chunk. Promoted to a save only on the STATS_HEARTBEAT_MS cadence,
 	// since a pure seeder with active uploads would otherwise re-dirty every partfile on every
-	// block served. Cleared on a successful save.
-	bool m_statsDirty = false;
+	// block served. Atomic: CFileStatistic::AddTransferred runs on the disk I/O thread.
+	std::atomic<uint64> m_statsGen{ 0 };
 
-	// True when in-memory partfile state has diverged from the on-disk .part.met since the last
-	// successful save. Gates the periodic FlushBuffer-driven SavePartFile, so idle partfiles do
-	// not rewrite their .met every 60 s with byte-identical content.
+	// Counts changes to in-memory partfile state that ends up in the .met. Gates the periodic
+	// FlushBuffer-driven SavePartFile, so idle partfiles do not rewrite their .met every 60 s
+	// with byte-identical content.
 	//
-	// Set by MarkMetDirty() at every mutation of a field that ends up in the .met (gap list,
-	// status, priorities, category, AICH state, corrupted list, lastseencomplete, filename),
-	// and cleared by a successful SavePartFile(). Stat counters and download active time
-	// deliberately do NOT mark dirty: they persist on the next hard-state change or at
-	// shutdown, and a session's counters surviving a crash is best-effort by design.
+	// Bumped by MarkMetDirty() at every mutation of a field that ends up in the .met (gap list,
+	// status, priorities, category, AICH state, corrupted list, lastseencomplete, filename).
+	// Stat counters and download active time deliberately do NOT mark dirty: they persist on
+	// the next hard-state change or at shutdown, and a session's counters surviving a crash is
+	// best-effort by design.
 	//
-	// Initialised false, the load path constructing CPartFile in a state matching the just-read
-	// .met. LoadPartFile explicitly ClearMetDirty()s before each successful return, to undo
+	// A successful save records the counts it was serialised at in m_metSavedGen and
+	// m_statsSavedGen, and the .met is dirty while a count is ahead of its saved one. So a
+	// change made while a save was on its way stays dirty, and one that was not does not.
+	// LoadPartFile explicitly ClearMetDirty()s before each successful return, to undo
 	// MarkMetDirty()s produced incidentally by setters during tag parsing.
-	bool m_metDirty = false;
+	std::atomic<uint64> m_metGen{ 0 };
+	std::atomic<uint64> m_metSavedGen{ 0 };
+	std::atomic<uint64> m_statsSavedGen{ 0 };
+
+	// This file's queue entry in CPartMetWriter. Shared, so a save in flight outlives the file.
+	std::shared_ptr<class CPartMetSaveSlot> m_metSave;
+
+	// Set by Delete, which removes the files: no save is worth writing then.
+	bool m_deleting = false;
 
 	// Count of HashJobs in flight on CPartFileHashThread for this file. Incremented before
 	// enqueue, decremented by the worker after HashSinglePart and the event post complete.

@@ -39,6 +39,7 @@
 #include "libs/ec/cpp/ECCrypt.h"
 
 #include "ECIdDiff.h"            // Needed for ComputeRemovedIds
+#include "ECNotificationDrain.h" // Bounded, deferred EC push delivery
 #include "ExternalConn.h"        // Interface declarations
 #include "ECFullResponseCache.h" // Needed for s_ec*FullCache
 #include "updownclient.h"        // Needed for CUpDownClient
@@ -71,6 +72,9 @@
 #include "RandomFunctions.h"
 #include "kademlia/kademlia/Kademlia.h"
 #include "kademlia/kademlia/UDPFirewallTester.h"
+#ifdef ENABLE_IPV6
+#include "AdvertisedIPv6.h" // Needed for AdvertisedIPv6ForPeers
+#endif
 #include "Statistics.h"
 
 //-------------------- File_Encoder --------------------
@@ -85,11 +89,14 @@ class CKnownFile_Encoder
 	// whose file is still listed. Encoders left carrying an older stamp have lost their
 	// file and are swept.
 	uint64 m_seenEpoch;
+	// Shared membership is independent of presence in the completed-download list.
+	uint64 m_sharedEpoch;
 
 	// Whether `Get_EC_Response_GetUpdate` has already sent this file to the client
 	// carrying its identifying fields. False on a freshly-built encoder, which is what
 	// makes a re-created encoder re-send full detail without the caller having to erase
-	// anything.
+	// anything. Also cleared when encoder-local shared membership changes, which need
+	// not advance the file's own EC generation.
 	//
 	// Deliberately specific to that one response path rather than a general "the client
 	// has this file": a path that has never sent the identity must not take the
@@ -104,6 +111,7 @@ protected:
 public:
 	CKnownFile_Encoder(const CKnownFile *file = nullptr)
 	: m_seenEpoch(0)
+	, m_sharedEpoch(0)
 	, m_sentOnUpdatePath(false)
 	{
 		m_file = file;
@@ -115,16 +123,19 @@ public:
 
 	virtual void ResetEncoder() { m_enc_data.ResetEncoder(); }
 
-	virtual void SetShared() {}
+	virtual void SetShared(bool) {}
 	virtual bool IsShared() { return true; }
 	virtual bool IsPartFile_Encoder() { return false; }
 	const CKnownFile *GetFile() { return m_file; }
 
 	uint64 GetSeenEpoch() const { return m_seenEpoch; }
 	void SetSeenEpoch(uint64 epoch) { m_seenEpoch = epoch; }
+	uint64 GetSharedEpoch() const { return m_sharedEpoch; }
+	void SetSharedEpoch(uint64 epoch) { m_sharedEpoch = epoch; }
 
 	bool WasSentOnUpdatePath() const { return m_sentOnUpdatePath; }
 	void MarkSentOnUpdatePath() { m_sentOnUpdatePath = true; }
+	void InvalidateUpdatePath() { m_sentOnUpdatePath = false; }
 };
 
 /*!
@@ -170,7 +181,14 @@ public:
 	// Encoder may reset history if full info requested
 	virtual void ResetEncoder();
 
-	virtual void SetShared() { m_shared = true; }
+	virtual void SetShared(bool shared)
+	{
+		if (m_shared != shared) {
+			m_shared = shared;
+			// List membership can change without changing the file's EC generation.
+			InvalidateUpdatePath();
+		}
+	}
 	virtual bool IsShared() { return m_shared; }
 	virtual bool IsPartFile_Encoder() { return true; }
 };
@@ -330,10 +348,9 @@ void CFileEncoderMap::UpdateEncoders(IDSet *freshEcids)
 			it->second->SetSeenEpoch(epoch);
 		}
 	}
-	// Merge before the shares pass, not after both. A partfile appears in both lists,
-	// and the check below asks whether this reconcile has already reached it -- which it
-	// answers with find(). Leaving the new entries unmerged would hide them from that
-	// lookup and build a second encoder for the same ECID.
+	// Merge before the shares pass, not after both. A partfile appears in both lists.
+	// Leaving the new entries unmerged would hide them from find() below and build a
+	// second encoder for the same ECID.
 	FlushPending();
 	// Shares
 	std::vector<CKnownFile *> shares;
@@ -341,22 +358,17 @@ void CFileEncoderMap::UpdateEncoders(IDSet *freshEcids)
 	for (uint32 i = shares.size(); i--;) {
 		uint32 id = shares[i]->ECID();
 		iterator it = find(id);
-		// Check if it is already there. Carrying this epoch means the downloads loop
-		// above already reached it, which is what the old `curr_files.count(id)`
-		// tested; the IsCPartFile() is just a speedup.
-		if (shares[i]->IsCPartFile() && it != end() && it->second->GetSeenEpoch() == epoch) {
-			it->second->SetShared();
-			continue;
-		}
 		if (it == end()) {
 			CKnownFile_Encoder *enc = new CKnownFile_Encoder(shares[i]);
 			enc->SetSeenEpoch(epoch);
+			enc->SetSharedEpoch(epoch);
 			m_pending.emplace_back(id, enc);
 			if (freshEcids) {
 				freshEcids->insert(id);
 			}
 		} else {
 			it->second->SetSeenEpoch(epoch);
+			it->second->SetSharedEpoch(epoch);
 		}
 	}
 	FlushPending();
@@ -370,6 +382,9 @@ void CFileEncoderMap::UpdateEncoders(IDSet *freshEcids)
 			delete it->second;
 			continue;
 		}
+		// Compare final membership once, after both passes. Clearing then setting the
+		// flag would invalidate unchanged shared downloads on every reconciliation.
+		it->second->SetShared(it->second->GetSharedEpoch() == epoch);
 		if (out != it) {
 			*out = *it;
 		}
@@ -411,6 +426,12 @@ public:
 	virtual void WriteDoneAndQueueEmpty();
 
 	void ResetLog() { m_LoggerAccess.Reset(); }
+
+	void CancelNotifications()
+	{
+		m_notificationDrain.Cancel();
+		m_notificationTimer.Cancel();
+	}
 
 	// True once this connection advertised EC_TAG_CAN_CHAT -- it speaks the
 	// chat session ops and may be sent EC_OP_CHAT_SESSIONS replies.
@@ -488,7 +509,8 @@ private:
 	// Bound on the WriteDoneAndQueueEmpty -> SendPacket -> OnOutput ->
 	// WriteDoneAndQueueEmpty recursion chain that drains the notifier queue. See
 	// WriteDoneAndQueueEmpty for the full reasoning.
-	int m_notification_dispatch_depth;
+	CECNotificationTimer m_notificationTimer;
+	CECNotificationDrain m_notificationDrain;
 
 	// EC INC_UPDATE skip-unchanged state. `m_lastEcGenSeen*` values are the highest
 	// `CKnownFile::s_globalEcGen` already reflected in the client's view *for that
@@ -602,7 +624,6 @@ CECServerSocket::CECServerSocket(ECNotifier *notifier)
 , m_passwd_salt(GetRandomUint64())
 , m_aeadCipher(ECCrypt::Cipher_None)
 , m_aeadOfferMalformed(false)
-, m_notification_dispatch_depth(0)
 , m_lastEcGenSeen(0)
 , m_lastEcGenSeenShared(0)
 , m_lastEcGenSeenPart(0)
@@ -838,6 +859,7 @@ const CECPacket *CECServerSocket::OnPacketReceived(const CECPacket *packet, uint
 
 void CECServerSocket::OnLost()
 {
+	CancelNotifications();
 	AddLogLineN(_("External connection closed."));
 	theApp->ECServerHandler->m_ec_notifier->Remove_EC_Client(this);
 	DestroySocket();
@@ -863,32 +885,30 @@ void CECServerSocket::WriteDoneAndQueueEmpty()
 	// half-closed EC peer needs to be torn down. With the peer in kernel CLOSE-WAIT,
 	// writes silently succeed against the dead buffer and amuled spins indefinitely.
 	//
-	// Cap the dispatch depth so the chain returns to the event loop every MAX_DEPTH
-	// packets. Pending asio completions get processed in between; on a healthy peer the
-	// loop resumes when OnSend re-enters via the next one.
-	static const int MAX_DEPTH = 8;
-	if (m_notification_dispatch_depth >= MAX_DEPTH) {
-		return;
-	}
-
-	// ECNotifier::GetNextPacket returns a fresh CECPacket and the caller owns it;
-	// SendPacket only serialises it into the per-socket output queue and never deletes.
-	// Hand the raw pointer to a smart pointer so the packet and its CECTag tree are freed
-	// at scope exit -- pre-fix this was the dominant retained-bytes leak on a
-	// long-running amuled with peers attached.
-	CSmartPtr<CECPacket> packet(m_ec_notifier->GetNextPacket(this));
-	if (!packet) {
-		return;
-	}
-
-	m_notification_dispatch_depth++;
-	try {
-		SendPacket(packet.get());
-	} catch (...) {
-		m_notification_dispatch_depth--;
-		throw;
-	}
-	m_notification_dispatch_depth--;
+	// Bound synchronous recursion and arm one main-thread continuation timer at the cap.
+	// Do not rely on another OnSend after an accepted write: transports may notify only
+	// after a refusal. The timer keeps push updates draining without a notifier event or request.
+	// If output is blocked, leave it to OnSend to drain the queue before pulling updates.
+	m_notificationDrain.Run(
+		[this]() {
+			// Close()/Destroy() may precede deletion, including during core shutdown.
+			// Recheck before touching the notifier, which can already have been freed.
+			if (!theApp->IsRunning() || IsDestroying() || !IsSocketConnected() ||
+				SocketRealError() || DataPending() || !HaveNotificationSupport() ||
+				m_conn_state != CONN_ESTABLISHED) {
+				return;
+			}
+			// GetNextPacket transfers ownership; SendPacket only serialises the packet.
+			CSmartPtr<CECPacket> packet(m_ec_notifier->GetNextPacket(this));
+			if (packet) {
+				SendPacket(packet.get());
+			}
+		},
+		[this](auto continuation) {
+			if (!m_notificationTimer.Schedule(std::move(continuation))) {
+				OnLost();
+			}
+		});
 }
 
 //-------------------- ExternalConn --------------------
@@ -974,6 +994,13 @@ void ExternalConn::RemoveSocket(CECServerSocket *s)
 	socket_list.erase(s);
 }
 
+void ExternalConn::CancelNotificationDrains()
+{
+	for (auto *socket : socket_list) {
+		socket->CancelNotifications();
+	}
+}
+
 void ExternalConn::KillAllSockets()
 {
 	AddDebugLogLineN(logGeneral,
@@ -981,6 +1008,7 @@ void ExternalConn::KillAllSockets()
 	SocketSet::iterator it = socket_list.begin();
 	while (it != socket_list.end()) {
 		CECServerSocket *s = *(it++);
+		s->CancelNotifications();
 		s->Close();
 		s->Destroy();
 	}
@@ -1328,6 +1356,7 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 				// that does not see the echo must not send the request -- against a daemon
 				// that predates it the unknown opcode asserts.
 				response->AddTag(CECEmptyTag(EC_TAG_CAN_CLIENT_HISTORY));
+				response->AddTag(CECEmptyTag(EC_TAG_CAN_DELETE_COMPLETE));
 				if (m_chatActive) {
 					// Confirm the chat session ops so the client starts
 					// polling EC_OP_GET_CHAT_SESSIONS.
@@ -1587,8 +1616,11 @@ uint32 ChatCursorFrom(const CECPacket *request)
 // connection's EC_TAG_CAN_CHAT_PEER_HASH echo: a client that predates the hash tag
 // would misread it, or a duplicate GUI_ID sharing one value, as one session.
 // A non-zero `legacyView` encodes only what a legacy client sees under that GUI_ID.
-CECTag EncodeChatSession(
-	const CChatSessionStore::Session &session, uint32 cursor, bool peerHashCapable, uint64 legacyView = 0)
+CECTag EncodeChatSession(const CChatSessionStore::Session &session,
+	uint32 cursor,
+	bool peerHashCapable,
+	uint64 legacyView = 0,
+	const CECPacket *request = nullptr)
 {
 	const auto inView = [legacyView](const CChatSessionStore::Message &msg) {
 		return !legacyView || msg.legacy_route == legacyView;
@@ -1623,6 +1655,25 @@ CECTag EncodeChatSession(
 		// unroutable address read as online.
 		tag.AddTag(CECTag(EC_TAG_CLIENT_CONNECTED, client->IsConnected()));
 	}
+	const uint32 pendingCaptcha = client ? client->GetPendingChatCaptchaId() : 0;
+	tag.AddTag(CECTag(EC_TAG_CHAT_CAPTCHA_ID, pendingCaptcha));
+	// The cursor filters history only. A live challenge must remain recoverable
+	// after an EC reconnect or after unrelated messages evict its transcript row.
+	bool imageKnown = false;
+	if (request) {
+		for (const CECTag &known : *request) {
+			if (known.GetTagName() == EC_TAG_CHAT_CAPTCHA_ID && known.GetInt() == pendingCaptcha)
+				imageKnown = true;
+		}
+	}
+	const bool imageInHistory = std::any_of(
+		session.messages.begin(), session.messages.end(), [&](const CChatSessionStore::Message &msg) {
+			return msg.id == pendingCaptcha && msg.id > cursor && inView(msg);
+		});
+	if (pendingCaptcha && !imageKnown && !imageInHistory && session.captcha_id == pendingCaptcha &&
+		!session.captcha_image.IsEmpty()) {
+		tag.AddTag(CECTag(EC_TAG_CHAT_CAPTCHA_IMAGE, session.captcha_image));
+	}
 	if (const CFriend *f = theApp->friendlist->FindFriend(session.peer.Hash(), 0, 0)) {
 		tag.AddTag(CECTag(EC_TAG_FRIEND, f->ECID()));
 	}
@@ -1635,6 +1686,14 @@ CECTag EncodeChatSession(
 		msgTag.AddTag(CECTag(EC_TAG_CHAT_MSG_ID, msg.id));
 		msgTag.AddTag(CECTag(EC_TAG_CHAT_DIRECTION, msg.direction));
 		msgTag.AddTag(CECTag(EC_TAG_CHAT_TIMESTAMP, msg.timestamp));
+		if (msg.kind != CChatSessionStore::TEXT) {
+			msgTag.AddTag(CECTag(EC_TAG_CHAT_MESSAGE_KIND, msg.kind));
+			if (msg.kind == CChatSessionStore::CAPTCHA_CHALLENGE) {
+				msgTag.AddTag(CECTag(EC_TAG_CHAT_CAPTCHA_IMAGE, msg.captcha_image));
+			} else if (msg.kind == CChatSessionStore::CAPTCHA_RESULT) {
+				msgTag.AddTag(CECTag(EC_TAG_CHAT_CAPTCHA_STATUS, msg.captcha_status));
+			}
+		}
 		tag.AddTag(msgTag);
 	}
 	return tag;
@@ -2206,7 +2265,13 @@ static CECPacket *Get_EC_Response_PartFile_Cmd(const CECPacket *request)
 	for (CECPacket::const_iterator it1 = request->begin(); it1 != request->end(); ++it1) {
 		const CECTag &hashtag = *it1;
 
-		wxASSERT(hashtag.GetTagName() == EC_TAG_PARTFILE);
+		if (hashtag.GetTagName() != EC_TAG_PARTFILE || !hashtag.IsMD4()) {
+			delete response;
+			response = new CECPacket(EC_OP_FAILED);
+			response->AddTag(
+				CECTag(EC_TAG_STRING, wxTRANSLATE("Invalid partfile command target.")));
+			break;
+		}
 
 		CMD4Hash hash = hashtag.GetMD4Data();
 		CPartFile *pfile = theApp->downloadqueue->GetFileByID(hash);
@@ -2214,6 +2279,7 @@ static CECPacket *Get_EC_Response_PartFile_Cmd(const CECPacket *request)
 		if (!pfile) {
 			AddLogLineN(CFormat(_("Remote PartFile command failed: FileHash not found: %s")) %
 				    hash.Encode());
+			delete response;
 			response = new CECPacket(EC_OP_FAILED);
 			response->AddTag(CECTag(EC_TAG_STRING,
 				CFormat(wxString(wxTRANSLATE("FileHash not found: %s"))) % hash.Encode()));
@@ -2258,16 +2324,58 @@ static CECPacket *Get_EC_Response_PartFile_Cmd(const CECPacket *request)
 				pfile->SetDownPriority(prio);
 			}
 		} break;
-		case EC_OP_PARTFILE_DELETE:
+		case EC_OP_PARTFILE_DELETE: {
+			// Legacy multi-file cancel skips finished entries and still cancels
+			// active entries later in the same packet.
+			if (pfile->IsCompleted() || pfile->GetStatus() == PS_COMPLETING) {
+				if (!response) {
+					response = new CECPacket(EC_OP_FAILED);
+					response->AddTag(CECTag(EC_TAG_STRING,
+						CFormat(wxString(wxTRANSLATE(
+							"Cannot cancel a finished download: %s"))) %
+							pfile->GetFileName()));
+				}
+				break;
+			}
+			const CECTag *expectedId = hashtag.GetTagByName(EC_TAG_ECID);
+			const CECTag *expectedName = hashtag.GetTagByName(EC_TAG_PARTFILE_NAME);
+			const CECTag *expectedDir = hashtag.GetTagByName(EC_TAG_KNOWNFILE_PATH);
+			if ((expectedId && (!expectedId->IsInt() || expectedId->GetInt() != pfile->ECID())) ||
+				(expectedName && (!expectedName->IsString() ||
+							 expectedName->GetStringData() !=
+								 pfile->GetFileName().GetPrintable())) ||
+				(expectedDir && (!expectedDir->IsString() ||
+							expectedDir->GetStringData() !=
+								pfile->GetFilePath().GetPrintable()))) {
+				delete response;
+				response = new CECPacket(EC_OP_FAILED);
+				response->AddTag(CECTag(EC_TAG_STRING,
+					wxTRANSLATE("The selected download has changed or is completing. "
+						    "Refresh and try again.")));
+				return response;
+			}
 			if (thePrefs::StartNextFile() && (pfile->GetStatus() != PS_PAUSED)) {
 				theApp->downloadqueue->StartNextFile(pfile);
 			}
 			pfile->Delete();
 			break;
+		}
 
-		case EC_OP_PARTFILE_SET_CAT:
-			pfile->SetCategory(hashtag.GetFirstTagSafe()->GetInt());
-			break;
+		case EC_OP_PARTFILE_SET_CAT: {
+			// A completing download reads its category's path, so an index past the list
+			// must not be stored.
+			const uint64 cat = hashtag.GetFirstTagSafe()->GetInt();
+			if (cat >= theApp->glob_prefs->GetCatCount()) {
+				if (!response) {
+					response = new CECPacket(EC_OP_FAILED);
+					response->AddTag(CECTag(EC_TAG_STRING,
+						CFormat(wxString(wxTRANSLATE("No such category: %u"))) %
+							cat));
+				}
+				break;
+			}
+			pfile->SetCategory(static_cast<uint8>(cat));
+		} break;
 
 		default:
 			response = new CECPacket(EC_OP_FAILED);
@@ -3684,6 +3792,30 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 	case EC_OP_SHARED_SET_PRIO:
 		response = Get_EC_Response_Set_SharedFile_Prio(request);
 		break;
+	case EC_OP_KNOWNFILE_DELETE: {
+		const CECTag *hash = request->GetTagByName(EC_TAG_KNOWNFILE);
+		const CECTag *ecid = request->GetTagByName(EC_TAG_ECID);
+		const CECTag *directory = request->GetTagByName(EC_TAG_KNOWNFILE_PATH);
+		const CECTag *name = request->GetTagByName(EC_TAG_PARTFILE_NAME);
+		wxString error;
+		bool ok = false;
+		if (!hash || !hash->IsMD4() || !ecid || !ecid->IsInt() || !ecid->GetInt() ||
+			ecid->GetInt() > UINT32_MAX || !directory || !directory->IsString() || !name ||
+			!name->IsString()) {
+			error = _("Invalid complete-file deletion target.");
+		} else {
+			ok = theApp->sharedfiles->DeleteFileFromDisk(hash->GetMD4Data(),
+				     ecid->GetInt(),
+				     directory->GetStringData(),
+				     name->GetStringData(),
+				     error) == CSharedFileList::DeleteFileResult::Deleted;
+		}
+		response = new CECPacket(ok ? EC_OP_NOOP : EC_OP_FAILED);
+		if (!ok) {
+			response->AddTag(CECTag(EC_TAG_STRING, error));
+		}
+		break;
+	}
 	case EC_OP_RENAME_FILE: {
 		CMD4Hash fileHash = request->GetTagByNameSafe(EC_TAG_KNOWNFILE)->GetMD4Data();
 		wxString newName = request->GetTagByNameSafe(EC_TAG_PARTFILE_NAME)->GetStringData();
@@ -4056,6 +4188,10 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		if (!thePrefs::GetNetworkKademlia() && theApp->IsConnectedKad()) {
 			theApp->StopKad();
 		}
+#ifdef ENABLE_IPV6
+		// Act on an AdvertiseIPv6 change now, not at the next periodic refresh.
+		AdvertisedIPv6ForPeers();
+#endif
 		response = new CECPacket(portRebindFailed ? EC_OP_FAILED : EC_OP_NOOP);
 		if (portRebindFailed) {
 			response->AddTag(CECTag(EC_TAG_STRING, networkMessage));
@@ -4280,8 +4416,8 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 			// Keyed by GUI_ID, as 3.1.0 did: one conversation per route, so a peer that
 			// changes route keeps its old conversation and gets a new one.
 			for (const auto &view : theApp->chatsessions->LegacySessions()) {
-				response->AddTag(
-					EncodeChatSession(*view.session, cursor, false, view.gui_id));
+				response->AddTag(EncodeChatSession(
+					*view.session, cursor, false, view.gui_id, request));
 			}
 			break;
 		}
@@ -4298,7 +4434,8 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 			// Sessions with nothing new are still listed, with no message children: that is
 			// how a client that connected late learns the session exists, and how every
 			// client learns a session it is tracking was closed elsewhere.
-			response->AddTag(EncodeChatSession(*session, cursor, m_chatPeerHashActive));
+			response->AddTag(
+				EncodeChatSession(*session, cursor, m_chatPeerHashActive, 0, request));
 		}
 		break;
 	}
@@ -4310,7 +4447,21 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 			response->AddTag(CECTag(EC_TAG_STRING, wxTRANSLATE("Empty chat message")));
 			break;
 		}
-		const CChatPeer peer = ResolveChatSendTarget(request);
+		const CECTag *captcha = request->GetTagByName(EC_TAG_CHAT_CAPTCHA_ID);
+		// An expired dialog must never open a new provisional conversation.
+		const auto *captchaSession = captcha ? ResolveChatSessionTarget(request) : nullptr;
+		const CChatPeer peer = captcha ? (captchaSession ? captchaSession->peer : CChatPeer())
+					       : ResolveChatSendTarget(request);
+		if (captcha) {
+			const auto *client = theApp->clientlist->FindChatClient(peer);
+			if (!captcha->GetInt() || !client ||
+				client->GetPendingChatCaptchaId() != captcha->GetInt() || !captchaSession) {
+				response = new CECPacket(EC_OP_FAILED);
+				response->AddTag(CECTag(EC_TAG_STRING,
+					wxTRANSLATE("CAPTCHA challenge is no longer pending")));
+				break;
+			}
+		}
 		if (peer.IsEmpty()) {
 			response = new CECPacket(EC_OP_FAILED);
 			response->AddTag(CECTag(EC_TAG_STRING, wxTRANSLATE("Unknown chat target")));

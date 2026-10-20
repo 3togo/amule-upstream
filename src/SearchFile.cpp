@@ -23,12 +23,13 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
-#include <algorithm> // Needed for std::any_of
+#include <algorithm> // Needed for std::any_of, std::count_if
 #include <memory>
 
 #include "SearchFile.h" // Interface declarations.
 
 #include <tags/FileTags.h>
+#include <common/StringFunctions.h>
 
 #include "amule.h" // Needed for theApp
 #include "HashListFile.h"
@@ -86,7 +87,7 @@ CSearchFile::CSearchFile(const CMemFile &data,
 		CTag tag(data, optUTF8);
 		switch (tag.GetNameID()) {
 		case FT_FILENAME:
-			SetFileName(CPath(tag.GetStr()));
+			SetFileName(CPath(RepairSearchResultFilename(tag.GetStr())));
 			break;
 		case FT_FILESIZE:
 			SetFileSize(tag.GetInt());
@@ -117,7 +118,10 @@ CSearchFile::CSearchFile(const CMemFile &data,
 			// Just ignore
 			break;
 		default:
-			AddTagUnique(tag);
+			// StoredSearches.met cannot hold the other types.
+			if (tag.CanWriteToFile()) {
+				AddTagUnique(tag);
+			}
 		}
 	}
 
@@ -234,7 +238,8 @@ bool CSearchFile::WriteToFile(CFileDataIO *file) const
 	if (m_iUserRating != 0) {
 		tagcount++;
 	}
-	tagcount += m_taglist.size();
+	tagcount += static_cast<uint32>(std::count_if(
+		m_taglist.begin(), m_taglist.end(), [](const CTag &tag) { return tag.CanWriteToFile(); }));
 	file->WriteUInt32(tagcount);
 
 	CTagString nametag(FT_FILENAME, CPath::ToUniv(GetFileName()));

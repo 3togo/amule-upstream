@@ -17,6 +17,8 @@ import tempfile
 import threading
 import time
 
+from DaemonConfig import write_amule_conf
+
 
 # Resolve wire constants from the protocol source, so renumbering stays visible.
 def load_codes():
@@ -27,6 +29,19 @@ def load_codes():
 
 
 C = load_codes()
+
+# Reported search names cut at 160 bytes, after the first byte of the next
+# Cyrillic character. Send raw bytes so the real tag reader exercises its fallback.
+TRUNCATED_UTF8_PREFIXES = (
+    'oper.ru.Клим.Жуков.Столетняя.война.07.Чёрный.Принц.Орден.Подвязки.Каркассон.и.шаткий.трон.В',
+    'Разговор с Дьяволо_ Последнее предупреждение Людям Земли. Мировая Война_ Хаос_ Конец Св',
+)
+FILENAME_REPAIR_CASES = tuple(
+    ('truncatedutf8' + word, prefix.encode() + b'\xd0', prefix)
+    for word, prefix in zip(('zero', 'one'), TRUNCATED_UTF8_PREFIXES)
+) + (
+    ('casechangedutf8', 'Bhr-Aã£Â\u0083Ã\u0082Â±Os.mkv'.encode(), 'Bhr-Aã£Â\u0083Ã\u0082Â±Os.mkv'),
+)
 
 
 def exact(sock, n):
@@ -191,7 +206,7 @@ def connect_daemon(proc, port, root=None, peer_port=None, udp_port=None,
 
 
 def search_record(name, sources=10):
-    name = name.encode()
+    name = name.encode() if isinstance(name, str) else name
     tags = (b'\x02\x01\x00\x01' + struct.pack('<H', len(name)) + name
             + b'\x03\x01\x00\x02' + struct.pack('<I', 4096)
             + b'\x03\x01\x00\x15' + struct.pack('<I', sources)
@@ -259,31 +274,8 @@ def run(binary):
     with tempfile.TemporaryDirectory(prefix='amule-all-search-') as root:
         root = Path(root)
         ec_port, peer_port, udp_port = free_ports(3, udp_indices=(2,), peer_index=1)
-        config = f'''[eMule]
-Nick=regression
-Port={peer_port}
-UDPPort={udp_port}
-Address=127.0.0.1
-ConnectToKad=1
-ConnectToED2K=1
-FilterLanIPs=0
-NewVersionCheck=0
-Reconnect=0
-Serverlist=0
-Ed2kServersUrl=
-KadNodesUrl=
-AddServerListFromServer=0
-AddServerListFromClient=0
-TempDir={root}/Temp
-IncomingDir={root}/Incoming
-Language=en_US
-[ExternalConnect]
-AcceptExternalConnections=1
-ECAddress=127.0.0.1
-ECPort={ec_port}
-ECPassword={hashlib.md5(b'regression').hexdigest()}
-'''
-        (root / 'amule.conf').write_text(config)
+        write_amule_conf(root, ec_port, Port=peer_port, UDPPort=udp_port, ConnectToKad=1,
+                         ConnectToED2K=1, FilterLanIPs=0)
         (root / 'nodes.dat').write_bytes(struct.pack('<III', 0, 1, 0))
         env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'),
                    LC_ALL='C.UTF-8')
@@ -351,11 +343,16 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                                         queries.put(packet[1:])
                                         if not answer.wait(10):
                                             return
-                                        sources = 0xffffffff if b'overflow' in packet else 10
-                                        body = (b'\x33' + struct.pack('<I', 3)
-                                                + search_record('regression.bin', sources)
-                                                + search_record('variant.bin')
-                                                + search_record('variant.bin'))
+                                        name = next((raw for query, raw, _ in FILENAME_REPAIR_CASES
+                                                     if query.encode() in packet), None)
+                                        if name is not None:
+                                            body = b'\x33' + struct.pack('<I', 1) + search_record(name)
+                                        else:
+                                            sources = 0xffffffff if b'overflow' in packet else 10
+                                            body = (b'\x33' + struct.pack('<I', 3)
+                                                    + search_record('regression.bin', sources)
+                                                    + search_record('variant.bin')
+                                                    + search_record('variant.bin'))
                                         peer.sendall(struct.pack('<BI', 0xe3, len(body)) + body)
                         except (EOFError, OSError):
                             pass
@@ -368,6 +365,24 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                     assert b'ubuntu' in query and b'linux' in query, query
                     assert ec.progress(sid)[C['EC_TAG_SEARCH_KAD_ACTIVE']][0] == 0
                     ec.call(C['EC_OP_SEARCH_STOP'], [integer(C['EC_TAG_SEARCH_ID'], sid)])
+                    # One incomplete UTF-8 tail must not garble the entire result.
+                    # Check the name returned over EC after the production reader,
+                    # search-result constructor and serialization have all run.
+                    for query, raw, expected in FILENAME_REPAIR_CASES:
+                        if query.startswith('truncatedutf8'):
+                            assert len(raw) == 160
+                        sid = ec.start(query, kind=C['EC_SEARCH_LOCAL'])
+                        queries.get(timeout=5)
+                        for _ in range(50):
+                            if ec.progress(sid)[C['EC_TAG_SEARCH_LIFECYCLE_STATE']][0] == 2:
+                                break
+                            time.sleep(0.1)
+                        results = ec.call(C['EC_OP_SEARCH_RESULTS'],
+                                          [integer(C['EC_TAG_SEARCH_ID'], sid)])[1]
+                        name = results[C['EC_TAG_SEARCHFILE']][1][C['EC_TAG_PARTFILE_NAME']][0]
+                        assert name.rstrip(b'\0').decode() == expected, name
+                        ec.call(C['EC_OP_SEARCH_STOP'], [integer(C['EC_TAG_SEARCH_ID'], sid),
+                                                       tag(C['EC_TAG_SEARCH_CLOSE'])])
                     # Both components: eD2k completion cannot finish the Kad component.
                     assert ec.call(C['EC_OP_KAD_START'])[0] == C['EC_OP_NOOP']
                     # Failed replacements and independent Kad searches must leave
@@ -551,7 +566,7 @@ ECPassword={hashlib.md5(b'regression').hexdigest()}
                     saved = (root / 'StoredSearches.met').read_bytes()
                     for name in (b'AllSearchEd2kSources', b'AllSearchKadSources'):
                         assert (name in saved) == (networks is not None), name
-                print('PASS: network fallback, query encoding, both completion orders, '
+                print('PASS: network fallback, query encoding, truncated UTF-8 filenames, both completion orders, '
                       'duplicate targets, stop/close, persistence, truncated restore, '
                       'ownership stress, clean shutdown')
             except BaseException:

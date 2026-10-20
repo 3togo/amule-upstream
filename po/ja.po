@@ -196,6 +196,15 @@ msgstr "今すぐ再起動"
 msgid "Later"
 msgstr "後で"
 
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+msgid "The connected core does not support deleting complete files from disk."
+msgstr ""
+
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+#, fuzzy
+msgid "Delete from disk"
+msgstr "Kadから取得"
+
 #: src/GuiEvents.cpp
 #, c-format
 msgid ""
@@ -219,26 +228,6 @@ msgid ""
 "%s\n"
 "The files are deleted and no longer shared. This cannot be undone."
 msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy
-msgid "Delete from disk"
-msgstr "Kadから取得"
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Skipped deleting '%s': the selected file has changed."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Deleted '%s' from disk."
-msgstr ""
-
-#: src/GuiEvents.cpp
-#, fuzzy, c-format
-msgid "Could not delete '%s' from disk."
-msgstr "あなたはすでにファイル%sをダウンロードしようとしています"
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -323,6 +312,22 @@ msgid "Now, exiting main app..."
 msgstr "メインアプリケーションを終了しています…"
 
 #: src/amule.cpp
+msgid "Saving window settings..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving client credits..."
+msgstr ""
+"\n"
+"クライアントを生成中です…\n"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Stopping helper applications..."
+msgstr "アプリケーションが終了します。"
+
+#: src/amule.cpp
 #, c-format
 msgid "Terminating amuleweb instance with pid '%d' ... "
 msgstr "pid '%d' の amuleweb インスタンスを終了しています… "
@@ -352,12 +357,31 @@ msgid "aMule OnExit: Terminating core."
 msgstr "aMule OnExit: コアを終了しています。"
 
 #: src/amule.cpp
+#, fuzzy
+msgid "Saving search results..."
+msgstr "検索結果"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving downloads and shared files..."
+msgstr "共有ファイルを再ロード中…"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Flushing download buffers..."
+msgstr "ファイルを削除します：%s"
+
+#: src/amule.cpp
 msgid "aMule shutdown completed."
 msgstr "aMuleのシャットダウンが完了しました。"
 
 #: src/amule.cpp
 msgid "Memory debug results for aMule exit:"
 msgstr "aMule終了時のメモリデバッグ結果："
+
+#: src/amule.cpp
+msgid "Finishing shutdown..."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -479,6 +503,11 @@ msgstr "Kadブートストラップノード（nodes.dat）"
 
 #: src/amule.cpp
 #, c-format
+msgid "Not starting %s: it is neither next to aMule nor on PATH."
+msgstr ""
+
+#: src/amule.cpp
+#, c-format
 msgid "web server running on pid %d"
 msgstr "ウェブサーバはPID %d で実行中です"
 
@@ -497,13 +526,31 @@ msgid "Could not write the amuleapi EC token to %s; amuleapi will fall back to i
 msgstr ""
 
 #: src/amule.cpp
+msgid "An exception occurred while launching amuleapi."
+msgstr ""
+
+#: src/amule.cpp
 #, c-format
 msgid "amuleapi running on pid %d"
 msgstr "amuleapi は pid %d で実行中です"
 
 #: src/amule.cpp
+msgid "Could not launch amuleapi during automatic restart."
+msgstr ""
+
+#: src/amule.cpp
 msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot be run. Please install the package containing aMule's REST API server, or build aMule from source with -DBUILD_AMULEAPI=YES and install it."
 msgstr "起動時に amuleapi を実行するよう指定されていますが、amuleapi バイナリを実行できません。aMule の REST API サーバを含むパッケージをインストールするか、-DBUILD_AMULEAPI=YES を指定してソースから aMule をビルドしてインストールしてください。"
+
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Could not remove the amuleapi EC token file: %s"
+msgstr "amuleapiパスワードを保存できませんでした：%s"
+
+#: src/amule.cpp
+#, c-format
+msgid "amuleapi will restart in %u seconds."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -653,6 +700,28 @@ msgstr ""
 #, c-format
 msgid "Disk space preallocation for file '%s' failed: %s"
 msgstr "ファイル '%s' のディスク領域の事前確保が失敗しました: %s"
+
+#: src/amule.cpp
+msgid "Stopping network services..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Saving source seeds..."
+msgstr "ソースシード"
+
+#: src/amule.cpp
+msgid "Stopping background downloads and workers..."
+msgstr ""
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Closing connections..."
+msgstr " は接続中です…"
+
+#: src/amule.cpp
+msgid "Saving known files and statistics..."
+msgstr ""
 
 #: src/amule.cpp
 msgid "ERROR: can't open logfile"
@@ -1180,6 +1249,22 @@ msgstr "再接続を開始できませんでした。まもなく再試行しま
 msgid "Ready"
 msgstr "準備完了"
 
+#: src/amule-remote-gui.cpp
+msgid "*** Solve the CAPTCHA and send its text as a message."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA passed; your message was delivered."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA failed; send another message to try again."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA failed; no attempts remain."
+msgstr ""
+
 #: src/amule-remote-gui.cpp src/TransferWnd.cpp
 msgid "All"
 msgstr "全て"
@@ -1218,6 +1303,10 @@ msgstr "あなたはすでにファイル%sをダウンロードしようとし�
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "ディレクトリ '%s'（カテゴリ '%s' 用）を作成できません。ディレクトリ '%s' を維持します。"
+
+#: src/amule-remote-gui.cpp
+msgid "The core did not confirm deleting the file. Refresh and try again."
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 #, c-format
@@ -2324,6 +2413,11 @@ msgid "Unauthorized access attempt from %s. Connection closed."
 msgstr "%s から不正なアクセスの試みがありました。接続を閉じました。"
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid partfile command target."
+msgstr "不正なファイル名。"
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote PartFile command failed: FileHash not found: %s"
 msgstr "リモート部分ファイルコマンドが失敗しました：ファイルハッシュは見付かりませんでした： %s"
@@ -2332,6 +2426,20 @@ msgstr "リモート部分ファイルコマンドが失敗しました：ファ
 #, c-format
 msgid "FileHash not found: %s"
 msgstr "ファイルハッシュは見付かりませんでした： %s"
+
+#: src/ExternalConn.cpp
+#, fuzzy, c-format
+msgid "Cannot cancel a finished download: %s"
+msgstr "ダウンロードが終了しました：%s"
+
+#: src/ExternalConn.cpp
+msgid "The selected download has changed or is completing. Refresh and try again."
+msgstr ""
+
+#: src/ExternalConn.cpp
+#, fuzzy, c-format
+msgid "No such category: %u"
+msgstr "チャット・セションを閉じます。"
 
 #: src/ExternalConn.cpp
 msgid "OOPS! OpCode processing error!"
@@ -2421,6 +2529,11 @@ msgid "Version check is not available on this daemon."
 msgstr "このデーモンではバージョンチェックを利用できません。"
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "Invalid complete-file deletion target."
+msgstr "不正なファイル名。"
+
+#: src/ExternalConn.cpp
 msgid "File not found."
 msgstr "ファイルは見付かりませんでした。"
 
@@ -2475,6 +2588,10 @@ msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Empty chat message"
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "CAPTCHA challenge is no longer pending"
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2793,6 +2910,11 @@ msgstr "ファイル・プレビュー"
 #: src/FileLaunch.cpp
 #, c-format
 msgid "Media-player command '%s' was not run: %s"
+msgstr ""
+
+#: src/FileLaunch.cpp
+#, c-format
+msgid "The configured video player is unavailable inside aMule's Flatpak sandbox: %s. Programs installed on the host are not directly available here. Completed files can still open with the desktop's default application; previewing an unfinished download needs a player the sandbox can run, such as a self-contained player saved in your home folder."
 msgstr ""
 
 #: src/FileLaunch.cpp
@@ -3133,6 +3255,11 @@ msgstr "はい"
 msgid "Failed to open MaxMindDB database '%s': %s"
 msgstr "%s（%s）を開くことはできませんでした"
 
+#: src/geoip/MaxMindDBDatabase.cpp
+#, fuzzy, c-format
+msgid "Failed to replace MaxMindDB database '%s': %s"
+msgstr "%s（%s）を開くことはできませんでした"
+
 #: src/HTTPDownload.cpp
 msgid "Downloading..."
 msgstr "ダウンロード中…"
@@ -3140,6 +3267,11 @@ msgstr "ダウンロード中…"
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "HTTPダウンロードがキャンセルされました"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "HTTP download of %s stopped: it is larger than %u MiB."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 msgid "The URL to download can't be empty"
@@ -3212,25 +3344,15 @@ msgstr "%s の新しいバージョンを %s からダウンロード"
 msgid "Download of %s file failed, aborting update."
 msgstr "%s ファイルのダウンロードに失敗したため、更新を中止します。"
 
-#: src/IP2Country.cpp src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "%s ファイルの削除に失敗したため、更新を中止します。"
-
 #: src/IP2Country.cpp
 #, c-format
-msgid "Failed to rename %s file, aborting update."
-msgstr "%s ファイルの名前変更に失敗したため、更新を中止します。"
+msgid "Error updating %s"
+msgstr "%s の更新中にエラーが発生しました"
 
 #: src/IP2Country.cpp src/IPFilter.cpp
 #, c-format
 msgid "Successfully updated %s"
 msgstr "%s を正常に更新しました"
-
-#: src/IP2Country.cpp
-#, c-format
-msgid "Error updating %s"
-msgstr "%s の更新中にエラーが発生しました"
 
 #: src/IP2Country.cpp
 msgid "DB-IP download failed for the current month - retrying with the previous month's URL."
@@ -3266,6 +3388,11 @@ msgstr[0] "%u個のIPレンジを'%s'からロードしました。"
 msgid "%u malformed line was discarded."
 msgid_plural "%u malformed lines were discarded."
 msgstr[0] "不正な形式の行を %u 個破棄しました。"
+
+#: src/IPFilter.cpp
+#, c-format
+msgid "Failed to remove %s file, aborting update."
+msgstr "%s ファイルの削除に失敗したため、更新を中止します。"
 
 #: src/IPFilter.cpp
 #, c-format
@@ -3757,6 +3884,15 @@ msgid "Hashing"
 msgstr "ハッシュ中"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Allocating"
+msgstr "領域確保中"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
+#: src/TransferWnd.cpp
+msgid "Stopped"
+msgstr "中断しています"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
 msgid "Completing"
 msgstr "完了中"
 
@@ -3773,6 +3909,10 @@ msgstr "停止"
 #: src/TransferWnd.cpp
 msgid "Erroneous"
 msgstr "エラーあり"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Insufficient disk space"
+msgstr "ディスク容量不足"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
 #: src/TransferWnd.cpp
@@ -3869,6 +4009,11 @@ msgid "WARNING: "
 msgstr "警告： "
 
 #: src/MediaProbe.cpp
+#, c-format
+msgid "Media metadata: not using %s, because another user owns it or a folder above it."
+msgstr ""
+
+#: src/MediaProbe.cpp
 msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
 msgstr ""
 
@@ -3935,6 +4080,23 @@ msgstr[0] ""
 msgid "Close"
 msgstr "閉じる"
 
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit column to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit visible columns to contents"
+msgstr ""
+
+#: src/MuleDataViewCtrl.cpp
+#, fuzzy
+msgid "Show all columns (keep widths)"
+msgstr "全てのコメントを表示"
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Restore default columns and widths"
+msgstr ""
+
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
 msgstr "カット"
@@ -3962,7 +4124,7 @@ msgstr "全ての選択"
 msgid "KiB/s"
 msgstr ""
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Unlimited"
 msgstr "無制限"
 
@@ -4033,11 +4195,11 @@ msgstr "UDPポート：準備未完了"
 msgid "Client Information"
 msgstr "クライアント情報"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Upload limit"
 msgstr "アップロード制限"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Download limit"
 msgstr "ダウンロード制限"
 
@@ -4842,12 +5004,26 @@ msgid "Video Player"
 msgstr "ビデオ・プレイヤー"
 
 #: src/muuli_wdr.cpp
-msgid "Bandwidth limits"
-msgstr "帯域幅制限"
+msgid "Line capacities"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Upload"
 msgstr "アップロード"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth limits"
+msgstr "帯域幅制限"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable download limit"
+msgstr "ダウンロード制限"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Enable upload limit"
+msgstr "アップロード制限"
 
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
@@ -4943,6 +5119,30 @@ msgid ""
 "A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
 "\n"
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
+
+#: src/muuli_wdr.cpp src/PeerCapabilities.h
+msgid "IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Address families:"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 only"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 and IPv6"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Takes effect after restarting aMule."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Advertise my IPv6 address to other peers"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5061,6 +5261,18 @@ msgstr "アップロード数"
 #: src/muuli_wdr.cpp
 msgid "Add new shared files with auto priority"
 msgstr "新しい共有ファイルを自動優先度として追加する"
+
+#: src/muuli_wdr.cpp
+msgid "Verify local data of requested shared files every"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Re-read requested complete files in the background and compare them with their stored MD4/AICH hashes, as Verify Local Data does. Corrupt parts stop being shared. Uploads continue during the check."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "days (0 = off)"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Intelligent Corruption Handling (I.C.H.)"
@@ -5217,14 +5429,6 @@ msgid "Connections Graph Scale: 100 "
 msgstr "接続数のグラフスケール：１００"
 
 #: src/muuli_wdr.cpp
-msgid "Download graph scale:"
-msgstr "ダウンロードグラフの縮尺："
-
-#: src/muuli_wdr.cpp
-msgid "Upload graph scale:"
-msgstr "アップロードグラフの縮尺："
-
-#: src/muuli_wdr.cpp
 msgid "Colors: "
 msgstr "色： "
 
@@ -5335,6 +5539,26 @@ msgstr "サーバ接続のリフレッシュ空間：無効にする"
 #: src/muuli_wdr.cpp
 msgid "Disable computer's timed standby mode"
 msgstr "コンピューターの自動スタンバイモードを無効にする"
+
+#: src/muuli_wdr.cpp
+msgid "Appearance: "
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow system"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Light mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Dark mode"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Appearance changes take effect after restarting aMule."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Skin to use: "
@@ -5852,12 +6076,13 @@ msgid "Download the GeoIP database from the selected source."
 msgstr "選択したソースから GeoIP データベースをダウンロードします。"
 
 #: src/muuli_wdr.cpp
-msgid "Auto-update on startup"
+#, fuzzy
+msgid "Auto-update on startup and weekly"
 msgstr "起動時に自動更新する"
 
 #: src/muuli_wdr.cpp
-msgid "Re-download the GeoIP database from the selected source every time aMule starts."
-msgstr "aMule の起動ごとに、選択したソースから GeoIP データベースを再ダウンロードします。"
+msgid "Check for a newer GeoIP database at startup and every week while aMule is running."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Filter incoming messages (except current chat):"
@@ -6134,10 +6359,6 @@ msgstr "他の全て"
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Incomplete"
 msgstr "未完成"
-
-#: src/OtherFunctions.cpp src/PartFile.cpp src/TransferWnd.cpp
-msgid "Stopped"
-msgstr "中断しています"
 
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Video"
@@ -6465,14 +6686,6 @@ msgid "ICH: Recovered corrupted part %i for %s -> Saved bytes: %s"
 msgstr "ICH：破損された部分%i（%sのため）を回復しました→：%s バイトを保存しました"
 
 #: src/PartFile.cpp
-msgid "Allocating"
-msgstr "領域確保中"
-
-#: src/PartFile.cpp
-msgid "Insufficient disk space"
-msgstr "ディスク容量不足"
-
-#: src/PartFile.cpp
 #, c-format
 msgid "ERROR: Failed to open partfile '%s'"
 msgstr "エラー: 部分ファイル '%s' が開けませんでした"
@@ -6484,10 +6697,6 @@ msgstr "ソース交流"
 
 #: src/PeerCapabilities.h
 msgid "NAT traversal (uTP)"
-msgstr ""
-
-#: src/PeerCapabilities.h
-msgid "IPv6"
 msgstr ""
 
 #: src/PeerCapabilities.h
@@ -6519,37 +6728,46 @@ msgstr "サーバのUDPソケトがTCP+3であるためTCPポートを65532以�
 msgid "Default port will be used (%d)"
 msgstr "デフォルトポートを使用します (%d)"
 
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Connection"
-msgstr "接続"
+#: src/BandwidthLimitSlider.h
+msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
+msgstr ""
 
-#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
-msgid "Directories"
-msgstr "ディレクトリ"
-
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Servers"
-msgstr "サーバ数"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Security"
-msgstr "セキュリティ"
+#: src/BandwidthLimitSlider.h
+#, c-format
+msgid "KiB/s (%.2f MiB/s)"
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Interface"
 msgstr "インターフェイス"
 
-#: src/PrefsUnifiedDlg.cpp
-msgid "IP2Country"
-msgstr "IP2Country"
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Connection"
+msgstr "接続"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Proxy"
 msgstr "プロクシ"
 
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Servers"
+msgstr "サーバ数"
+
+#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
+msgid "Directories"
+msgstr "ディレクトリ"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Events"
+msgstr "イベント"
+
 #: src/PrefsUnifiedDlg.cpp
 msgid "Filters"
 msgstr "フィルタ"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Security"
+msgstr "セキュリティ"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Remote Controls"
@@ -6560,12 +6778,12 @@ msgid "Online Signature"
 msgstr "オンライン署名"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Advanced"
-msgstr "詳細"
+msgid "IP2Country"
+msgstr "IP2Country"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Events"
-msgstr "イベント"
+msgid "Advanced"
+msgstr "詳細"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Debugging"
@@ -6674,6 +6892,11 @@ msgstr "- UDPポートを変更しました。\n"
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect port changed.\n"
 msgstr "- 外部接続ポートが変更されました。\n"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "- Address families changed.\n"
+msgstr "- ネットワークインターフェイスのバインドが変更されました。\n"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect acceptance changed.\n"
@@ -7113,6 +7336,11 @@ msgid "Only saving the first %u of %u results for search \"%s\"."
 msgstr ""
 
 #: src/SearchList.cpp
+#, fuzzy, c-format
+msgid "IO error while saving %s: %s"
+msgstr "%s ファイルの読み取り中にIOエラーが発生しました：%s"
+
+#: src/SearchList.cpp
 #, fuzzy
 msgid "WARNING: Stored search list corrupted, contains invalid header."
 msgstr "警告：Knownfileリストは破損され、不正なヘッダーが含まれています。"
@@ -7157,11 +7385,6 @@ msgstr "Kad 検索：さらに 1 つのピアに広範な結果を要求しま�
 #: src/SearchList.cpp
 msgid "Kad search: no peer left to reask for more results (cap reached or no responses yet)."
 msgstr "Kad 検索：追加の結果を再要求できるピアが残っていません（上限に達したか、まだ応答がありません）。"
-
-#: src/SearchList.cpp
-#, c-format
-msgid "Error %u: %s\n"
-msgstr ""
 
 #: src/SearchListCtrl.cpp
 msgid "FileID"
@@ -7231,6 +7454,11 @@ msgstr "ネットワークへ接続します。"
 
 #: src/SearchModeIcons.h
 msgid "Search eD2k servers and Kad, using whichever networks are available."
+msgstr ""
+
+#: src/SearchPacket.cpp
+#, c-format
+msgid "Error %u: %s\n"
 msgstr ""
 
 #: src/SearchProgressReport.cpp
@@ -7888,6 +8116,20 @@ msgid_plural "Re-extracting media metadata for %u shared files"
 msgstr[0] ""
 
 #: src/SharedFileList.cpp
+msgid "The selected file has changed or is not a complete file."
+msgstr ""
+
+#: src/SharedFileList.cpp
+#, fuzzy, c-format
+msgid "Could not delete '%s' from disk."
+msgstr "あなたはすでにファイル%sをダウンロードしようとしています"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Deleted '%s' from disk."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, fuzzy, c-format
 msgid "Now sharing file: %s"
 msgstr "known.metファイル%sを保存する時にIOエラーが発生しました"
@@ -8119,6 +8361,11 @@ msgstr "リモートファイル名"
 #: src/SourceListCtrl.cpp
 msgid "A4AF"
 msgstr "A4AF"
+
+#: src/SplashScreen.cpp
+#, fuzzy
+msgid "Closing aMule"
+msgstr "aMuleを表示する"
 
 #: src/Statistics.cpp
 #, c-format
@@ -9032,6 +9279,11 @@ msgstr ""
 
 #: src/ThreadTasks.cpp
 #, c-format
+msgid "Verify Local Data: missing MD4 hashes for %s, so it was not checked."
+msgstr ""
+
+#: src/ThreadTasks.cpp
+#, c-format
 msgid "Verify Local Data: %s was removed or changed during the check, which did not finish."
 msgstr ""
 
@@ -9893,6 +10145,19 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Download graph scale:"
+#~ msgstr "ダウンロードグラフの縮尺："
+
+#~ msgid "Upload graph scale:"
+#~ msgstr "アップロードグラフの縮尺："
+
+#, c-format
+#~ msgid "Failed to rename %s file, aborting update."
+#~ msgstr "%s ファイルの名前変更に失敗したため、更新を中止します。"
+
+#~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
+#~ msgstr "aMule の起動ごとに、選択したソースから GeoIP データベースを再ダウンロードします。"
 
 #~ msgid "WARNING: Canceled file list corrupted, contains invalid header."
 #~ msgstr "警告：キャンセルされたファイル・リストが破損しています。無効なヘッダーが含まれています。"

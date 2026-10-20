@@ -61,6 +61,9 @@
 #include "StatisticsDlg.h"
 #include "MuleColour.h"
 #include <vector> // Needed for the language picker's entry list
+#ifdef ENABLE_IPV6
+#include "AddressFamilyPolicy.h" // Needed for FamiliesFromSetting (Cfg_AddressFamilies)
+#endif
 #endif
 
 #ifndef CLIENT_GUI
@@ -102,6 +105,9 @@ wxString CPreferences::s_NetworkInterface;
 #ifdef ENABLE_IPV6
 long CPreferences::s_addressFamiliesSetting;
 bool CPreferences::s_advertiseIPv6;
+#ifdef CLIENT_GUI
+bool CPreferences::s_addressFamiliesTagSupported = false;
+#endif
 #endif
 uint16 CPreferences::s_port;
 uint16 CPreferences::s_udpport;
@@ -120,6 +126,7 @@ bool CPreferences::s_deadserver;
 CPath CPreferences::s_incomingdir;
 CPath CPreferences::s_tempdir;
 bool CPreferences::s_ICH;
+uint32 CPreferences::s_sharedFileReverifyDays;
 uint8 CPreferences::s_depth3D;
 bool CPreferences::s_scorsystem;
 bool CPreferences::s_hideonclose;
@@ -268,6 +275,10 @@ bool CPreferences::s_bCryptLayerRequested;
 bool CPreferences::s_IsClientCryptLayerRequired;
 uint32 CPreferences::s_dwKadUDPKey;
 uint8 CPreferences::s_byCryptTCPPaddingLength;
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+bool CPreferences::s_LugdunumNatCallbackEnabled;
+bool CPreferences::s_LowIdHolePunchEnabled;
+#endif
 
 wxString CPreferences::s_Ed2kURL;
 wxString CPreferences::s_KadURL;
@@ -450,18 +461,25 @@ class Cfg_Path : public Cfg_Str
 {
 public:
 	/** Constructor. */
-	Cfg_Path(const wxString &keyname, CPath &value, const wxString &defaultVal = EmptyString)
+	Cfg_Path(const wxString &keyname,
+		CPath &value,
+		const wxString &defaultVal = EmptyString,
+		bool defaultIfEmpty = false)
 	: Cfg_Str(keyname, m_temp_path, defaultVal)
 	, m_real_path(value)
+	, m_defaultIfEmpty(defaultIfEmpty)
 	{
 	}
 
 	/** @see Cfg_Str::LoadFromFile. */
 	virtual void LoadFromFile(wxConfigBase *cfg)
 	{
-		Cfg_Str::LoadFromFile(cfg);
-
-		m_real_path = CPath::FromUniv(m_temp_path);
+		// Only saved values use ToUniv() encoding; defaults are display strings.
+		if (!cfg->Read(GetKey(), &m_temp_path) || (m_defaultIfEmpty && m_temp_path.IsEmpty())) {
+			m_real_path = CPath(m_default);
+		} else {
+			m_real_path = CPath::FromUniv(m_temp_path);
+		}
 	}
 
 	/** @see Cfg_Str::SaveToFile. */
@@ -494,6 +512,7 @@ public:
 private:
 	wxString m_temp_path;
 	CPath &m_real_path;
+	const bool m_defaultIfEmpty;
 };
 
 /**
@@ -612,6 +631,94 @@ public:
 
 	virtual void SaveToFile(wxConfigBase *cfg) { cfg->Write(GetKey(), m_value); }
 };
+
+#ifdef ENABLE_IPV6
+/**
+ * The AddressFamilies choice. SaveAllItems() writes every Cfg, so an out-of-range value from
+ * amule.conf is kept unless the user picks another option; a plain Cfg_Int would overwrite it
+ * with the fallback the widget shows.
+ */
+class Cfg_AddressFamilies : public Cfg_Base
+{
+public:
+	Cfg_AddressFamilies(const wxString &keyname, long &value, long defaultVal)
+	: Cfg_Base(keyname)
+	, m_value(value)
+	, m_default(defaultVal)
+#ifndef AMULE_DAEMON
+	, m_widget(nullptr)
+	, m_shownIndex(0)
+	, m_valueWasInvalid(false)
+#endif
+	{
+	}
+
+	virtual void LoadFromFile(wxConfigBase *cfg) { cfg->Read(GetKey(), &m_value, m_default); }
+
+	virtual void SaveToFile(wxConfigBase *cfg) { cfg->Write(GetKey(), m_value); }
+
+#ifndef AMULE_DAEMON
+	virtual bool ConnectToWidget(int id, wxWindow *parent = nullptr)
+	{
+		m_widget = id ? dynamic_cast<wxChoice *>(wxWindow::FindWindowById(id, parent)) : nullptr;
+
+		return id == 0 || m_widget != nullptr;
+	}
+
+	virtual bool TransferToWindow()
+	{
+		if (!m_widget) {
+			return false;
+		}
+
+		m_valueWasInvalid = !AddressFamilyPolicy::FamiliesFromSetting(m_value).has_value();
+		m_shownIndex = AddressFamilyPolicy::AddressFamiliesChoiceIndexFromSetting(m_value);
+		m_widget->SetSelection(m_shownIndex);
+
+		return true;
+	}
+
+	virtual bool TransferFromWindow()
+	{
+		if (!m_widget) {
+			return false;
+		}
+
+		const int selection = m_widget->GetSelection();
+		if (m_valueWasInvalid && selection == m_shownIndex) {
+			SetChanged(false);
+			return true;
+		}
+
+		const long newValue = AddressFamilyPolicy::AddressFamiliesSettingFromChoiceIndex(selection);
+		SetChanged(newValue != m_value);
+		m_value = newValue;
+
+		return true;
+	}
+
+	virtual bool ResetToDefault()
+	{
+		if (!m_widget) {
+			return false;
+		}
+
+		m_widget->SetSelection(AddressFamilyPolicy::AddressFamiliesChoiceIndexFromSetting(m_default));
+
+		return true;
+	}
+#endif
+
+private:
+	long &m_value;
+	long m_default;
+#ifndef AMULE_DAEMON
+	wxChoice *m_widget;
+	int m_shownIndex;
+	bool m_valueWasInvalid;
+#endif
+};
+#endif
 
 /**
  * Wraps any Cfg class so its value lives only in memory for this run. The wrapped
@@ -1087,7 +1194,7 @@ void CPreferences::BuildItemList(const wxString &appdir)
 		(new Cfg_Bool("/eMule/KadStrictAichPublishers", s_KadStrictAichPublishers, false)));
 
 	/** Files */
-	NewCfgItem(IDC_TEMPFILES, (new Cfg_Path("/eMule/TempDir", s_tempdir, appdir + "Temp")));
+	NewCfgItem(IDC_TEMPFILES, (new Cfg_Path("/eMule/TempDir", s_tempdir, appdir + "Temp", true)));
 	NewCfgItem(IDC_ENDGAME, (new Cfg_Bool("/eMule/Endgame", s_Endgame, true)));
 
 #if defined(__WXMAC__) || defined(__WINDOWS__)
@@ -1102,9 +1209,11 @@ void CPreferences::BuildItemList(const wxString &appdir)
 #else
 	wxString incpath = appdir + "Incoming";
 #endif
-	NewCfgItem(IDC_INCFILES, (new Cfg_Path("/eMule/IncomingDir", s_incomingdir, incpath)));
+	NewCfgItem(IDC_INCFILES, (new Cfg_Path("/eMule/IncomingDir", s_incomingdir, incpath, true)));
 
 	NewCfgItem(IDC_ICH, (new Cfg_Bool("/eMule/ICH", s_ICH, true)));
+	NewCfgItem(IDC_SHAREDFILEREVERIFYDAYS,
+		MkCfg_Int("/eMule/SharedFileReverifyDays", s_sharedFileReverifyDays, 0));
 	NewCfgItem(IDC_AICHTRUST, (new Cfg_Bool("/eMule/AICHTrust", s_AICHTrustEveryHash, false)));
 	NewCfgItem(IDC_CHECKDISKSPACE, (new Cfg_Bool("/eMule/CheckDiskspace", s_checkDiskspace, true)));
 	NewCfgItem(IDC_MINDISKSPACE, (MkCfg_Int("/eMule/MinFreeDiskSpace", s_uMinFreeDiskSpace, 500)));
@@ -1239,7 +1348,7 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	//
 	// 100/20 Mbit, converted at 1024. Asymmetric because consumer lines mostly are, and
 	// because upload is the side people actually throttle. A user whose line differs sets
-	// this on the Statistics page, or answers the first-run wizard, which computes it from
+	// this on the Connection page, or answers the first-run wizard, which computes it from
 	// the speeds they enter.
 	//
 	// Only new configurations see this. aMule writes every key on save, so an existing
@@ -1392,6 +1501,16 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	s_MiscList.push_back(MkCfg_Int("/Obfuscation/CryptoKadUDPKey", s_dwKadUDPKey, GetRandomUint32()));
 #endif
 
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+	// Runtime opt-in for Lugdunum's NAT callback: off by default, so turning on
+	// ENABLE_NATT_SERVER_COORDINATION (e.g. via ENABLE_ALL_EXPERIMENTAL in CI/tester builds) does
+	// not by itself enrol on a live server. No widget: flip it in amule.conf for a live run.
+	s_MiscList.push_back(new Cfg_Bool("/eMule/LugdunumNatCallback", s_LugdunumNatCallbackEnabled, false));
+	// Same rationale, for ed2k-server's LowID hole punch: off by default, independent of
+	// the Lugdunum setting -- a server speaks one protocol or the other, never both.
+	s_MiscList.push_back(new Cfg_Bool("/eMule/LowIdHolePunch", s_LowIdHolePunchEnabled, false));
+#endif
+
 	/** Power management */
 	NewCfgItem(IDC_PREVENT_SLEEP,
 		(new Cfg_Bool("/PowerManagement/PreventSleepWhileDownloading",
@@ -1407,8 +1526,10 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	s_MiscList.push_back(MkCfg_Int("/eMule/SmartIdState", s_smartidstate, 0));
 
 #ifdef ENABLE_IPV6
-	s_MiscList.push_back(MkCfg_Int("/eMule/AddressFamilies", s_addressFamiliesSetting, 0));
-	s_MiscList.push_back(new Cfg_Bool("/eMule/AdvertiseIPv6", s_advertiseIPv6, false));
+	// AddressFamilies is read only in CamuleApp::OnInit, hence the restart note on its control.
+	NewCfgItem(IDC_ADDRESSFAMILIES,
+		(new Cfg_AddressFamilies("/eMule/AddressFamilies", s_addressFamiliesSetting, 0)));
+	NewCfgItem(IDC_ADVERTISEIPV6, (new Cfg_Bool("/eMule/AdvertiseIPv6", s_advertiseIPv6, false)));
 #endif
 
 	s_MiscList.push_back(new Cfg_Bool("/eMule/DropSlowSources", s_DropSlowSources, false));
@@ -1534,6 +1655,13 @@ void CPreferences::LoadAllItems(wxConfigBase *cfg)
 	for (; it_b != s_MiscList.end(); ++it_b) {
 		(*it_b)->LoadFromFile(cfg);
 	}
+
+	// Validate before unsigned narrowing: a negative or oversized hand-edited interval
+	// must not wrap into a valid enabled value. Invalid configuration defaults to off.
+	long reverifyDays = 0;
+	cfg->Read("/eMule/SharedFileReverifyDays", &reverifyDays, 0);
+	s_sharedFileReverifyDays =
+		reverifyDays >= 0 && reverifyDays <= 3650 ? static_cast<uint32>(reverifyDays) : 0;
 
 	// Drop the amuleapi credential digests an early 3.1.0 development build wrote here.
 	// They are no longer read -- amuleapi-passwords is the only store -- and an unsalted MD5
@@ -2152,17 +2280,21 @@ Category_Struct *CPreferences::GetCategory(size_t index)
 	return m_CatList[index];
 }
 
+// The index can come from a link or an EC client before AddDownload() validates it, which files
+// an unknown category under the default one: answer for that.
 const CPath &CPreferences::GetCatPath(uint8 index)
 {
-	wxASSERT(index < m_CatList.size());
-
+	if (index >= m_CatList.size()) {
+		return thePrefs::GetIncomingDir();
+	}
 	return m_CatList[index]->path;
 }
 
 uint32 CPreferences::GetCatColor(size_t index)
 {
-	wxASSERT(index < m_CatList.size());
-
+	if (index >= m_CatList.size()) {
+		return 0;
+	}
 	return m_CatList[index]->color;
 }
 

@@ -79,8 +79,7 @@ bool CEC_Category_Tag::Apply()
 	bool ret = theApp->glob_prefs->UpdateCategory(
 		GetInt(), Name(), CPath(Path()), Comment(), Color(), Prio());
 	if (!ret) {
-		GetTagByName(EC_TAG_CATEGORY_PATH)
-			->SetStringData(theApp->glob_prefs->GetCatPath(GetInt()).GetRaw());
+		SetPath(theApp->glob_prefs->GetCatPath(GetInt()).GetRaw());
 	}
 	return ret;
 }
@@ -91,9 +90,7 @@ bool CEC_Category_Tag::Create()
 	bool ret = theApp->glob_prefs->CreateCategory(
 		category, Name(), CPath(Path()), Comment(), Color(), Prio());
 	if (!ret) {
-		GetTagByName(EC_TAG_CATEGORY_PATH)
-			->SetStringData(theApp->glob_prefs->GetCatPath(theApp->glob_prefs->GetCatCount() - 1)
-						.GetRaw());
+		SetPath(theApp->glob_prefs->GetCatPath(theApp->glob_prefs->GetCatCount() - 1).GetRaw());
 	}
 	return ret;
 }
@@ -187,6 +184,20 @@ CEC_Prefs_Packet::CEC_Prefs_Packet(
 		// are deliberately not carried.
 		connPrefs.AddTag(CECTag(EC_TAG_CONN_UPNP_ENABLED, thePrefs::GetUPnPEnabled()));
 		connPrefs.AddTag(CECTag(EC_TAG_CONN_UPNP_TCP_PORT, thePrefs::GetUPnPTCPPort()));
+#ifdef ENABLE_IPV6
+#ifdef CLIENT_GUI
+		// Never sent to a daemon whose prefs reply lacked them.
+		if (thePrefs::GetAddressFamiliesTagSupported()) {
+			connPrefs.AddTag(CECTag(EC_TAG_CONN_ADDRESS_FAMILIES,
+				static_cast<uint32>(thePrefs::GetAddressFamiliesSetting())));
+			connPrefs.AddTag(CECTag(EC_TAG_CONN_ADVERTISE_IPV6, thePrefs::GetAdvertiseIPv6()));
+		}
+#else
+		connPrefs.AddTag(CECTag(EC_TAG_CONN_ADDRESS_FAMILIES,
+			static_cast<uint32>(thePrefs::GetAddressFamiliesSetting())));
+		connPrefs.AddTag(CECTag(EC_TAG_CONN_ADVERTISE_IPV6, thePrefs::GetAdvertiseIPv6()));
+#endif
+#endif
 		AddTag(connPrefs);
 	}
 
@@ -391,6 +402,8 @@ CEC_Prefs_Packet::CEC_Prefs_Packet(
 			filePrefs.AddTag(CECEmptyTag(EC_TAG_FILES_CHECK_FREE_SPACE));
 		}
 		filePrefs.AddTag(CECTag(EC_TAG_FILES_MIN_FREE_SPACE, thePrefs::GetMinFreeDiskSpaceMB()));
+		filePrefs.AddTag(
+			CECTag(EC_TAG_FILES_SHARED_REVERIFY_DAYS, thePrefs::GetSharedFileReverifyDays()));
 		if (!thePrefs::CreateFilesSparse()) {
 			filePrefs.AddTag(CECEmptyTag(EC_TAG_FILES_CREATE_NORMAL));
 		}
@@ -690,6 +703,22 @@ void CEC_Prefs_Packet::Apply() const
 		if ((oneTag = thisTab->GetTagByName(EC_TAG_CONN_UPNP_TCP_PORT)) != nullptr) {
 			thePrefs::SetUPnPTCPPort(static_cast<uint16>(oneTag->GetInt()));
 		}
+#ifdef ENABLE_IPV6
+		if ((oneTag = thisTab->GetTagByName(EC_TAG_CONN_ADDRESS_FAMILIES)) != nullptr) {
+			thePrefs::SetAddressFamiliesSetting(static_cast<long>(oneTag->GetInt()));
+#ifdef CLIENT_GUI
+			thePrefs::SetAddressFamiliesTagSupported(true);
+#endif
+		}
+#ifdef CLIENT_GUI
+		else {
+			thePrefs::SetAddressFamiliesTagSupported(false);
+		}
+#endif
+		if ((oneTag = thisTab->GetTagByName(EC_TAG_CONN_ADVERTISE_IPV6)) != nullptr) {
+			thePrefs::SetAdvertiseIPv6(oneTag->GetInt() != 0);
+		}
+#endif
 	}
 
 	if ((thisTab = GetTagByName(EC_TAG_PREFS_MESSAGEFILTER)) != NULL) {
@@ -816,6 +845,12 @@ void CEC_Prefs_Packet::Apply() const
 		ApplyBoolean(use_tag, thisTab, thePrefs::SetAllocFullFile, EC_TAG_FILES_ALLOC_FULL_SIZE);
 		ApplyBoolean(
 			use_tag, thisTab, thePrefs::SetCheckDiskspaceEnabled, EC_TAG_FILES_CHECK_FREE_SPACE);
+		if ((oneTag = thisTab->GetTagByName(EC_TAG_FILES_SHARED_REVERIFY_DAYS)) != nullptr) {
+			const uint64 days = oneTag->GetInt();
+			if (days <= 3650) {
+				thePrefs::SetSharedFileReverifyDays(static_cast<uint32>(days));
+			}
+		}
 		if ((oneTag = thisTab->GetTagByName(EC_TAG_FILES_MIN_FREE_SPACE)) != NULL) {
 			thePrefs::SetMinFreeDiskSpaceMB(oneTag->GetInt());
 		}

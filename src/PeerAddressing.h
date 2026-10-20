@@ -27,6 +27,7 @@
 
 #include "NetworkAddress.h"
 
+#include <cstddef>
 #include <cstdint>
 
 /**
@@ -464,6 +465,69 @@ inline bool IsDirectlyReachable(const CNetworkAddress &address) noexcept
 inline bool IsUsableTagIdentity(const CNetworkAddress &address) noexcept
 {
 	return address.IsGloballyRoutableIPv6();
+}
+
+/**
+ * Decode eMuleAI's OP_CHANGE_CLIENT_IP payload.
+ *
+ * The opcode carries exactly sixteen IPv6 octets. A peer may gain IPv6 after its hello, so this
+ * can be its first IPv6 announcement. Returning absence on every invalid form lets the caller
+ * leave the retained advertised address untouched; it must not turn a malformed update into an
+ * IPv4 identity or a new peer record.
+ */
+inline CNetworkAddress DecodeChangeClientIPv6(const std::uint8_t *bytes, std::size_t size) noexcept
+{
+	if (bytes == nullptr || size != CNetworkAddress::OCTET_COUNT) {
+		return CNetworkAddress::Absent();
+	}
+	const CNetworkAddress address = CNetworkAddress::FromIPv6Bytes(bytes);
+	return IsUsableTagIdentity(address) ? address : CNetworkAddress::Absent();
+}
+
+/**
+ * The source address for an outbound IPv6 connection to @a target, or absence for the system's
+ * choice.
+ *
+ * The system prefers a temporary address (RFC 6724 rule 7), so while we advertise a stable one a
+ * peer would see our hello claim one address and the socket another, which expires within a day.
+ * Leaving from the advertised address keeps the two the same. With nothing advertised the temporary
+ * address keeps its privacy role, and a peer that is not global is reached in another scope.
+ */
+inline CNetworkAddress OutboundIPv6Source(
+	const CNetworkAddress &advertised, const CNetworkAddress &target) noexcept
+{
+	if (!advertised.IsGloballyRoutableIPv6() || !target.IsGloballyRoutableIPv6()) {
+		return CNetworkAddress::Absent();
+	}
+	return advertised;
+}
+
+/**
+ * Whether @a other, the address a second connection carrying a known user hash came from, belongs to
+ * the host already known at @a known: the IPv6 it advertised, or another address in the /64 of a
+ * native IPv6 identity or of that advertised IPv6. Windows dials out from a temporary address that
+ * differs from the stable one the peer advertises and from any earlier temporary one, so a connection
+ * overlapping ours can carry a correct hash from such an address; that is not a forged hash. The
+ * advertised /64 matters for a peer known by IPv4 (#1872), whose identity has no /64 to compare.
+ */
+inline bool IsSameHostAddress(const CNetworkAddress &known,
+	const CNetworkAddress &other,
+	const CNetworkAddress &advertisedIPv6) noexcept
+{
+	if (known.IsAbsent() || other.IsAbsent()) {
+		return false;
+	}
+	if (other == known || (advertisedIPv6.IsPresent() && other == advertisedIPv6)) {
+		return true;
+	}
+	const auto sameNative64 = [](const CNetworkAddress &a, const CNetworkAddress &b) {
+		const auto isNativeIPv6 = [](const CNetworkAddress &address) {
+			return address.IsIPv6() && !address.IsIPv4Mapped();
+		};
+		return isNativeIPv6(a) && isNativeIPv6(b) &&
+		       a.TruncatedToPrefix(64) == b.TruncatedToPrefix(64);
+	};
+	return sameNative64(known, other) || sameNative64(advertisedIPv6, other);
 }
 
 } // namespace PeerAddressing

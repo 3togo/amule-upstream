@@ -55,6 +55,7 @@
 #include "MemFile.h"                    // Needed for CMemFile
 #include "kademlia/kademlia/Kademlia.h" // Needed for CKademlia::Kademlia
 #include "kademlia/kademlia/Prefs.h"    // Needed for CKademlia::CPrefs
+#include "KadBuddyIdLayout.h"           // Needed for MatchesBuddyIdEitherLayout (#1835)
 #include "DownloadQueue.h"              // Needed for CDownloadQueue
 #include "Server.h"                     // Needed for CServer
 #include "ServerList.h"                 // Needed for CServerList
@@ -82,7 +83,7 @@ CClientTCPSocket::CClientTCPSocket(CUpDownClient *in_client, const CProxyData *P
 #ifdef ENABLE_IPV6
 	// A native IPv6 peer has no IPv4 hybrid ID; OnReceive() filters on the address dialled.
 	if (in_client) {
-		const CNetworkAddress &connectAddress = in_client->GetConnectAddress();
+		const CNetworkAddress connectAddress = in_client->GetDialAddress();
 		if (connectAddress.IsIPv6() && !connectAddress.IsIPv4Mapped()) {
 			m_remoteAddress = connectAddress;
 		}
@@ -363,6 +364,9 @@ bool CClientTCPSocket::ProcessPacket(const uint8_t *buffer, uint32 size, uint8 o
 			logRemoteClient, "Remote Client: OP_HELLOANSWER from " + m_client->GetFullIP());
 		theStats::AddDownOverheadOther(size);
 		m_client->ProcessHelloAnswer(buffer, size);
+#ifdef ENABLE_IPV6
+		m_client->MarkIPv6ChangeConnectionReady();
+#endif
 #ifdef AMULE_UTP_TRANSPORT
 		// The answer refreshes both the peer's hash and crypt preferences.
 		// Apply them before secure identification queues any reply.
@@ -470,6 +474,12 @@ bool CClientTCPSocket::ProcessPacket(const uint8_t *buffer, uint32 size, uint8 o
 		if (m_client) {
 			m_client->SendHelloAnswer();
 		}
+
+#ifdef ENABLE_IPV6
+		if (m_client) {
+			m_client->MarkIPv6ChangeConnectionReady();
+		}
+#endif
 
 		// Send OS_INFO if the other side supports it. Sending may kill the client,
 		// so it is re-checked.
@@ -884,6 +894,20 @@ bool CClientTCPSocket::ProcessPacket(const uint8_t *buffer, uint32 size, uint8 o
 
 		break;
 	}
+
+#ifdef ENABLE_IPV6
+	case OP_CHANGE_CLIENT_IP: {
+		AddDebugLogLineN(
+			logRemoteClient, "Remote Client: OP_CHANGE_CLIENT_IP from " + m_client->GetFullIP());
+
+		theStats::AddDownOverheadOther(size);
+		const CNetworkAddress address = PeerAddressing::DecodeChangeClientIPv6(buffer, size);
+		if (address.IsPresent()) {
+			m_client->UpdateModIPv6(address);
+		}
+		break;
+	}
+#endif
 
 	case OP_CHANGE_SLOT: { // 0.43b
 		AddDebugLogLineN(
@@ -1821,8 +1845,15 @@ bool CClientTCPSocket::ProcessExtPacket(const uint8_t *buffer, uint32 size, uint
 		}
 		CMemFile data(buffer, size);
 		CUInt128 check = data.ReadUInt128();
-		check ^= Kademlia::CUInt128(true);
-		if (check != Kademlia::CKademlia::GetPrefs()->GetKadID()) {
+		uint8_t receivedBytes[16];
+		check.ToByteArray(receivedBytes);
+		// Our buddy ID is the inverse of our own Kad ID; the relayed ID may carry either
+		// layout, depending on the requester and the buddy that relayed it (#1835).
+		CUInt128 ownBuddyID(true);
+		ownBuddyID ^= Kademlia::CKademlia::GetPrefs()->GetKadID();
+		uint8_t expectedBytes[16];
+		ownBuddyID.ToByteArray(expectedBytes);
+		if (!Kademlia::MatchesBuddyIdEitherLayout(receivedBytes, expectedBytes)) {
 			break;
 		}
 		CUInt128 fileid = data.ReadUInt128();
@@ -2021,7 +2052,8 @@ bool CClientTCPSocket::ProcessExtPacket(const uint8_t *buffer, uint32 size, uint
 	case OP_KAD_FWTCPCHECK_ACK: { // Support required for Kadversion >= 7
 		AddDebugLogLineN(logRemoteClient,
 			"Remote Client: OP_KAD_FWTCPCHECK_ACK from " + m_client->GetFullIP());
-		if (theApp->clientlist->IsKadFirewallCheckIP(m_client->GetIP())) {
+		if (theApp->clientlist->TakeKadFirewallReply(
+			    m_client->GetIP(), Kademlia::CFirewallCheckRequests::Reply::Reachable)) {
 			if (Kademlia::CKademlia::IsRunning()) {
 				Kademlia::CKademlia::GetPrefs()->IncFirewalled();
 			}

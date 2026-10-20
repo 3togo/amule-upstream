@@ -14,7 +14,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-11 09:48+0000\n"
+"PO-Revision-Date: 2026-10-19 09:22+0000\n"
 "Last-Translator: Mike Akiba <mike2718@gmail.com>\n"
 "Language-Team: Chinese Simplified <kde-i18n-doc@kde.org>\n"
 "Language: zh_CN\n"
@@ -200,6 +200,14 @@ msgstr "立即重启"
 msgid "Later"
 msgstr "稍后重启"
 
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+msgid "The connected core does not support deleting complete files from disk."
+msgstr "已连接的核心不支持从磁盘删除完整文件。"
+
+#: src/GuiEvents.cpp src/amule-remote-gui.cpp
+msgid "Delete from disk"
+msgstr "从磁盘中删除"
+
 #: src/GuiEvents.cpp
 #, c-format
 msgid ""
@@ -232,25 +240,6 @@ msgstr ""
 "\n"
 "%s\n"
 "文件将被删除，不再共享。无法撤销此操作。"
-
-#: src/GuiEvents.cpp
-msgid "Delete from disk"
-msgstr "从磁盘中删除"
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Skipped deleting '%s': the selected file has changed."
-msgstr "跳过了删除 “%s”：所选文件已改变。"
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Deleted '%s' from disk."
-msgstr "已从磁盘上删除“%s”。"
-
-#: src/GuiEvents.cpp
-#, c-format
-msgid "Could not delete '%s' from disk."
-msgstr "无法删除磁盘上的“%s”。"
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -351,6 +340,18 @@ msgid "Now, exiting main app..."
 msgstr "现在，正在退出主程序..."
 
 #: src/amule.cpp
+msgid "Saving window settings..."
+msgstr "正在保存窗口设置…"
+
+#: src/amule.cpp
+msgid "Saving client credits..."
+msgstr "正在保存客户端积分..."
+
+#: src/amule.cpp
+msgid "Stopping helper applications..."
+msgstr "正在停止助手程序…"
+
+#: src/amule.cpp
 #, c-format
 msgid "Terminating amuleweb instance with pid '%d' ... "
 msgstr "正在终止 pid 为“%d”的 amuleweb 实例 ... "
@@ -380,12 +381,28 @@ msgid "aMule OnExit: Terminating core."
 msgstr "aMule 正在退出：中止内核。"
 
 #: src/amule.cpp
+msgid "Saving search results..."
+msgstr "保存搜索结果…"
+
+#: src/amule.cpp
+msgid "Saving downloads and shared files..."
+msgstr "正在保存下载的和共享的文件..."
+
+#: src/amule.cpp
+msgid "Flushing download buffers..."
+msgstr "正在冲洗下载缓冲…"
+
+#: src/amule.cpp
 msgid "aMule shutdown completed."
 msgstr "aMule 已经关闭。"
 
 #: src/amule.cpp
 msgid "Memory debug results for aMule exit:"
 msgstr "对 aMule 退出的内存 Debug 结果："
+
+#: src/amule.cpp
+msgid "Finishing shutdown..."
+msgstr "正在完成关闭…"
 
 #: src/amule.cpp
 #, c-format
@@ -501,6 +518,11 @@ msgstr "Kad 引导节点 (nodes.dat)"
 
 #: src/amule.cpp
 #, c-format
+msgid "Not starting %s: it is neither next to aMule nor on PATH."
+msgstr "没有在启动 %s：它不在 aMule 边上也不在 PATH 上。"
+
+#: src/amule.cpp
+#, c-format
 msgid "web server running on pid %d"
 msgstr "web 服务器正在运行，pid 为 %d"
 
@@ -519,13 +541,31 @@ msgid "Could not write the amuleapi EC token to %s; amuleapi will fall back to i
 msgstr "无法写入 amuleapi EC 令牌到 %s； amuleapi 将退回到其配置的密码。"
 
 #: src/amule.cpp
+msgid "An exception occurred while launching amuleapi."
+msgstr "启动 amuleapi 时发生异常。"
+
+#: src/amule.cpp
 #, c-format
 msgid "amuleapi running on pid %d"
 msgstr "amuleapi 正在运行，pid 为 %d"
 
 #: src/amule.cpp
+msgid "Could not launch amuleapi during automatic restart."
+msgstr "自动重启期间无法启动 amuleapi。"
+
+#: src/amule.cpp
 msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot be run. Please install the package containing aMule's REST API server, or build aMule from source with -DBUILD_AMULEAPI=YES and install it."
 msgstr "您要求启动时运行 amuleapi，但 amuleapi 程序无法运行， 请先安装包含 amule REST API 服务器的 包，或者使用 -DBUILD_AMULEAPI=YES 选项从源码构建 aMule 并安装它。"
+
+#: src/amule.cpp
+#, c-format
+msgid "Could not remove the amuleapi EC token file: %s"
+msgstr "无法删除 amuleapi EC 令牌文件：%s"
+
+#: src/amule.cpp
+#, c-format
+msgid "amuleapi will restart in %u seconds."
+msgstr "amuleapi 将在 %u 秒内重启。"
 
 #: src/amule.cpp
 #, c-format
@@ -675,6 +715,26 @@ msgstr "验证本地数据：共享文件夹中另一名为 '%s' 的文件和 '%
 #, c-format
 msgid "Disk space preallocation for file '%s' failed: %s"
 msgstr "为文件 '%s' 预分配磁盘空间失败：%s"
+
+#: src/amule.cpp
+msgid "Stopping network services..."
+msgstr "正在停止网络服务…"
+
+#: src/amule.cpp
+msgid "Saving source seeds..."
+msgstr "正在保存资源种子…"
+
+#: src/amule.cpp
+msgid "Stopping background downloads and workers..."
+msgstr "正在停止后台下载和 workers…"
+
+#: src/amule.cpp
+msgid "Closing connections..."
+msgstr "正在关闭连接..."
+
+#: src/amule.cpp
+msgid "Saving known files and statistics..."
+msgstr "正在保存已知文件和统计数字…"
 
 #: src/amule.cpp
 msgid "ERROR: can't open logfile"
@@ -1199,6 +1259,22 @@ msgstr "重新连接无法开始；即将重试。"
 msgid "Ready"
 msgstr "就绪"
 
+#: src/amule-remote-gui.cpp
+msgid "*** Solve the CAPTCHA and send its text as a message."
+msgstr "*** 解决 CAPTCHA 验证码并将其文本发送为消息。"
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA passed; your message was delivered."
+msgstr "*** CAPTCHA 验证码通过。你的消息已送达。"
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA failed; send another message to try again."
+msgstr "*** CAPTCHA 验证失败；发送另一条消息再试。"
+
+#: src/amule-remote-gui.cpp
+msgid "*** CAPTCHA failed; no attempts remain."
+msgstr "*** CAPTCHA 验证失败；已无法再试。"
+
 #: src/amule-remote-gui.cpp src/TransferWnd.cpp
 msgid "All"
 msgstr "全部"
@@ -1237,6 +1313,10 @@ msgstr "无法删除分类：%s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "无法创建 “%s” 目录用于 “%s” 分类，保留 “%s” 目录。"
+
+#: src/amule-remote-gui.cpp
+msgid "The core did not confirm deleting the file. Refresh and try again."
+msgstr "核心未确认删除该文件。刷新并重试。"
 
 #: src/amule-remote-gui.cpp
 #, c-format
@@ -2344,6 +2424,10 @@ msgid "Unauthorized access attempt from %s. Connection closed."
 msgstr "来自%s的非法登录尝试，已关闭连接。"
 
 #: src/ExternalConn.cpp
+msgid "Invalid partfile command target."
+msgstr "无效的 part 文件命令目标。"
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote PartFile command failed: FileHash not found: %s"
 msgstr "远程 Part 文件命令失败：文件校验码不存在：%s"
@@ -2352,6 +2436,20 @@ msgstr "远程 Part 文件命令失败：文件校验码不存在：%s"
 #, c-format
 msgid "FileHash not found: %s"
 msgstr "文件校验码不存在：%s"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Cannot cancel a finished download: %s"
+msgstr "无法取消已完成的下载：%s"
+
+#: src/ExternalConn.cpp
+msgid "The selected download has changed or is completing. Refresh and try again."
+msgstr "所选下载已更改或正在完成。刷新并重试。"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "No such category: %u"
+msgstr "没有这样的分类：%u"
 
 #: src/ExternalConn.cpp
 msgid "OOPS! OpCode processing error!"
@@ -2441,6 +2539,10 @@ msgid "Version check is not available on this daemon."
 msgstr "版本检查在此 daemon 上不可用。"
 
 #: src/ExternalConn.cpp
+msgid "Invalid complete-file deletion target."
+msgstr "无效的完整文件的删除目标。"
+
+#: src/ExternalConn.cpp
 msgid "File not found."
 msgstr "文件未找到。"
 
@@ -2492,6 +2594,10 @@ msgstr "文件不满足媒体元数据提取要求（不是音/视频文件，�
 #: src/ExternalConn.cpp
 msgid "Empty chat message"
 msgstr "空的聊天信息"
+
+#: src/ExternalConn.cpp
+msgid "CAPTCHA challenge is no longer pending"
+msgstr "CAPTCHA 挑战不再是待解决状态"
 
 #: src/ExternalConn.cpp
 msgid "Unknown chat target"
@@ -2809,6 +2915,11 @@ msgstr "文件预览"
 #, c-format
 msgid "Media-player command '%s' was not run: %s"
 msgstr "媒体播放器命令 “%s” 未运行：%s"
+
+#: src/FileLaunch.cpp
+#, c-format
+msgid "The configured video player is unavailable inside aMule's Flatpak sandbox: %s. Programs installed on the host are not directly available here. Completed files can still open with the desktop's default application; previewing an unfinished download needs a player the sandbox can run, such as a self-contained player saved in your home folder."
+msgstr "已配置的视频播放器在 aMule 的 Flatpak 沙箱中不可用：%s。安装在主机上的程序在此处不是直接可用。已完成的文件仍用桌面的默认程序打开；预览未完成的下载需要沙箱可以运行的播放器， 比如保存在 home 文件夹中的自包含播放器。"
 
 #: src/FileLaunch.cpp
 #, c-format
@@ -3150,6 +3261,11 @@ msgstr "是"
 msgid "Failed to open MaxMindDB database '%s': %s"
 msgstr "打开 MaxMindDB 数据库 '%s' 失败： %s"
 
+#: src/geoip/MaxMindDBDatabase.cpp
+#, c-format
+msgid "Failed to replace MaxMindDB database '%s': %s"
+msgstr "替换 MaxMindDB 数据库 '%s' 失败： %s"
+
 #: src/HTTPDownload.cpp
 msgid "Downloading..."
 msgstr "正在下载..."
@@ -3157,6 +3273,11 @@ msgstr "正在下载..."
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "HTTP 下载已经取消"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "HTTP download of %s stopped: it is larger than %u MiB."
+msgstr "%s 的 HTTP 下载已停止：文件超过 %u MiB。"
 
 #: src/HTTPDownload.cpp
 msgid "The URL to download can't be empty"
@@ -3229,25 +3350,15 @@ msgstr "下载新的 %s，来源 %s"
 msgid "Download of %s file failed, aborting update."
 msgstr "%s 文件下载失败，更新终止。"
 
-#: src/IP2Country.cpp src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "删除%s文件失败，放弃更新。"
-
 #: src/IP2Country.cpp
 #, c-format
-msgid "Failed to rename %s file, aborting update."
-msgstr "重名命%s文件失败，放弃更新。"
+msgid "Error updating %s"
+msgstr "更新 %s 出错"
 
 #: src/IP2Country.cpp src/IPFilter.cpp
 #, c-format
 msgid "Successfully updated %s"
 msgstr "成功更新 %s"
-
-#: src/IP2Country.cpp
-#, c-format
-msgid "Error updating %s"
-msgstr "更新 %s 出错"
 
 #: src/IP2Country.cpp
 msgid "DB-IP download failed for the current month - retrying with the previous month's URL."
@@ -3288,6 +3399,11 @@ msgstr[1] "丢弃了 %u 行错误数据。"
 
 #: src/IPFilter.cpp
 #, c-format
+msgid "Failed to remove %s file, aborting update."
+msgstr "删除%s文件失败，放弃更新。"
+
+#: src/IPFilter.cpp
+#, c-format
 msgid "Failed to rename new %s file, aborting update."
 msgstr "重名命新的%s文件失败，放弃更新。"
 
@@ -3297,33 +3413,32 @@ msgstr "IP过滤器已准备好"
 
 #: src/KadContactHistogram.h
 msgid "Contacts grouped by the first twelve bits of their KadID. Blue: all contacts; green: verified addresses. The marker shows your own KadID; clustering near it is expected."
-msgstr ""
+msgstr "根据联系人 KadID 前 12 个比特将联系人分组。蓝色：所有联系人；绿色：已验证的地址。记号显示你自己的 KadID；聚集在它附近是预期行为。"
 
 #: src/KadContactHistogram.h
 msgid "Loading contact distribution..."
-msgstr ""
+msgstr "正加载联系人分布…"
 
 #: src/KadContactHistogram.h
 msgid "This core does not send the contact distribution. Update the core to see the chart."
-msgstr ""
+msgstr "这个核心不发送联系人分布。要查看图表请更新核心。"
 
 #: src/KadContactHistogram.h
 msgid "The core sent contact distribution data that could not be read."
-msgstr ""
+msgstr "这个核心发送了无法被读取的联系人分布数据。"
 
 #: src/KadContactHistogram.h
 #, c-format
 msgid "Routing-table contacts: %u; verified: %u; distinct /24s: %u"
-msgstr ""
+msgstr "路由表联系人：%u；已验证：%u；不同联系人/ 24s：%u"
 
 #: src/KadDlg.cpp
 msgid "Requesting Kad lookup diagnostics..."
-msgstr ""
+msgstr "正在请求 Kad 查询诊断…"
 
 #: src/KadDlg.cpp
-#, fuzzy
 msgid "The connected core does not support Kad lookup diagnostics."
-msgstr "已连接的 daemon 不支持 All 搜索类型。"
+msgstr "已连接的核心不支持 Kad 查询诊断。"
 
 #: src/KadDlg.cpp src/muuli_wdr.cpp src/StatisticsDlg.cpp
 msgid "Current"
@@ -3372,20 +3487,19 @@ msgstr "继续？"
 
 #: src/KadLookupView.h
 msgid "Kad lookup diagnostics"
-msgstr ""
+msgstr "Kad 查询诊断"
 
 #: src/KadLookupView.h
-#, fuzzy
 msgid "The core does not support Kad lookup diagnostics."
-msgstr "已连接的 daemon 不支持 All 搜索类型。"
+msgstr "该核心不支持 Kad 查询诊断。"
 
 #: src/KadLookupView.h
 msgid "Invalid Kad lookup diagnostics reply."
-msgstr ""
+msgstr "无效的 Kad 查询诊断回复。"
 
 #: src/KadLookupView.h
 msgid "Connection lost. Reconnect and request lookup diagnostics again."
-msgstr ""
+msgstr "连接丢失。重新连接并再次请求查询诊断。"
 
 #: src/kademlia/kademlia/SearchManager.cpp
 msgid "Kademlia: search keyword too short"
@@ -3425,120 +3539,109 @@ msgstr[0] "已写入 %d 个 Kad 联系人"
 msgstr[1] "已写入%d个Kad联系人"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "Node"
-msgstr "节点 (0)"
+msgstr "节点"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "Complete node"
-msgstr "已完成"
+msgstr "完整节点"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "File"
 msgstr "文件"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Keyword"
-msgstr ""
+msgstr "关键词"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Notes"
-msgstr ""
+msgstr "附注"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Publish file"
-msgstr ""
+msgstr "发布文件"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Publish keyword"
-msgstr ""
+msgstr "发布关键词"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Publish notes"
-msgstr ""
+msgstr "发布附注"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "Find buddy"
-msgstr "没有好友"
+msgstr "寻找好友"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "Find source"
-msgstr "文件源:"
+msgstr "寻找来源"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "Special node"
-msgstr "新节点"
+msgstr "特殊节点"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "UDP firewall check"
-msgstr "被防火墙阻挡"
+msgstr "UDP 防火墙检查"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 #, c-format
 msgid "type %u"
-msgstr ""
+msgstr "类型 %u"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 #, c-format
 msgid "Lookup %s (%s, %s): %u peers, %u overdue routing requests, %u omitted peers, %u evicted referrals"
-msgstr ""
+msgstr "查询 %s (%s, %s): %u 个对等方, %u 条过期的路由请求, %u 个省略的对等方, %u 个被驱逐的介绍"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "active lookup"
-msgstr ""
+msgstr "活跃查询"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "finished lookup"
-msgstr "已完成"
+msgstr "已完成查询"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Keyword: %s"
-msgstr "过滤: %s"
+msgstr "关键词： %s"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 #, c-format
 msgid "%s [%s], distance %s, Kad version %u (%s): %u routing requests, %u replies, last RTT %u ms, %u item requests, %u result packets, %u result records"
-msgstr ""
+msgstr "%s [%s], 距离 %s, Kad 版本 %u (%s): %u 个路由请求, %u 个回复, 上个 RTT %u ms, %u 个项目请求, %u 结果数据包, %u 条结果记录"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "awaiting reply"
-msgstr ""
+msgstr "正等待回复"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "reply received"
-msgstr "没有收到"
+msgstr "收到了回复"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 #, c-format
 msgid "+%u ms: %s referred %s (distance %s, %s)"
-msgstr ""
+msgstr "+%u ms: %s referred %s (距离 %s, %s)"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "closer to target"
-msgstr ""
+msgstr "离目标较近"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "no closer to target"
-msgstr "未知聊天目标"
+msgstr "离目标还远"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 msgid "Overdue means a routing request unanswered for at least 3 seconds; late replies may still arrive. Result records are received records, not unique files. Only bounded recent history is retained."
-msgstr ""
+msgstr "过期代表至少 3 秒未回应的路由请求；迟来的回复仍可能抵达。结果记录是已收到的记录数，不是唯一的文件。仅保留有界的近期历史。"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "No Kad lookup history available."
-msgstr "选项不可用"
+msgstr "无 Kad 查询历史可用。"
 
 #: src/KnownFile.cpp
 msgid "Kad user"
@@ -3781,6 +3884,15 @@ msgid "Hashing"
 msgstr "正在计算哈希"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Allocating"
+msgstr "正在分配"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
+#: src/TransferWnd.cpp
+msgid "Stopped"
+msgstr "已停止"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
 msgid "Completing"
 msgstr "即将完成"
 
@@ -3797,6 +3909,10 @@ msgstr "已暂停"
 #: src/TransferWnd.cpp
 msgid "Erroneous"
 msgstr "已出错"
+
+#: src/libs/ec/cpp/ECSpecialTags.cpp src/PartFile.cpp
+msgid "Insufficient disk space"
+msgstr "磁盘空间不足"
 
 #: src/libs/ec/cpp/ECSpecialTags.cpp src/OtherFunctions.cpp src/PartFile.cpp
 #: src/TransferWnd.cpp
@@ -3892,6 +4008,11 @@ msgid "WARNING: "
 msgstr "警告: "
 
 #: src/MediaProbe.cpp
+#, c-format
+msgid "Media metadata: not using %s, because another user owns it or a folder above it."
+msgstr "媒体元数据：没在使用 %s，因为别的用户拥有它或和它上一级的文件夹。"
+
+#: src/MediaProbe.cpp
 msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
 msgstr "媒体元数据：未找到 ffprobe 二进制文件。安装 ffmpeg，或在首选项中设置 ffprobe 路径；不会提取长度、比特率和编解码器信息。"
 
@@ -3962,6 +4083,23 @@ msgstr[1] "找不到另外 %u 个共享文件（未逐个列出）"
 msgid "Close"
 msgstr "关闭"
 
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit column to contents"
+msgstr "使列适应内容"
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Fit visible columns to contents"
+msgstr "使可见列适应内容"
+
+#: src/MuleDataViewCtrl.cpp
+#, fuzzy
+msgid "Show all columns (keep widths)"
+msgstr "显示所有评论"
+
+#: src/MuleDataViewCtrl.cpp
+msgid "Restore default columns and widths"
+msgstr ""
+
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
 msgstr "剪切"
@@ -3989,7 +4127,7 @@ msgstr "全选"
 msgid "KiB/s"
 msgstr "KiB/s"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Unlimited"
 msgstr "无限制"
 
@@ -4060,11 +4198,11 @@ msgstr "UDP 端口: 未就绪"
 msgid "Client Information"
 msgstr "客户端信息"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Upload limit"
 msgstr "上传限制"
 
-#: src/MuleTrayIcon.cpp
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
 msgid "Download limit"
 msgstr "下载限制"
 
@@ -4374,7 +4512,7 @@ msgstr "重置表单"
 
 #: src/muuli_wdr.cpp
 msgid "Results"
-msgstr "搜索结果"
+msgstr "结果"
 
 #: src/muuli_wdr.cpp
 msgid "Clears completed downloads"
@@ -4861,12 +4999,24 @@ msgid "Video Player"
 msgstr "视频播放器"
 
 #: src/muuli_wdr.cpp
-msgid "Bandwidth limits"
-msgstr "带宽限制"
+msgid "Line capacities"
+msgstr "线路容量"
 
 #: src/muuli_wdr.cpp
 msgid "Upload"
 msgstr "上传"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth limits"
+msgstr "带宽限制"
+
+#: src/muuli_wdr.cpp
+msgid "Enable download limit"
+msgstr "启用下载限制"
+
+#: src/muuli_wdr.cpp
+msgid "Enable upload limit"
+msgstr "启用上传限制"
 
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
@@ -4975,6 +5125,30 @@ msgstr ""
 "节点报告的版本可能过时或不准确， 因此这可能丢弃有效哈希并使得被接受的哈希不可信。版本未知的节点仍被接受。\n"
 "\n"
 "技术细节：拒绝来自通告的 Kad 协议版本低于 0x09 的节点的 AICH 发布哈希。"
+
+#: src/muuli_wdr.cpp src/PeerCapabilities.h
+msgid "IPv6"
+msgstr "IPv6"
+
+#: src/muuli_wdr.cpp
+msgid "Address families:"
+msgstr "地址族："
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 only"
+msgstr "仅 IPv4"
+
+#: src/muuli_wdr.cpp
+msgid "IPv4 and IPv6"
+msgstr "IPv4 和 IPv6"
+
+#: src/muuli_wdr.cpp
+msgid "Takes effect after restarting aMule."
+msgstr "在重启 aMule 后生效。"
+
+#: src/muuli_wdr.cpp
+msgid "Advertise my IPv6 address to other peers"
+msgstr "将我的 IPv6 地址通告给其他对等方"
 
 #: src/muuli_wdr.cpp
 msgid "Remove dead server after"
@@ -5091,6 +5265,18 @@ msgstr "上传"
 #: src/muuli_wdr.cpp
 msgid "Add new shared files with auto priority"
 msgstr "添加新共享文件时设优先级为自动"
+
+#: src/muuli_wdr.cpp
+msgid "Verify local data of requested shared files every"
+msgstr "间隔几天验证已请求的共享文件的本地数据"
+
+#: src/muuli_wdr.cpp
+msgid "Re-read requested complete files in the background and compare them with their stored MD4/AICH hashes, as Verify Local Data does. Corrupt parts stop being shared. Uploads continue during the check."
+msgstr "在后台重新读取请求的完整文件，并将其与存储的 MD4/AICH 哈希值进行比较，就像“验证本地数据”功能所做的那样。损坏的部分将停止共享。检查期间上传将继续进行。"
+
+#: src/muuli_wdr.cpp
+msgid "days (0 = off)"
+msgstr "天数 (0 表示关闭)"
 
 #: src/muuli_wdr.cpp
 msgid "Intelligent Corruption Handling (I.C.H.)"
@@ -5245,14 +5431,6 @@ msgid "Connections Graph Scale: 100 "
 msgstr "连接图表尺寸: 100 "
 
 #: src/muuli_wdr.cpp
-msgid "Download graph scale:"
-msgstr "下载图表尺寸："
-
-#: src/muuli_wdr.cpp
-msgid "Upload graph scale:"
-msgstr "上传图表尺寸："
-
-#: src/muuli_wdr.cpp
 msgid "Colors: "
 msgstr "颜色： "
 
@@ -5363,6 +5541,26 @@ msgstr "服务器连接刷新周期：禁用"
 #: src/muuli_wdr.cpp
 msgid "Disable computer's timed standby mode"
 msgstr "停用电脑自动进入待命模式功能"
+
+#: src/muuli_wdr.cpp
+msgid "Appearance: "
+msgstr "外观： "
+
+#: src/muuli_wdr.cpp
+msgid "Follow system"
+msgstr "跟随系统"
+
+#: src/muuli_wdr.cpp
+msgid "Light mode"
+msgstr "浅色模式"
+
+#: src/muuli_wdr.cpp
+msgid "Dark mode"
+msgstr "深色模式"
+
+#: src/muuli_wdr.cpp
+msgid "Appearance changes take effect after restarting aMule."
+msgstr "外观更改在重启 aMule 后生效。"
 
 #: src/muuli_wdr.cpp
 msgid "Skin to use: "
@@ -5638,7 +5836,7 @@ msgstr "在此输入 nodes.dat 文件的地址并按左边的按钮以更新已�
 
 #: src/muuli_wdr.cpp
 msgid "Lookup diagnostics"
-msgstr ""
+msgstr "查询诊断"
 
 #: src/muuli_wdr.cpp
 msgid "Nodes stats"
@@ -5875,12 +6073,12 @@ msgid "Download the GeoIP database from the selected source."
 msgstr "从所选源下载 GeoIP 数据库。"
 
 #: src/muuli_wdr.cpp
-msgid "Auto-update on startup"
-msgstr "启动后自动更新"
+msgid "Auto-update on startup and weekly"
+msgstr "启动后和每周自动更新"
 
 #: src/muuli_wdr.cpp
-msgid "Re-download the GeoIP database from the selected source every time aMule starts."
-msgstr "每次启动 aMule 时，从所选源重新下载 GeoIP 数据库。"
+msgid "Check for a newer GeoIP database at startup and every week while aMule is running."
+msgstr "aMule 运行时，启动后及每周检查新的 GeoIP 数据库。"
 
 #: src/muuli_wdr.cpp
 msgid "Filter incoming messages (except current chat):"
@@ -6158,10 +6356,6 @@ msgstr "其它"
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Incomplete"
 msgstr "未完成"
-
-#: src/OtherFunctions.cpp src/PartFile.cpp src/TransferWnd.cpp
-msgid "Stopped"
-msgstr "已停止"
 
 #: src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Video"
@@ -6485,14 +6679,6 @@ msgid "ICH: Recovered corrupted part %i for %s -> Saved bytes: %s"
 msgstr "ICH：修复了损坏的数据段 %i（%s），挽救数据（字节）： %s"
 
 #: src/PartFile.cpp
-msgid "Allocating"
-msgstr "正在分配"
-
-#: src/PartFile.cpp
-msgid "Insufficient disk space"
-msgstr "磁盘空间不足"
-
-#: src/PartFile.cpp
 #, c-format
 msgid "ERROR: Failed to open partfile '%s'"
 msgstr "错误：打开part文件'%s'失败"
@@ -6504,10 +6690,6 @@ msgstr "扩展源交换"
 #: src/PeerCapabilities.h
 msgid "NAT traversal (uTP)"
 msgstr "NAT穿透（uTP）"
-
-#: src/PeerCapabilities.h
-msgid "IPv6"
-msgstr "IPv6"
 
 #: src/PeerCapabilities.h
 msgid "Buddy info pull"
@@ -6538,37 +6720,46 @@ msgstr "TCP端口不可高于65532，因为服务器UDP端口值为TCP端口值+
 msgid "Default port will be used (%d)"
 msgstr "缺省端口将被使用（%d）"
 
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Connection"
-msgstr "连接"
+#: src/BandwidthLimitSlider.h
+msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
+msgstr "将启用的限制从 1 KiB/s 调整成线路容量。"
 
-#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
-msgid "Directories"
-msgstr "目录"
-
-#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
-msgid "Servers"
-msgstr "服务器"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Security"
-msgstr "安全"
+#: src/BandwidthLimitSlider.h
+#, c-format
+msgid "KiB/s (%.2f MiB/s)"
+msgstr "KiB/s (%.2f MiB/s)"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Interface"
 msgstr "界面"
 
-#: src/PrefsUnifiedDlg.cpp
-msgid "IP2Country"
-msgstr "IP2Country"
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Connection"
+msgstr "连接"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Proxy"
 msgstr "代理"
 
+#: src/PrefsUnifiedDlg.cpp src/Statistics.cpp
+msgid "Servers"
+msgstr "服务器"
+
+#: src/PrefsUnifiedDlg.cpp src/SearchListCtrl.cpp
+msgid "Directories"
+msgstr "目录"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Events"
+msgstr "事件"
+
 #: src/PrefsUnifiedDlg.cpp
 msgid "Filters"
 msgstr "过滤"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Security"
+msgstr "安全"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Remote Controls"
@@ -6579,12 +6770,12 @@ msgid "Online Signature"
 msgstr "在线签名"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Advanced"
-msgstr "高级"
+msgid "IP2Country"
+msgstr "IP2Country"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Events"
-msgstr "事件"
+msgid "Advanced"
+msgstr "高级"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Debugging"
@@ -6694,6 +6885,10 @@ msgstr "- UDP端口已更改。\n"
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect port changed.\n"
 msgstr "- 外部连接端口已更改。\n"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "- Address families changed.\n"
+msgstr "- 更改了地址族。\n"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "- External connect acceptance changed.\n"
@@ -7145,6 +7340,11 @@ msgid "Only saving the first %u of %u results for search \"%s\"."
 msgstr "仅保存搜索 “%3$s” 获得的前 %1$u 个结果，共 %2$u 个结果。"
 
 #: src/SearchList.cpp
+#, c-format
+msgid "IO error while saving %s: %s"
+msgstr "保存 %s 时发生 IO 错误：%s"
+
+#: src/SearchList.cpp
 msgid "WARNING: Stored search list corrupted, contains invalid header."
 msgstr "警告: 存储的搜索列表已损坏，含无效头部。"
 
@@ -7187,11 +7387,6 @@ msgstr "Kad 搜索：从又一个对等方请求了更广泛的结果。"
 #: src/SearchList.cpp
 msgid "Kad search: no peer left to reask for more results (cap reached or no responses yet)."
 msgstr "Kad 搜索：没有剩余对等方可重新请求更多结果（已达上限或尚无响应）。"
-
-#: src/SearchList.cpp
-#, c-format
-msgid "Error %u: %s\n"
-msgstr "错误 %u：%s\n"
 
 #: src/SearchListCtrl.cpp
 msgid "FileID"
@@ -7256,6 +7451,11 @@ msgstr "搜索 Kad 网络。"
 #: src/SearchModeIcons.h
 msgid "Search eD2k servers and Kad, using whichever networks are available."
 msgstr "搜索 eD2k 服务器和 Kad，哪个网络可用就用哪个。"
+
+#: src/SearchPacket.cpp
+#, c-format
+msgid "Error %u: %s\n"
+msgstr "错误 %u：%s\n"
 
 #: src/SearchProgressReport.cpp
 msgid "running"
@@ -7911,6 +8111,20 @@ msgstr[0] "重新提取 %u 个共享文件的媒体元数据"
 msgstr[1] "重新提取 %u 个共享文件的媒体元数据"
 
 #: src/SharedFileList.cpp
+msgid "The selected file has changed or is not a complete file."
+msgstr "所选文件已更改或者不是完整文件。"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Could not delete '%s' from disk."
+msgstr "无法删除磁盘上的“%s”。"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Deleted '%s' from disk."
+msgstr "已从磁盘上删除“%s”。"
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Now sharing file: %s"
 msgstr "正在分享文件：%s"
@@ -8148,6 +8362,10 @@ msgstr "远程文件名"
 #: src/SourceListCtrl.cpp
 msgid "A4AF"
 msgstr "A4AF"
+
+#: src/SplashScreen.cpp
+msgid "Closing aMule"
+msgstr "正在关闭 aMule"
 
 #: src/Statistics.cpp
 #, c-format
@@ -9060,6 +9278,11 @@ msgstr "验证本地数据：%s 为空，因此没什么可检查的。"
 
 #: src/ThreadTasks.cpp
 #, c-format
+msgid "Verify Local Data: missing MD4 hashes for %s, so it was not checked."
+msgstr "验证本地数据：%s 的 MD4 哈希缺失，因此未检查它。"
+
+#: src/ThreadTasks.cpp
+#, c-format
 msgid "Verify Local Data: %s was removed or changed during the check, which did not finish."
 msgstr "验证本地数据：%s 在检查期间被删除或更改，检查未完成。"
 
@@ -9926,6 +10149,23 @@ msgstr "Kad 无法加载其已保存的索引。现有的索引文件被保留�
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr "Kad 无法保存索引。该文件之前的副本被保留。"
+
+#, c-format
+#~ msgid "Skipped deleting '%s': the selected file has changed."
+#~ msgstr "跳过了删除 “%s”：所选文件已改变。"
+
+#~ msgid "Download graph scale:"
+#~ msgstr "下载图表尺寸："
+
+#~ msgid "Upload graph scale:"
+#~ msgstr "上传图表尺寸："
+
+#, c-format
+#~ msgid "Failed to rename %s file, aborting update."
+#~ msgstr "重名命%s文件失败，放弃更新。"
+
+#~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
+#~ msgstr "每次启动 aMule 时，从所选源重新下载 GeoIP 数据库。"
 
 #~ msgid "WARNING: Canceled file list corrupted, contains invalid header."
 #~ msgstr "警告：已取消文件列表损坏，包含有非法头部。"

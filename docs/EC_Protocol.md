@@ -376,7 +376,8 @@ confirmation — the server does not echo those two tags.
 `EC_TAG_CAN_PARTIAL_UPDATE`, `EC_TAG_CAN_MULTI_SEARCH`,
 `EC_TAG_CAN_CHAT`, `EC_TAG_CAN_CHAT_SESSIONS`,
 `EC_TAG_CAN_SHAREDDIRS_CONFIG`, `EC_TAG_CAN_SEARCH_LIST`,
-`EC_TAG_CAN_SEARCH_PROGRESS_UNION`, `EC_TAG_CAN_SEARCH_ALL`. The server
+`EC_TAG_CAN_SEARCH_PROGRESS_UNION`, `EC_TAG_CAN_SEARCH_ALL`,
+`EC_TAG_CAN_DELETE_COMPLETE`. The server
 echoes each of these in its `EC_OP_AUTH_OK` response when it supports it,
 so the client learns what is negotiated for this connection.
 
@@ -810,6 +811,8 @@ itself only once no route holds messages.
 | `EC_TAG_CONN_SLOT_ALLOCATION`      | `0x1305` | `uint32` | Upload slot allocation |
 | `EC_TAG_CONN_MAX_FILE_SOURCES`     | `0x1309` | `uint16` | Max sources per file |
 | `EC_TAG_CONN_MAX_CONN`             | `0x130A` | `uint16` | Max connections |
+| `EC_TAG_CONN_ADDRESS_FAMILIES`     | `0x131A` | `uint32` | `AddressFamilies` setting: `0` = IPv4 only, `1` = IPv4 and IPv6 |
+| `EC_TAG_CONN_ADVERTISE_IPV6`       | `0x131B` | `bool`   | `AdvertiseIPv6` setting |
 
 > **Note**: `EC_TAG_CONN_MAX_DL`, `EC_TAG_CONN_MAX_UL`, and
 > `EC_TAG_CONN_SLOT_ALLOCATION` were widened from `uint16` to `uint32`
@@ -817,6 +820,12 @@ itself only once no route holds messages.
 > gigabit connections. EC clients reading these tags should use
 > `GetInt()` (which handles any integer width); clients sending them
 > should encode them as 32-bit values.
+
+> **Note** (#1177): only a core built with `ENABLE_IPV6` emits these two
+> tags. An absent `EC_TAG_CONN_ADDRESS_FAMILIES` therefore means an old
+> daemon or one without `ENABLE_IPV6`, a third state distinct from `0`.
+> amulegui then hides both controls and does not send either tag on
+> `EC_OP_SET_PREFERENCES`.
 
 ### Peer vendor capabilities (`EC_TAG_CLIENT_MOD_CAPABILITIES = 0x0633`)
 
@@ -902,3 +911,29 @@ It is included in successful multi-search START replies, progress replies,
 and search-list entries. Clients use it to decide whether a new eD2k request
 would interrupt existing work. Its
 absence on older daemons means unknown; use the lifecycle as a fallback.
+
+### Deleting complete files from disk
+
+`EC_TAG_CAN_DELETE_COMPLETE` in `EC_OP_AUTH_OK` permits
+`EC_OP_KNOWNFILE_DELETE`. Do not send this operation without the capability.
+The request must contain `EC_TAG_KNOWNFILE` (MD4 hash), `EC_TAG_ECID` (uint32),
+`EC_TAG_KNOWNFILE_PATH` (directory string), and `EC_TAG_PARTFILE_NAME` (basename
+string), copied from the selected complete file. Paths are values to compare
+with the core's record, never arbitrary paths to unlink.
+
+The core rechecks identity, completeness, directory, and name before deleting.
+If another shared file with a different hash now owns that path, the stale
+completed-row target is rejected and the replacement is preserved.
+Success returns `EC_OP_NOOP`, unshares the file, stops its uploads, and clears
+its completed transfer row if present. The known-file record remains and the
+hash is not added to `canceled.met`. An already missing file also succeeds.
+Failure returns `EC_OP_FAILED` with `EC_TAG_STRING`, keeping sharing, uploads,
+and the completed row intact. Client confirmation happens before sending the
+request. `EC_OP_CLEAR_COMPLETED` remains the operation for clearing a row
+without deleting its file.
+
+`EC_OP_PARTFILE_DELETE` rejects completed/completing files, including stale cancel
+requests from legacy clients. Optional `EC_TAG_ECID`, `EC_TAG_KNOWNFILE_PATH`, and
+`EC_TAG_PARTFILE_NAME` children on each partfile hash are checked before cancellation.
+The API sends these children so a renamed or replaced active target cannot be cancelled
+using an outdated snapshot.

@@ -31,6 +31,7 @@
 #endif
 
 #include "HTTPDownload.h"           // Interface declarations
+#include "DownloadUrl.h"            // Needed for DownloadUrlForLog, DownloadErrorForLog
 #include <common/StringFunctions.h> // Needed for unicode2char
 #include "OtherFunctions.h"         // Needed for CastChild
 #include "Logger.h"                 // Needed for AddLogLine*
@@ -328,6 +329,53 @@ wxWebRequest CreateAmuleWebRequest(wxEvtHandler *handler, const wxString &url)
 	return request;
 }
 
+// A response body this large is not a list or database aMule fetches; it matches the unpacker's
+// own limit.
+static const wxFileOffset MAX_HTTP_DOWNLOAD_SIZE = 256 * 1024 * 1024;
+static const int HTTP_SIZE_CHECK_MS = 250;
+
+CHttpSizeGuard::CHttpSizeGuard()
+: m_limit(0)
+, m_timer(this)
+{
+	Bind(wxEVT_TIMER, &CHttpSizeGuard::OnTimer, this);
+}
+
+void CHttpSizeGuard::Start(const wxWebRequest &request, wxFileOffset limit, std::function<void()> onExceeded)
+{
+	m_request = request;
+	m_limit = limit;
+	m_onExceeded = std::move(onExceeded);
+	m_timer.Start(HTTP_SIZE_CHECK_MS);
+}
+
+void CHttpSizeGuard::Stop()
+{
+	m_timer.Stop();
+}
+
+bool CHttpSizeGuard::Exceeded() const
+{
+	return m_request.IsOk() && m_limit > 0 &&
+	       (m_request.GetBytesReceived() > m_limit || m_request.GetBytesExpectedToReceive() > m_limit);
+}
+
+void CHttpSizeGuard::OnTimer(wxTimerEvent &WXUNUSED(evt))
+{
+	if (Exceeded()) {
+		m_timer.Stop();
+		m_request.Cancel();
+		// WinHTTP may never report State_Cancelled for this, so the owner finishes now.
+		m_onExceeded();
+	}
+}
+
+static void LogDownloadTooLarge(const wxString &url, wxFileOffset limit)
+{
+	AddLogLineC(CFormat(_("HTTP download of %s stopped: it is larger than %u MiB.")) %
+		    DownloadUrlForLog(url) % (unsigned)(limit / (1024 * 1024)));
+}
+
 CHTTPDownloadThread::CHTTPDownloadThread(const wxString &url,
 	const wxString &filename,
 	const wxString &oldfilename,
@@ -342,6 +390,7 @@ CHTTPDownloadThread::CHTTPDownloadThread(const wxString &url,
 , m_file_id(file_id)
 , m_companion(NULL)
 , m_finishPosted(false)
+, m_deleteScheduled(false)
 {
 	if (showDialog) {
 #ifndef AMULE_DAEMON
@@ -357,8 +406,8 @@ CHTTPDownloadThread::CHTTPDownloadThread(const wxString &url,
 		wxFileName origFile(oldfilename);
 		if (origFile.FileExists()) {
 			AddDebugLogLineN(logHTTP,
-				CFormat("URL %s matches and file %s exists, only download if newer") % url %
-					oldfilename);
+				CFormat("URL %s matches and file %s exists, only download if newer") %
+					DownloadUrlForLog(url) % oldfilename);
 			m_lastmodified = origFile.GetModificationTime();
 		}
 	}
@@ -368,7 +417,7 @@ CHTTPDownloadThread::CHTTPDownloadThread(const wxString &url,
 		s_allThreads.insert(this);
 	}
 
-	AddDebugLogLineN(logHTTP, CFormat("HTTP download started: %s") % m_url);
+	AddDebugLogLineN(logHTTP, CFormat("HTTP download started: %s") % DownloadUrlForLog(m_url));
 
 	if (m_url.IsEmpty()) {
 		AddLogLineC(_("The URL to download can't be empty"));
@@ -381,7 +430,7 @@ CHTTPDownloadThread::CHTTPDownloadThread(const wxString &url,
 	// Failed fires, but not the cleanup-time pthread_join on libcurl's threaded resolver.
 	m_request = CreateAmuleWebRequest(this, m_url);
 	if (!m_request.IsOk()) {
-		AddLogLineC(CFormat(_("Failed to create HTTP request for %s")) % m_url);
+		AddLogLineC(CFormat(_("Failed to create HTTP request for %s")) % DownloadUrlForLog(m_url));
 		FinishAndDestroy(HTTP_Error);
 		return;
 	}
@@ -399,6 +448,11 @@ CHTTPDownloadThread::CHTTPDownloadThread(const wxString &url,
 
 	Bind(wxEVT_WEBREQUEST_STATE, &CHTTPDownloadThread::OnStateEvent, this);
 	m_request.Start();
+	m_sizeGuard.Start(m_request, MAX_HTTP_DOWNLOAD_SIZE, [this] {
+		LogDownloadTooLarge(m_url, MAX_HTTP_DOWNLOAD_SIZE);
+		// Not destroyed yet: wx may still post a terminal state to this handler.
+		Finish(HTTP_Error);
+	});
 }
 
 // Format the given date to a RFC-2616 compliant HTTP date.
@@ -418,6 +472,14 @@ wxString CHTTPDownloadThread::FormatDateHTTP(const wxDateTime &date)
 
 void CHTTPDownloadThread::OnStateEvent(wxWebRequestEvent &evt)
 {
+	if (m_finishPosted) {
+		// Already finished by the size guard; free us once wx is done with the request.
+		if (evt.GetState() != wxWebRequest::State_Active) {
+			ScheduleDelete();
+		}
+		return;
+	}
+
 	switch (evt.GetState()) {
 	case wxWebRequest::State_Active: {
 		// Periodic progress notification during the download.
@@ -442,19 +504,25 @@ void CHTTPDownloadThread::OnStateEvent(wxWebRequestEvent &evt)
 		m_response = response.IsOk() ? response.GetStatus() : 0;
 		m_error = 0;
 
-		AddDebugLogLineN(logHTTP, CFormat("HTTP response %d for %s") % m_response % m_url);
+		AddDebugLogLineN(
+			logHTTP, CFormat("HTTP response %d for %s") % m_response % DownloadUrlForLog(m_url));
 
 		if (m_response == 304) {
 			// Not Modified -- nothing to write.
 			AddDebugLogLineN(logHTTP, "Skipped download because requested file is not newer.");
 			FinishAndDestroy(HTTP_Skipped);
+		} else if (m_sizeGuard.Exceeded()) {
+			// Finished between two size checks.
+			LogDownloadTooLarge(m_url, MAX_HTTP_DOWNLOAD_SIZE);
+			FinishAndDestroy(HTTP_Error);
 		} else if (m_response >= 200 && m_response < 300) {
 			// Success. wx wrote the body to its own temp file; move it to the caller-
 			// supplied m_tempfile. A plain rename may fail across filesystems, so fall
 			// back to copy + delete.
 			const wxString wxTmp = response.GetDataFile();
 			if (wxTmp.IsEmpty() || !wxFileExists(wxTmp)) {
-				AddLogLineC(CFormat(_("HTTP download: empty response body for %s")) % m_url);
+				AddLogLineC(CFormat(_("HTTP download: empty response body for %s")) %
+					    DownloadUrlForLog(m_url));
 				FinishAndDestroy(HTTP_Error);
 				break;
 			}
@@ -470,26 +538,28 @@ void CHTTPDownloadThread::OnStateEvent(wxWebRequestEvent &evt)
 				FinishAndDestroy(HTTP_Error);
 				break;
 			}
-			AddLogLineN(CFormat(_("Downloaded %s (%llu bytes)")) % m_url %
+			AddLogLineN(CFormat(_("Downloaded %s (%llu bytes)")) % DownloadUrlForLog(m_url) %
 				    (unsigned long long)m_request.GetBytesReceived());
 			thePrefs::SetLastHTTPDownloadURL(m_file_id, m_url);
 			FinishAndDestroy(HTTP_Success);
 		} else {
-			AddLogLineC(CFormat(_("The URL %s returned: %i")) % m_url % m_response);
+			AddLogLineC(CFormat(_("The URL %s returned: %i")) % DownloadUrlForLog(m_url) %
+				    m_response);
 			FinishAndDestroy(HTTP_Error);
 		}
 		break;
 	}
 
+	// Keep the backend reason while hiding request and redirect URL credentials.
 	case wxWebRequest::State_Failed: {
-		AddLogLineC(
-			CFormat(_("HTTP download failed for %s: %s")) % m_url % evt.GetErrorDescription());
+		AddLogLineC(CFormat(_("HTTP download failed for %s: %s")) % DownloadUrlForLog(m_url) %
+			    DownloadErrorForLog(evt.GetErrorDescription()));
 		FinishAndDestroy(HTTP_Error);
 		break;
 	}
 
 	case wxWebRequest::State_Cancelled: {
-		AddDebugLogLineN(logHTTP, CFormat("HTTP download cancelled: %s") % m_url);
+		AddDebugLogLineN(logHTTP, CFormat("HTTP download cancelled: %s") % DownloadUrlForLog(m_url));
 		FinishAndDestroy(HTTP_Error);
 		break;
 	}
@@ -497,7 +567,7 @@ void CHTTPDownloadThread::OnStateEvent(wxWebRequestEvent &evt)
 	case wxWebRequest::State_Unauthorized:
 		// We have no credentials to provide interactively; treat as
 		// a failure so the dispatcher reports an error to the user.
-		AddLogLineC(CFormat(_("HTTP 401 Unauthorized for %s")) % m_url);
+		AddLogLineC(CFormat(_("HTTP 401 Unauthorized for %s")) % DownloadUrlForLog(m_url));
 		m_request.Cancel();
 		FinishAndDestroy(HTTP_Error);
 		break;
@@ -510,11 +580,18 @@ void CHTTPDownloadThread::OnStateEvent(wxWebRequestEvent &evt)
 
 void CHTTPDownloadThread::FinishAndDestroy(int result)
 {
+	Finish(result);
+	ScheduleDelete();
+}
+
+void CHTTPDownloadThread::Finish(int result)
+{
 	if (m_finishPosted) {
 		return;
 	}
 	m_finishPosted = true;
 	m_result = result;
+	m_sizeGuard.Stop();
 
 	// Clean the caller's temp file on failure so we don't leave stale
 	// half-written content around. Legacy path did the same.
@@ -542,7 +619,14 @@ void CHTTPDownloadThread::FinishAndDestroy(int result)
 	}
 
 	AddDebugLogLineN(logHTTP, "HTTP download ended");
+}
 
+void CHTTPDownloadThread::ScheduleDelete()
+{
+	if (m_deleteScheduled) {
+		return;
+	}
+	m_deleteScheduled = true;
 	// Schedule our own destruction after the current event returns to the main loop. Must not
 	// be `delete this` -- wxWebRequest may still be unwinding state after handing us the
 	// terminal event.

@@ -210,8 +210,8 @@ std::string ToJsonSharedEvent(const FileSnapshot &f)
 	  << ",\"name\":\"" << EscJson(f.name) << "\""
 	  << ",\"ed2k_link\":\"" << EscJson(f.ed2k_link) << "\""
 	  << ",\"size_bytes\":" << f.size << ",\"priority\":\"" << EscJson(f.shared.priority) << "\""
-	  << ",\"priority_auto\":"
-	  << (f.shared.priority_auto ? "true" : "false")
+	  << ",\"priority_auto\":" << (f.shared.priority_auto ? "true" : "false") << ",\"incomplete\":"
+	  << (f.IsIncompletePartfile() ? "true" : "false")
 	  // Nested to match the REST row: a stated exception to R11, so `sources.complete` is one
 	  // access path across every endpoint that has the concept. The range is detail-only and does
 	  // not ride the event.
@@ -423,8 +423,9 @@ std::string ToJsonStatusEvent(const StatusSnapshot &s, const KadSnapshot &k, boo
 // full new snapshot. If one set drifts from the other, clients see stale values until the next
 // compared field changes.
 //
-// The download side ignores shared.* and is_shared, the shared side ignores download.* and
-// is_downloading, so a tick that flips one role does not fire the other role's _updated. ecid is in
+// The download side ignores shared.* and is_shared. The shared side compares only the
+// incomplete predicate across download state, so progress/status changes that keep the
+// same completeness do not emit shared_updated. ecid is in
 // both shapes: an amuled restart under a running amuleapi resurfaces the same hash with a fresh
 // ECID, and clients keyed on ECID need the _updated to invalidate their cached id.
 bool EqualDownload(const FileSnapshot &a, const FileSnapshot &b)
@@ -471,9 +472,9 @@ bool EqualComments(const FileSnapshot &a, const FileSnapshot &b)
 }
 bool EqualShared(const FileSnapshot &a, const FileSnapshot &b)
 {
-	return a.ecid == b.ecid && a.hash == b.hash && a.name == b.name && a.ed2k_link == b.ed2k_link &&
-	       a.size == b.size && a.shared.priority == b.shared.priority &&
-	       a.shared.priority_auto == b.shared.priority_auto &&
+	return a.IsIncompletePartfile() == b.IsIncompletePartfile() && a.ecid == b.ecid && a.hash == b.hash &&
+	       a.name == b.name && a.ed2k_link == b.ed2k_link && a.size == b.size &&
+	       a.shared.priority == b.shared.priority && a.shared.priority_auto == b.shared.priority_auto &&
 	       a.shared.complete_sources == b.shared.complete_sources &&
 	       a.shared.uploaded_bytes_session == b.shared.uploaded_bytes_session &&
 	       a.shared.uploaded_bytes_total == b.shared.uploaded_bytes_total &&
@@ -692,9 +693,17 @@ void EnforceSinglePublisher()
 // the snapshot field defaults to 0, and a core that ever omits the tag must not make them diverge.
 std::string ChatMessageJson(const ChatMessageSnapshot &msg)
 {
+	std::string extra;
+	if (msg.kind == 1) {
+		extra = ",\"type\":\"captcha_challenge\",\"captcha_image\":\"" + EscJson(msg.captcha_image) +
+			"\"";
+	} else if (msg.kind == 2) {
+		extra = ",\"type\":\"captcha_result\",\"captcha_status\":" +
+			std::to_string(msg.captcha_status);
+	}
 	return "{\"id\":" + std::to_string(msg.id) + ",\"direction\":\"" + (msg.outgoing ? "out" : "in") +
 	       "\",\"text\":\"" + EscJson(msg.text) + "\",\"sent_at\":" +
-	       (msg.timestamp != 0 ? std::to_string(msg.timestamp) : std::string("null")) + "}";
+	       (msg.timestamp != 0 ? std::to_string(msg.timestamp) : std::string("null")) + extra + "}";
 }
 
 void PublishChatEvents(CEventBus &bus,
@@ -707,6 +716,17 @@ void PublishChatEvents(CEventBus &bus,
 	std::vector<std::pair<std::string, std::string>> batch;
 	for (const ChatSessionSnapshot &session : new_messages) {
 		const std::string peer = session.PeerKey();
+		if (session.pending_captcha_changed)
+			batch.emplace_back("chat_session_updated",
+				"{\"address\":\"" + EscJson(peer) + "\",\"hash\":" +
+					(session.peer_hash.empty()
+							? std::string("null")
+							: "\"" + EscJson(session.peer_hash) + "\"") +
+					",\"pending_captcha_id\":" +
+					(session.pending_captcha_id
+							? std::to_string(session.pending_captcha_id)
+							: std::string("null")) +
+					"}");
 		for (const ChatMessageSnapshot &msg : session.messages) {
 			std::string payload =
 				"{\"address\":\"" + EscJson(peer) + "\",\"hash\":" +

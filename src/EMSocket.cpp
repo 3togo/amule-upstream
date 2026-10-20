@@ -33,6 +33,7 @@
 #include "DownloadBandwidthThrottler.h"
 #include "GetTickCount.h"
 #include "UploadBandwidthThrottler.h"
+#include "UploadDiskIOThread.h"
 #include "Logger.h"
 #include "Preferences.h"
 #include "ScopedPtr.h"
@@ -129,6 +130,8 @@ void CEMSocket::ClearQueues()
 		m_standard_queue.clear();
 	}
 
+	m_uploadRefill.Clear();
+
 	// Download rate control: see header.
 	pendingOnReceive = false;
 
@@ -220,6 +223,11 @@ void CEMSocket::OnReceive(int nErrorCode)
 		} else if (pendingPacket == NULL) {
 			pendingPacketSize = 0;
 			readMax = CPacket::GetPacketSizeFromHeader(pendingHeader);
+			if (readMax == CPacket::InvalidPacketSize) {
+				pendingHeaderSize = 0;
+				OnError(ERR_WRONGHEADER);
+				return;
+			}
 			if (readMax > MAX_PACKET_SIZE) {
 				pendingHeaderSize = 0;
 				OnError(ERR_TOOBIG);
@@ -358,6 +366,7 @@ void CEMSocket::SendPacket(CPacket *packet, bool delpacket, bool controlpacket, 
 				       !m_standard_queue.empty());
 			StandardPacketQueueEntry queueEntry = { actualPayloadSize, packet };
 			m_standard_queue.push_back(queueEntry);
+			m_uploadRefill.Queue(actualPayloadSize);
 
 			// reset timeout for the first time
 			if (first) {
@@ -406,6 +415,16 @@ uint64 CEMSocket::GetSentPayloadSinceLastCallAndReset()
 	m_actualPayloadSizeSent = 0;
 
 	return sentBytes;
+}
+
+void CEMSocket::SetUploadBufferTarget(uint32 payload)
+{
+	std::lock_guard<std::mutex> lock(m_sendLocker);
+	if (m_uploadRefill.SetTarget(payload) && theApp->uploadDiskIOThread) {
+		// PrepareRead's payload snapshot precedes this lock. If the target grew
+		// above the remaining queue, keep a refill pending for a fresh snapshot.
+		theApp->uploadDiskIOThread->SocketNeedsMoreData();
+	}
 }
 
 // Non-resetting peek at bytes sent since the last GetSentPayloadSinceLastCallAndReset(). Used by
@@ -701,6 +720,12 @@ SocketSentBytes CEMSocket::Send(
 
 				if (!m_currentPacket_is_controlpacket) {
 					m_actualPayloadSizeSent += m_actualPayloadSize;
+					// Match the disk worker's send-ahead check. Wake once when the
+					// original payload crosses below its target, or the queue drains.
+					if (m_uploadRefill.Complete(m_actualPayloadSize) &&
+						theApp->uploadDiskIOThread) {
+						theApp->uploadDiskIOThread->SocketNeedsMoreData();
+					}
 					m_actualPayloadSize = 0;
 
 					lastFinishedStandard = ::GetTickCount64(); // reset timeout
@@ -811,6 +836,7 @@ void CEMSocket::TruncateQueues()
 	// Please note! There may still be a standardpacket in the sendbuffer variable!
 	CStdPacketQueue::iterator it = m_standard_queue.begin();
 	for (; it != m_standard_queue.end(); ++it) {
+		m_uploadRefill.Discard(it->actualPayloadSize);
 		delete it->packet;
 	}
 

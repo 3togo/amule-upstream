@@ -59,6 +59,7 @@ The API is versioned in the path. **`/api/v1/` is frozen**: anything that could 
 - [`PUT /api/v1/share_directories`](#put-apiv1share_directories) — replace the configured share roots
 - [`POST /api/v1/share_directories`](#post-apiv1share_directories) — add one share root
 - [`DELETE /api/v1/share_directories`](#delete-apiv1share_directories) — remove one share root
+- [`DELETE /api/v1/shared/{hash}`](#delete-apiv1sharedhash) — delete a complete shared file from disk with explicit confirmation
 - [`POST /api/v1/shared/{hash}/verify`](#post-apiv1sharedhashverify) — re-hash a shared file against its on-disk data
 - [`PATCH /api/v1/shared`](#patch-apiv1shared) — bulk change upload priority
 - [`PATCH /api/v1/shared/{hash}`](#patch-apiv1sharedhash) — change upload priority
@@ -171,7 +172,7 @@ A role is implicitly assigned at login based on which password matched; the veri
 
 Guest access is on exactly when a guest password is configured — there is no separate switch. Clearing the guest password is how guest access is turned off.
 
-**What `guest` is, and is not.** It is a read-only role for someone you already trust on the network, not a sandbox for a hostile party. A guest reads the whole read surface, and that surface includes things an operator may not think of as public: the daemon's incoming, temp and shared **filesystem paths**; the node's `user_hash`; the configured `proxy_user`; and the raw daemon **log**, which carries peer addresses and file names as they are logged. None of that is a defect - a read-only API that hid the paths it is reading from would be hard to use - but it means guest credentials should be handed out on the same basis as read access to the machine, and a guest password is not a way to expose amuleapi to the open internet safely. If a caller should not see those, do not give them a credential at all.
+**What `guest` is, and is not.** It is a read-only role for someone you already trust on the network, not a sandbox for a hostile party. A guest reads the whole read surface, and that surface includes things an operator may not think of as public: the daemon's incoming, temp and shared **filesystem paths**; the node's `user_hash`; and the raw daemon **log**, which carries peer addresses and file names as they are logged. None of that is a defect - a read-only API that hid the paths it is reading from would be hard to use - but it means guest credentials should be handed out on the same basis as read access to the machine, and a guest password is not a way to expose amuleapi to the open internet safely. If a caller should not see those, do not give them a credential at all. Credentials for other services are the exception: [`GET /preferences`](#get-apiv1preferences) does not return `connection.proxy_user`, `geoip.maxmind_license` or `geoip.custom_update_url` to a guest.
 
 ### Where the passwords live
 
@@ -722,7 +723,7 @@ curl -s -X POST "http://$HOST/api/v1/auth/login?include_token=true" \
 
 **Auth:** `GUEST`
 
-Adds the bearer's `jti` to the server-side revocation list (TTL = JWT's `exp`) and emits a clear-cookie. Idempotent: a token that is already revoked still gets `204` so a double-tap on a logout button doesn't surface a confusing "session expired" toast.
+Adds the bearer's `jti` to the server-side revocation list (TTL = JWT's `exp`) and emits a clear-cookie. An [`/events`](EVENTS.md#session-end) stream opened with the token closes too. Idempotent: a token that is already revoked still gets `204` so a double-tap on a logout button doesn't surface a confusing "session expired" toast.
 
 `204 No Content`, no body: the clear-cookie header is the whole result, and an `{"ok": true}` body would only restate the status code.
 
@@ -1124,7 +1125,7 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" \
 
 Bulk pause/resume, priority, or category change over multiple downloads — the same patch applied to every listed hash.
 
-**Body:** `{ "hashes": ["<md4>", …], … }` — a non-empty `hashes` array (max 500) plus at least one of the single-item PATCH fields: `action` (`"pause"` | `"resume"` | `"stop"`), `priority` (`low` | `normal` | `high` | `auto`), `category_index` (integer 0–255).
+**Body:** `{ "hashes": ["<md4>", …], … }` — a non-empty `hashes` array (max 500) plus at least one of the single-item PATCH fields: `action` (`"pause"` | `"resume"` | `"stop"`), `priority` (`low` | `normal` | `high` | `auto`), `category_index` (integer 0–255; an index past the daemon's category list fails that item with `amuled_rejected`).
 
 ```sh
 curl -s -X PATCH -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
@@ -1139,11 +1140,18 @@ curl -s -X PATCH -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application
 
 **Auth:** `ADMIN`
 
-Bulk cancel + remove of active downloads (deletes each `.part`/`.met` from disk). A completed entry is rejected per-item with `download_completed` — clear those via `POST /downloads_clear_completed`.
+Bulk cancel + remove of active downloads (deletes each `.part`/`.met` from disk). Completed entries are deleted from disk through `EC_OP_KNOWNFILE_DELETE` only when `confirmed_target` is supplied. Without it they report `409 download_completed` and their Incoming files are preserved, including when a v1 client submits every hash from `GET /downloads`. Use `POST /downloads_clear_completed` to clear entries while keeping the files.
+
+Entries still completing also report `download_completed`; wait for completion and confirm again.
 
 **Body:** `{ "hashes": ["<md4>", …] }` (non-empty, max 500).
 
-**Response:** the [bulk `results` envelope](#bulk-mutations-and-the-results-envelope), keyed by hash. Per-item `error.code` is `not_found`, `download_completed`, `amuled_rejected`, or `ec_unavailable`.
+An optional `confirmed_target` object maps each hash to the same confirmation precondition
+accepted by single-file DELETE. All supplied preconditions are validated before any
+file is mutated; stale entries report `selection_changed` per item. The Web UI freezes
+this map and the selected hashes while its confirmation dialog is open.
+
+**Response:** the [bulk `results` envelope](#bulk-mutations-and-the-results-envelope), keyed by hash. Per-item `error.code` is `not_found`, `download_completed`, `selection_changed`, `ec_unsupported`, `amuled_rejected`, `ec_protocol_error`, or `ec_unavailable`.
 
 **Errors:** `400 bad_request` (missing/empty `hashes`), `503 ec_unavailable`.
 
@@ -1157,7 +1165,7 @@ Mutates one or more fields of a single partfile. `{hash}` is the 32-char MD4 hex
 
 - `action` — `"pause"`, `"resume"` or `"stop"`. A command, not a state, which is why it is not spelled `status`: the read-side `status` has eleven values and this accepts three of them, in a different tense. `"pause"` halts transfer but keeps the file's sources; `"stop"` additionally drops all known sources and resets the Kad source search (a stopped file must rediscover sources from scratch on resume); `"resume"` clears either state. A stopped file reports `status: "stopped"` in the download object (see [`GET /downloads`](#get-apiv1downloads)).
 - `priority` — `"low"` / `"normal"` / `"high"` / `"auto"`. Downloads support only these levels and any other value is a `400`; the reason is that the daemon's `.part.met` loader would clamp it back to `normal` on the next restart. (Shared files support the wider `very_low` … `release` set — see [`PATCH /shared/{hash}`](#patch-apiv1sharedhash) and [Priority levels](#priority-levels).)
-- `category_index` — uint8
+- `category_index` — uint8, the index of a category the daemon has (see [`GET /categories`](#get-apiv1categories)). An index past the list is refused with `400 amuled_rejected`, and the download keeps its category.
 - `a4af_auto` — bool. Turns automatic A4AF source-swapping on or off for this file. A named value, not a flip: sending `true` twice leaves it `true`. This is the only way to set the flag, because a toggle cannot survive a retry (see [Idempotency](#idempotency)).
 - `my_comment` + `my_rating` — set the file's comment (string, ≤ 50 chars) and rating (integer `0`–`5`). Must be sent **together**; only settable when the partfile is also shared (≥ 1 complete chunk), else `409 not_shared`. Primarily a shared-file action — see [`PATCH /shared/{hash}`](#patch-apiv1sharedhash).
 - `name` — rename the file (string). Must be non-empty and contain no path separators (`/` or `\`). See the [Takeover flow](#get-apiv1downloadshashfilenames).
@@ -1177,16 +1185,22 @@ curl -s -X PATCH -H "Authorization: Bearer $TOKEN" \
 
 **Auth:** `ADMIN`
 
-Cancels an **active** partfile and deletes its on-disk data. `{hash}` is the 32-char MD4 hex hash (case-insensitive). amuled runs `EC_OP_PARTFILE_DELETE` → `CPartFile::Delete()`, which removes the `.part`, `.part.met`, and `.met.bak` files and adds the hash to its `canceledfiles` list (so re-adding the same ed2k link is silently refused until the operator clears that list out-of-band). Completed entries are out of scope; use [`POST /downloads_clear_completed`](#post-apiv1downloads_clear_completed) instead.
+Cancels an **active** partfile and deletes its on-disk data. `{hash}` is the 32-char MD4 hex hash (case-insensitive). amuled runs `EC_OP_PARTFILE_DELETE` → `CPartFile::Delete()`, which removes the `.part`, `.part.met`, and `.met.bak` files and adds the hash to its `canceledfiles` list (so re-adding the same ed2k link is silently refused until the operator clears that list out-of-band). For completed entries, deletes the finished file from disk only with `confirmed_target`, stops sharing/uploads, and clears the completed row. The known-file record is retained and the hash is not marked cancelled. If unlink fails, the file stays shared and listed and the API returns `amuled_rejected`. Older cores return `503 ec_unsupported`. To keep the file, use [`POST /downloads_clear_completed`](#post-apiv1downloads_clear_completed) instead.
 
 ```sh
 curl -s -X DELETE -H "Authorization: Bearer $TOKEN" \
   "http://$HOST/api/v1/downloads/8b54a3c2..."
 ```
 
+**Body (required for completed entries, optional for active downloads):** `{ "confirmed_target": { "ecid": 123, "name": "file.ext", "directory": "/Incoming", "status": "completed" } }`.
+Copy these values from the detail GET (`ecid` is the current daemon record ID).
+A changed target returns `409 selection_changed` without deletion; malformed targets
+return `400 bad_request`. The Web UI always sends this precondition after confirmation.
+Requests without `confirmed_target` retain the existing v1 behavior: active downloads are cancelled, while completed entries return `409 download_completed` and keep their Incoming files. Unrecognized body fields do not opt into deletion.
+
 **Response:** `204 No Content`.
 
-**Errors:** `400 bad_request` (`{hash}` is not 32 hex characters), `400 amuled_rejected`, `404 not_found`, `409 download_completed`, `503 ec_unavailable`.
+**Errors:** `400 bad_request` (`{hash}` is not 32 hex characters), `400 amuled_rejected`, `404 not_found`, `409 download_completed` (still completing, or completed without `confirmed_target`), `409 selection_changed`, `502 ec_protocol_error` (unexpected core acknowledgment), `503 ec_unsupported`, `503 ec_unavailable`.
 
 #### `POST /api/v1/downloads_clear_completed`
 
@@ -1536,6 +1550,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "http://$HOST/api/v1/shared"
       "size_bytes":       3217,
       "priority":         "normal",
       "priority_auto":    false,
+      "incomplete":       false,
       "sources":          { "complete": 12 },
       "uploaded_bytes_session":         5242880,
       "uploaded_bytes_total":           314572800,
@@ -1567,6 +1582,8 @@ curl -s -H "Authorization: Bearer $TOKEN" "http://$HOST/api/v1/shared"
 
 `priority` is the upload priority — `"very_low"` / `"low"` / `"normal"` / `"high"` / `"release"` — and `priority_auto` is `true` when amuled is deriving that level automatically from the upload queue. This mirrors the `/downloads` shape (base `priority` + separate `priority_auto` flag); on an auto file `priority` reports the current derived level, not the literal string `"auto"`. For a file that is both downloading and shared this upload priority is independent of the download priority reported by [`GET /api/v1/downloads`](#get-apiv1downloads).
 
+`incomplete` is a boolean on shared list rows, detail objects, and `shared_added` / `shared_updated` events. It is `true` for an active or completing partfile and `false` for a complete file, including a completed download awaiting Clear. It lets clients disable complete-file actions; a completion emits `shared_updated` even when upload statistics are unchanged.
+
 `hashed_part_count` is the number of parts hashed so far by a pass running over the file — a [`POST /shared/{hash}/verify`](#post-apiv1sharedhashverify) run, or an AICH hashset rebuild — and `0` when nothing is hashing. It is a count of completed parts, not the index of the part in flight, so it runs `0` → `total_part_count`, which is on this row.
 
 A file that is both downloading and shared reports its progress here as well: amuled describes such a file as a partfile, so the value is read across from the download side and the two agree. That makes `hashed_part_count` usable from either list without checking which one owns the file.
@@ -1581,7 +1598,7 @@ The SSE `shared_added` / `shared_updated` event payload matches this object byte
 
 **Auth:** `GUEST`
 
-Detail view for a single shared file. `{hash}` is the 32-char MD4 hex hash (case-insensitive). Returns every field of the [`GET /shared`](#get-apiv1shared) list item plus the detail-only fields below — one call for everything about a shared file. The list endpoint is unchanged.
+Detail view for a single shared file. `{hash}` is the 32-char MD4 hex hash (case-insensitive). Returns every field of the [`GET /shared`](#get-apiv1shared) list item plus the detail-only fields below — one call for everything about a shared file.
 
 ```sh
 curl -s -H "Authorization: Bearer $TOKEN" \
@@ -1590,10 +1607,10 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 | Field | Type | Meaning |
 |---|---|---|
+| `ecid` | uint32 | Current daemon record ID, used with name, directory, and state in the `confirmed_target` deletion precondition. |
 | `file_type` | string | Category token derived from the extension: `"audio"`, `"video"`, `"archive"`, `"disc_image"`, `"picture"`, `"text"`, `"program"`, or `"unknown"`. |
 | `upload_ratio` | number | `xfer.total / size`; `0` when `size == 0`. |
 | `directory` | string | Directory path of the on-disk file — the temp directory while the file is still an incomplete partfile, the destination directory once it has completed. Identical to `directory` on `/downloads/{hash}` for the same file. |
-| `incomplete` | bool | `true` while the file is still an incomplete partfile, `false` once complete. Always present. A download that has finished but has not been cleared yet reports `false`, since its data already sits in the destination directory. |
 | `sources.complete_min` / `sources.complete_max` | int | The low and high ends of the estimated full-copy source range behind `sources.complete`. Two scalars, not a nested object. |
 | `aich_hash` | string\|null | AICH master hash (hex), or `null` until the hashset exists. |
 | `total_part_count` | int | Total parts, `ceil(size / 9.28 MiB)`. |
@@ -1832,6 +1849,28 @@ Removing a path that is not configured is a `404` rather than a silent success, 
 **Errors:** `400 bad_request` (no `path` parameter), `404 not_found` (path not configured), `502 amuled_rejected`, `503 ec_unavailable`.
 
 > Concurrency: `POST` and `DELETE` are read-modify-write against amuled's whole-list operation, serialised inside amuleapi so two API clients cannot lose each other's change. Nothing can make them atomic against a *simultaneous* edit from amuleGUI — the protocol has no compare-and-set — so that case is last-write-wins.
+
+#### `DELETE /api/v1/shared/{hash}`
+
+**Auth:** `ADMIN`
+
+Permanently deletes a complete shared file from disk through `EC_OP_KNOWNFILE_DELETE`, including files that were never downloaded or whose completed notification was cleared. Stops sharing/uploads and removes matching completed rows; known-file history is retained and the hash is not marked cancelled. An unlink failure leaves the file shared and listed.
+
+**Required body:** `{ "confirmed_target": { "ecid": 123, "name": "file.ext", "directory": "/Incoming", "incomplete": false } }`.
+Copy all four fields from `GET /shared/{hash}` (`ecid` is the current core record ID, exposed on detail GET). The shared representation uses `incomplete` for its state precondition, while downloads use `status`. The server checks the confirmed identity against its snapshot and the core revalidates it immediately before unlinking. The core also rejects a stale completed-row target if a different shared file now owns its path. A changed identity returns `409 selection_changed`; missing or malformed confirmation returns `400 bad_request`.
+
+```sh
+curl -s -H "Authorization: Bearer $TOKEN" "http://$HOST/api/v1/shared/$HASH" > shared-target.json
+jq '{confirmed_target: {ecid, name, directory, incomplete}}' shared-target.json > shared-delete.json
+# Review the name and directory in shared-delete.json before deleting.
+curl -s -X DELETE -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' --data-binary @shared-delete.json \
+  "http://$HOST/api/v1/shared/$HASH"
+```
+
+**Response:** `204 No Content`.
+
+**Errors:** `400 bad_request`, `400 amuled_rejected`, `404 not_found`, `409 selection_changed`, `409 partfile_unsupported` (use Downloads to cancel an incomplete file), `502 ec_protocol_error`, `503 ec_unsupported` (older core), `503 ec_unavailable`.
 
 #### `POST /api/v1/shared/{hash}/verify`
 
@@ -2339,6 +2378,7 @@ Returns every preference category amuled carries over EC. The `general` and `con
     "save_sources_for_rare_files": true, "preallocate_full_file_size": false,
     "mmap_supported": true, "mmap_enabled": false,
     "stop_on_low_disk_space": true, "min_free_space_mebibytes": 1, "create_sparse_files": true,
+    "shared_file_reverify_days": 0,
     "on_finished_start_next_alphabetically": false, "endgame_mode_enabled": false,
     "media_metadata_enabled": true, "ffprobe_path": ""
   },
@@ -2398,11 +2438,19 @@ OpenDocument, RTF, CSV and TSV extensions from sharing, independently of custom
 patterns. It defaults to true, including for existing profiles, and applies to
 partial and completed downloads without deleting files or preventing downloads.
 
+`files.shared_file_reverify_days` is a read/write unsigned 32-bit interval in days
+(0–3650), default `0` (off). A valid block request for an overdue completed
+shared file queues background verification. Unrequested files and incomplete
+downloads are skipped; uploads continue while a check runs.
+
+
 Booleans are plain JSON `true`/`false` regardless of how amuled encodes them on the wire. **Passwords are never returned** — the webserver admin/guest and amuleapi passwords are write-only (see PATCH). `general.user_hash` is the node's own identity hash, not a password.
+
+**Admin-only fields.** `connection.proxy_user`, `geoip.maxmind_license`, `geoip.custom_update_url`, `servers.update_url`, `security.ipfilter_update_url` and `kad.update_url` are returned to admin sessions only, because these values may contain credentials or access tokens. Guest responses omit these keys. Admins read and set them as usual. Download URLs in daemon logs and `geoip.last_update_status` omit user info, query strings and fragments.
 
 `connection.extended_udp_port_enabled` is positive-sense: `true` means the extended UDP port (Kad / global search) is on. `security.shared_files_visibility` is a 3-state enum string, not a bool: `"everybody"` / `"friends"` / `"nobody"`.
 
-`geoip` is the GeoIP (IP-to-country) config category. `supported` is a capability flag: `false` when the connected daemon is built without GeoIP — the config fields are then present but inert. `source` is one of `"dbip"` / `"maxmind"` / `"custom"` (the next-download database selector). `maxmind_license` is returned plainly (it is a config string the daemon already round-trips, not a masked password). `loaded_source`, `db_path`, `db_loaded`, `download_in_progress`, and `last_update_status` are **read-only** live status (the currently loaded DB and any in-flight refresh); they are ignored if sent on PATCH.
+`geoip` is the GeoIP (IP-to-country) config category. `supported` is a capability flag: `false` when the connected daemon is built without GeoIP — the config fields are then present but inert. `source` is one of `"dbip"` / `"maxmind"` / `"custom"` (the next-download database selector). `maxmind_license` is returned plainly to admins (it is a config string the daemon already round-trips, not a masked password) and omitted for guests, like `custom_update_url`. `loaded_source`, `db_path`, `db_loaded`, `download_in_progress`, and `last_update_status` are **read-only** live status (the currently loaded DB and any in-flight refresh); they are ignored if sent on PATCH.
 
 `files.media_metadata_enabled` / `files.ffprobe_path` control media-metadata extraction: when enabled, the daemon probes shared audio/video with `ffprobe` to advertise length, bitrate, codec, artist, album and title. `ffprobe_path` is a **daemon-side** path — an empty string means the daemon auto-detects the binary, trying `ffprobe` on its `PATH` and then a per-platform list of well-known install locations. The detected path is deliberately **not** written back: it describes the daemon's machine rather than a choice you made, so `ffprobe_path` keeps reading as `""` while extraction works, and a daemon that moves to a host with ffmpeg somewhere else re-detects on its own. Set the field explicitly to pin one binary and override detection. When nothing is found the daemon logs one line saying so — visible on [`GET /api/v1/logs/amule`](#get-apiv1logsamule) — and extraction stays inert until ffmpeg is installed or the path is set. `connection.bind_address` (empty = bind to any local IP), `connection.bind_interface` (a daemon-side interface name such as `eth0` / `en0` / `tun0`; empty = any), and `online_signature.directory` are likewise daemon-side paths/addresses. These, together with `files.on_finished_start_next_alphabetically`, `security.reject_spoofed_source_ips`, `security.system_ipfilter_enabled`, and `online_signature.update_frequency_seconds`, are ordinary daemon settings; a `bind_address` change takes effect on the next amuled restart.
 
@@ -2444,6 +2492,8 @@ Body shape mirrors the GET; every sub-object and every field is optional, and fi
 **Write-only passwords** (accepted here, never echoed on GET) live under `remote_controls.webserver`: `password`, `guest_password`. Send the plaintext — amuled stores the hash. `guest_password` is accepted whether or not the webserver's guest access is enabled: amuled stores the hash either way, and it simply sits inert until `guest_enabled` is turned on. (amuleapi's own [`PATCH /auth/passwords`](#patch-apiv1authpasswords) does enforce the pairing, and answers `400`; these are different credentials on different daemons.)
 
 amuleapi's own `admin` and `guest` passwords are **not** settable here; `remote_controls.amuleapi.password`, `.guest_password` and `.guest_enabled` are rejected with `400 bad_request`. Use [`PATCH /auth/passwords`](#patch-apiv1authpasswords), which writes the credential file this daemon actually reads, requires the current password, and is rate-limited. A field here would instead travel over EC to whichever aMule this amuleapi is attached to and land in that host's config directory.
+
+`geoip.auto_update_enabled` controls conditional update checks at startup and weekly while the core remains running; `geoip.enabled` must also be enabled. Manual updates bypass this schedule.
 
 **`geoip`** accepts `enabled`, `source` (`"dbip"` / `"maxmind"` / `"custom"` — any other value is a `400`), `custom_update_url`, `maxmind_license`, and `auto_update_enabled`. `supported` and the read-only status fields (`loaded_source`, `db_path`, `db_loaded`, `download_in_progress`, `last_update_status`) are ignored if sent.
 
@@ -3237,6 +3287,8 @@ curl -s -H "Authorization: Bearer $TOKEN" "http://$HOST/api/v1/chats"
       "client_ecid":     4382,
       "friend_ecid":     12,
       "connected":       true,
+      "pending_captcha_id": null,
+      "pending_captcha_image": null,
       "message_count":   14,
       "last_message_id":     91,
       "last_message_at": 1786652714,
@@ -3248,6 +3300,13 @@ curl -s -H "Authorization: Bearer $TOKEN" "http://$HOST/api/v1/chats"
 ```
 
 `name` falls back to the uppercase hash when known, otherwise `"IP: <ip> Port: <port>"`, matching desktop `ChatPeerFallbackName`. The same string appears in the SSE payload. `client_ecid` is `null` when the client is offline and `friend_ecid` is `null` when the client is not a friend — join either against [`GET /clients`](#get-apiv1clients) and [`GET /friends`](#get-apiv1friends). `connected` says whether a connection to the peer is actually up, which is not the same as `client_ecid` being non-null: the daemon holds a client object from the first contact attempt, so a conversation opened against an unreachable address has an ecid and is not online. `null` means the daemon does not report peer connectivity.
+
+`pending_captcha_id` on the chat session is the challenge message id while an
+answer is pending, otherwise `null`. `pending_captcha_image` holds its base64 BMP
+independently of transcript eviction, otherwise `null`. A disconnect or an answer
+from any client clears both fields and emits `chat_session_updated`, even without
+a new history row. Capture the id when composing an answer and send `captcha_id`
+to reject expiry races.
 
 `last_message` is `null` for a conversation that holds none; the key is always present. The full transcript is deliberately **not** on the list: 50 conversations at 200 messages each would be 10 000 objects per read. Use the messages endpoint below.
 
@@ -3278,6 +3337,13 @@ Served from the refresher snapshot — no EC roundtrip per request. Standard [li
 
 **Errors:** `404 not_found` (no such conversation), `400 bad_request` (malformed `{address}` or query), `503 ec_unsupported`, `503 ec_unavailable`.
 
+CAPTCHA entries use the same history cursor and `chat_message` event. A challenge
+adds `type: "captcha_challenge"` and `captcha_image` (a base64-encoded BMP) to the
+message object. A result adds `type: "captcha_result"` and `captcha_status`: `0`
+means accepted, `1` means failed with another attempt allowed, and `2` means no
+attempts remain. Ordinary messages omit these fields. The `text` field remains a
+readable explanation for clients that do not render CAPTCHA images.
+
 #### `POST /api/v1/chats/{address}/messages`
 
 **Auth:** `ADMIN`
@@ -3294,6 +3360,20 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
   "message": { "id": 92, "direction": "out", "text": "hello", "sent_at": null } }
 ```
 
+To answer a challenge, send its text through this endpoint. A client presenting
+a dedicated answer dialog can include `captcha_id`, the challenge message's `id`:
+
+```json
+{ "text": "ABCD", "captcha_id": 92 }
+```
+
+`captcha_id` must be an integer in `1..4294967295`. If that exact challenge is no
+longer pending, the daemon rejects the answer with `409 captcha_expired` without
+sending it or reopening a conversation. An unknown hash-addressed conversation
+still returns `404 not_found`. After a retryable failure, send another ordinary
+message to request a new challenge. Retained challenge images are history, not a
+statement that the peer is still awaiting an answer.
+
 The created message stays in the body because the store-assigned `id` is only readable here. It is the same object shape [`GET /chats/{address}/messages`](#get-apiv1chatsaddressmessages) returns, emitted by the same writer, with one difference: `sent_at` is **`null`**, because `EC_OP_CHAT_SEND` answers with the message id and no timestamp. Read the timestamp back from [`GET /chats`](#get-apiv1chats) (as `last_message`), from the per-conversation messages endpoint, or from the `chat_message` SSE event.
 
 A legacy route key can create the conversation if it does not exist, so this doubles as "start a chat with this address". An unknown hash key cannot be dialed without a route and returns `404`; use the route from a chat row or friend record when starting a new legacy conversation.
@@ -3302,7 +3382,7 @@ The hash is the identity used for capable daemons. When a hash row also has an I
 
 Returns `202 Accepted`, not `200`: the core acknowledges that it queued the message on the client connection, not that the client received it. An unreachable client is not an error — the desktop behaves the same, optimistically showing `*** Connecting to Client ***`.
 
-**Errors:** `400 bad_request`, `404 not_found` (no client at that address to send to), `503 ec_unsupported`, `503 ec_unavailable`.
+**Errors:** `400 bad_request`, `409 captcha_expired`, `404 not_found` (no client at that address to send to), `503 ec_unsupported`, `503 ec_unavailable`.
 
 #### `DELETE /api/v1/chats/{address}`
 
@@ -3324,6 +3404,7 @@ Every error code emitted by `/api/v1/*`, sorted by what triggered it. Two codes 
 |------|--------|---------|
 | `bad_request` | 400 | Body, query, or path-segment validation failed. Body parse depth-cap rejects also surface here. |
 | `amuled_rejected` | 400, 502 | amuled rejected the EC operation and the message carries its reason verbatim (400); or amuled answered but its reply was unusable, e.g. no `search_id` came back from a search or a browse (502). |
+| `captcha_expired` | 409 | The challenge identified by `captcha_id` is no longer pending; its answer was not sent. |
 | `request_timeout` | 408 | The request was not completed within the 10 s read timeout. |
 | `unauthorized` | 401 | Missing token, bad signature, expired, revoked, or `iat` invariants failed. |
 | `invalid_credentials` | 401, 403 | `/auth/login` password didn't match any role (401); or `PATCH /auth/passwords` was given a `current_password` that does not match (403). |
@@ -3333,10 +3414,12 @@ Every error code emitted by `/api/v1/*`, sorted by what triggered it. Two codes 
 | `method_not_allowed` | 405 | Wrong HTTP verb for the route. The response carries an `Allow` header listing the methods this resource does support. |
 | `option_not_supported` | 409 | `PATCH /preferences` set an option the connected daemon was built without, or is too old to support. |
 | `not_a4af_source` | 409 | The client named on a `POST /downloads/{hash}/a4af` request is not an A4AF source of that download. |
-| `partfile_unsupported` | 409 | Verify Local Data, or a content download, requested on a file that is still an incomplete partfile. |
+| `partfile_unsupported` | 409 | Verify Local Data, a content download, or shared-file deletion requested on a file that is still an incomplete partfile. |
 | `not_shared` | 409 | A comment or rating was posted against a file that is not shared. |
 | `not_completed` | 409 | `clear_completed` named a `hash` that is not a completed download. |
-| `download_completed` | 409 | A `DELETE /downloads` matched a completed download; use `clear_completed` for those. |
+| `download_completed` | 409 | DELETE matched a download still completing, or a completed entry without `confirmed_target`; wait for completion and explicitly confirm disk deletion, or clear the completed row to keep its file. |
+| `selection_changed` | 409 | The confirmed deletion target changed; refresh and confirm again. |
+| `ec_protocol_error` | 502 | The core returned an unexpected deletion acknowledgment; success could not be confirmed. |
 | `kad_more_exhausted` | 409 | `POST /search/{id}/more` on a Kad search that can no longer be widened — its 4-reask budget is spent, or it has entered the stopping window Kad begins 20 s before a keyword search ends. Terminal for that search; re-run the query for more. |
 | `version_check_unavailable` | 409 | `POST /version/check` cannot run - the daemon has no update-check capability. |
 | `payload_too_large` | 413 | Request body exceeds the 1 MiB limit. The connection closes after the response. |

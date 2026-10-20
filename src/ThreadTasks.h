@@ -34,10 +34,12 @@
 #include <wx/event.h>              // Needed for wxEvent and wxDECLARE_EVENT
 #include "SHAHashSet.h"            // Needed for CAICHHash, EAICHStatus
 #include "VerifyLocalDataResult.h" // Needed for CVerifyLocalDataResult
+#include <memory>                  // Needed for std::shared_ptr
 
 class CKnownFile;
 class CPartFile;
 class CFileAutoClose;
+class CPartMetSaveSlot;
 
 /**
  * Performs MD4 and/or AICH hashing of a file, depending on the type.
@@ -144,7 +146,13 @@ private:
 class CVerifyLocalDataTask : public CThreadTask
 {
 public:
-	explicit CVerifyLocalDataTask(const CKnownFile *file);
+	enum class Mode
+	{
+		Manual,
+		Automatic
+	};
+
+	explicit CVerifyLocalDataTask(const CKnownFile *file, Mode mode = Mode::Manual);
 
 protected:
 	/** See CThreadTask::Entry */
@@ -156,9 +164,11 @@ protected:
 
 private:
 	void PrintReport(const CPath &fullPath, const bool checkedAICH, const CVerifyLocalDataResult &result);
+	void PublishResult(bool checkedAICH);
 	// m_owner is only dereferenced after this confirms it is still shared.
 	bool OwnerStillShared() const;
 
+	const Mode m_mode;
 	const CKnownFile *m_owner;
 	CPath m_fullPath;
 	uint64 m_fileSize;
@@ -195,6 +205,8 @@ protected:
 	uint8 m_category;
 	//! Owner of the file, used when sending completion-event.
 	const CPartFile *m_owner;
+	//! The owner's .part.met saves, which must be written before the files move.
+	std::shared_ptr<CPartMetSaveSlot> m_metSave;
 	//! Specifies if an error occurred during completion.
 	bool m_error;
 	//! The resulting full path. File may be be renamed.

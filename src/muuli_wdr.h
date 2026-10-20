@@ -273,8 +273,13 @@ wxSizer *clientDetails(wxWindow *parent, bool call_fit = TRUE, bool set_sizer = 
 #define IDC_ASSOC_COLLECTION 10337
 wxSizer *PreferencesGeneralTab(wxWindow *parent, bool call_fit = TRUE, bool set_sizer = TRUE);
 
+#define IDC_DOWNLOAD_LIMIT_SLIDER 10516
+#define IDC_UPLOAD_LIMIT_SLIDER 10517
+#define IDC_DOWNLOAD_LIMIT_ENABLED 10518
+#define IDC_UPLOAD_LIMIT_ENABLED 10519
 #define IDC_MAXDOWN 10129
 #define IDC_MAXUP 10130
+#define IDC_BANDWIDTH_CALCULATOR 10525
 #define IDC_SLOTALLOC 10131
 #define IDC_PORT 10132
 #define ID_TEXT_CLIENT_UDP_PORT 10133
@@ -325,6 +330,7 @@ wxSizer *PreferencesServerTab(wxWindow *parent, bool call_fit = TRUE, bool set_s
 #define IDC_MMAP_ENABLE 10484
 #define IDC_CHECKDISKSPACE 10167
 #define IDC_MINDISKSPACE 10168
+#define IDC_SHAREDFILEREVERIFYDAYS 10524
 #define IDC_SRCSEEDS 10169
 #define IDC_UAP 10170
 // Media metadata extraction (issue #140). In the high band (>= 10420) to clear an eventual
@@ -437,6 +443,11 @@ wxSizer *PreferencesaMuleTweaksTab(wxWindow *parent, bool call_fit = TRUE, bool 
 #define IDC_SKIN 10199
 #define IDC_FED2KLH 10200
 #define IDC_EXTCATINFO 10201
+#define IDC_APPEARANCE 10520
+// Connection tab, ENABLE_IPV6 only (#1177).
+#define IDC_ADDRESSFAMILIESBOX 10521
+#define IDC_ADDRESSFAMILIES 10522
+#define IDC_ADVERTISEIPV6 10523
 #define IDC_SHOWVERSIONONTITLE 10202
 #define IDC_SHOWRATEONTITLE 10203
 #define IDC_RATESBEFORETITLE 10204

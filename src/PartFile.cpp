@@ -26,7 +26,9 @@
 #include <wx/wx.h>
 
 #include "PartFile.h"            // Interface declarations.
+#include "BlockReservation.h"    // Needed for selecting unreserved block intervals
 #include "PartFileWriteThread.h" // Needed for PB_READY etc.
+#include "PartMetWriter.h"       // Needed for CPartMetWriter
 #include "PartFileHashThread.h"  // Needed for QueueHashCheck
 #include "config.h"              // Needed for VERSION
 #include <protocol/kad/Constants.h>
@@ -39,16 +41,23 @@
 #include <wx/utils.h>
 #include <wx/tokenzr.h> // Needed for wxStringTokenizer
 
+#include <algorithm> // Needed for std::count_if
+
 #ifndef AMULE_DAEMON
 #include <wx/notifmsg.h> // Needed for wxNotificationMessage
 #endif
 
 #include "KnownFileList.h" // Needed for CKnownFileList
 #include "HashListFile.h"
-#include "UploadQueue.h"   // Needed for CFileHash
-#include "IPFilter.h"      // Needed for CIPFilter
-#include "Server.h"        // Needed for CServer
-#include "ServerConnect.h" // Needed for CServerConnect
+#include "UploadQueue.h"         // Needed for CFileHash
+#include "IPFilter.h"            // Needed for CIPFilter
+#include "Server.h"              // Needed for CServer
+#include "ServerConnect.h"       // Needed for CServerConnect
+#include "ServerSourceRecords.h" // Needed for ParseServerSourceRecord
+#ifdef ENABLE_IPV6
+#include "AddressFamilyPolicy.h"    // Needed for AddressFamilyPolicy::Permits
+#include "ServerIPv6SourcePolicy.h" // Needed for ShouldContactServerSourceOverIPv6
+#endif
 
 #ifdef CLIENT_GUI
 #include "UpDownClientEC.h" // Needed for CUpDownClient
@@ -66,6 +75,8 @@
 #include "SearchList.h"       // Needed for CSearchFile
 #include "ClientList.h"       // Needed for clientlist
 #include "Statistics.h"       // Needed for theStats
+#include "FreeSpaceSamples.h" // Needed for FreeSpaceAllows
+#include "FreeSpaceThread.h"  // Needed for CFreeSpaceThread
 #include "Logger.h"
 #include <common/Format.h>        // Needed for CFormat
 #include <common/FileFunctions.h> // Needed for GetLastModificationTime
@@ -81,6 +92,10 @@
 #include "kademlia/kademlia/Search.h"
 #include "kademlia/kademlia/Entry.h"   // Needed for Kademlia::CEntry (Kad notes)
 #include "kademlia/kademlia/Indexed.h" // Needed for CKadEntryPtrList
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+#include "LugdunumNatTraversal.h" // Needed for ShouldKeepLowIdServerSource
+#include "NatServerHolePunch.h"   // Needed for ShouldKeepLowIdServerSource
+#endif
 
 SFileRating::SFileRating(const wxString &u, const wxString &f, sint16 r, const wxString &c)
 : UserName(u)
@@ -355,6 +370,7 @@ CPartFile::~CPartFile()
 		}
 	}
 	WaitForUploadReads();
+	WaitForMetSave();
 
 	// if it's not opened, it was completed or deleted
 	if (m_hpartfile.IsOpened()) {
@@ -730,7 +746,7 @@ uint8 CPartFile::LoadPartFile(
 							wxFAIL;
 						}
 						// End Changes by Slugfiller for better exception handling
-					} else {
+					} else if (newtag.CanWriteToFile()) {
 						m_taglist.push_back(newtag);
 					}
 				}
@@ -867,6 +883,9 @@ uint8 CPartFile::LoadPartFile(
 	}
 
 	if (m_gaplist.IsComplete()) { // is this file complete already?
+		// The return skips the call below, and a completed file is never processed
+		// again, so its stored progress would stay at 0%.
+		UpdateCompletedInfos();
 		CompleteFile(false);
 		return true;
 	}
@@ -896,7 +915,7 @@ uint8 CPartFile::LoadPartFile(
 	}
 
 	// In-memory state now matches the just-loaded .part.met. Setters invoked during tag
-	// parsing may have set m_metDirty; drop it so the first FlushBuffer tick after load does
+	// parsing may have marked the met dirty; drop it so the first FlushBuffer tick after load does
 	// not rewrite the .met with byte-identical content. Also seed m_lastMetSaveTick so the
 	// heartbeat measures from now.
 	ClearMetDirty();
@@ -906,7 +925,7 @@ uint8 CPartFile::LoadPartFile(
 	return true;
 }
 
-bool CPartFile::SavePartFile(bool Initial)
+bool CPartFile::SavePartFile(bool now)
 {
 	switch (status) {
 	case PS_WAITING_FOR_HASH:
@@ -914,50 +933,31 @@ bool CPartFile::SavePartFile(bool Initial)
 	case PS_COMPLETE:
 		return false;
 	}
-
-	/* Don't write anything to disk if less than 100 KB of free space is left. */
-	sint64 free = CPath::GetFreeSpaceAt(GetFilePath());
-	if ((free != wxInvalidOffset) && (free < (100 * 1024))) {
+	// Delete removes the files.
+	if (m_deleting) {
+		return false;
+	}
+	// PerformFileComplete closed the handle: the completion task moves the files and removes
+	// the .part.met, so a save now would bring it back.
+	if (status == PS_COMPLETING && !m_inDestructor && !m_hpartfile.IsOpened()) {
 		return false;
 	}
 
-	// Atomic-rename save.
-	//
-	// The old sequence made three full-size content copies per save -- a backup copy, a
-	// write-from-scratch, and a second backup copy -- plus a delete/create dance on the live
-	// .part.met. On a sharer with hundreds of dirty partfiles per timer tick the aggregate
-	// runs the main thread continuously through disk I/O: write() syscalls are microseconds
-	// each, but the loop length itself is the bottleneck.
-	//
-	// New sequence:
-	//   1. Write new content into .part.met.tmp.
-	//   2. rename(.part.met, .part.met.bak) -- O(1), promoting the previous .part.met to
-	//      the long-term backup.
-	//   3. rename(.part.met.tmp, .part.met) -- atomic install; POSIX rename guarantees the
-	//      target is either fully old or fully new content at every observable moment.
-	//
-	// One content write plus two metadata renames, and stronger crash safety because the
-	// live .part.met is never absent or partial.
-	const CPath tmpName = m_fullname.AppendExt(".tmp");
-	const CPath bakName = m_fullname.AppendExt(PARTMET_BAK_EXT);
+	ReapMetSaves();
 
-	CFile file;
-	try {
-		if (!m_PartPath.FileExists()) {
-			throw wxString(".part file not found");
-		}
+	// Taken before serialising, so a change made meanwhile (on the disk I/O thread, say) stays
+	// dirty instead of counting as saved.
+	const CPartMetGen gen = CurrentMetGen();
 
+	// Serialised here, written by WritePartMet: on the writer thread, or inline below.
+	CMemFile file;
+	{
 		uint32 lsc = lastseencomplete;
-
-		file.Open(tmpName, CFile::write);
-		if (!file.IsOpened()) {
-			throw wxString("Failed to open part.met.tmp file");
-		}
 
 		// version
 		file.WriteUInt8(IsLargeFile() ? PARTFILE_VERSION_LARGEFILE : PARTFILE_VERSION);
 
-		file.WriteUInt32(CPath::GetModificationTime(m_PartPath));
+		file.WriteUInt32(0); // the .part's mtime, which WritePartMet fills in
 		// hash
 		file.WriteHash(m_abyFileHash);
 		uint16 parts = m_hashlist.size();
@@ -967,7 +967,10 @@ bool CPartFile::SavePartFile(bool Initial)
 		}
 // tags
 #define FIXED_TAGS 15
-		uint32 tagcount = m_taglist.size() + FIXED_TAGS + (m_gaplist.size() * 2);
+		const size_t writableTags = std::count_if(m_taglist.begin(),
+			m_taglist.end(),
+			[](const CTag &tag) { return tag.CanWriteToFile(); });
+		uint32 tagcount = static_cast<uint32>(writableTags + FIXED_TAGS + (m_gaplist.size() * 2));
 		if (!m_corrupted_list.empty()) {
 			++tagcount;
 		}
@@ -1083,50 +1086,87 @@ bool CPartFile::SavePartFile(bool Initial)
 
 			++i_pos;
 		}
-	} catch (const wxString &error) {
-		AddLogLineNS(CFormat(_("ERROR while saving partfile: %s (%s ==> %s)")) % error %
-			     m_partmetfilename % GetFileName());
-
-		file.Close();
-		CPath::RemoveFile(tmpName);
-		return false;
-	} catch (const CIOFailureException &e) {
-		AddLogLineCS(_("IO failure while saving partfile: ") + e.what());
-
-		file.Close();
-		CPath::RemoveFile(tmpName);
-		return false;
 	}
 
-	file.Close();
+	CPartMetSaveRequest req;
+	req.content.assign(file.GetRawBuffer(), file.GetRawBuffer() + file.GetLength());
+	req.metPath = m_fullname;
+	req.tmpPath = m_fullname.AppendExt(".tmp");
+	req.partPath = m_PartPath;
+	req.dir = GetFilePath();
 
-	// Sanity-check the tmp before committing it as the new .part.met. If the write somehow
-	// produced a zero-length file -- no exception, but disk full or quota -- the existing
-	// .part.met must stay intact.
-	sint64 tmpLength = tmpName.GetFileSize();
-	if (tmpLength == wxInvalidOffset || tmpLength == 0) {
+	// Inline: the first save, as the .part.met's existence reserves the number CreatePartFile
+	// picked; the destructor's; the import thread's; and any once the writer has stopped.
+	CPartMetWriter *writer = theApp->partMetWriter;
+	if (now || m_inDestructor || !wxThread::IsMain() || !writer || !writer->IsRunning()) {
+		WaitForMetSave();
+		return HandleMetSaveResult(gen, WritePartMet(req));
+	}
+	writer->Queue(m_metSave, std::move(req), gen);
+	return true;
+}
+
+namespace
+{
+void RaiseTo(std::atomic<uint64> &value, uint64 to)
+{
+	uint64 current = value.load();
+	while (to > current && !value.compare_exchange_weak(current, to)) {
+	}
+}
+} // namespace
+
+CPartMetGen CPartFile::CurrentMetGen() const
+{
+	return { m_metGen.load(), m_statsGen.load() };
+}
+
+CPartMetGen CPartFile::SavedMetGen() const
+{
+	return { m_metSavedGen.load(), m_statsSavedGen.load() };
+}
+
+bool CPartFile::HandleMetSaveResult(const CPartMetGen &gen, const CPartMetSaveResult &result)
+{
+	switch (result.status) {
+	case CPartMetSaveResult::Saved:
+		// Clears only what this save carried: a change made after it was serialised stays
+		// dirty. Raised, never lowered, as an older save can be reaped after a newer inline one.
+		RaiseTo(m_metSavedGen, gen.met);
+		RaiseTo(m_statsSavedGen, gen.stats);
+		m_lastMetSaveTick = ::GetTickCount64();
+		return true;
+	case CPartMetSaveResult::LowSpace:
+		break;
+	case CPartMetSaveResult::Failed:
+		AddLogLineNS(CFormat(_("ERROR while saving partfile: %s (%s ==> %s)")) % result.detail %
+			     m_partmetfilename % GetFileName());
+		break;
+	case CPartMetSaveResult::IOFailure:
+		AddLogLineCS(_("IO failure while saving partfile: ") + result.detail);
+		break;
+	case CPartMetSaveResult::ZeroLength:
 		theApp->ShowAlert(
 			CFormat(_("Wrote 0/unknown bytes to '%s' -- preserving existing .part.met.")) %
-				tmpName,
+				m_fullname.AppendExt(".tmp"),
 			_("Message"),
 			wxOK);
-		CPath::RemoveFile(tmpName);
-		return false;
+		break;
 	}
+	return false;
+}
 
-	// Two-rename atomic install: the previous .part.met is promoted to .part.met.bak,
-	// overwriting any older backup, which LoadPartFile reads on the next start if the live
-	// .part.met goes missing; then the freshly-written .part.met.tmp is renamed over the
-	// live name, atomically.
-	if (m_fullname.FileExists()) {
-		CPath::RenameFile(m_fullname, bakName, true /* overwrite */);
+void CPartFile::ReapMetSaves()
+{
+	for (const auto &done : m_metSave->TakeResults()) {
+		HandleMetSaveResult(done.first, done.second);
 	}
-	CPath::RenameFile(tmpName, m_fullname, true /* overwrite */);
+}
 
-	ClearMetDirty();
-	ClearStatsDirty();
-	m_lastMetSaveTick = ::GetTickCount64();
-	return true;
+void CPartFile::WaitForMetSave()
+{
+	m_metSave->Cancel();
+	ReapMetSaves();
 }
 
 void CPartFile::SaveSourceSeeds()
@@ -1447,6 +1487,9 @@ bool CPartFile::IsAlreadyRequested(uint64 start, uint64 end)
 
 bool CPartFile::GetNextEmptyBlockInPart(uint16 partNumber, Requested_Block_Struct *result)
 {
+	if (partNumber >= GetPartCount() || GetPartSize(partNumber) == 0) {
+		return false;
+	}
 	// Find start of this part
 	uint64 partStart = (PARTSIZE * partNumber);
 	uint64 start = partStart;
@@ -1489,12 +1532,17 @@ bool CPartFile::GetNextEmptyBlockInPart(uint16 partNumber, Requested_Block_Struc
 		if (end > partEnd) {
 			end = partEnd;
 		}
-		// If this gap has not already been requested, we have found a valid entry
-		if (!IsAlreadyRequested(start, end)) {
+		// eMule ref: CPartFile::ShrinkToAvoidAlreadyRequested()
+		const auto available = FindUnreservedBlock(CBlockRange{ start, end },
+			m_requestedblocks_list,
+			[](const Requested_Block_Struct *block) {
+				return CBlockRange{ block->StartOffset, block->EndOffset };
+			});
+		if (available) {
 			// Was this block to be returned
 			if (result != NULL) {
-				result->StartOffset = start;
-				result->EndOffset = end;
+				result->StartOffset = available->start;
+				result->EndOffset = available->end;
 				md4cpy(result->FileID, GetFileHash().GetHash());
 				result->transferred = 0;
 			}
@@ -1831,7 +1879,8 @@ bool CPartFile::CanAddSource(uint32 userid,
 	uint32 serverip,
 	uint16 serverport,
 	uint8 *pdebug_lowiddropped,
-	bool ed2kID)
+	bool ed2kID,
+	bool keepLowIdSource)
 {
 
 	// The incoming ID could have the userid in the Hybrid format..
@@ -1888,7 +1937,7 @@ bool CPartFile::CanAddSource(uint32 userid,
 	}
 
 	// This allows *.*.*.0 clients to not be removed if Ed2kID == false
-	if (IsLowID(hybridID) && theApp->IsFirewalled()) {
+	if (IsLowID(hybridID) && theApp->IsFirewalled() && !keepLowIdSource) {
 		if (pdebug_lowiddropped) {
 			(*pdebug_lowiddropped)++;
 		}
@@ -1898,13 +1947,50 @@ bool CPartFile::CanAddSource(uint32 userid,
 	return true;
 }
 
-void CPartFile::AddSources(
-	CMemFile &sources, uint32 serverip, uint16 serverport, unsigned origin, bool bWithObfuscationAndHash)
+void CPartFile::AddSources(CMemFile &sources,
+	uint32 serverip,
+	uint16 serverport,
+	unsigned origin,
+	bool bWithObfuscationAndHash,
+	const CNetworkAddress *loginIPv6)
 {
 	uint8 count = sources.ReadUInt8();
 	uint8 debug_lowiddropped = 0;
 	uint8 debug_possiblesources = 0;
-	CMD4Hash achUserHash;
+
+	bool keepLowIdSources = false;
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+	// A server is either Lugdunum or ed2k-server: each keeps a LowID source it would
+	// otherwise call back / hole-punch, so the two checks are independent and only one can apply
+	// to a given current server.
+	if (theApp->serverconnect != nullptr && theApp->serverconnect->IsConnected()) {
+		const CServer *current = theApp->serverconnect->GetCurrentServer();
+		const bool originIsLocalServer = origin == SF_LOCAL_SERVER;
+		const bool sourceServerIsOurCurrentServer = current != nullptr &&
+							    current->GetIP() == serverip &&
+							    current->GetPort() == serverport;
+		const bool weAreLowId = theApp->serverconnect->IsLowID();
+
+		LugdunumNatTraversal::LowIdServerSourceFacts lugdunumFacts;
+		lugdunumFacts.originIsLocalServer = originIsLocalServer;
+		lugdunumFacts.sourceServerIsOurCurrentServer = sourceServerIsOurCurrentServer;
+		lugdunumFacts.weAreLowId = weAreLowId;
+		lugdunumFacts.serverCallbackCapable =
+			current != nullptr && current->IsLugdunumNatCallbackActive();
+		lugdunumFacts.settingEnabled = thePrefs::IsLugdunumNatCallbackEnabled();
+
+		NatServerHolePunch::LowIdServerSourceFacts holePunchFacts;
+		holePunchFacts.originIsLocalServer = originIsLocalServer;
+		holePunchFacts.sourceServerIsOurCurrentServer = sourceServerIsOurCurrentServer;
+		holePunchFacts.weAreLowId = weAreLowId;
+		holePunchFacts.serverAnnouncesHolePunch =
+			current != nullptr && current->SupportsLowIdHolePunch();
+		holePunchFacts.settingEnabled = thePrefs::IsLowIdHolePunchEnabled();
+
+		keepLowIdSources = LugdunumNatTraversal::ShouldKeepLowIdServerSource(lugdunumFacts) ||
+				   NatServerHolePunch::ShouldKeepLowIdServerSource(holePunchFacts);
+	}
+#endif
 
 	if (m_stopped) {
 		// since we may received multiple search source UDP results we have to "consume" all data of
@@ -1914,17 +2000,66 @@ void CPartFile::AddSources(
 		return;
 	}
 
+	const auto stopAtSourceCap = [&](int recordIndex) {
+		AddDebugLogLineN(logPartFile, "Consuming a packet because of max sources reached");
+		// Since we may receive multiple search source UDP results we have to "consume" all
+		// data of that packet This '+1' is added because 'i' counts from 0.
+		sources.Seek((count - (recordIndex + 1)) * (4 + 2), wxFromCurrent);
+		if (GetKadFileSearchID()) {
+			Kademlia::CSearchManager::StopSearch(GetKadFileSearchID(), false);
+		}
+	};
+
 	for (int i = 0; i != count; ++i) {
-		uint32 userid = sources.ReadUInt32();
-		uint16 port = sources.ReadUInt16();
+		const SServerSourceRecordParse parsed =
+			ParseServerSourceRecord(sources.GetRawBuffer() + sources.GetPosition(),
+				static_cast<std::size_t>(sources.GetAvailable()),
+				bWithObfuscationAndHash,
+				loginIPv6 != nullptr);
+		if (!parsed.ok) {
+			throw CEOFException("Truncated source record in OP_FOUNDSOURCES");
+		}
+		sources.Seek(static_cast<sint64>(parsed.bytesConsumed), wxFromCurrent);
 
-		uint8 byCryptOptions = 0;
-		if (bWithObfuscationAndHash) {
-			byCryptOptions = sources.ReadUInt8();
-			if ((byCryptOptions & 0x80) > 0) {
-				achUserHash = sources.ReadHash();
+#ifdef ENABLE_IPV6
+		if (loginIPv6 != nullptr && parsed.record.isIPv6) {
+			if (thePrefs::GetMaxSourcePerFile() <= GetSourceCount()) {
+				stopAtSourceCap(i);
+				break;
 			}
+			SServerIPv6SourceFacts facts;
+			facts.address = parsed.record.ipv6Address;
+			facts.port = parsed.record.port;
+			facts.ownAddress = *loginIPv6;
+			facts.ownPort = thePrefs::GetPort();
+			facts.ipv6Built = true;
+			facts.familyPermitted = AddressFamilyPolicy::Permits(parsed.record.ipv6Address);
+			facts.proxyEnabled = thePrefs::GetProxyData()->m_proxyEnable;
+			if (ShouldContactServerSourceOverIPv6(facts) &&
+				!theApp->ipfilter->IsFiltered(parsed.record.ipv6Address)) {
+				CUpDownClient *newsource =
+					new CUpDownClient(parsed.record.port, 1, 0, 0, this, false, true);
+				newsource->SetSourceFrom((ESourceFrom)origin);
+				newsource->SetUserAddress(parsed.record.ipv6Address);
+				newsource->SetConnectOptions(parsed.record.cryptOptions, true, false);
+				if (parsed.record.hasUserHash) {
+					newsource->SetUserHash(parsed.record.userHash);
+				}
+				AddDebugLogLineN(logPartFile,
+					CFormat("Adding an IPv6 source from a server sentinel record: "
+						"[%s]:%u") %
+						parsed.record.ipv6Address.ToWxString() % parsed.record.port);
+				theApp->downloadqueue->CheckAndAddSource(this, newsource);
+			}
+			continue;
+		}
+#endif
 
+		const uint32 userid = parsed.record.userid;
+		const uint16 port = parsed.record.port;
+		const uint8 byCryptOptions = parsed.record.cryptOptions;
+
+		if (bWithObfuscationAndHash) {
 			if ((thePrefs::IsClientCryptLayerRequested() &&
 				    (byCryptOptions & 0x01 /*supported*/) > 0 &&
 				    (byCryptOptions & 0x80) == 0) ||
@@ -1958,7 +2093,13 @@ void CPartFile::AddSources(
 			}
 		}
 
-		if (!CanAddSource(userid, port, serverip, serverport, &debug_lowiddropped)) {
+		if (!CanAddSource(userid,
+			    port,
+			    serverip,
+			    serverport,
+			    &debug_lowiddropped,
+			    true,
+			    keepLowIdSources)) {
 			continue;
 		}
 
@@ -1970,19 +2111,13 @@ void CPartFile::AddSources(
 			newsource->SetSourceFrom((ESourceFrom)origin);
 			newsource->SetConnectOptions(byCryptOptions, true, false);
 
-			if ((byCryptOptions & 0x80) != 0) {
-				newsource->SetUserHash(achUserHash);
+			if (parsed.record.hasUserHash) {
+				newsource->SetUserHash(parsed.record.userHash);
 			}
 
 			theApp->downloadqueue->CheckAndAddSource(this, newsource);
 		} else {
-			AddDebugLogLineN(logPartFile, "Consuming a packet because of max sources reached");
-			// Since we may receive multiple search source UDP results we have to "consume" all
-			// data of that packet This '+1' is added because 'i' counts from 0.
-			sources.Seek((count - (i + 1)) * (4 + 2), wxFromCurrent);
-			if (GetKadFileSearchID()) {
-				Kademlia::CSearchManager::StopSearch(GetKadFileSearchID(), false);
-			}
+			stopAtSourceCap(i);
 			break;
 		}
 	}
@@ -2468,6 +2603,8 @@ void CPartFile::PerformFileComplete()
 {
 	// add this file to the suspended uploads list
 	theApp->uploadqueue->SuspendUpload(GetFileHash(), false);
+	// Queues the last save, which the completion task waits for: should the completion fail,
+	// the file carries on from it.
 	FlushBuffer();
 
 	// Close the permanent handle under m_hpartfileMutex: CUploadDiskIOThread reads this
@@ -2516,12 +2653,20 @@ void CPartFile::RemoveAllSources(bool bTryToSwap)
 
 void CPartFile::Delete()
 {
+	// Once complete, m_fullname is the file in Incoming. While completing, the completion
+	// task still holds this object.
+	if (status == PS_COMPLETE || status == PS_COMPLETING) {
+		AddDebugLogLineC(logPartFile, CFormat("Not deleting finished download '%s'") % GetFileName());
+		return;
+	}
+
 	AddLogLineN(CFormat(_("Deleting file: %s")) % GetFileName());
 
 	// This function ends in `delete this`, so the object is already on its way out: set the
 	// same gate ~CPartFile uses, so FlushBuffer cannot enqueue further hash jobs (or
 	// re-share the file) while we tear it down below.
 	m_inDestructor = true;
+	m_deleting = true;
 	// Notify every subscriber that holds a raw CKnownFile* / CPartFile* to this object --
 	// list ctrls, comment dialogs, the file-detail dialog, the AICH static request list, the
 	// write/hash threads, and on amulegui the CUpDownClient::m_uploadingfile / m_reqfile
@@ -2579,6 +2724,8 @@ void CPartFile::Delete()
 
 	AddDebugLogLineN(logPartFile, "\tClosed");
 
+	WaitForMetSave();
+
 	// cppcheck-suppress duplicateBranch
 	if (!CPath::RemoveFile(m_fullname)) {
 		AddDebugLogLineC(logPartFile, CFormat("\tFailed to delete '%s'") % m_fullname);
@@ -2608,6 +2755,14 @@ void CPartFile::Delete()
 			AddDebugLogLineN(logPartFile, "\tRemoved .seeds");
 		} else {
 			AddDebugLogLineC(logPartFile, CFormat("Failed to delete '%s'") % SEEDSName);
+		}
+	}
+
+	// WaitForMetSave above ensures the writer cannot recreate these after cleanup.
+	for (const char *ext : { ".tmp", ".bak.tmp" }) {
+		const CPath temporary = m_fullname.AppendExt(ext);
+		if (temporary.FileExists() && !CPath::RemoveFile(temporary)) {
+			AddDebugLogLineC(logPartFile, CFormat("Failed to delete '%s'") % temporary);
 		}
 	}
 
@@ -2817,6 +2972,9 @@ void CPartFile::PauseFile(bool bInsufficient)
 	}
 
 	m_insufficient = bInsufficient;
+	if (bInsufficient) {
+		m_insufficientSince = GetTickCount64();
+	}
 	if (!m_paused) {
 		MarkMetDirty();
 		// EC exports IsStopped() / GetStatus(); see StopFile comment.
@@ -2836,10 +2994,12 @@ void CPartFile::ResumeFile()
 		return;
 	}
 
-	if (m_insufficient && !CheckFreeDiskSpace()) {
+	if (m_insufficient && !CachedFreeSpaceAllows()) {
 		// Still not enough free discspace
 		return;
 	}
+	// Written as soon as it resumes; the write thread checks the space again.
+	PutBackRefusedWrites();
 
 	if (m_paused) {
 		MarkMetDirty();
@@ -2865,29 +3025,38 @@ void CPartFile::ResumeFile()
 
 bool CPartFile::CheckFreeDiskSpace(uint64 neededSpace)
 {
-	uint64 free = CPath::GetFreeSpaceAt(GetFilePath());
-	if (free == static_cast<uint64>(wxInvalidOffset)) {
-		// If GetFreeSpaceAt() fails, then the path probably does not exist.
-		return false;
+	// A failed probe (wxInvalidOffset): the path probably does not exist.
+	return FreeSpaceAllows(CPath::GetFreeSpaceAt(GetFilePath()),
+		neededSpace,
+		thePrefs::IsCheckDiskspaceEnabled(),
+		thePrefs::GetMinFreeDiskSpace());
+}
+
+bool CPartFile::CachedFreeSpaceAllows() const
+{
+	// Only a sample taken since the pause: an older one can predate what filled the disk.
+	const sint64 free = theApp->freeSpaceThread ? theApp->freeSpaceThread->SampledFreeSpace(
+							      GetFilePath(), m_insufficientSince)
+						    : FREE_SPACE_UNKNOWN;
+	return FreeSpaceAllows(free, 0, thePrefs::IsCheckDiskspaceEnabled(), thePrefs::GetMinFreeDiskSpace());
+}
+
+void CPartFile::PauseForSpace()
+{
+	AddLogLineC(CFormat(_("WARNING: Not enough free disk-space! Pausing file: %s")) % GetFileName());
+	PauseFile(true);
+}
+
+bool CPartFile::PutBackRefusedWrites()
+{
+	bool refused = false;
+	for (PartFileBufferedData *item : m_BufferedData_list) {
+		if (item->flushed == PB_NOSPACE) {
+			item->flushed = PB_READY;
+			refused = true;
+		}
 	}
-
-	// The very least acceptable diskspace is a single PART
-	if (free < PARTSIZE) {
-		// Always fail in this case, since we risk losing data if we try to
-		// write on a full partition.
-		return false;
-	}
-
-	// All other checks are only made if the user has enabled them
-	if (thePrefs::IsCheckDiskspaceEnabled()) {
-		neededSpace += thePrefs::GetMinFreeDiskSpace();
-
-		// Sparse files mean a write within the file can still allocate new blocks,
-		// so the only safe rule is to stop writing the moment the limit is exceeded.
-		return free >= neededSpace;
-	}
-
-	return true;
+	return refused;
 }
 
 void CPartFile::SetLastAnsweredTime()
@@ -3403,22 +3572,20 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 	// No empty-buffer early-return: Phase 3 below still needs to run when m_aChangedPart has
 	// dirty entries left from earlier writes (e.g. paused/idle download). Phase 1+2 are
 	// no-ops on an empty list.
-	if (!m_BufferedData_list.empty()) {
-		// Ensure file is big enough to write data to (the last item will be the furthest from the
-		// start)
-		if (!CheckFreeDiskSpace(m_nTotalBufferData)) {
-			// Not enough free space to write the last item, bail
-			AddLogLineC(CFormat(_("WARNING: Not enough free disk-space! Pausing file: %s")) %
-				    GetFileName());
-
-			PauseFile(true);
-			return;
-		}
+	//
+	// The free-space check: the write thread makes it, probing live, and refuses what does not
+	// fit (PB_NOSPACE). Probing here would block the main thread on a busy or hung mount, as
+	// ntfs-3g does during a trim. Without the write thread (shutdown), check here as before.
+	CPartFileWriteThread *pThread = theApp->partFileWriteThread;
+	const bool threaded = pThread && pThread->IsRunning();
+	const bool refused = PutBackRefusedWrites();
+	if (!m_BufferedData_list.empty() && (threaded ? refused : !CheckFreeDiskSpace(m_nTotalBufferData))) {
+		PauseForSpace();
+		return;
 	}
 
 	// eMule ref: PartFile.cpp:4102-4127 -- Phase 1: queue PB_READY items to the write thread
-	CPartFileWriteThread *pThread = theApp->partFileWriteThread;
-	if (pThread && pThread->IsRunning()) {
+	if (threaded) {
 		for (std::list<PartFileBufferedData *>::iterator it = m_BufferedData_list.begin();
 			it != m_BufferedData_list.end();
 			++it) {
@@ -3426,12 +3593,18 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 			if (item->flushed == PB_READY) {
 				item->flushed = PB_PENDING;
 				++m_iWrites;
-				pThread->QueueWrite(this, item);
+				pThread->QueueWrite(this,
+					item,
+					GetFilePath(),
+					thePrefs::IsCheckDiskspaceEnabled(),
+					thePrefs::GetMinFreeDiskSpace());
 			}
 		}
 	}
 
 	// eMule ref: PartFile.cpp:4129-4145 -- Phase 2: harvest completed writes
+	bool refusedNow = false;
+	bool failed = false;
 	for (std::list<PartFileBufferedData *>::iterator it = m_BufferedData_list.begin();
 		it != m_BufferedData_list.end();) {
 		PartFileBufferedData *item = *it;
@@ -3474,8 +3647,16 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 			++it;
 			continue;
 
+		case PB_NOSPACE:
+			// Refused for lack of space since this pass began.
+			item->flushed = PB_READY;
+			refusedNow = true;
+			++it;
+			continue;
+
 		case PB_ERROR:
 			// Write thread reported error -- retry next time
+			failed = true;
 			item->flushed = PB_READY;
 			AddDebugLogLineC(logPartFile, "Write thread reported error, will retry");
 			++it;
@@ -3500,10 +3681,20 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 		}
 	}
 
+	// Writes that did not land: WriteToBuffer marked their ranges filled when it queued them,
+	// so Phase 3 would hash parts missing them and the .met save would record them as written.
+	if (refusedNow) {
+		PauseForSpace();
+		return;
+	}
+	if (failed) {
+		return;
+	}
+
 	try {
 		// Partfile should never be too large. IsOpened() guard: StopPausedFile() Release()s
 		// the fd, and StopFile() reaches here via PauseFile -- GetLength() asserts on a closed fd.
-		if (m_hpartfile.IsOpened() && m_hpartfile.GetLength() > GetFileSize()) {
+		if (m_hpartfile.IsOpened() && m_hpartfile.GetKnownSize() > GetFileSize()) {
 			// it's "last chance" correction. the real bugfix has to be applied 'somewhere' else
 			m_hpartfile.SetLength(GetFileSize());
 		}
@@ -3622,15 +3813,18 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 	} // close gaplistComplete else-branch (async enqueue)
 
 	// Update the met file, only when something has actually changed since the last save. Two
-	// tiers: hard state (gap list, status, priority, category) sets m_metDirty and is saved
+	// tiers: hard state (gap list, status, priority, category) marks the met dirty and is saved
 	// at the next FlushBuffer tick (~60 s); soft stats (AllTimeRequests / Accepts /
-	// Transferred) set m_statsDirty only, and are saved at the STATS_HEARTBEAT_MS cadence so
-	// a popular sharer does not rewrite its .met on every served chunk. The heartbeat is
-	// measured from the last successful save, so a regular dirty save resets it. With
-	// neither bit dirty, no save fires at all.
+	// Transferred) mark only the stats dirty, and are saved at the STATS_HEARTBEAT_MS cadence
+	// so a popular sharer does not rewrite its .met on every served chunk. The heartbeat is
+	// measured from the last successful save, so a regular dirty save resets it. With nothing
+	// dirty, no save fires at all, nor while a save carrying the change is on its way to disk.
 	const uint64 STATS_HEARTBEAT_MS = 10 * 60 * 1000;
-	if (IsMetDirty() ||
-		(IsStatsDirty() && (::GetTickCount64() - m_lastMetSaveTick > STATS_HEARTBEAT_MS))) {
+	ReapMetSaves();
+	if (PartMetSaveDue(CurrentMetGen(),
+		    SavedMetGen(),
+		    m_metSave->Pending(),
+		    ::GetTickCount64() - m_lastMetSaveTick > STATS_HEARTBEAT_MS)) {
 		SavePartFile();
 	}
 
@@ -3827,6 +4021,8 @@ void CPartFile::UpdateFileRatingCommentAvail()
 
 	m_hasComment = false;
 	m_iUserRating = 0;
+	// An int8 sum wraps past 25 ratings of 5.
+	int ratingSum = 0;
 	int ratingCount = 0;
 
 	SourceSet::iterator it = m_SrcList.begin();
@@ -3845,12 +4041,12 @@ void CPartFile::UpdateFileRatingCommentAvail()
 			wxASSERT(rating <= 5);
 
 			ratingCount++;
-			m_iUserRating += rating;
+			ratingSum += rating;
 		}
 	}
 
 	if (ratingCount) {
-		m_iUserRating /= ratingCount;
+		m_iUserRating = static_cast<int8>(ratingSum / ratingCount);
 		wxASSERT(m_iUserRating > 0 && m_iUserRating <= 5);
 	}
 
@@ -3865,7 +4061,10 @@ void CPartFile::UpdateFileRatingCommentAvail()
 
 void CPartFile::SetCategory(uint8 cat)
 {
-	wxASSERT(cat < theApp->glob_prefs->GetCatCount());
+	// Callers may pass an index from an EC client; completion reads that category's path.
+	if (cat >= theApp->glob_prefs->GetCatCount()) {
+		return;
+	}
 
 	if (m_category != cat) {
 		MarkMetDirty();
@@ -3913,7 +4112,7 @@ void CPartFile::RemoveDownloadingSource(CUpDownClient *client)
 uint64 CPartFile::GetNeededSpace()
 {
 	try {
-		uint64 length = m_hpartfile.GetLength();
+		uint64 length = m_hpartfile.GetKnownSize();
 
 		if (length > GetFileSize()) {
 			return 0; // Shouldn't happen, but just in case
@@ -4050,7 +4249,9 @@ void CPartFile::AICHRecoveryDataAvailable(uint16 nPart)
 		return;
 	}
 
-	CAICHHashTree *pVerifiedHash = m_pAICHHashSet->m_pHashTree.FindHash(nPart * PARTSIZE, length);
+	// Only hashes linked to the trusted root; recovery data that failed may have left others.
+	const CAICHHashTree *pVerifiedHash =
+		m_pAICHHashSet->m_pHashTree.FindExistingHash(nPart * PARTSIZE, length);
 	if (pVerifiedHash == NULL || !pVerifiedHash->GetHashValid()) {
 		AddDebugLogLineC(logAICHRecovery,
 			"Processing AICH Recovery data: Unable to get verified hash from hashset (should "
@@ -4090,7 +4291,7 @@ void CPartFile::AICHRecoveryDataAvailable(uint16 nPart)
 	uint32 nRecovered = 0;
 	for (uint32 pos = 0; pos < length; pos += EMBLOCKSIZE) {
 		const uint32 nBlockSize = min<uint32>(EMBLOCKSIZE, length - pos);
-		CAICHHashTree *pVerifiedBlock = pVerifiedHash->FindHash(pos, nBlockSize);
+		const CAICHHashTree *pVerifiedBlock = pVerifiedHash->FindExistingHash(pos, nBlockSize);
 		CAICHHashTree *pOurBlock = htOurHash.FindHash(pos, nBlockSize);
 		if (pVerifiedBlock == NULL || pOurBlock == NULL || !pVerifiedBlock->GetHashValid() ||
 			!pOurBlock->GetHashValid()) {
@@ -4386,6 +4587,7 @@ void CPartFile::Init()
 
 #ifndef CLIENT_GUI
 	m_CorruptionBlackBox = new CCorruptionBlackBox();
+	m_metSave = std::make_shared<CPartMetSaveSlot>();
 #endif
 }
 
