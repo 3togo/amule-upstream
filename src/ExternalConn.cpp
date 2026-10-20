@@ -847,7 +847,7 @@ ExternalConn::ExternalConn(amuleIPV4Address addr, wxString *msg)
 // Defaults are ten failures a minute, then five minutes out -- deliberately looser
 // than amuleapi's five, because an EC client retries on its own: amulegui reconnects
 // on a dropped link, so a saved password that has gone stale burns attempts with no
-// human in the loop. Ten still caps a guesser at nine attempts a minute. Read once at
+// human in the loop. Ten still bounds the number of admitted challenges. Read once at
 // construction, so changing them takes a restart.
 : m_authRateLimiter(CRateLimiter::Config{ thePrefs::ECAuthFailureWindowSeconds(),
 	  thePrefs::ECAuthFailureThreshold(),
@@ -1019,9 +1019,13 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 		const auto throttle = theApp->ECServerHandler->AuthRateLimiter().Check(peerIp);
 		if (throttle.locked_out) {
 			m_conn_state = CONN_FAILED;
+			const wxString error = CFormat(wxGetTranslation(wxTRANSLATE(
+						       "Too many failed connection attempts; try again "
+						       "in %d seconds."))) %
+					       (int)throttle.retry_after_seconds;
+			AddLogLineN(error + " " + GetPeer());
 			auto *failure = new CECPacket(EC_OP_AUTH_FAIL);
-			failure->AddTag(CECTag(EC_TAG_STRING,
-				wxTRANSLATE("Too many failed connection attempts; try again later.")));
+			failure->AddTag(CECTag(EC_TAG_STRING, error));
 			return failure;
 		}
 		// Reserve an attempt before expensive work; abandoned challenges count too.
@@ -1207,134 +1211,116 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 	} else if ((m_conn_state == CONN_SALT_SENT) && (request->GetOpCode() == EC_OP_AUTH_PASSWD)) {
 		const CECTag *passwd = request->GetTagByName(EC_TAG_SRP_M1);
 
-		// Brute-force guard, ahead of every credential path. Keyed on the address alone
-		// rather than address+port, or each reconnect would look like a new client and
-		// reset the count -- which is what a guesser does anyway.
+		// AUTH_REQ already checked the limit and reserved this attempt. Let its
+		// proof finish even when that reservation reached the threshold; otherwise
+		// the last allowed attempt fails before verification (every login at 1).
+		// Further challenges remain blocked, including abandoned handshakes.
 		const std::string peerIp(wxString(GetIP()).ToStdString());
-		const CRateLimiter::Decision throttle =
-			theApp->ECServerHandler->AuthRateLimiter().Check(peerIp);
-		if (throttle.locked_out) {
-			// Say so explicitly instead of reusing "wrong password": a user who has just
-			// fixed their password deserves to know why it still fails, and it tells an
-			// attacker nothing they cannot infer from being refused.
-			const wxString err = CFormat(wxGetTranslation(wxTRANSLATE(
-						     "Too many failed connection attempts; try again "
-						     "in %d seconds."))) %
-					     (int)throttle.retry_after_seconds;
-			AddLogLineN(err + " " + GetPeer());
+		ECSRP::Bytes serverConfirm;
+		try {
+			// A password change or child-token revocation invalidates even a
+			// handshake that received its challenge before the change.
+			const std::string current =
+				m_srpCredential != ECSRP::Password
+					? theApp->GetEcTokenVerifier(m_srpCredential).Encode()
+					: ECSRP::Verifier::Decode(
+						  std::string(thePrefs::ECPasswordVerifier().utf8_str()))
+						  .Encode();
+			if (WasLastPacketEncrypted() && current == m_srpVerifier)
+				serverConfirm = m_srp.Verify(ECSRP::Field(*request, EC_TAG_SRP_M1, 32));
+		} catch (const std::exception &) {
+			m_srp.Reset();
+		}
+		if (!serverConfirm.empty()) {
+			// Clear the bucket: a legitimate user who mistyped a few times must not carry
+			// that streak into their next connection.
+			theApp->ECServerHandler->AuthRateLimiter().NoteSuccess(peerIp);
+			response = new CECPacket(EC_OP_AUTH_OK);
+			// Short form rather than bare VERSION: on a development build VERSION is the
+			// literal "GIT", so every snapshot would identify itself identically. No
+			// change on a tagged release, where GITDATE is undefined.
+			response->AddTag(CECTag(EC_TAG_SERVER_VERSION, GetShortMuleVersion()));
+			// Our half of the proof. Travels inside the now-sealed AUTH_OK, so the client
+			// learns both that we hold the credential and that we hold the key, from one
+			// packet.
+			response->AddTag(CECTag(EC_TAG_SRP_M2, serverConfirm.size(), serverConfirm.data()));
+			// Echo the negotiated large-tag-count capability so the client mirrors
+			// EC_FLAG_LARGE_TAG_COUNT into its own m_my_flags. Without the echo it would
+			// never set the flag in its outgoing per-packet headers.
+			if (m_my_flags & EC_FLAG_LARGE_TAG_COUNT) {
+				response->AddTag(CECEmptyTag(EC_TAG_CAN_LARGE_TAG_COUNT));
+			}
+			// Identifies this daemon *process*. ECIDs come from a counter that restarts
+			// with the process, so after a daemon restart the same numbers are handed out
+			// again in whatever order files load this time -- and a client that kept its
+			// objects across the reconnect would pair them up by number and quietly
+			// describe one file with another's data. A client that sees a different value
+			// here starts over. Old clients ignore the tag; new clients against an old
+			// daemon start over every reconnect, which is correct if wasteful.
+			response->AddTag(CECTag(EC_TAG_SESSION_ID, GetEcSessionId()));
+			if (m_partialUpdateActive) {
+				// Confirm partial-update mode so the client switches off its bulk
+				// "missing == deleted" fallback and expects explicit
+				// `EC_TAG_FILE_REMOVED` markers.
+				response->AddTag(CECEmptyTag(EC_TAG_CAN_PARTIAL_UPDATE));
+			}
+			if (m_partialSearchActive) {
+				// Confirm the search half too. The client must not stop deleting on
+				// absence until it knows the daemon actually skips unchanged results:
+				// against an older daemon absence still means the result is gone.
+				response->AddTag(CECEmptyTag(EC_TAG_CAN_PARTIAL_SEARCH));
+			}
+			// Unconditional: this daemon answers EC_OP_GET_CLIENT_HISTORY, and a client
+			// that does not see the echo must not send the request -- against a daemon
+			// that predates it the unknown opcode asserts.
+			response->AddTag(CECEmptyTag(EC_TAG_CAN_CLIENT_HISTORY));
+			response->AddTag(CECEmptyTag(EC_TAG_CAN_DELETE_COMPLETE));
+			if (m_chatActive) {
+				// Confirm the chat session ops so the client starts
+				// polling EC_OP_GET_CHAT_SESSIONS.
+				response->AddTag(CECEmptyTag(EC_TAG_CAN_CHAT_SESSIONS));
+				if (m_chatPeerHashActive) {
+					// Confirm hash addressing, so this connection may be sent
+					// or itself target a session with no unique GUI_ID.
+					response->AddTag(CECEmptyTag(EC_TAG_CAN_CHAT_PEER_HASH));
+				}
+			}
+			if (m_multiSearchActive) {
+				// Confirm multi-search mode so the client addresses searches by
+				// `EC_TAG_SEARCH_ID` rather than the legacy single-search
+				// sentinel.
+				response->AddTag(CECEmptyTag(EC_TAG_CAN_MULTI_SEARCH));
+				if (m_searchProgressUnionActive) {
+					// Confirm the union form of EC_OP_SEARCH_PROGRESS: the client
+					// then sends one id-less request per poll instead of one per
+					// open tab. Nested inside the multi-search echo on purpose:
+					// the union addresses its children by search ID, which only
+					// exists in that mode.
+					response->AddTag(CECEmptyTag(EC_TAG_CAN_SEARCH_PROGRESS_UNION));
+				}
+			}
+			// Confirm we serve EC_OP_GET/SET_SHARED_DIRS, so a remote GUI can present an
+			// editable shared-folders panel instead of one whose edits it could never
+			// deliver. Unconditional: the ops need no per-connection state.
+			response->AddTag(CECEmptyTag(EC_TAG_CAN_SHAREDDIRS_CONFIG));
+			// Confirm we serve EC_OP_SEARCH_LIST, so a remote GUI can enumerate searches
+			// it did not start itself. Unconditional, for the same reason. A client that
+			// gets no echo must not send the opcode at all -- it would land in
+			// ProcessRequest2's unknown-opcode branch and assert.
+			response->AddTag(CECEmptyTag(EC_TAG_CAN_SEARCH_LIST));
+			response->AddTag(CECEmptyTag(EC_TAG_CAN_KAD_LOOKUPS));
+			response->AddTag(CECEmptyTag(EC_TAG_CAN_SEARCH_ALL));
+		} else {
+			wxString err;
+			if (passwd) {
+				err = wxTRANSLATE("Authentication failed: wrong password.");
+			} else {
+				err = wxTRANSLATE("Authentication failed: missing password.");
+			}
+
 			response = new CECPacket(EC_OP_AUTH_FAIL);
 			response->AddTag(CECTag(EC_TAG_STRING, err));
-		} else {
-			ECSRP::Bytes serverConfirm;
-			try {
-				// A password change or child-token revocation invalidates even a
-				// handshake that received its challenge before the change.
-				const std::string current =
-					m_srpCredential != ECSRP::Password
-						? theApp->GetEcTokenVerifier(m_srpCredential).Encode()
-						: ECSRP::Verifier::Decode(
-							  std::string(
-								  thePrefs::ECPasswordVerifier().utf8_str()))
-							  .Encode();
-				if (WasLastPacketEncrypted() && current == m_srpVerifier)
-					serverConfirm =
-						m_srp.Verify(ECSRP::Field(*request, EC_TAG_SRP_M1, 32));
-			} catch (const std::exception &) {
-				m_srp.Reset();
-			}
-			if (!serverConfirm.empty()) {
-				// Clear the bucket: a legitimate user who mistyped a few times must not carry
-				// that streak into their next connection.
-				theApp->ECServerHandler->AuthRateLimiter().NoteSuccess(peerIp);
-				response = new CECPacket(EC_OP_AUTH_OK);
-				// Short form rather than bare VERSION: on a development build VERSION is the
-				// literal "GIT", so every snapshot would identify itself identically. No
-				// change on a tagged release, where GITDATE is undefined.
-				response->AddTag(CECTag(EC_TAG_SERVER_VERSION, GetShortMuleVersion()));
-				// Our half of the proof. Travels inside the now-sealed AUTH_OK, so the client
-				// learns both that we hold the credential and that we hold the key, from one
-				// packet.
-				response->AddTag(
-					CECTag(EC_TAG_SRP_M2, serverConfirm.size(), serverConfirm.data()));
-				// Echo the negotiated large-tag-count capability so the client mirrors
-				// EC_FLAG_LARGE_TAG_COUNT into its own m_my_flags. Without the echo it would
-				// never set the flag in its outgoing per-packet headers.
-				if (m_my_flags & EC_FLAG_LARGE_TAG_COUNT) {
-					response->AddTag(CECEmptyTag(EC_TAG_CAN_LARGE_TAG_COUNT));
-				}
-				// Identifies this daemon *process*. ECIDs come from a counter that restarts
-				// with the process, so after a daemon restart the same numbers are handed out
-				// again in whatever order files load this time -- and a client that kept its
-				// objects across the reconnect would pair them up by number and quietly
-				// describe one file with another's data. A client that sees a different value
-				// here starts over. Old clients ignore the tag; new clients against an old
-				// daemon start over every reconnect, which is correct if wasteful.
-				response->AddTag(CECTag(EC_TAG_SESSION_ID, GetEcSessionId()));
-				if (m_partialUpdateActive) {
-					// Confirm partial-update mode so the client switches off its bulk
-					// "missing == deleted" fallback and expects explicit
-					// `EC_TAG_FILE_REMOVED` markers.
-					response->AddTag(CECEmptyTag(EC_TAG_CAN_PARTIAL_UPDATE));
-				}
-				if (m_partialSearchActive) {
-					// Confirm the search half too. The client must not stop deleting on
-					// absence until it knows the daemon actually skips unchanged results:
-					// against an older daemon absence still means the result is gone.
-					response->AddTag(CECEmptyTag(EC_TAG_CAN_PARTIAL_SEARCH));
-				}
-				// Unconditional: this daemon answers EC_OP_GET_CLIENT_HISTORY, and a client
-				// that does not see the echo must not send the request -- against a daemon
-				// that predates it the unknown opcode asserts.
-				response->AddTag(CECEmptyTag(EC_TAG_CAN_CLIENT_HISTORY));
-				response->AddTag(CECEmptyTag(EC_TAG_CAN_DELETE_COMPLETE));
-				if (m_chatActive) {
-					// Confirm the chat session ops so the client starts
-					// polling EC_OP_GET_CHAT_SESSIONS.
-					response->AddTag(CECEmptyTag(EC_TAG_CAN_CHAT_SESSIONS));
-					if (m_chatPeerHashActive) {
-						// Confirm hash addressing, so this connection may be sent
-						// or itself target a session with no unique GUI_ID.
-						response->AddTag(CECEmptyTag(EC_TAG_CAN_CHAT_PEER_HASH));
-					}
-				}
-				if (m_multiSearchActive) {
-					// Confirm multi-search mode so the client addresses searches by
-					// `EC_TAG_SEARCH_ID` rather than the legacy single-search
-					// sentinel.
-					response->AddTag(CECEmptyTag(EC_TAG_CAN_MULTI_SEARCH));
-					if (m_searchProgressUnionActive) {
-						// Confirm the union form of EC_OP_SEARCH_PROGRESS: the client
-						// then sends one id-less request per poll instead of one per
-						// open tab. Nested inside the multi-search echo on purpose:
-						// the union addresses its children by search ID, which only
-						// exists in that mode.
-						response->AddTag(
-							CECEmptyTag(EC_TAG_CAN_SEARCH_PROGRESS_UNION));
-					}
-				}
-				// Confirm we serve EC_OP_GET/SET_SHARED_DIRS, so a remote GUI can present an
-				// editable shared-folders panel instead of one whose edits it could never
-				// deliver. Unconditional: the ops need no per-connection state.
-				response->AddTag(CECEmptyTag(EC_TAG_CAN_SHAREDDIRS_CONFIG));
-				// Confirm we serve EC_OP_SEARCH_LIST, so a remote GUI can enumerate searches
-				// it did not start itself. Unconditional, for the same reason. A client that
-				// gets no echo must not send the opcode at all -- it would land in
-				// ProcessRequest2's unknown-opcode branch and assert.
-				response->AddTag(CECEmptyTag(EC_TAG_CAN_SEARCH_LIST));
-				response->AddTag(CECEmptyTag(EC_TAG_CAN_KAD_LOOKUPS));
-				response->AddTag(CECEmptyTag(EC_TAG_CAN_SEARCH_ALL));
-			} else {
-				wxString err;
-				if (passwd) {
-					err = wxTRANSLATE("Authentication failed: wrong password.");
-				} else {
-					err = wxTRANSLATE("Authentication failed: missing password.");
-				}
-
-				response = new CECPacket(EC_OP_AUTH_FAIL);
-				response->AddTag(CECTag(EC_TAG_STRING, err));
-				AddLogLineN(wxGetTranslation(err));
-			}
+			AddLogLineN(wxGetTranslation(err));
 		}
 	} else {
 		response = new CECPacket(EC_OP_AUTH_FAIL);

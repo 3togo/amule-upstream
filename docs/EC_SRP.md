@@ -124,8 +124,10 @@ wrong-password result. Before accepting M1 the core
 checks that the selected verifier is still current, so password changes and
 token revocation also invalidate pending handshakes. AUTH_REQ checks the address
 rate limit and reserves an attempt, including abandoned challenges; only the
-challenge exponentiation runs before M1. No per-request
-scrypt or dummy-verifier generation exposes token availability.
+challenge exponentiation runs before M1. An admitted challenge may finish its
+proof even if reserving that attempt reached the limit; the lockout prevents
+further challenges. A successful proof clears the address's attempt bucket. No
+per-request scrypt or dummy-verifier generation exposes token availability.
 
 ## Security scope and validation
 

@@ -97,6 +97,61 @@ class OldDaemon(socketserver.BaseRequestHandler):
         try: self.server.extra=self.request.recv(4096)
         except (socket.timeout,ConnectionResetError): self.server.extra=b''
 
+def rate_limit_boundary(daemon, cmd, async_probe, root, env):
+    """An admitted challenge may finish even if its reservation arms the lockout."""
+    class StopChallenge(Exception):
+        pass
+
+    for threshold in (1, 2):
+        directory = root / ('rate-limit-' + str(threshold))
+        directory.mkdir()
+        port, peer = free_ports(2, peer_index=1)
+        write_amule_conf(directory, port, Port=peer, UDPEnable=0)
+        config = directory / 'amule.conf'
+        config.write_text(config.read_text().replace(
+            '[ExternalConnect]\n',
+            f'[ExternalConnect]\nAuthFailureThreshold={threshold}\n'))
+        with (directory / 'console').open('w') as log:
+            proc = subprocess.Popen(
+                [daemon, '-c', str(directory)] + ([] if os.name == 'nt' else ['--disable-fatal']),
+                env=env, stdout=log, stderr=log)
+            try:
+                ec = connect_daemon(proc, port, directory, peer)
+                ec.sock.close()
+
+                def abandon(tags):
+                    raise StopChallenge()
+
+                def abandon_once():
+                    with socket.create_connection(('127.0.0.1', port), timeout=10) as sock:
+                        try:
+                            W.authenticate(sock, hashlib.md5(b'regression').digest(),
+                                           challenge=abandon)
+                        except StopChallenge:
+                            return
+                        raise AssertionError('challenge refused before the attempt limit')
+
+                # Both production transports must complete the last admitted
+                # attempt, and success must clear the reserved failures.
+                for binary in (cmd, async_probe):
+                    for _ in range(threshold - 1):
+                        abandon_once()
+                    args = ([cmd, '-h', '127.0.0.1', '-p', str(port), '-P',
+                             'regression', '-c', 'status'] if binary == cmd else
+                            [async_probe, str(port)])
+                    out = subprocess.run(args, env=env, capture_output=True, text=True, timeout=20)
+                    assert 'Succeeded!' in out.stdout + out.stderr, out
+
+                # Allowing the reserved proof must not admit another challenge.
+                for _ in range(threshold):
+                    abandon_once()
+                with socket.create_connection(('127.0.0.1', port), timeout=10) as sock:
+                    _, op, tags = W.authenticate(sock, hashlib.md5(b'regression').digest())
+                    assert op == C['EC_OP_AUTH_FAIL'] and b'Too many' in tags[C['EC_TAG_STRING']]
+                print('PASS: final reserved attempt succeeds and abandoned challenges lock out; limit', threshold)
+            finally:
+                stop_daemon(proc)
+
 def main(daemon,cmd,async_probe):
     with tempfile.TemporaryDirectory(prefix='amule-srp-') as scratch:
         root=Path(scratch);port,peer=free_ports(2)
@@ -233,6 +288,7 @@ def main(daemon,cmd,async_probe):
 
                 finally:
                     stop_daemon(proc)
+        rate_limit_boundary(daemon, cmd, async_probe, root, env)
         with FixtureServer(('127.0.0.1',0),OldDaemon) as old:
             old.extra=None
             threading.Thread(target=old.serve_forever,daemon=True).start()

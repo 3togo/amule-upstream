@@ -2311,7 +2311,8 @@ msgid "External connection refused due to empty password in preferences!"
 msgstr ""
 
 #: src/ExternalConn.cpp
-msgid "Too many failed connection attempts; try again later."
+#, c-format
+msgid "Too many failed connection attempts; try again in %d seconds."
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2345,11 +2346,6 @@ msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Missing protocol version tag."
-msgstr ""
-
-#: src/ExternalConn.cpp
-#, c-format
-msgid "Too many failed connection attempts; try again in %d seconds."
 msgstr ""
 
 #: src/ExternalConn.cpp
