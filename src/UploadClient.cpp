@@ -62,6 +62,7 @@ void CUpDownClient::SetUploadState(uint8 eNewState)
 		}
 		if (m_nUploadState == US_UPLOADING) {
 			m_nUpDatarate = 0;
+			m_displayUploadRate.Reset();
 			m_nSumForAvgUpDataRate = 0;
 			m_AvarageUDR_list.clear();
 		}
@@ -505,9 +506,21 @@ uint32 CUpDownClient::SendBlockData()
 		m_nUpDatarate = 0; //-1;
 	}
 
-	m_cSendblock++;
-	if (m_cSendblock == 30) {
-		m_cSendblock = 0;
+	if (IsDownloading()) {
+		m_displayUploadRate.Add(sentBytesCompleteFile + sentBytesPartFile, curTick);
+	}
+
+	if (curTick - m_lastUploadDisplayUpdate >= 1000) {
+		m_lastUploadDisplayUpdate = curTick;
+		const uint32 displayRate = GetDisplayUploadDatarate();
+		if (displayRate != m_lastDisplayUploadRate) {
+			m_lastDisplayUploadRate = displayRate;
+			if (m_uploadingfile) {
+				// Rates can fall to zero without new transferred bytes to dirty the file.
+				m_uploadingfile->MarkECChanged();
+				Notify_SharedFilesUpdateItem(m_uploadingfile);
+			}
+		}
 		Notify_SharedCtrlRefreshClient(ECID(), AVAILABLE_SOURCE);
 	}
 

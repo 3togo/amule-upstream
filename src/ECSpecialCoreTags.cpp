@@ -440,8 +440,8 @@ CEC_UpDownClient_Tag::CEC_UpDownClient_Tag(
 	AddDiffTag(this, EC_TAG_CLIENT_SERVER_PORT, client->GetServerPort(), valuemap);
 	AddDiffTag(this, EC_TAG_CLIENT_SERVER_NAME, client->GetServerName(), valuemap);
 
-	// Transfers to Client
-	AddDiffTag(this, EC_TAG_CLIENT_UP_SPEED, client->GetUploadDatarate(), valuemap);
+	// Transfers to Client. Display speed uses the same one-second window as total speed.
+	AddDiffTag(this, EC_TAG_CLIENT_UP_SPEED, client->GetDisplayUploadDatarate(), valuemap);
 	if (client->GetDownloadState() == DS_DOWNLOADING || valuemap) {
 		AddDiffTag(this, EC_TAG_CLIENT_DOWN_SPEED, (double)(client->GetKBpsDown()), valuemap);
 	}

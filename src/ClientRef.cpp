@@ -136,6 +136,7 @@ uint16 WRAPC(GetServerPort) const wxString &WRAPC(GetSoftStr) const wxString &WR
 uint64 WRAPC(GetTransferredDown)
 uint64 WRAPC(GetTransferredUp)
 uint32 WRAPC(GetUploadDatarate)
+uint32 WRAPC(GetDisplayUploadDatarate)
 uint64 WRAPC(GetUploadedTotal) const CKnownFile *WRAPC(GetUploadFile)
 uint16 WRAPC(GetUploadQueueWaitingPosition)
 uint8 WRAPC(GetUploadState)

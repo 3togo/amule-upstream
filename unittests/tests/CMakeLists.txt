@@ -80,6 +80,12 @@ target_include_directories (IPFilterIPv6Test PRIVATE
 )
 target_link_libraries (IPFilterIPv6Test muleunit mulecommon ${Boost_LIBRARIES})
 
+# Live speed displays: one-second startup, step changes, idle expiry, and peer totals.
+add_executable (DisplayRateCounterTest DisplayRateCounterTest.cpp)
+add_test (NAME DisplayRateCounterTest COMMAND DisplayRateCounterTest)
+target_include_directories (DisplayRateCounterTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (DisplayRateCounterTest muleunit mulecommon)
+
 # EC push delivery resumes after the recursion cap without a socket completion.
 add_executable (ECNotificationDrainTest ECNotificationDrainTest.cpp)
 add_test (NAME ECNotificationDrainTest COMMAND ECNotificationDrainTest)

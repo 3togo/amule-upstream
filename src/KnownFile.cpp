@@ -424,7 +424,7 @@ uint32 CKnownFile::GetUploadDatarate() const
 {
 	uint32 total = 0;
 	for (const CClientRef &ref : m_ClientUploadList) {
-		total += ref.GetUploadDatarate();
+		total += ref.GetDisplayUploadDatarate();
 	}
 	return total;
 }

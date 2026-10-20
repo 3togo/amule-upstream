@@ -193,7 +193,7 @@ void CUpDownClient::Init()
 	m_cShowDR = 0;
 	m_reqfile = NULL; // No file required yet
 	m_nTransferredUp = 0;
-	m_cSendblock = 0;
+	m_lastUploadDisplayUpdate = 0;
 	m_cAsked = 0;
 	msReceivedPrev = 0;
 	kBpsDown = 0.0;

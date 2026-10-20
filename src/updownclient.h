@@ -27,6 +27,7 @@
 #define UPDOWNCLIENT_H
 
 #include <atomic>
+#include "DisplayRateCounter.h"
 
 #include "Constants.h"    // Needed for ESourceFrom
 #include "GetTickCount.h" // Needed for GetTickCount64
@@ -374,6 +375,10 @@ public:
 	uint64 GetSessionUp() const { return m_nTransferredUp - m_nCurSessionUp; }
 	void ResetSessionUp();
 	uint32 GetUploadDatarate() const { return m_nUpDatarate; }
+	uint32 GetDisplayUploadDatarate() const
+	{
+		return IsDownloading() ? m_displayUploadRate.GetRate(GetTickCount64()) : 0;
+	}
 
 	uint64 GetUpStartTimeDelay() const { return ::GetTickCount64() - m_dwUploadTime; }
 	uint64 GetWaitStartTime() const;
@@ -797,6 +802,7 @@ private:
 
 	// Upload data rate computation. Atomic: CUploadDiskIOThread reads the rate.
 	std::atomic<uint32> m_nUpDatarate;
+	CDisplayRateCounter m_displayUploadRate;
 	uint32 m_nSumForAvgUpDataRate;
 	std::list<TransferredData> m_AvarageUDR_list;
 
@@ -843,7 +849,8 @@ private:
 	//! Whether this connection has already been counted towards the peer's
 	//! session tally in its credit metadata. See ProcessHelloTypePacket.
 	bool m_metaSessionCounted = false;
-	uint32 m_cSendblock;
+	uint64 m_lastUploadDisplayUpdate;
+	uint32 m_lastDisplayUploadRate = 0;
 	uint8 m_byEmuleVersion;
 	uint8 m_byDataCompVer;
 	bool m_bEmuleProtocol;
