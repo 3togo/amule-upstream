@@ -33,15 +33,17 @@
 #include "OtherFunctions.h" // Needed for GetConfigDir()
 
 /**
- * Prepends ConfigDir to filename, if it has no PathSeparator chars in it.
+ * Expands a leading home-directory shorthand, or prepends ConfigDir to bare filenames.
  */
 inline wxString FinalizeFilename(const wxString filename)
 {
-	if (wxStrchr(filename, wxFileName::GetPathSeparator()) == NULL) {
-		return GetConfigDir(filename) + filename;
-	}
-	if ((filename.GetChar(0) == '~') && (filename.GetChar(1) == wxFileName::GetPathSeparator())) {
+	if (filename.length() >= 2 && filename.GetChar(0) == '~' &&
+		wxFileName::IsPathSeparator(filename.GetChar(1))) {
 		return wxGetHomeDir() + filename.Mid(1);
+	}
+	// GetPath includes the volume, preserving drive-relative paths such as C:remote.conf.
+	if (wxFileName(filename).GetPath().IsEmpty()) {
+		return GetConfigDir(filename) + filename;
 	}
 	return filename;
 }
