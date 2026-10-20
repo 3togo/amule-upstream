@@ -2710,7 +2710,9 @@ void CPartFile::Delete()
 	uint16 removed =
 #endif
 		theApp->uploadqueue->SuspendUpload(GetFileHash(), true);
+#ifdef __DEBUG__
 	AddDebugLogLineN(logPartFile, CFormat("\tSuspended upload to %d clients") % removed);
+#endif
 	theApp->sharedfiles->RemoveFile(this);
 	AddDebugLogLineN(logPartFile, "\tRemoved from shared");
 	theApp->downloadqueue->RemoveFile(this);
@@ -4267,9 +4269,11 @@ void CPartFile::RequestAICHRecovery(uint16 nPart)
 		return;
 	}
 
+#ifdef __DEBUG__
 	AddDebugLogLineN(logAICHRecovery,
 		CFormat("Requesting AICH Hash (%s) form client %s") % (cAICHClients ? "HighId" : "LowID") %
 			pClient->GetClientFullInfo());
+#endif
 	pClient->SendAICHRequest(this, nPart);
 }
 

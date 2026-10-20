@@ -214,11 +214,13 @@ void CCorruptionBlackBox::EvaluateData()
 			wxString clientName;
 			if (pEvilClient != NULL) {
 				clientName = pEvilClient->GetClientShortInfo();
+#ifdef __DEBUG__
 				AddDebugLogLineN(logPartFile,
 					CFormat("CorruptionBlackBox(%s): Banning: Found client which sent %d "
 						"of %d corrupted data, %s") %
 						m_partNumber % bad % (good + bad) %
 						pEvilClient->GetClientFullInfo());
+#endif
 				theApp->clientlist->AddTrackClient(pEvilClient);
 				pEvilClient->Ban(); // Identified as sender of corrupt data
 				// Stop download right away
@@ -236,12 +238,14 @@ void CCorruptionBlackBox::EvaluateData()
 		} else {
 			CUpDownClient *pSuspectClient = theApp->clientlist->FindClientByIP(ip);
 			if (pSuspectClient != NULL) {
+#ifdef __DEBUG__
 				AddDebugLogLineN(logPartFile,
 					CFormat("CorruptionBlackBox(%s): Reporting: Found client which "
 						"probably sent %d of %d corrupted data, but it is within the "
 						"acceptable limit, %s") %
 						m_partNumber % bad % (good + bad) %
 						pSuspectClient->GetClientFullInfo());
+#endif
 				theApp->clientlist->AddTrackClient(pSuspectClient);
 			} else {
 				AddDebugLogLineN(logPartFile,
