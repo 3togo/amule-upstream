@@ -593,6 +593,10 @@ bool CEC_Prefs_Packet::Apply() const
 	// Persist/validate the source list before changing any other preference.
 	if (const auto *servers = GetTagByName(EC_TAG_PREFS_SERVERS)) {
 		if (const auto *sources = servers->GetTagByName(EC_TAG_SERVERS_URL_LIST)) {
+			// EC lists use either an empty container or a count payload.
+			if (!(sources->IsCustom() && sources->GetTagDataLen() == 0) &&
+				!(sources->IsInt() && sources->GetInt() == sources->GetTagCount()))
+				return false;
 			wxArrayString urls;
 			for (const auto &tag : *sources) {
 				if (tag.GetTagName() != EC_TAG_STRING || !tag.IsString())

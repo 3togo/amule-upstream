@@ -21,6 +21,7 @@ from KnownHistoryIntegrationTest import start as start_ed2k
 
 SERVER_MET = b'\xe0' + struct.pack('<I', 1) + bytes([203, 0, 113, 7]) + struct.pack('<HI', 4661, 0)
 EXISTING = SERVER_MET.replace(bytes([203, 0, 113, 7]), bytes([203, 0, 113, 9]))
+TRAILING = SERVER_MET.replace(bytes([203, 0, 113, 7]), bytes([203, 0, 113, 8])) + b'garbage'
 TRUNCATED = b'\xe0' + struct.pack('<I', 2) + bytes([203, 0, 113, 8]) + struct.pack('<HI', 4661, 0)
 GOOD = (200, SERVER_MET)
 SECOND = (200, SERVER_MET.replace(bytes([203, 0, 113, 7]), bytes([203, 0, 113, 10])))
@@ -259,6 +260,9 @@ def editor_case(binary, api_binary, root):
                         ['http://host/a\x00hidden']]:
             request('PATCH', '/preferences', {'servers': {'update_urls': invalid}}, expected=400)
             assert source_file.read_text().splitlines() == expected
+        for invalid in ['http://alias.example/list\x00hidden', 'http://host/a\nother', 'ftp://host/list']:
+            request('PATCH', '/preferences', {'servers': {'update_url': invalid}}, expected=400)
+            assert source_file.read_text().splitlines() == expected
         # Exercise the actual EC representation, including duplicate child names and >255 entries.
         many = [f'https://source.example/{i}' for i in range(300)]
         listing = tag(C['EC_TAG_SERVERS_URL_LIST'], children=[string(C['EC_TAG_STRING'], u) for u in many])
@@ -272,6 +276,11 @@ def editor_case(binary, api_binary, root):
         op, _ = ec.call(C['EC_OP_SET_PREFERENCES'], [tag(C['EC_TAG_PREFS_SERVERS'], children=[bad])])
         assert op == C['EC_OP_FAILED'], op
         assert source_file.read_text().splitlines() == many
+        for bad in [integer(C['EC_TAG_SERVERS_URL_LIST'], 1),
+                    string(C['EC_TAG_SERVERS_URL_LIST'], 'https://ignored.example/list')]:
+            op, _ = ec.call(C['EC_OP_SET_PREFERENCES'], [tag(C['EC_TAG_PREFS_SERVERS'], children=[bad])])
+            assert op == C['EC_OP_FAILED'], op
+            assert source_file.read_text().splitlines() == many
         for invalid in ['', 'http:///missing-host', 'http://host/a\x00hidden', 'http://host/list\nother']:
             request('POST', '/servers/update', {'url': invalid}, expected=400)
         op, _ = ec.call(C['EC_OP_SERVER_UPDATE_FROM_URL'], [integer(C['EC_TAG_SERVERS_UPDATE_URL'], 1)])
@@ -338,6 +347,37 @@ def migration_cases(binary, root):
             stop_daemon(proc)
 
 
+def unreadable_migration_case(binary, root):
+    root.mkdir()
+    (root / 'Incoming').mkdir()
+    (root / 'Temp').mkdir()
+    source_file = root / 'addresses.dat'
+    original = '# Preserve sources until migration can read them.\nhttps://existing.example/list\n'
+    source_file.write_text(original)
+    ports = free_ports(3, udp_indices=(2,), peer_index=1)
+    legacy = 'https://custom.example/list'
+    write_amule_conf(root, ports[0], Port=ports[1], UDPPort=ports[2], Ed2kServersUrl=legacy)
+    source_file.chmod(0)
+    proc = ec = None
+    try:
+        proc, ec = start(binary, root, ports, ed2k=False)
+        assert 'Ed2kServersUrl=' + legacy in (root / 'amule.conf').read_text()
+    finally:
+        if ec:
+            ec.sock.close()
+        if proc and proc.poll() is None:
+            stop_daemon(proc)
+        source_file.chmod(0o600)
+    assert source_file.read_text() == original
+    proc, ec = start(binary, root, ports, ed2k=False)
+    try:
+        assert source_file.read_text().splitlines() == [legacy, 'https://existing.example/list']
+        assert 'Ed2kServersUrl=' not in (root / 'amule.conf').read_text()
+    finally:
+        ec.sock.close()
+        stop_daemon(proc)
+
+
 def main():
     binary = str(Path(sys.argv[1]).resolve())
     api_binary = str(Path(sys.argv[2]).resolve()) if len(sys.argv) > 2 else None
@@ -360,12 +400,16 @@ def main():
                 return
 
             migration_cases(binary, root)
+            if hasattr(os, 'geteuid') and os.geteuid() != 0:
+                unreadable_migration_case(binary, root / 'unreadable-migration')
             case('merge-after-success', {'/first': GOOD, '/last': SECOND}, ['/first', '/last'], ['/first', '/last'])
             case('first-run', {'/backup': GOOD}, ['/primary', '/backup'], ['/primary', '/backup'], startup=True)
             case('first-run-merges-all', {'/first': GOOD, '/last': SECOND}, ['/first', '/last'],
                  ['/first', '/last'], startup=True)
             case('http-failure', {'/backup': GOOD}, ['/primary', '/backup'], ['/primary', '/backup'])
             case('invalid-download', {'/primary': (200, b'invalid'), '/backup': GOOD},
+                 ['/primary', '/backup'], ['/primary', '/backup'])
+            case('trailing-data', {'/primary': (200, TRAILING), '/backup': GOOD},
                  ['/primary', '/backup'], ['/primary', '/backup'])
             case('truncated-download', {'/primary': (200, TRUNCATED), '/backup': GOOD},
                  ['/primary', '/backup'], ['/primary', '/backup'])
@@ -396,7 +440,7 @@ def main():
             case('cancel-auto-on-shutdown', {}, ['/primary', '/backup'], ['/primary'],
                  success=False, cancel=True, automatic=True)
     retry_port_collisions(attempt)
-    print('4 API/EC source-list scenarios passed' if api_binary else '23 server-list and 5 migration scenarios passed')
+    print('4 API/EC source-list scenarios passed' if api_binary else '24 server-list scenarios and migration checks passed')
 
 
 if __name__ == '__main__':

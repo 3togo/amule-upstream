@@ -2113,8 +2113,9 @@ void CPreferences::LoadPreferences()
 	const bool hadLegacy = cfg->Read("/eMule/Ed2kServersUrl", &legacy);
 	const wxString path = GetConfigDir() + "addresses.dat";
 	const bool exists = wxFileExists(path);
-	if (hadLegacy || !exists) {
-		auto urls = GetServerListURLs();
+	wxArrayString urls;
+	// A failed read is not an empty list: replacing it would lose existing sources.
+	if ((hadLegacy || !exists) && (ServerListSources::Read(path, urls) || !exists)) {
 		bool changed = !exists;
 		if (!legacy.empty() && legacy != "https://upd.emule-security.org/server.met" &&
 			ServerListSources::IsValid(legacy)) {

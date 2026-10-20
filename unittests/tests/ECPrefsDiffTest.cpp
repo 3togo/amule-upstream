@@ -166,3 +166,31 @@ TEST(ECPrefsDiff, AmuleApiAdminPasswordHasNoOffState)
 	}
 	ASSERT_EQUALS(0u, MakePrefsDiffPacket(current, withoutAdmin)->GetTagCount());
 }
+
+TEST(ECPrefsDiff, ServerSourcesRemainAListWhenEditedOrCleared)
+{
+	for (bool clear : { false, true }) {
+		CECPacket base(EC_OP_SET_PREFERENCES, EC_DETAIL_UPDATE);
+		CECEmptyTag before(EC_TAG_PREFS_SERVERS);
+		CECEmptyTag oldSources(EC_TAG_SERVERS_URL_LIST);
+		oldSources.AddTag(CECTag(EC_TAG_STRING, wxString("https://old.example/list")));
+		before.AddTag(oldSources);
+		base.AddTag(before);
+
+		CECPacket current(EC_OP_SET_PREFERENCES, EC_DETAIL_UPDATE);
+		CECEmptyTag after(EC_TAG_PREFS_SERVERS);
+		CECEmptyTag sources(EC_TAG_SERVERS_URL_LIST);
+		if (!clear) {
+			sources.AddTag(CECTag(EC_TAG_STRING, wxString("https://new.example/list")));
+		}
+		after.AddTag(sources);
+		current.AddTag(after);
+
+		const auto diff = MakePrefsDiffPacket(base, current);
+		const CECTag *list = Find(*diff, EC_TAG_PREFS_SERVERS, EC_TAG_SERVERS_URL_LIST);
+		ASSERT_TRUE(list != nullptr);
+		ASSERT_TRUE(list->IsCustom());
+		ASSERT_EQUALS(0u, list->GetTagDataLen());
+		ASSERT_EQUALS(clear ? 0u : 1u, list->GetTagCount());
+	}
+}

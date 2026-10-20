@@ -26,16 +26,16 @@ inline bool IsValid(const wxString &url)
 
 // Read on each new update, so changes made by the editor or a daemon administrator
 // take effect without restarting. Never create or rewrite the user's file.
-inline wxArrayString Read(const wxString &path)
+inline bool Read(const wxString &path, wxArrayString &sources)
 {
-	wxArrayString sources;
+	sources.clear();
 	if (!wxFileExists(path)) {
-		return sources;
+		return false;
 	}
 	wxFFile file(path, "rb");
 	wxString contents;
 	if (!file.IsOpened() || !file.ReadAll(&contents, wxConvAuto())) {
-		return sources;
+		return false;
 	}
 	wxStringTokenizer lines(contents, "\r\n");
 	while (lines.HasMoreTokens()) {
@@ -45,6 +45,13 @@ inline wxArrayString Read(const wxString &path)
 			sources.Add(url);
 		}
 	}
+	return true;
+}
+
+inline wxArrayString Read(const wxString &path)
+{
+	wxArrayString sources;
+	Read(path, sources);
 	return sources;
 }
 } // namespace ServerListSources

@@ -8197,7 +8197,14 @@ bool PrefTakeString(const picojson::object &o,
 		err = std::string(key) + " must be a string";
 		return false;
 	}
-	group.AddTag(CECTag(name, wxString::FromUTF8(it->second.get<std::string>().c_str())));
+	const auto &value = it->second.get<std::string>();
+	if (name == EC_TAG_SERVERS_UPDATE_URL &&
+		(value.find('\0') != std::string::npos ||
+			(!value.empty() && !ServerListSources::IsValid(wxString::FromUTF8(value.c_str()))))) {
+		err = "update_url must be empty or a valid HTTP or HTTPS URL";
+		return false;
+	}
+	group.AddTag(CECTag(name, wxString::FromUTF8(value.c_str())));
 	any = true;
 	return true;
 }

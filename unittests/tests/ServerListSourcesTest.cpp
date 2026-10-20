@@ -110,3 +110,14 @@ TEST(ServerListSources, ReadsUTF8BOM)
 	ASSERT_EQUALS(size_t(1), sources.size());
 	ASSERT_EQUALS(wxString("https://example.com/list"), sources[0]);
 }
+
+TEST(ServerListSources, ReadStatusDistinguishesEmptyFromUnreadable)
+{
+	SourceFile file;
+	wxArrayString sources;
+	ASSERT_TRUE(ServerListSources::Read(file.path, sources));
+	ASSERT_TRUE(sources.empty());
+	ASSERT_TRUE(wxRemoveFile(file.path));
+	ASSERT_FALSE(ServerListSources::Read(file.path, sources));
+	file.Write("");
+}
