@@ -1424,10 +1424,10 @@ void CamuleDlg::ShowUserCount(const wxString &info)
 
 void CamuleDlg::ShowTransferRate()
 {
-	float kBpsUp = theStats::GetDisplayUploadRate() / 1024.0;
-	float kBpsDown = theStats::GetDisplayDownloadRate() / 1024.0;
-	float MBpsUp = kBpsUp / 1024.0;
-	float MBpsDown = kBpsDown / 1024.0;
+	const double kBpsUp = static_cast<double>(theStats::GetDisplayUploadRate()) / 1024.0;
+	const double kBpsDown = static_cast<double>(theStats::GetDisplayDownloadRate()) / 1024.0;
+	const double MBpsUp = kBpsUp / 1024.0;
+	const double MBpsDown = kBpsDown / 1024.0;
 	bool showMBpsUp = (MBpsUp >= 1);
 	bool showMBpsDown = (MBpsDown >= 1);
 	wxString buffer;
@@ -1435,10 +1435,10 @@ void CamuleDlg::ShowTransferRate()
 		buffer = CFormat(_("Up: %.1f%s (%.1f) | Down: %.1f%s (%.1f)")) %
 			 (showMBpsUp ? MBpsUp : kBpsUp) %
 			 (showMBpsUp ? _(" MiB/s") : ((kBpsUp > 0) ? _(" KiB/s") : "")) %
-			 (theStats::GetDisplayUpOverheadRate() / 1024.0) %
+			 (static_cast<double>(theStats::GetDisplayUpOverheadRate()) / 1024.0) %
 			 (showMBpsDown ? MBpsDown : kBpsDown) %
 			 (showMBpsDown ? _(" MiB/s") : ((kBpsDown > 0) ? _(" KiB/s") : "")) %
-			 (theStats::GetDisplayDownOverheadRate() / 1024.0);
+			 (static_cast<double>(theStats::GetDisplayDownOverheadRate()) / 1024.0);
 	} else {
 		buffer = CFormat(_("Up: %.1f%s | Down: %.1f%s")) % (showMBpsUp ? MBpsUp : kBpsUp) %
 			 (showMBpsUp ? _(" MiB/s") : ((kBpsUp > 0) ? _(" KiB/s") : "")) %

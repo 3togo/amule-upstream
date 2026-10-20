@@ -49,7 +49,7 @@ public:
 			return;
 		}
 		if (!m_samples) {
-			m_samples.reset(new std::deque<Sample>);
+			m_samples = std::make_unique<std::deque<Sample>>();
 		}
 		auto pos = std::lower_bound(
 			m_samples->begin(), m_samples->end(), now, [](const Sample &sample, uint64_t time) {
