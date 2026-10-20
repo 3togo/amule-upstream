@@ -102,7 +102,7 @@ bool RestrictMetadata(std::string &error)
 bool FolderWriteSandbox::Restrict(const std::vector<std::string> &writableRoots, std::string &error)
 {
 #if defined(__linux__) && defined(SYS_landlock_create_ruleset) && defined(LANDLOCK_ACCESS_FS_TRUNCATE)
-	const int abi = syscall(SYS_landlock_create_ruleset, nullptr, 0, LANDLOCK_CREATE_RULESET_VERSION);
+	const long abi = syscall(SYS_landlock_create_ruleset, nullptr, 0, LANDLOCK_CREATE_RULESET_VERSION);
 	if (abi < 3) {
 		error = "Read-only folder access requires Linux Landlock ABI 3 or newer (Linux 6.2+).";
 		return false;
@@ -115,7 +115,9 @@ bool FolderWriteSandbox::Restrict(const std::vector<std::string> &writableRoots,
 				   LANDLOCK_ACCESS_FS_REFER | LANDLOCK_ACCESS_FS_TRUNCATE;
 	landlock_ruleset_attr ruleset = {};
 	ruleset.handled_access_fs = mutations;
-	const int rules = syscall(SYS_landlock_create_ruleset, &ruleset, sizeof(ruleset), 0);
+	// This operation returns an int file descriptor, or -1 on failure.
+	const int rules =
+		static_cast<int>(syscall(SYS_landlock_create_ruleset, &ruleset, sizeof(ruleset), 0));
 	if (rules < 0) {
 		error = std::strerror(errno);
 		return false;

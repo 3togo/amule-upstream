@@ -143,7 +143,8 @@ void CDirectoryTreeCtrl::Init()
 		wxMemoryDC dc(bitmap);
 		dc.SetBackground(wxBrush(GetBackgroundColour()));
 		dc.Clear();
-		const int flags = state == 1 ? wxCONTROL_CHECKED : (state == 2 ? wxCONTROL_UNDETERMINED : 0);
+		const int flags = static_cast<int>(
+			state == 1 ? wxCONTROL_CHECKED : (state == 2 ? wxCONTROL_UNDETERMINED : 0));
 		wxRendererNative::Get().DrawCheckBox(this, dc, wxRect(0, 0, 16, 16), flags);
 		dc.SelectObject(wxNullBitmap);
 		checks->Add(bitmap);

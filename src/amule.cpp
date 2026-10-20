@@ -916,8 +916,9 @@ bool CamuleApp::OnInit()
 
 	// Validate (and create if needed) the temp / incoming directories.
 	// Deferred to here so the first-run wizard above could redirect them.
-	const CPath configuredTempDir = thePrefs::GetTempDir();
-	const CPath configuredIncomingDir = thePrefs::GetIncomingDir();
+	// Snapshot both paths before SetTempDir/SetIncomingDir replace the preferences.
+	const CPath configuredTempDir(thePrefs::GetTempDir());
+	const CPath configuredIncomingDir(thePrefs::GetIncomingDir());
 	CPath outDir;
 	if (CheckMuleDirectory("temp", thePrefs::GetTempDir(), thePrefs::GetConfigDir() + "Temp", outDir)) {
 		thePrefs::SetTempDir(outDir);
