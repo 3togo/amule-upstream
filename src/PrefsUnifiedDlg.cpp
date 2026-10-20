@@ -1486,6 +1486,16 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 		restart_needed_msg += _("- Temp folder changed.\n");
 	}
 
+#ifdef CLIENT_GUI
+	// Older cores still defer loading the server list until startup. Keep their
+	// existing warning; the optional poll tag identifies the updated implementation.
+	if (!ed2kWasEnabled && thePrefs::GetNetworkED2K() &&
+		!theApp->glob_prefs->SupportsLiveNetworkPreferences()) {
+		restart_needed = true;
+		restart_needed_msg += _("- ED2K network enabled.\n");
+	}
+#endif
+
 	// CommitSharedDirsWithProgress already ran Reload (with progress and cancel) when
 	// shareddir_list itself changed; this only triggers a fresh Reload for the other paths
 	// IDC_INCFILES / IDC_TEMPFILES affect. The three settings below each need a re-walk,

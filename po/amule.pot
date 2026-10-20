@@ -6773,6 +6773,10 @@ msgid "- Temp folder changed.\n"
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "- ED2K network enabled.\n"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
 msgid ""
 "Both eD2k and Kad network are disabled.\n"
 "You won't be able to connect until you enable at least one of them."

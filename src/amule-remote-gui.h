@@ -112,6 +112,7 @@ class CPreferencesRem : public CPreferences, public CECPacketHandlerBase
 	std::unique_ptr<CECPacket> m_remoteState;
 	// Reply handlers share the counter so reconnect/teardown can discard them safely.
 	std::shared_ptr<unsigned> m_pendingNetworkWrites = std::make_shared<unsigned>(0);
+	bool m_liveNetworkPreferences = false;
 
 	virtual void HandlePacket(const CECPacket *packet);
 	void RememberRemoteState();
@@ -143,6 +144,8 @@ public:
 	void RefreshFromRemote(std::function<void()> then = nullptr);
 	void ApplyRefresh(const CECPacket *packet);
 	void UpdateNetworks(bool ed2kEnabled, bool kadEnabled);
+	bool SupportsLiveNetworkPreferences() const { return m_liveNetworkPreferences; }
+	void SetLiveNetworkPreferencesSupported(bool supported) { m_liveNetworkPreferences = supported; }
 	void SendChangesToRemote();
 	//! Sends one preferences category holding only the given tags.
 	void SendPartialToRemote(const CECTag &category);

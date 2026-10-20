@@ -2061,8 +2061,10 @@ void CServerConnectRem::HandlePacket(const CECPacket *packet)
 		return;
 	}
 
-	// Older daemons omit this tag; retain the preference-based layout in that case.
-	if (const CECTag *networks = tag->GetTagByName(EC_TAG_NETWORKS_ENABLED)) {
+	// The optional tag also identifies cores that support enabling ED2K without a restart.
+	const CECTag *networks = tag->GetTagByName(EC_TAG_NETWORKS_ENABLED);
+	theApp->glob_prefs->SetLiveNetworkPreferencesSupported(networks != nullptr);
+	if (networks) {
 		const bool ed2kEnabled = (networks->GetInt() & 0x01) != 0;
 		const bool kadEnabled = (networks->GetInt() & 0x02) != 0;
 		theApp->glob_prefs->UpdateNetworks(ed2kEnabled, kadEnabled);
