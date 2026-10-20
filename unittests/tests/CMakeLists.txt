@@ -1589,6 +1589,25 @@ target_link_libraries (TextFileTest
 	muleunit
 )
 
+add_executable (ECFileConfigTest ECFileConfigTest.cpp)
+add_test (NAME ECFileConfigTest COMMAND ECFileConfigTest)
+target_include_directories (ECFileConfigTest PRIVATE
+	${CMAKE_SOURCE_DIR}/src
+	${CMAKE_SOURCE_DIR}/src/include
+)
+target_link_libraries (ECFileConfigTest muleunit mulecommon)
+
+# Offline command-line coverage, including native Windows path forms.
+if (Python3_Interpreter_FOUND)
+	foreach (connector IN ITEMS amulecmd amuleweb)
+		if (TARGET ${connector})
+			add_test (NAME ConnectorConfigPathTest-${connector}
+				COMMAND ${Python3_EXECUTABLE}
+					${CMAKE_CURRENT_SOURCE_DIR}/ConnectorConfigPathTest.py $<TARGET_FILE:${connector}>)
+		endif ()
+	endforeach ()
+endif ()
+
 add_executable (OtherFunctionsTest
 	OtherFunctionsTest.cpp
 	${CMAKE_SOURCE_DIR}/src/OtherFunctions.cpp
@@ -3046,3 +3065,22 @@ add_executable (WindowGeometryTest WindowGeometryTest.cpp)
 target_include_directories (WindowGeometryTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (WindowGeometryTest muleunit mulecommon)
 add_test (NAME WindowGeometryTest COMMAND WindowGeometryTest)
+
+add_executable (BandwidthRateConversionTest BandwidthRateConversionTest.cpp)
+target_include_directories (BandwidthRateConversionTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (BandwidthRateConversionTest muleunit mulecommon)
+add_test (NAME BandwidthRateConversionTest COMMAND BandwidthRateConversionTest)
+
+# Exercise the localized text path shared by calculator previews and OK.
+if (TARGET wxWidgets::CORE)
+	add_executable (BandwidthRateInputTest BandwidthRateInputTest.cpp)
+	if (WIN32)
+		target_sources (BandwidthRateInputTest PRIVATE DialogLayoutTest.rc)
+	endif()
+	target_include_directories (BandwidthRateInputTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+	target_link_libraries (BandwidthRateInputTest PRIVATE wxWidgets::CORE)
+	add_test (NAME BandwidthRateInputEnglishTest COMMAND BandwidthRateInputTest en)
+	add_test (NAME BandwidthRateInputItalianTest COMMAND BandwidthRateInputTest it)
+	set_tests_properties (BandwidthRateInputEnglishTest BandwidthRateInputItalianTest
+		PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+endif()
