@@ -152,6 +152,8 @@ def main():
     run("dbus-update-activation-environment", *(f"{key}={host[key]}" for key in
         ["XDG_RUNTIME_DIR", "XDG_CONFIG_HOME", "XDG_SESSION_TYPE", "XDG_CURRENT_DESKTOP", "GSETTINGS_BACKEND"]))
 
+    # Refuse production or symlinked profiles before launching any sandbox.
+    config = prepare_profile(Path.home(), SESSION)
     permissions = run("flatpak", "info", "--user", "--show-permissions", APP)
     (OUT / "permissions.ini").write_text(permissions + "\n")
     metadata = configparser.ConfigParser()
@@ -201,7 +203,6 @@ def main():
     app_env.update(LANG="C.UTF-8", LC_ALL="C.UTF-8", XDG_SESSION_TYPE=host["XDG_SESSION_TYPE"],
                    XDG_CURRENT_DESKTOP=host["XDG_CURRENT_DESKTOP"])
 
-    config = prepare_profile(Path.home(), SESSION)
     app = start("amule", ["flatpak", "run", *options, APP], app_env)
     if SESSION == "kde-wayland":
         window = wait_for("KWin nested window", lambda: run(
