@@ -1624,6 +1624,8 @@ void CPreferencesRem::HandlePacket(const CECPacket *packet)
 
 bool CPreferencesRem::LoadRemote()
 {
+	// Capabilities belong to this connection, not the previously connected core.
+	m_liveNetworkPreferences = false;
 #ifdef GEOIP_GUI
 	// Assume the core has NO GeoIP support until it says otherwise. A 3.1+ core built
 	// with ENABLE_IP2COUNTRY answers with EC_TAG_IP2COUNTRY_SUPPORTED; a pre-3.1 core
@@ -1659,6 +1661,8 @@ class CPrefsRefreshHandler : public CECPacketHandlerBase
 	std::function<void()> m_then;
 
 public:
+	void AbortPendingRequest() override { delete this; }
+
 	explicit CPrefsRefreshHandler(std::function<void()> then)
 	: m_then(std::move(then))
 	{
@@ -1687,6 +1691,13 @@ void CPreferencesRem::ApplyRefresh(const CECPacket *packet)
 		const bool ed2kWasEnabled = thePrefs::GetNetworkED2K();
 		const bool kadWasEnabled = thePrefs::GetNetworkKademlia();
 		static_cast<const CEC_Prefs_Packet *>(packet)->Apply();
+		// A refresh requested before our SET can arrive after the dialog committed
+		// its values, just like an older statistics poll. Preserve the pending write
+		// in both the live copy and the diff baseline until its acknowledgement.
+		if (*m_pendingNetworkWrites != 0) {
+			thePrefs::SetNetworkED2K(ed2kWasEnabled);
+			thePrefs::SetNetworkKademlia(kadWasEnabled);
+		}
 		RememberRemoteState();
 		if (theApp->amuledlg && (ed2kWasEnabled != thePrefs::GetNetworkED2K() ||
 						kadWasEnabled != thePrefs::GetNetworkKademlia())) {

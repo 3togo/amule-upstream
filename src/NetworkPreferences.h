@@ -29,16 +29,27 @@
 class CNetworkPreferenceEdit
 {
 public:
-	void Reset(bool enabled) { m_synced = enabled; }
+	void Reset(bool enabled)
+	{
+		m_synced = m_displayed = enabled;
+		m_edited = false;
+	}
 	bool Merge(bool displayed, bool enabled)
 	{
-		const bool result = displayed == m_synced ? enabled : displayed;
+		// Only a new user change can clear an edit. A matching remote update must
+		// not consume it: another client may change the value back before we save.
+		if (displayed != m_displayed) {
+			m_edited = displayed != m_synced;
+		}
+		m_displayed = m_edited ? displayed : enabled;
 		m_synced = enabled;
-		return result;
+		return m_displayed;
 	}
 
 private:
 	bool m_synced = false;
+	bool m_displayed = false;
+	bool m_edited = false;
 };
 
 #endif // NETWORKPREFERENCES_H

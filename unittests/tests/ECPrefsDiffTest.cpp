@@ -236,3 +236,27 @@ TEST(ECPrefsDiff, OpenNetworkCheckboxKeepsStagedEdit)
 	edit.Reset(true);
 	ASSERT_FALSE(edit.Merge(true, false));
 }
+
+TEST(ECPrefsDiff, OpenNetworkCheckboxKeepsEditAcrossRemoteRoundTrip)
+{
+	for (const bool initial : { false, true }) {
+		CNetworkPreferenceEdit edit;
+		edit.Reset(initial);
+		bool displayed = edit.Merge(!initial, initial);
+		ASSERT_EQUALS(!initial, displayed);
+		displayed = edit.Merge(displayed, !initial);
+		ASSERT_EQUALS(!initial, displayed);
+		displayed = edit.Merge(displayed, initial);
+		ASSERT_EQUALS(!initial, displayed);
+	}
+}
+
+TEST(ECPrefsDiff, RevertingStagedNetworkEditResumesRemoteUpdates)
+{
+	CNetworkPreferenceEdit edit;
+	edit.Reset(false);
+	ASSERT_TRUE(edit.Merge(true, false));
+	// The user returns to the core's current value before saving.
+	ASSERT_FALSE(edit.Merge(false, false));
+	ASSERT_TRUE(edit.Merge(false, true));
+}

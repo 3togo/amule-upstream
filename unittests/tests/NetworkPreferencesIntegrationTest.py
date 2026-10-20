@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import struct
+import socket
 import subprocess
 import sys
 import tempfile
@@ -151,6 +152,27 @@ def run(daemon_binary, api_binary):
                 wait_for(lambda: connection_state() & 0x01, 'loopback server did not connect')
                 request('/preferences', {'connection': {'ed2k_enabled': False}}, 'PATCH')
                 assert not connection_state() & 0x03, 'disabled ED2K is connected or connecting'
+
+                # Hold a second server at the login stage. Disabling ED2K must close
+                # an in-flight attempt as well as an established connection.
+                with socket.socket() as listener:
+                    listener.bind(('127.0.0.1', 0))
+                    listener.listen(1)
+                    listener.settimeout(30)
+                    port = listener.getsockname()[1]
+                    request('/preferences', {'connection': {'ed2k_enabled': True}}, 'PATCH')
+                    assert ec.call(C['EC_OP_SERVER_ADD'], [string(C['EC_TAG_SERVER_ADDRESS'],
+                                   f'localhost:{port}')])[0] == C['EC_OP_NOOP']
+                    server_tag = tag(C['EC_TAG_SERVER'], b'\0' * 4 + struct.pack('!H', port), 8)
+                    assert ec.call(C['EC_OP_SERVER_CONNECT'], [server_tag])[0] == C['EC_OP_NOOP']
+                    with listener.accept()[0] as pending:
+                        pending.settimeout(30)
+                        assert pending.recv(4096), 'daemon did not send a server login'
+                        assert connection_state() & 0x02, 'fixture did not reach a connection attempt'
+                        request('/preferences', {'connection': {'ed2k_enabled': False}}, 'PATCH')
+                        assert not connection_state() & 0x03, 'disabled ED2K is still connecting'
+                        while pending.recv(4096):
+                            pass  # EOF proves that the attempt's TCP socket was closed.
         except BaseException:
             for path in (core / 'logfile', root / 'console.log', root / 'api.log'):
                 if path.exists():
@@ -169,7 +191,7 @@ def run(daemon_binary, api_binary):
         # Disabling ED2K must still save the list that was initialized earlier. The
         # replacement on-disk seed must not win over the live list on shutdown.
         saved = (core / 'server.met').read_bytes()
-        assert struct.unpack_from('<I', saved, 1)[0] == 3, 'disabled ED2K lost live server edits'
+        assert struct.unpack_from('<I', saved, 1)[0] == 4, 'disabled ED2K lost live server edits'
 
         # A core started disabled must leave an uninitialized list untouched on exit.
         # Use a fresh minimal record: accidentally loading and saving it would add
