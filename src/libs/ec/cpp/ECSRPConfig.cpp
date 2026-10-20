@@ -25,6 +25,7 @@
 #include "ECSRPConfig.h"
 #include "ECSRP.h"
 #include <wx/intl.h>
+#include <stdexcept>
 
 namespace ECSRP
 {
@@ -82,14 +83,27 @@ bool StoreCredential(wxConfigBase &cfg, const wxString &digest, wxString &verifi
 {
 	error.clear();
 	try {
+		if (!digest.IsEmpty() && !IsPasswordDigest(std::string(digest.utf8_str())))
+			throw std::invalid_argument("Invalid EC password digest");
 		const wxString next = CreateRecord(digest);
+		// Unlike migration, an explicit rotation must never persist a new
+		// verifier alongside a stale legacy password: startup would interpret
+		// that legacy key as a later password edit made by a downgraded core.
+		const bool hadLegacy = cfg.HasEntry(LEGACY);
+		const wxString legacy = cfg.Read(LEGACY, wxString());
+		if (hadLegacy && !cfg.DeleteEntry(LEGACY)) {
+			error = _("EC password change rejected: could not persist ECPasswordVerifier. The "
+				  "active credential is unchanged.");
+			return false;
+		}
 		if (!Persist(cfg, next)) {
+			if (hadLegacy)
+				cfg.Write(LEGACY, legacy);
 			error = _("EC password change rejected: could not persist ECPasswordVerifier. The "
 				  "active credential is unchanged.");
 			return false;
 		}
 		verifier = next;
-		Cleanup(cfg, error);
 		return true;
 	} catch (const std::exception &) {
 		error = _("EC password change rejected: could not generate ECPasswordVerifier. The active "

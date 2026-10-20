@@ -2519,12 +2519,12 @@ msgstr ""
 
 #: src/ExternalConn.cpp
 #, c-format
-msgid "EC password changed by %s"
+msgid "Could not save the amuleapi password: %s"
 msgstr ""
 
 #: src/ExternalConn.cpp
 #, c-format
-msgid "Could not save the amuleapi password: %s"
+msgid "EC password changed by %s"
 msgstr ""
 
 #: src/ExternalConn.cpp

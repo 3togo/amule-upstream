@@ -64,6 +64,11 @@ public:
 	{
 	}
 	int calls = 0, failAt = 0;
+	bool failDelete = false;
+	bool DeleteEntry(const wxString &key, bool deleteGroupIfEmpty = true) override
+	{
+		return !failDelete && wxFileConfig::DeleteEntry(key, deleteGroupIfEmpty);
+	}
 	wxString savedVerifier, savedLegacy;
 	bool savedHasVerifier = false;
 	bool Flush(bool = false) override
@@ -108,6 +113,22 @@ int main()
 			if (scenario == 5)
 				Check(cfg.Read("/EC/Password", wxString()) == "unrelated",
 					"rotation overwrote a separately saved credential");
+		}
+		for (const auto &digest : { std::string(),
+			     std::string(32, '0'),
+			     std::string("d41d8cd98f00b204e9800998ecf8427e"),
+			     std::string("D41D8CD98F00B204E9800998ECF8427E"),
+			     std::string(32, 'z') }) {
+			Check(!IsPasswordDigest(digest), "unusable password digest accepted");
+			if (!digest.empty()) {
+				FaultConfig cfg;
+				wxString existing = "unchanged", error;
+				Check(!StoreCredential(
+					      cfg, wxString::FromUTF8(digest.c_str()), existing, error),
+					"unusable password committed");
+				Check(existing == "unchanged" && cfg.calls == 0,
+					"invalid password changed credential state");
+			}
 		}
 		// RFC 7914 section 12: https://www.rfc-editor.org/rfc/rfc7914#section-12
 		// The fourth vector needs 1 GiB, so keep the default test within the CI fast budget.
@@ -295,8 +316,7 @@ int main()
 		FaultConfig cleanup;
 		cleanup.Write("/ExternalConnect/ECPassword", wxString::FromUTF8(password.c_str()));
 		cleanup.failAt = 2;
-		Check(StoreCredential(
-			      cleanup, wxString::FromUTF8(password.c_str()), migrated, migrationError),
+		Check(LoadCredential(cleanup, migrated, migrationError),
 			"cleanup failure rejected committed verifier");
 		Check(!cleanup.HasEntry("/ExternalConnect/ECPassword"),
 			"failed cleanup restored stale legacy key in memory");
@@ -305,6 +325,48 @@ int main()
 		Check(LoadCredential(cleanup, migrated, migrationError) &&
 				Verifier::Decode(std::string(migrated.utf8_str())).Matches(newer),
 			"cleanup failure resurrected old password");
+		// A rotation cannot expose an intermediate persisted state containing
+		// the new verifier and old digest, even if a second flush would fail.
+		for (int failure : { 0, 1, 2 }) {
+			FaultConfig rotation;
+			const wxString original = wxString::FromUTF8(verifier.Encode().c_str());
+			rotation.Write("/ExternalConnect/ECPasswordVerifier", original);
+			rotation.Write("/ExternalConnect/ECPassword", wxString::FromUTF8(password.c_str()));
+			rotation.failAt = failure == 1 ? 1 : 2;
+			rotation.failDelete = failure == 2;
+			wxString active = original, warning;
+			const bool ok =
+				StoreCredential(rotation, wxString::FromUTF8(newer.c_str()), active, warning);
+			Check(ok == (failure == 0), "rotation failure was hidden");
+			if (ok) {
+				Check(rotation.calls == 1 && rotation.savedLegacy.IsEmpty(),
+					"rotation persisted an obsolete legacy password");
+				FaultConfig restarted;
+				restarted.Write(
+					"/ExternalConnect/ECPasswordVerifier", rotation.savedVerifier);
+				wxString again;
+				Check(LoadCredential(restarted, again, warning) && again == active &&
+						Verifier::Decode(std::string(again.utf8_str()))
+							.Matches(newer),
+					"rotation did not survive restart");
+			} else {
+				Check(active == original &&
+						rotation.Read("/ExternalConnect/ECPasswordVerifier",
+							wxString()) == original &&
+						rotation.Read("/ExternalConnect/ECPassword", wxString()) ==
+							password,
+					"failed rotation changed the previous credential state");
+			}
+		}
+		FaultConfig disabled;
+		disabled.Write(
+			"/ExternalConnect/ECPasswordVerifier", wxString::FromUTF8(verifier.Encode().c_str()));
+		disabled.Write("/ExternalConnect/ECPassword", wxString::FromUTF8(password.c_str()));
+		disabled.failAt = 2;
+		Check(StoreCredential(disabled, "", migrated, migrationError) && migrated.IsEmpty() &&
+				disabled.calls == 1 && disabled.savedHasVerifier &&
+				disabled.savedVerifier.IsEmpty() && disabled.savedLegacy.IsEmpty(),
+			"clearing the password left a legacy credential to resurrect");
 		FaultConfig corrupt;
 		corrupt.Write("/ExternalConnect/ECPassword", wxString::FromUTF8(password.c_str()));
 		corrupt.Write("/ExternalConnect/ECPasswordVerifier", "v9:unsupported");

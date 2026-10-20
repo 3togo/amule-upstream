@@ -152,6 +152,46 @@ def rate_limit_boundary(daemon, cmd, async_probe, root, env):
             finally:
                 stop_daemon(proc)
 
+def password_edit_regressions(port, root, peer):
+    """Rejected edits must preserve the credential and unrelated preferences."""
+    editor = EC(port)
+    try:
+        full = tag(C['EC_TAG_DETAIL_LEVEL'], bytes([C['EC_DETAIL_FULL']]), 2)
+        select = tag(C['EC_TAG_SELECT_PREFS'], struct.pack('!I', C['EC_PREFS_GENERAL']), 4)
+        def nickname():
+            _, prefs = editor.call(C['EC_OP_GET_PREFERENCES'], [full, select])
+            return prefs[C['EC_TAG_PREFS_GENERAL']][1][C['EC_TAG_USER_NICK']][0]
+        original_nick = nickname()
+        original_record = next(line for line in (root / 'amule.conf').read_text().splitlines()
+                               if line.startswith('ECPasswordVerifier='))
+        for value, kind in ((b'not-a-digest\0', 6), (bytes(16), 9),
+                            (hashlib.md5(b'').digest(), 9)):
+            remote = tag(C['EC_TAG_PREFS_REMOTECTRL'], children=[
+                tag(C['EC_TAG_EXTERNALCONN_PASSWD'], value, kind)])
+            general = tag(C['EC_TAG_PREFS_GENERAL'], children=[
+                tag(C['EC_TAG_USER_NICK'], b'must-not-apply\0', 6)])
+            assert editor.call(C['EC_OP_SET_PREFERENCES'], [full, general, remote])[0] == C['EC_OP_FAILED']
+            assert nickname() == original_nick, 'rejected password edit changed other preferences'
+            assert original_record in (root / 'amule.conf').read_text()
+            EC(port).sock.close()
+
+        # Keep the port occupied until the daemon replies, guaranteeing bind failure.
+        with socket.socket() as occupied:
+            occupied.bind(('127.0.0.1', 0))
+            occupied.listen()
+            connection = tag(C['EC_TAG_PREFS_CONNECTIONS'], children=[
+                tag(C['EC_TAG_CONN_TCP_PORT'], struct.pack('!H', occupied.getsockname()[1]), 3)])
+            remote = tag(C['EC_TAG_PREFS_REMOTECTRL'], children=[
+                tag(C['EC_TAG_EXTERNALCONN_PASSWD'], hashlib.md5(b'must-not-commit').digest(), 9)])
+            assert editor.call(C['EC_OP_SET_PREFERENCES'], [full, connection, remote])[0] == C['EC_OP_FAILED']
+        assert original_record in (root / 'amule.conf').read_text(), 'failed port rebind committed a password rotation'
+        EC(port).sock.close()
+        with socket.create_connection(('127.0.0.1', peer), timeout=5):
+            pass
+    finally:
+        editor.sock.close()
+    print('PASS: malformed/empty password edits and failed port rebind preserve credentials and preferences')
+
 def main(daemon,cmd,async_probe):
     with tempfile.TemporaryDirectory(prefix='amule-srp-') as scratch:
         root=Path(scratch);port,peer=free_ports(2)
@@ -250,15 +290,7 @@ def main(daemon,cmd,async_probe):
                     EC(port).sock.close()
                     print('PASS: out-of-order, repeated AUTH_REQ, invalid A, and M1 replay rejected')
 
-                    # A malformed edit must report failure and leave the existing
-                    # credential usable, rather than closing or rekeying the daemon.
-                    editor = EC(port)
-                    try:
-                        malformed = tag(C['EC_TAG_PREFS_REMOTECTRL'], children=[
-                            tag(C['EC_TAG_EXTERNALCONN_PASSWD'], b'not-a-digest\0', 6)])
-                        assert editor.call(C['EC_OP_SET_PREFERENCES'], [malformed])[0] == C['EC_OP_FAILED']
-                    finally:
-                        editor.sock.close()
+                    password_edit_regressions(port, root, peer)
                     def change_password(old, new):
                         editor=EC(port,password=old)
                         try:

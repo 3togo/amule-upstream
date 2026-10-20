@@ -4064,6 +4064,22 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 					"Only password-authenticated sessions may change the EC password.")));
 			break;
 		}
+		// Validate before Apply() can mutate any other preference. Commit only
+		// after the fallible port rebind, so a failed reply never hides a rotation.
+		const auto *remote = request->GetTagByName(EC_TAG_PREFS_REMOTECTRL);
+		const auto *password = remote ? remote->GetTagByName(EC_TAG_EXTERNALCONN_PASSWD) : nullptr;
+		wxString nextPassword;
+		if (password) {
+			if (!password->IsMD4() || password->GetTagCount() != 0 ||
+				!ECSRP::IsPasswordDigest(
+					std::string(password->GetMD4Data().Encode().utf8_str()))) {
+				response = new CECPacket(EC_OP_FAILED);
+				response->AddTag(CECTag(EC_TAG_STRING,
+					wxTRANSLATE("Could not update EC password verifier.")));
+				break;
+			}
+			nextPassword = password->GetMD4Data().Encode();
+		}
 		const uint16 oldTcpPort = thePrefs::GetPort();
 		const uint16 oldUdpPort = thePrefs::GetUDPPort();
 		// Keep value snapshots: Apply() mutates both stored preference strings.
@@ -4081,8 +4097,6 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 				CECTag(EC_TAG_STRING, wxTRANSLATE("Could not update EC password verifier.")));
 			break;
 		}
-		if (changesPassword)
-			AddLogLineN(CFormat(_("EC password changed by %s")) % GetPeer());
 		// Apply() left any amuleapi password the client sent sitting in the
 		// preferences as a pending request; this is what turns it into a
 		// stored, stretched record in amuleapi-passwords. Logged rather than
@@ -4127,6 +4141,15 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		// Act on an AdvertiseIPv6 change now, not at the next periodic refresh.
 		AdvertisedIPv6ForPeers();
 #endif
+		if (password && !portRebindFailed) {
+			if (!thePrefs::SetECPass(nextPassword)) {
+				response = new CECPacket(EC_OP_FAILED);
+				response->AddTag(CECTag(EC_TAG_STRING,
+					wxTRANSLATE("Could not update EC password verifier.")));
+				break;
+			}
+			AddLogLineN(CFormat(_("EC password changed by %s")) % GetPeer());
+		}
 		response = new CECPacket(portRebindFailed ? EC_OP_FAILED : EC_OP_NOOP);
 		if (portRebindFailed) {
 			response->AddTag(CECTag(EC_TAG_STRING, networkMessage));

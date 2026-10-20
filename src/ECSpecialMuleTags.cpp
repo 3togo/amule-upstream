@@ -28,7 +28,6 @@
 
 #include "config.h" // Needed for ENABLE_VERSION_CHECK
 #include "Preferences.h"
-#include <stdexcept>
 #include "amule.h"
 #include "IP2Country.h"     // For CIP2Country status (#440 remote GeoIP config)
 #include "SharedFileList.h" // for EnableDirectoryWatcher on the apply path
@@ -740,12 +739,6 @@ void CEC_Prefs_Packet::Apply() const
 #ifdef CLIENT_GUI
 		if ((oneTag = thisTab->GetTagByName(EC_TAG_EXTERNALCONN_PASSWD_SET)) != nullptr) {
 			thePrefs::LoadECVerifier(oneTag->GetInt() ? "set" : "");
-		}
-#else
-		if ((oneTag = thisTab->GetTagByName(EC_TAG_EXTERNALCONN_PASSWD)) != nullptr) {
-			if (!oneTag->IsMD4() || !thePrefs::SetECPass(oneTag->GetMD4Data().Encode())) {
-				throw std::runtime_error("Could not update EC password verifier");
-			}
 		}
 #endif
 		ApplyBoolean(use_tag, thisTab, thePrefs::SetWSIsEnabled, EC_TAG_WEBSERVER_AUTORUN);

@@ -236,7 +236,7 @@ bool CRemoteConnect::ConnectToCore(
 	m_version = version;
 
 	// don't even try to connect without a valid password
-	if (m_connectionPassword.IsEmpty() || m_connectionPassword == "d41d8cd98f00b204e9800998ecf8427e") {
+	if (m_connectionPassword.IsEmpty()) {
 		m_server_reply = _("You must specify a non-empty password.");
 		return false;
 	} else {
@@ -244,7 +244,9 @@ bool CRemoteConnect::ConnectToCore(
 		if (!hash.Decode(m_connectionPassword)) {
 			m_server_reply = _("Invalid password, not a MD5 hash!");
 			return false;
-		} else if (hash.IsEmpty()) {
+		} else if (hash.IsEmpty() ||
+			   (m_srpCredential == ECSRP::Password &&
+				   !ECSRP::IsPasswordDigest(std::string(m_connectionPassword.utf8_str())))) {
 			m_server_reply = _("You must specify a non-empty password.");
 			return false;
 		}

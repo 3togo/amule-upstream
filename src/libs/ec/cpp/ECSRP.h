@@ -109,6 +109,8 @@ private:
 };
 
 Bytes Field(const CECPacket &packet, uint16_t name, size_t size);
+// Accept the non-empty password digests supported by the production clients.
+bool IsPasswordDigest(const std::string &digest);
 Bytes PasswordInput(const std::string &digest, const Bytes &salt);
 struct Proofs
 {

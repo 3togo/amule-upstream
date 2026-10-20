@@ -27,8 +27,8 @@
 #include <wx/config.h>
 namespace ECSRP
 {
-// Write and flush the verifier before removing the old credential. On failure
-// to commit, restore the in-memory config too (wxFileConfig flushes on exit).
+// Rotations commit the new verifier and removal of any legacy key together.
+// On failure, restore the in-memory config too (wxFileConfig flushes on exit).
 bool StoreCredential(wxConfigBase &cfg, const wxString &digest, wxString &verifier, wxString &error);
 bool LoadCredential(wxConfigBase &cfg, wxString &verifier, wxString &error);
 } // namespace ECSRP

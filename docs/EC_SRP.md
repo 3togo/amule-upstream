@@ -96,7 +96,11 @@ downgraded core changed ECPassword, re-upgrade migrates that newer digest with
 a fresh salt and logs the replacement. A present malformed/unsupported verifier
 never falls back to ECPassword. CLI and local preferences generate a fresh salt
 and verifier for a changed password. Remote password changes require a session
-authenticated with the EC password.
+authenticated with the EC password. Explicit rotations commit the new verifier
+and removal of any remaining legacy key in one config flush, so an interrupted
+cleanup cannot restore the previous password after restart. Empty-password and
+all-zero digests are rejected before changing preferences. A combined remote
+password/port edit commits its password only after port rebinding succeeds.
 The local dialog commits the password only after validation and cancellable
 work. Remote preference snapshots never consume or retain a pending EC digest;
 the edit is sent explicitly at commit and cleared only on acknowledgement.

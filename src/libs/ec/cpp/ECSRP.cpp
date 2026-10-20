@@ -151,6 +151,15 @@ Bytes Field(const CECPacket &packet, uint16_t name, size_t size)
 	const auto *data = static_cast<const uint8_t *>(found->GetTagData());
 	return Bytes(data, data + size);
 }
+bool IsPasswordDigest(const std::string &digest)
+{
+	try {
+		const Secret bytes(Unhex(digest, 16));
+		return bytes != Bytes(16) && bytes != Unhex("d41d8cd98f00b204e9800998ecf8427e", 16);
+	} catch (const std::invalid_argument &) {
+		return false;
+	}
+}
 Bytes PasswordInput(const std::string &digest, const Bytes &salt)
 {
 	return Derive(digest, salt);
