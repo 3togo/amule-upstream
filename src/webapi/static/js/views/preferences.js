@@ -23,7 +23,7 @@ import { t, terr, getLang, setLang, LANGS, langName } from "../i18n.js";
 import { getTheme, setTheme } from "../theme.js";
 import { clearPrefs, GRAPH_RANGES, loadGraphInterval, saveGraphInterval } from "../store.js";
 
-// Field types: text (default), int, bool, select, password, textarea.
+// Field types: text (default), int, bool, select, password, server_sources.
 // Flags: readonly (shown disabled, never sent), hidden (capability flag loaded
 // only to gate others), gatedBy (disabled when values[k] === false; skipped on
 // save only when k is a hidden capability flag),
@@ -494,7 +494,7 @@ export default function Preferences({ isGuest }) {
             if (f.type === "button") continue;
             const cat = catOf(tab, f);
             let val = (catGet(p, cat) || {})[f.key];
-            if ((f.type === "textarea" || f.type === "server_sources") && Array.isArray(val)) val = val.join("\n");
+            if (f.type === "server_sources" && Array.isArray(val)) val = val.join("\n");
             else if (f.scale && typeof val === "number") val = Math.round(val / f.scale);
             v[cat + "." + f.key] = val;
           }
@@ -592,7 +592,7 @@ export default function Preferences({ isGuest }) {
                   title=${t(unsaved ? "prefs_sources_apply_first" : "prefs_field_servers_update_list")}
                   onClick=${() => runAction(f.action)}>${t("prefs_field_servers_update_list")}</button>
           <p class="hint">${t(unsaved ? "prefs_sources_apply_first" : "prefs_sources_saved_help")}</p>
-          <label for="server-one-off">${t("prefs_sources_one_off")}</label>
+          <label class="one-off-label" for="server-one-off">${t("prefs_sources_one_off")}</label>
           <div class="field-action">
             <input class="input" id="server-one-off" type="text" disabled=${disabled}
                    placeholder="https://…/server.met" value=${oneOffUrl}
@@ -602,14 +602,6 @@ export default function Preferences({ isGuest }) {
               ${t("prefs_sources_download_once")}
             </button>
           </div>
-        </div>`;
-    }
-    if (f.type === "textarea") {
-      return html`
-        <div class=${"field field-wide" + subCls}>
-          <label for=${id}>${label}</label>
-          <textarea id=${id} rows="4" disabled=${disabled}
-                    value=${val == null ? "" : val} onInput=${(e) => setVal(id, e.target.value)}></textarea>
         </div>`;
     }
     const input = html`
