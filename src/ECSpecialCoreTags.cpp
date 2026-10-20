@@ -168,6 +168,9 @@ CEC_ConnState_Tag::CEC_ConnState_Tag(EC_DETAIL_LEVEL detail_level)
 		  (Kademlia::CKademlia::IsFirewalled() ? 0x08 : 0x00) |
 		  (Kademlia::CKademlia::IsRunning() ? 0x10 : 0x00)))
 {
+	AddTag(CECTag(EC_TAG_NETWORKS_ENABLED,
+		(uint8)((thePrefs::GetNetworkED2K() ? 0x01 : 0x00) |
+			(thePrefs::GetNetworkKademlia() ? 0x02 : 0x00))));
 	if (theApp->IsConnectedED2K()) {
 		if (theApp->serverconnect->GetCurrentServer()) {
 			if (detail_level == EC_DETAIL_INC_UPDATE) {
@@ -216,7 +219,11 @@ CEC_PartFile_Tag::CEC_PartFile_Tag(const CPartFile *file, EC_DETAIL_LEVEL detail
 
 		AddTag(EC_TAG_PARTFILE_SIZE_XFER, file->GetTransferred(), valuemap);
 		AddTag(EC_TAG_PARTFILE_SIZE_DONE, file->GetCompletedSize(), valuemap);
-		AddTag(EC_TAG_PARTFILE_SPEED, (uint64_t)(file->GetKBpsDown() * 1024), valuemap);
+		AddTag(EC_TAG_PARTFILE_SPEED, (uint64_t)file->GetDisplayDownloadRate(), valuemap);
+		AddDiffTag(this,
+			EC_TAG_PARTFILE_SPEED_SMOOTHED,
+			static_cast<double>(file->GetKBpsDown()),
+			valuemap);
 	}
 
 	AddTag(EC_TAG_PARTFILE_PRIO,
@@ -440,10 +447,10 @@ CEC_UpDownClient_Tag::CEC_UpDownClient_Tag(
 	AddDiffTag(this, EC_TAG_CLIENT_SERVER_PORT, client->GetServerPort(), valuemap);
 	AddDiffTag(this, EC_TAG_CLIENT_SERVER_NAME, client->GetServerName(), valuemap);
 
-	// Transfers to Client
-	AddDiffTag(this, EC_TAG_CLIENT_UP_SPEED, client->GetUploadDatarate(), valuemap);
+	// Transfers to Client. Display speed uses the same one-second window as total speed.
+	AddDiffTag(this, EC_TAG_CLIENT_UP_SPEED, client->GetDisplayUploadDatarate(), valuemap);
 	if (client->GetDownloadState() == DS_DOWNLOADING || valuemap) {
-		AddDiffTag(this, EC_TAG_CLIENT_DOWN_SPEED, (double)(client->GetKBpsDown()), valuemap);
+		AddDiffTag(this, EC_TAG_CLIENT_DOWN_SPEED, (double)(client->GetDisplayKBpsDown()), valuemap);
 	}
 	AddDiffTag(this, EC_TAG_CLIENT_UPLOAD_SESSION, client->GetSessionUp(), valuemap);
 	AddDiffTag(this, EC_TAG_PARTFILE_SIZE_XFER, client->GetTransferredDown(), valuemap);
