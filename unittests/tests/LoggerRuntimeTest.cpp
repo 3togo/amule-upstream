@@ -68,12 +68,12 @@ int main()
 	else
 		outerElse = true;
 	Check(outerElse, "normal macro captured an outer else");
-	outerElse = false;
+	bool fileOuterElse = false;
 	if (false)
 		AddDebugLogLineF(logGeneral, message());
 	else
-		outerElse = true;
-	Check(outerElse, "file-only macro captured an outer else");
+		fileOuterElse = true;
+	Check(fileOuterElse, "file-only macro captured an outer else");
 
 	Check(!theLogger.IsEnabled(logStandard), "standard pseudo-category was enabled");
 	Check(!theLogger.IsEnabled(logCategoryCount), "invalid category was enabled");
