@@ -192,7 +192,7 @@ vptr check before startup. If encountered, a temporary suppression file containi
 "vptr:wxGetApp" can be passed via UBSAN_OPTIONS=suppressions=<file> alongside the
 options above; keep address and leak checking enabled.
 
-Runtime network preference coverage (BUILD_DAEMON=ON, BUILD_AMULEAPI=ON,
+Runtime network preference coverage (Linux, BUILD_DAEMON=ON, BUILD_AMULEAPI=ON,
 ENABLE_INTEGRATION_TESTS=ON):
 
   ctest --test-dir build -R NetworkPreferencesIntegrationTest --output-on-failure
@@ -203,7 +203,12 @@ must enable ED2K without restarting, load both lists, create the server UDP
 socket and attempt the configured auto-update once. Repeated network toggles
 must preserve the live list. A second EC client checks all enabled-network
 bitmasks through the connection-state poll, including partial preference writes
-and both networks disabled. The auto-update has an empty URL list; no public
+and both networks disabled. It also stops a running, unconnected Kad and a
+loopback ED2K connection, and checks that a disabled shutdown saves an initialized
+server list while a disabled restart preserves an uninitialized list. The
+headless ECPrefsDiffTest covers reverse toggles after a remote poll, preserving
+unrelated edits, and merging open-dialog checkboxes without losing staged edits.
+The auto-update has an empty URL list; no public
 network connection is required.
 
 GUI follow-up: with amulegui connected (or EC enabled on the monolithic GUI),

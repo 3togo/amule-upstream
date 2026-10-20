@@ -727,6 +727,8 @@ Cfg_Base *PrefsUnifiedDlg::GetCfg(int id)
 
 bool PrefsUnifiedDlg::TransferToWindow()
 {
+	m_ed2kEdit.Reset(thePrefs::GetNetworkED2K());
+	m_kadEdit.Reset(thePrefs::GetNetworkKademlia());
 	// Connect the Cfgs with their widgets
 	thePrefs::CFGMap::iterator it = thePrefs::s_CfgList.begin();
 	for (; it != thePrefs::s_CfgList.end(); ++it) {
@@ -1069,11 +1071,24 @@ bool PrefsUnifiedDlg::TransferToWindow()
 	return true;
 }
 
+void PrefsUnifiedDlg::UpdateNetworkPreferences()
+{
+	auto *ed2k = CastChild(IDC_NETWORKED2K, wxCheckBox);
+	auto *kad = CastChild(IDC_NETWORKKAD, wxCheckBox);
+	ed2k->SetValue(m_ed2kEdit.Merge(ed2k->GetValue(), thePrefs::GetNetworkED2K()));
+	kad->SetValue(m_kadEdit.Merge(kad->GetValue(), thePrefs::GetNetworkKademlia()));
+}
+
 bool PrefsUnifiedDlg::TransferFromWindow()
 {
 	// Connect the Cfgs with their widgets
 	thePrefs::CFGMap::iterator it = thePrefs::s_CfgList.begin();
 	for (; it != thePrefs::s_CfgList.end(); ++it) {
+		// Network flags must not change until OnOk passes validation. Otherwise a
+		// rejected/cancelled save consumes the transition without applying it to the core.
+		if (it->first == IDC_NETWORKED2K || it->first == IDC_NETWORKKAD) {
+			continue;
+		}
 		// Checking for failures
 		if (!it->second->TransferFromWindow()) {
 			AddLogLineNS(CFormat(_("Failed to transfer data from Widget to Cfg with the ID %d "
@@ -1136,11 +1151,6 @@ bool PrefsUnifiedDlg::TransferFromWindow()
 	thePrefs::SetGeoIPUpdateRequested(
 		thePrefs::IsGeoIPEnabled() && (geoipSourceChanged || geoipCredChanged));
 #endif
-	// Send the user's changes to the core.
-	theApp->glob_prefs->SendChangesToRemote();
-#ifdef GEOIP_GUI
-	thePrefs::SetGeoIPUpdateRequested(false);
-#endif
 #endif
 
 	return true;
@@ -1189,8 +1199,6 @@ void PrefsUnifiedDlg::SetCredentialStateLabel(int id, bool isSet)
 
 void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 {
-	const bool ed2kWasEnabled = thePrefs::GetNetworkED2K();
-	const bool kadWasEnabled = thePrefs::GetNetworkKademlia();
 #ifndef CLIENT_GUI
 	const uint16 previousTcpPort = thePrefs::GetPort();
 	const uint16 previousUdpPort = thePrefs::GetUDPPort();
@@ -1263,6 +1271,19 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 		}
 		return;
 	}
+
+	const bool ed2kWasEnabled = thePrefs::GetNetworkED2K();
+	const bool kadWasEnabled = thePrefs::GetNetworkKademlia();
+	GetCfg(IDC_NETWORKED2K)->TransferFromWindow();
+	GetCfg(IDC_NETWORKKAD)->TransferFromWindow();
+
+#ifdef CLIENT_GUI
+	// Send only after validation, including the network flags committed just above.
+	theApp->glob_prefs->SendChangesToRemote();
+#ifdef GEOIP_GUI
+	thePrefs::SetGeoIPUpdateRequested(false);
+#endif
+#endif
 
 	bool restart_needed = false;
 	wxString restart_needed_msg = _("aMule must be restarted to enable these changes:\n\n");

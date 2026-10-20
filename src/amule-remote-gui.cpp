@@ -1697,25 +1697,15 @@ void CPreferencesRem::ApplyRefresh(const CECPacket *packet)
 
 void CPreferencesRem::UpdateNetworks(bool ed2kEnabled, bool kadEnabled)
 {
+	// A poll sent before our SET can arrive after the dialog has committed its
+	// optimistic copy. EC replies are ordered: resume polling once the SET is acknowledged.
+	if (*m_pendingNetworkWrites != 0) {
+		return;
+	}
 	// Keep the diff baseline in step too: otherwise changing a network back to its
 	// previous value in Preferences would look unchanged and never reach the core.
 	if (m_remoteState) {
-		if (CECTag *connection = m_remoteState->GetTagByName(EC_TAG_PREFS_CONNECTIONS)) {
-			CECEmptyTag updated(EC_TAG_PREFS_CONNECTIONS);
-			for (const CECTag &child : *connection) {
-				if (child.GetTagName() != EC_TAG_NETWORK_ED2K &&
-					child.GetTagName() != EC_TAG_NETWORK_KADEMLIA) {
-					updated.AddTag(child);
-				}
-			}
-			if (ed2kEnabled) {
-				updated.AddTag(CECEmptyTag(EC_TAG_NETWORK_ED2K));
-			}
-			if (kadEnabled) {
-				updated.AddTag(CECEmptyTag(EC_TAG_NETWORK_KADEMLIA));
-			}
-			*connection = updated;
-		}
+		UpdateNetworkPrefsSnapshot(*m_remoteState, ed2kEnabled, kadEnabled);
 	}
 	if (ed2kEnabled != thePrefs::GetNetworkED2K() || kadEnabled != thePrefs::GetNetworkKademlia()) {
 		thePrefs::SetNetworkED2K(ed2kEnabled);
@@ -1728,6 +1718,25 @@ void CPreferencesRem::UpdateNetworks(bool ed2kEnabled, bool kadEnabled)
 
 class CPrefsSetHandler : public CECPacketHandlerBase
 {
+	std::shared_ptr<unsigned> m_pendingNetworkWrites;
+
+public:
+	explicit CPrefsSetHandler(std::shared_ptr<unsigned> pendingNetworkWrites)
+	: m_pendingNetworkWrites(std::move(pendingNetworkWrites))
+	{
+		if (m_pendingNetworkWrites) {
+			++*m_pendingNetworkWrites;
+		}
+	}
+
+	~CPrefsSetHandler() override
+	{
+		if (m_pendingNetworkWrites) {
+			--*m_pendingNetworkWrites;
+		}
+	}
+
+private:
 	void AbortPendingRequest() override { delete this; }
 
 	void HandlePacket(const CECPacket *packet) override
@@ -1759,7 +1768,13 @@ void CPreferencesRem::SendChangesToRemote()
 	if (m_remoteState) {
 		const std::unique_ptr<CECPacket> changes = MakePrefsDiffPacket(*m_remoteState, *current);
 		if (changes->GetTagCount() > 0) {
-			m_conn->SendRequest(new CPrefsSetHandler(), changes.get());
+			const CECTag *connection = changes->GetTagByName(EC_TAG_PREFS_CONNECTIONS);
+			const bool networksChanged =
+				connection && (connection->GetTagByName(EC_TAG_NETWORK_ED2K) ||
+						      connection->GetTagByName(EC_TAG_NETWORK_KADEMLIA));
+			m_conn->SendRequest(
+				new CPrefsSetHandler(networksChanged ? m_pendingNetworkWrites : nullptr),
+				changes.get());
 		}
 	}
 	m_remoteState = std::move(current);

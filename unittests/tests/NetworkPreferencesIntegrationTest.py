@@ -17,9 +17,10 @@ import time
 import urllib.request
 
 from AllSearchIntegrationTest import (C, PortCollision, connect_daemon, free_ports, integer,
-                                      retry_port_collisions, stop_daemon, tag)
+                                      retry_port_collisions, stop_daemon, string, tag)
 from AmuleApiEcPasswordIntegrationTest import stop
 from DaemonConfig import write_amule_conf
+from KnownHistoryIntegrationTest import fake_server
 
 
 def server_met(port):
@@ -48,11 +49,18 @@ def run(daemon_binary, api_binary):
         (core / 'staticservers.dat').write_text('203.0.113.8:4662,0,Static regression server\n')
         env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8')
         env.pop('LD_PRELOAD', None)
-        daemon = subprocess.Popen([daemon_binary, '-c', str(core), '--disable-fatal'], env=env,
-            stdout=(root / 'console.log').open('w'), stderr=subprocess.STDOUT)
+        with (root / 'console.log').open('w') as console:
+            daemon = subprocess.Popen([daemon_binary, '-c', str(core), '--disable-fatal'], env=env,
+                                      stdout=console, stderr=subprocess.STDOUT)
         server = ec = None
         try:
             ec = connect_daemon(daemon, ec_port, core, peer_port, udp_port)
+
+            def connection_state():
+                op, tags = ec.call(C['EC_OP_STAT_REQ'])
+                assert op == C['EC_OP_STATS'], op
+                return tags[C['EC_TAG_CONNSTATE']][0]
+
             def network_flags():
                 op, tags = ec.call(C['EC_OP_STAT_REQ'])
                 assert op == C['EC_OP_STATS'], op
@@ -125,8 +133,26 @@ def run(daemon_binary, api_binary):
                                    [integer(C['EC_TAG_DETAIL_LEVEL'], C['EC_DETAIL_FULL']), fields])
                     assert op == C['EC_OP_NOOP'], op
                     assert network_flags() == expected
+
+                # A running Kad with no contacts must stop too, not only a connected Kad.
+                request('/preferences', {'connection': {'kad_enabled': True}}, 'PATCH')
+                assert ec.call(C['EC_OP_KAD_START'])[0] == C['EC_OP_NOOP']
+                wait_for(lambda: connection_state() & 0x10, 'Kad did not start')
+                request('/preferences', {'connection': {'kad_enabled': False}}, 'PATCH')
+                assert not connection_state() & 0x10, 'disabled Kad is still running'
+
+                # Exercise a real loopback server connection, then disable ED2K from REST.
+                request('/preferences', {'connection': {'ed2k_enabled': True}}, 'PATCH')
+                port = fake_server()
+                assert ec.call(C['EC_OP_SERVER_ADD'], [string(C['EC_TAG_SERVER_ADDRESS'],
+                               f'localhost:{port}')])[0] == C['EC_OP_NOOP']
+                server_tag = tag(C['EC_TAG_SERVER'], b'\0' * 4 + struct.pack('!H', port), 8)
+                assert ec.call(C['EC_OP_SERVER_CONNECT'], [server_tag])[0] == C['EC_OP_NOOP']
+                wait_for(lambda: connection_state() & 0x01, 'loopback server did not connect')
+                request('/preferences', {'connection': {'ed2k_enabled': False}}, 'PATCH')
+                assert not connection_state() & 0x03, 'disabled ED2K is connected or connecting'
         except BaseException:
-            for path in (core / 'logfile', root / 'api.log'):
+            for path in (core / 'logfile', root / 'console.log', root / 'api.log'):
                 if path.exists():
                     print(path.read_text(errors='replace')[-12000:], file=sys.stderr)
             raise
@@ -135,7 +161,32 @@ def run(daemon_binary, api_binary):
                 stop(server)
             if ec is not None:
                 ec.sock.close()
-            stop_daemon(daemon)
+            if sys.exc_info()[0] is None:
+                stop_daemon(daemon)
+            else:
+                stop(daemon)  # Preserve the original failure rather than masking it in cleanup.
+
+        # Disabling ED2K must still save the list that was initialized earlier. The
+        # replacement on-disk seed must not win over the live list on shutdown.
+        saved = (core / 'server.met').read_bytes()
+        assert struct.unpack_from('<I', saved, 1)[0] == 3, 'disabled ED2K lost live server edits'
+
+        # A core started disabled must leave an uninitialized list untouched on exit.
+        with (root / 'console.log').open('a') as console:
+            daemon = subprocess.Popen([daemon_binary, '-c', str(core), '--disable-fatal'], env=env,
+                                      stdout=console, stderr=subprocess.STDOUT)
+        ec = None
+        try:
+            ec = connect_daemon(daemon, ec_port)
+            assert not ec.call(C['EC_OP_GET_SERVER_LIST'])[1], 'disabled restart loaded the list'
+        finally:
+            if ec is not None:
+                ec.sock.close()
+            if sys.exc_info()[0] is None:
+                stop_daemon(daemon)
+            else:
+                stop(daemon)
+        assert (core / 'server.met').read_bytes() == saved, 'uninitialized list overwrote saved data'
 
 
 if __name__ == '__main__':

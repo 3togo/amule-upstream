@@ -110,6 +110,8 @@ class CPreferencesRem : public CPreferences, public CECPacketHandlerBase
 	uint32 m_exchange_recv_selected_prefs;
 	//! The core's preferences as last received or sent, the base SendChangesToRemote diffs against.
 	std::unique_ptr<CECPacket> m_remoteState;
+	// Reply handlers share the counter so reconnect/teardown can discard them safely.
+	std::shared_ptr<unsigned> m_pendingNetworkWrites = std::make_shared<unsigned>(0);
 
 	virtual void HandlePacket(const CECPacket *packet);
 	void RememberRemoteState();
