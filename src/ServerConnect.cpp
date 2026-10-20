@@ -579,7 +579,7 @@ CServerConnect::CServerConnect(CServerList *in_serverlist, amuleIPV4Address &add
 	m_bTryObfuscated = thePrefs::IsServerCryptLayerTCPRequested();
 	m_hostnameResolvedThisSweep = false;
 
-	serverudpsocket = NULL;
+	serverudpsocket = nullptr;
 	if (thePrefs::GetNetworkED2K()) {
 		InitServerUDPSocket(address);
 	}
