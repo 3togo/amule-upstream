@@ -6584,7 +6584,7 @@ msgstr ""
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr ""
 
-#: src/BandwidthLimitSlider.h
+#: src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "KiB/s (%.2f MiB/s)"
 msgstr ""
@@ -7032,7 +7032,7 @@ msgid "Bandwidth calculator"
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Enter speeds in Mbit/s. Zero means unlimited."
+msgid "Enter limits in Mbit/s. Zero means unlimited."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -7041,11 +7041,6 @@ msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Upload (Mbit/s)"
-msgstr ""
-
-#: src/PrefsUnifiedDlg.cpp
-#, c-format
-msgid "%d KiB/s / %.2f MiB/s"
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp

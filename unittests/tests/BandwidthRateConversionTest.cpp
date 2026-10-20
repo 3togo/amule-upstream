@@ -29,16 +29,26 @@ using namespace muleunit;
 DECLARE_SIMPLE(BandwidthRateConversion)
 TEST(BandwidthRateConversion, MegabitConversion)
 {
-	ASSERT_EQUALS(0, BandwidthRateConversion::FromMegabits(0));
-	ASSERT_EQUALS(12500, BandwidthRateConversion::FromMegabits(102.4));
-	ASSERT_EQUALS(1, BandwidthRateConversion::FromMegabits(0.0001));
-	ASSERT_EQUALS(1000000, BandwidthRateConversion::FromMegabits(8192));
-	ASSERT_EQUALS(1000000, BandwidthRateConversion::FromMegabits(100000));
-	ASSERT_EQUALS(0, BandwidthRateConversion::FromMegabits(-1));
-	ASSERT_EQUALS(0, BandwidthRateConversion::FromMegabits(std::numeric_limits<double>::quiet_NaN()));
-	ASSERT_EQUALS(0, BandwidthRateConversion::FromMegabits(std::numeric_limits<double>::infinity()));
+	ASSERT_EQUALS(0, BandwidthRateConversion::FromMegabits(0, 1000000));
+	ASSERT_EQUALS(12500, BandwidthRateConversion::FromMegabits(102.4, 1000000));
+	ASSERT_EQUALS(1, BandwidthRateConversion::FromMegabits(0.0001, 1000000));
+	ASSERT_EQUALS(1000000, BandwidthRateConversion::FromMegabits(8192, 1000000));
+	ASSERT_EQUALS(1000000, BandwidthRateConversion::FromMegabits(100000, 1000000));
+	ASSERT_EQUALS(0, BandwidthRateConversion::FromMegabits(-1, 1000000));
+	ASSERT_EQUALS(
+		0, BandwidthRateConversion::FromMegabits(std::numeric_limits<double>::quiet_NaN(), 1000000));
+	ASSERT_EQUALS(
+		0, BandwidthRateConversion::FromMegabits(std::numeric_limits<double>::infinity(), 1000000));
 	for (int rate = 0; rate <= 1000000; ++rate) {
 		ASSERT_EQUALS(rate,
-			BandwidthRateConversion::FromMegabits(BandwidthRateConversion::ToMegabits(rate)));
+			BandwidthRateConversion::FromMegabits(
+				BandwidthRateConversion::ToMegabits(rate), 1000000));
 	}
+}
+
+TEST(BandwidthRateConversion, ControlRange)
+{
+	ASSERT_EQUALS(500, BandwidthRateConversion::FromMegabits(8192, 500));
+	ASSERT_EQUALS(2000000, BandwidthRateConversion::FromMegabits(16384, 2000000));
+	ASSERT_EQUALS(2000000, BandwidthRateConversion::FromMegabits(100000, 2000000));
 }

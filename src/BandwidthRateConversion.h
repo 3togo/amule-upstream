@@ -33,13 +33,14 @@ inline double ToMegabits(int rate)
 {
 	return rate * 8192.0 / 1000000.0;
 }
-inline int FromMegabits(double rate)
+inline int FromMegabits(double rate, int maximum)
 {
 	if (!std::isfinite(rate) || rate <= 0) {
 		return 0;
 	}
 	// Keep zero exclusively for unlimited, and respect the preference control's range.
-	return std::max(1, static_cast<int>(std::lround(std::min(rate, 8192.0) * 1000000.0 / 8192.0)));
+	return std::max(
+		1, static_cast<int>(std::lround(std::min(rate, ToMegabits(maximum)) * 1000000.0 / 8192.0)));
 }
 } // namespace BandwidthRateConversion
 #endif

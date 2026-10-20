@@ -27,6 +27,7 @@
 #include "DialogLayout.h"
 #include "BandwidthLimitSlider.h"
 #include "BandwidthRateConversion.h"
+#include "BandwidthRateInput.h"
 #include "PrefsPageRows.h"
 
 #include <common/Constants.h>
@@ -2669,13 +2670,15 @@ void PrefsUnifiedDlg::OnBandwidthCalculator(wxCommandEvent &WXUNUSED(event))
 {
 	wxDialog dialog(this, wxID_ANY, _("Bandwidth calculator"));
 	auto *layout = new wxBoxSizer(wxVERTICAL);
-	layout->Add(new wxStaticText(&dialog, wxID_ANY, _("Enter speeds in Mbit/s. Zero means unlimited.")),
+	layout->Add(new wxStaticText(&dialog, wxID_ANY, _("Enter limits in Mbit/s. Zero means unlimited.")),
 		wxSizerFlags().Border(wxALL, 10));
 	auto *grid = new wxFlexGridSizer(3, 5, 10);
 	wxSpinCtrlDouble *inputs[2];
 	int index = 0;
 	for (int id : { IDC_MAXDOWN, IDC_MAXUP }) {
-		const int value = CastChild(id, wxSpinCtrl)->GetValue();
+		auto *limit = CastChild(id, wxSpinCtrl);
+		const int value = limit->GetValue();
+		const int maximum = limit->GetMax();
 		grid->Add(new wxStaticText(&dialog,
 				  wxID_ANY,
 				  id == IDC_MAXDOWN ? _("Download (Mbit/s)") : _("Upload (Mbit/s)")),
@@ -2687,7 +2690,7 @@ void PrefsUnifiedDlg::OnBandwidthCalculator(wxCommandEvent &WXUNUSED(event))
 			wxDefaultSize,
 			wxSP_ARROW_KEYS,
 			0,
-			8192,
+			BandwidthRateConversion::ToMegabits(maximum),
 			BandwidthRateConversion::ToMegabits(value),
 			0.1);
 		input->SetDigits(4);
@@ -2695,22 +2698,23 @@ void PrefsUnifiedDlg::OnBandwidthCalculator(wxCommandEvent &WXUNUSED(event))
 		grid->Add(input, wxSizerFlags().CenterVertical());
 		auto *result = new wxStaticText(&dialog,
 			wxID_ANY,
-			wxString::Format(_("%d KiB/s / %.2f MiB/s"), 1000000, 1000000 / 1024.0));
+			wxString::Format("%d ", maximum) +
+				wxString::Format(_("KiB/s (%.2f MiB/s)"), maximum / 1024.0));
 		result->SetMinSize(result->GetBestSize());
 		grid->Add(result, wxSizerFlags().CenterVertical());
-		auto refresh = [result](double value) {
-			const int rate = BandwidthRateConversion::FromMegabits(value);
+		auto refresh = [result, maximum](double value) {
+			const int rate = BandwidthRateConversion::FromMegabits(value, maximum);
 			result->SetLabel(
-				rate == 0
-					? _("Unlimited")
-					: wxString::Format(_("%d KiB/s / %.2f MiB/s"), rate, rate / 1024.0));
+				rate == 0 ? _("Unlimited")
+					  : wxString::Format("%d ", rate) +
+						    wxString::Format(_("KiB/s (%.2f MiB/s)"), rate / 1024.0));
 		};
 		input->Bind(wxEVT_SPINCTRLDOUBLE,
 			[refresh](wxSpinDoubleEvent &event) { refresh(event.GetValue()); });
-		input->Bind(wxEVT_TEXT, [refresh](wxCommandEvent &event) {
-			// Generic spin controls commit GetValue() only on Enter or focus loss.
-			double value = 0;
-			event.GetString().ToDouble(&value);
+		input->Bind(wxEVT_TEXT, [refresh, value = input->GetValue()](wxCommandEvent &event) mutable {
+			// Do not call GetValue() while typing: native GTK controls may commit
+			// and reformat the text, interrupting an unfinished decimal.
+			value = BandwidthRateConversion::ReadMegabits(event.GetString(), value);
 			refresh(value);
 			event.Skip();
 		});
@@ -2725,9 +2729,9 @@ void PrefsUnifiedDlg::OnBandwidthCalculator(wxCommandEvent &WXUNUSED(event))
 		int index = 0;
 		for (int id : { IDC_MAXDOWN, IDC_MAXUP }) {
 			auto *input = inputs[index++];
-			double value = input->GetValue();
-			input->GetTextValue().ToDouble(&value);
-			CastChild(id, wxSpinCtrl)->SetValue(BandwidthRateConversion::FromMegabits(value));
+			auto *limit = CastChild(id, wxSpinCtrl);
+			limit->SetValue(BandwidthRateConversion::FromMegabits(
+				BandwidthRateConversion::ReadMegabits(input), limit->GetMax()));
 		}
 		wxSpinEvent changed(wxEVT_SPINCTRL, IDC_MAXUP);
 		changed.SetPosition(CastChild(IDC_MAXUP, wxSpinCtrl)->GetValue());
