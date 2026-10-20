@@ -27,6 +27,8 @@
 
 #include "MenuIcons.h"
 
+#include <wx/textdlg.h>
+
 #include <common/Format.h> // Needed for CFormat
 #include <common/MenuIDs.h>
 
@@ -861,10 +863,24 @@ bool CDownloadListCtrl::OnListKey(wxKeyEvent &event)
 			CPartFile *file = reinterpret_cast<CPartFile *>(selected.front());
 			// Currently renaming of completed files causes problem with kad
 			if (file->IsPartFile()) {
-				wxString strNewName = ::wxGetTextFromUser(_("Enter new name for this file:"),
+				const uint32 fileID = file->ECID();
+				wxTextEntryDialog dialog(this,
+					_("Enter new name for this file:"),
 					_("File rename"),
 					file->GetFileName().GetPrintable());
-				CPath newName = CPath(strNewName);
+				// Keep the height fitted to the controls, but allow widening long filenames.
+				dialog.Fit();
+				dialog.SetSizeHints(dialog.GetSize(),
+					wxSize(wxDefaultCoord, dialog.GetSize().GetHeight()));
+				if (dialog.ShowModal() != wxID_OK) {
+					return true;
+				}
+				// Downloads can disappear or complete while the modal event loop runs.
+				if (!HasItemData(selected.front()) || file->ECID() != fileID ||
+					!file->IsPartFile()) {
+					return true;
+				}
+				CPath newName = CPath(dialog.GetValue());
 				if (newName.IsOk() && (newName != file->GetFileName())) {
 					theApp->sharedfiles->RenameFile(file, newName);
 				}

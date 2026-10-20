@@ -29,6 +29,7 @@
 
 #include <wx/file.h>    // Needed for wxFile
 #include <wx/filedlg.h> // Needed for wxFileDialog
+#include <wx/textdlg.h>
 
 #include <common/MenuIDs.h>
 #include <common/StringFunctions.h> // Needed for unicode2UTF8
@@ -1569,11 +1570,24 @@ void CSharedFilesCtrl::OnRename(wxCommandEvent &WXUNUSED(event))
 		return;
 	}
 	CKnownFile *file = reinterpret_cast<CKnownFile *>(selected.front());
+	const uint32 fileID = file->ECID();
 
-	wxString strNewName = ::wxGetTextFromUser(
-		_("Enter new name for this file:"), _("File rename"), file->GetFileName().GetPrintable());
+	wxTextEntryDialog dialog(this,
+		_("Enter new name for this file:"),
+		_("File rename"),
+		file->GetFileName().GetPrintable());
+	// Keep the height fitted to the controls, but allow widening long filenames.
+	dialog.Fit();
+	dialog.SetSizeHints(dialog.GetSize(), wxSize(wxDefaultCoord, dialog.GetSize().GetHeight()));
+	if (dialog.ShowModal() != wxID_OK) {
+		return;
+	}
+	// The modal event loop can remove the file or replace it at the same address.
+	if (!HasItemData(selected.front()) || file->ECID() != fileID) {
+		return;
+	}
 
-	CPath newName = CPath(strNewName);
+	CPath newName = CPath(dialog.GetValue());
 	if (newName.IsOk() && (newName != file->GetFileName())) {
 		theApp->sharedfiles->RenameFile(file, newName);
 	}
