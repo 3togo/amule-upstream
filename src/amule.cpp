@@ -3837,7 +3837,8 @@ void CamuleApp::ApplyNetworkChange(bool ed2kWasEnabled, bool kadWasEnabled)
 		serverconnect->StopConnectionTry();
 		DisconnectED2K();
 	} else if (!ed2kWasEnabled && ed2kEnabled) {
-		serverconnect->InitServerUDPSocket(GetServerUDPAddress());
+		amuleIPV4Address address = GetServerUDPAddress();
+		serverconnect->InitServerUDPSocket(address);
 		// A core started with ED2K disabled has not loaded either server list yet.
 		if (!serverlist->IsInitialized()) {
 			serverlist->Init();
