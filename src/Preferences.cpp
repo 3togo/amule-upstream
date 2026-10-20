@@ -276,6 +276,7 @@ uint32 CPreferences::s_dwKadUDPKey;
 uint8 CPreferences::s_byCryptTCPPaddingLength;
 #ifdef ENABLE_NATT_SERVER_COORDINATION
 bool CPreferences::s_LugdunumNatCallbackEnabled;
+bool CPreferences::s_LowIdHolePunchEnabled;
 #endif
 
 wxArrayString CPreferences::s_serverListURLs;
@@ -1492,6 +1493,9 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	// ENABLE_NATT_SERVER_COORDINATION (e.g. via ENABLE_ALL_EXPERIMENTAL in CI/tester builds) does
 	// not by itself enrol on a live server. No widget: flip it in amule.conf for a live run.
 	s_MiscList.push_back(new Cfg_Bool("/eMule/LugdunumNatCallback", s_LugdunumNatCallbackEnabled, false));
+	// Same rationale, for ed2k-server's LowID hole punch: off by default, independent of
+	// the Lugdunum setting -- a server speaks one protocol or the other, never both.
+	s_MiscList.push_back(new Cfg_Bool("/eMule/LowIdHolePunch", s_LowIdHolePunchEnabled, false));
 #endif
 
 	/** Power management */
