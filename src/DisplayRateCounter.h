@@ -25,44 +25,58 @@
 #ifndef DISPLAY_RATE_COUNTER_H
 #define DISPLAY_RATE_COUNTER_H
 
+#include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <deque>
-#include <mutex>
+#include <limits>
 #include <memory>
+#include <mutex>
 
-// Bytes in the last second, including an idle prefix at transfer startup. Separate from
-// the longer averages used by statistics and transfer scheduling. Timestamps are monotonic
-// milliseconds supplied by the caller, so expiry can also be tested without sleeping.
+// One-second byte window. Producers record monotonic millisecond timestamps; the core
+// publishes a snapshot after processing transfers. Readers (including sort predicates)
+// see that snapshot until the next core tick, without expiring samples themselves.
 class CDisplayRateCounter
 {
 public:
 	void Add(uint64_t bytes, uint64_t now)
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
-		// Concurrent producers can acquire the lock out of timestamp order.
-		if (m_samples && !m_samples->empty() && now < m_samples->back().time) {
-			now = m_samples->back().time;
+		Advance(now);
+		// A producer may have captured its timestamp before a newer sample or publish.
+		// Preserve the original time: moving old bytes forward extends their lifetime.
+		if (!bytes || m_now - now >= 1000) {
+			return;
 		}
-		Expire(now);
-		if (bytes) {
-			if (!m_samples) {
-				m_samples.reset(new std::deque<Sample>);
-			}
-			if (!m_samples->empty() && m_samples->back().time == now) {
-				m_samples->back().bytes += bytes;
-			} else {
-				m_samples->push_back({now, bytes});
-			}
-			m_total += bytes;
+		if (!m_samples) {
+			m_samples.reset(new std::deque<Sample>);
 		}
+		auto pos = std::lower_bound(
+			m_samples->begin(), m_samples->end(), now, [](const Sample &sample, uint64_t time) {
+				return sample.time < time;
+			});
+		if (pos != m_samples->end() && pos->time == now) {
+			pos->bytes += bytes;
+		} else {
+			m_samples->insert(pos, { now, bytes });
+		}
+		m_total += bytes;
 	}
 
-	uint64_t GetRate(uint64_t now) const
+	void CalculateRate(uint64_t now)
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
-		Expire(now);
+		Advance(now);
 		// A one-second window makes its byte count equal to bytes per second.
-		return m_total;
+		m_rate.store(m_total, std::memory_order_relaxed);
+	}
+
+	uint64_t GetRate() const { return m_rate.load(std::memory_order_relaxed); }
+
+	// Peer speeds and EC integer speed fields are limited to 32 bits.
+	static uint32_t ClampRate(uint64_t rate)
+	{
+		return static_cast<uint32_t>(std::min<uint64_t>(rate, std::numeric_limits<uint32_t>::max()));
 	}
 
 	void Reset()
@@ -70,14 +84,20 @@ public:
 		std::lock_guard<std::mutex> lock(m_mutex);
 		m_samples.reset();
 		m_total = 0;
+		m_now = 0;
+		m_rate.store(0, std::memory_order_relaxed);
 	}
 
 private:
-	struct Sample { uint64_t time; uint64_t bytes; };
-	void Expire(uint64_t now) const
+	struct Sample
 	{
-		while (m_samples && !m_samples->empty() && now >= m_samples->front().time &&
-		       now - m_samples->front().time >= 1000) {
+		uint64_t time;
+		uint64_t bytes;
+	};
+	void Advance(uint64_t now)
+	{
+		m_now = std::max(now, m_now);
+		while (m_samples && !m_samples->empty() && m_now - m_samples->front().time >= 1000) {
 			m_total -= m_samples->front().bytes;
 			m_samples->pop_front();
 		}
@@ -85,10 +105,12 @@ private:
 			m_samples.reset();
 		}
 	}
-	mutable std::mutex m_mutex;
+	std::mutex m_mutex;
 	// Most known peers never upload: allocate history only while bytes are in the window.
-	mutable std::unique_ptr<std::deque<Sample>> m_samples;
-	mutable uint64_t m_total = 0;
+	std::unique_ptr<std::deque<Sample>> m_samples;
+	uint64_t m_total = 0;
+	uint64_t m_now = 0;
+	std::atomic<uint64_t> m_rate{ 0 };
 };
 
 #endif // DISPLAY_RATE_COUNTER_H

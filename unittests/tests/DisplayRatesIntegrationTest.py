@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 aMule Team
+# SPDX-License-Identifier: GPL-2.0-or-later
+"""Read live total, peer and shared-file speeds from an isolated loopback upload.
+
+The observer keeps EC delta state exactly as a remote GUI does. Polling continues after
+requests drain, with the peer still connected, to catch missing idle-rate invalidation.
+"""
+import json
+from pathlib import Path
+import struct
+import sys
+import time
+
+from AllSearchIntegrationTest import C, EC, exact, integer, retry_port_collisions, tag
+from ShareWatcherMoveIntegrationTest import tag_list
+from UploadRefillIntegrationTest import run
+
+
+class PartialUpdateEC(EC):
+    def call(self, op, tags=()):
+        if op == C['EC_OP_AUTH_REQ']:
+            tags = [*tags, tag(C['EC_TAG_CAN_PARTIAL_UPDATE'])]
+        reply, fields = super().call(op, tags)
+        if op == C['EC_OP_AUTH_PASSWD']:
+            assert C['EC_TAG_CAN_PARTIAL_UPDATE'] in fields, fields
+        return reply, fields
+
+
+class DisplayRateMirror:
+    def __init__(self, ec):
+        self.ec = ec
+        self.files = {}
+        self.peers = {}
+
+    def poll(self):
+        payload = (bytes([C['EC_OP_GET_UPDATE']]) + struct.pack('!H', 1)
+                   + integer(C['EC_TAG_DETAIL_LEVEL'], C['EC_DETAIL_INC_UPDATE']))
+        self.ec.sock.sendall(struct.pack('!II', 0x20, len(payload)) + payload)
+        flags, length = struct.unpack('!II', exact(self.ec.sock, 8))
+        assert flags == 0x20, flags
+        reply = exact(self.ec.sock, length)
+        assert reply[0] == C['EC_OP_SHARED_FILES'], reply[0]
+        tags, _ = tag_list(reply, 3, struct.unpack_from('!H', reply, 1)[0])
+        for name, value, children in tags:
+            if name in (C['EC_TAG_KNOWNFILE'], C['EC_TAG_PARTFILE']):
+                fields = self.files.setdefault(int.from_bytes(value, 'big'), {})
+                fields.update({key: int.from_bytes(data, 'big') for key, data, _ in children
+                               if key in (C['EC_TAG_KNOWNFILE_UPLOAD_SPEED'],
+                                          C['EC_TAG_KNOWNFILE_UPLOADING_COUNT'])})
+            elif name == C['EC_TAG_CLIENT']:
+                present = set()
+                for _, peer_id, fields in children:
+                    peer_id = int.from_bytes(peer_id, 'big')
+                    present.add(peer_id)
+                    peer = self.peers.setdefault(peer_id, {})
+                    peer.update({key: int.from_bytes(data, 'big') for key, data, _ in fields
+                                 if key == C['EC_TAG_CLIENT_UP_SPEED']})
+                self.peers = {key: value for key, value in self.peers.items() if key in present}
+        op, stats = self.ec.call(C['EC_OP_STAT_REQ'])
+        assert op == C['EC_OP_STATS'], op
+        total = stats[C['EC_TAG_STATS_UL_SPEED']][0]
+        peers = sum(fields.get(C['EC_TAG_CLIENT_UP_SPEED'], 0) for fields in self.peers.values())
+        files = sum(fields.get(C['EC_TAG_KNOWNFILE_UPLOAD_SPEED'], 0) for fields in self.files.values())
+        uploading = sum(fields.get(C['EC_TAG_KNOWNFILE_UPLOADING_COUNT'], 0)
+                        for fields in self.files.values())
+        return total, peers, files, uploading
+
+    def check_active(self, expected_rate, slots):
+        # A 30-second total average is still far below the cap after two seconds.
+        # Allow socket batching and the up-to-one-core-tick gap between requests.
+        total, peers, files, uploading = self.poll()
+        assert total > expected_rate * 0.5, ('total speed still uses a long average', total, expected_rate)
+        assert peers > 0 and files > 0 and uploading == slots, (total, peers, files, uploading)
+        assert abs(total - peers) <= max(65536, total * 0.35), (total, peers)
+        assert peers == files, ('peer and file snapshots disagree', peers, files)
+
+
+class DisplayRatesObserver:
+    def __init__(self, ec):
+        self.partial = PartialUpdateEC(ec.sock.getpeername()[1])
+        self.mirrors = [DisplayRateMirror(ec), DisplayRateMirror(self.partial)]
+
+    def check_active(self, expected_rate, slots):
+        for mirror in self.mirrors:
+            mirror.check_active(expected_rate, slots)
+
+    def close(self):
+        self.partial.sock.close()
+
+    def check_idle(self, received):
+        deadline = time.monotonic() + 20
+        previous = received.copy()
+        idle_since = time.monotonic()
+        while time.monotonic() < deadline:
+            samples = [mirror.poll() for mirror in self.mirrors]
+            if received != previous:
+                previous = received.copy()
+                idle_since = time.monotonic()
+            elif time.monotonic() - idle_since >= 2:
+                for sample in samples:
+                    total, peers, files, uploading = sample
+                    assert uploading > 0, 'idle test lost its upload slots'
+                    assert total < 4096 and peers == files == 0, ('stale idle rates', sample)
+                return
+            time.sleep(0.1)
+        raise AssertionError('outstanding loopback requests did not drain')
+
+
+if __name__ == '__main__':
+    print(json.dumps(retry_port_collisions(lambda: run(
+        str(Path(sys.argv[1]).resolve()), 1, 2, 2560, check_display_rates=True))))

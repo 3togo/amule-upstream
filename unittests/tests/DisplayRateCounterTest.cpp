@@ -25,17 +25,29 @@
 #include "DisplayRateCounter.h"
 #include <muleunit/test.h>
 
+#include <thread>
+#include <vector>
+
 using namespace muleunit;
+
+namespace
+{
+uint64_t RateAt(CDisplayRateCounter &counter, uint64_t now)
+{
+	counter.CalculateRate(now);
+	return counter.GetRate();
+}
+} // namespace
 
 DECLARE_SIMPLE(DisplayRateCounterTest)
 
 TEST(DisplayRateCounterTest, StartupIncludesIdleTime)
 {
 	CDisplayRateCounter rate;
-	ASSERT_EQUALS(uint64_t(0), rate.GetRate(0));
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 0));
 	// 100 KiB delivered in 100 ms must not be presented as a 1000 KiB/s spike.
 	rate.Add(100 * 1024, 100);
-	ASSERT_EQUALS(uint64_t(100 * 1024), rate.GetRate(100));
+	ASSERT_EQUALS(uint64_t(100 * 1024), RateAt(rate, 100));
 }
 
 TEST(DisplayRateCounterTest, SteadyTransferAndStop)
@@ -44,13 +56,13 @@ TEST(DisplayRateCounterTest, SteadyTransferAndStop)
 	for (uint64_t now = 100; now <= 3000; now += 100) {
 		rate.Add(30 * 1024, now);
 		if (now >= 1000) {
-			ASSERT_EQUALS(uint64_t(300 * 1024), rate.GetRate(now));
+			ASSERT_EQUALS(uint64_t(300 * 1024), RateAt(rate, now));
 		}
 	}
-	ASSERT_EQUALS(uint64_t(150 * 1024), rate.GetRate(3500));
-	// No new Add call: a reader must still expire a stopped transfer.
-	ASSERT_EQUALS(uint64_t(0), rate.GetRate(4000));
-	ASSERT_EQUALS(uint64_t(0), rate.GetRate(100000));
+	ASSERT_EQUALS(uint64_t(150 * 1024), RateAt(rate, 3500));
+	// No new Add call: the periodic calculation must still expire a stopped transfer.
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 4000));
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 100000));
 }
 
 TEST(DisplayRateCounterTest, SpeedChangeReplacesOldWindow)
@@ -62,7 +74,7 @@ TEST(DisplayRateCounterTest, SpeedChangeReplacesOldWindow)
 	for (uint64_t now = 1100; now <= 2000; now += 100) {
 		rate.Add(40 * 1024, now);
 	}
-	ASSERT_EQUALS(uint64_t(400 * 1024), rate.GetRate(2000));
+	ASSERT_EQUALS(uint64_t(400 * 1024), RateAt(rate, 2000));
 }
 
 TEST(DisplayRateCounterTest, PeerTotalsDifferOnlyByControlTraffic)
@@ -74,18 +86,20 @@ TEST(DisplayRateCounterTest, PeerTotalsDifferOnlyByControlTraffic)
 		total.Add(5000, now);
 		total.Add(100, now); // control packets in the same millisecond
 	}
-	ASSERT_EQUALS(first.GetRate(2000) + second.GetRate(2000) + 1000, total.GetRate(2000));
-	ASSERT_EQUALS(uint64_t(0), total.GetRate(3000));
+	ASSERT_EQUALS(RateAt(first, 2000) + RateAt(second, 2000) + 1000, RateAt(total, 2000));
+	ASSERT_EQUALS(uint64_t(0), RateAt(total, 3000));
 }
 
 TEST(DisplayRateCounterTest, NewUploadSessionStartsEmpty)
 {
 	CDisplayRateCounter rate;
 	rate.Add(10000, 500);
+	ASSERT_EQUALS(uint64_t(10000), RateAt(rate, 500));
 	rate.Reset();
-	ASSERT_EQUALS(uint64_t(0), rate.GetRate(500));
+	ASSERT_EQUALS(uint64_t(0), rate.GetRate());
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 500));
 	rate.Add(500, 600);
-	ASSERT_EQUALS(uint64_t(500), rate.GetRate(600));
+	ASSERT_EQUALS(uint64_t(500), RateAt(rate, 600));
 }
 
 TEST(DisplayRateCounterTest, WideTotalsAndReorderedProducers)
@@ -94,7 +108,70 @@ TEST(DisplayRateCounterTest, WideTotalsAndReorderedProducers)
 	const uint64_t bytes = uint64_t(1) << 32;
 	rate.Add(bytes, 500);
 	rate.Add(bytes, 499); // a producer was delayed before acquiring the lock
-	ASSERT_EQUALS(bytes * 2, rate.GetRate(500));
-	ASSERT_EQUALS(bytes * 2, rate.GetRate(1499));
-	ASSERT_EQUALS(uint64_t(0), rate.GetRate(1500));
+	ASSERT_EQUALS(bytes * 2, RateAt(rate, 500));
+	ASSERT_EQUALS(bytes, RateAt(rate, 1499));
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 1500));
+}
+
+TEST(DisplayRateCounterTest, ReadsStayStableUntilPublication)
+{
+	CDisplayRateCounter rate;
+	rate.Add(1200, 100);
+	ASSERT_EQUALS(uint64_t(0), rate.GetRate());
+	rate.CalculateRate(100);
+	rate.Add(800, 200);
+	ASSERT_EQUALS(uint64_t(1200), rate.GetRate());
+	rate.CalculateRate(1100);
+	ASSERT_EQUALS(uint64_t(800), rate.GetRate());
+	rate.CalculateRate(1200);
+	ASSERT_EQUALS(uint64_t(0), rate.GetRate());
+}
+
+TEST(DisplayRateCounterTest, LateProducerCannotResurrectExpiredBytes)
+{
+	CDisplayRateCounter rate;
+	rate.Add(1000, 100);
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 2000));
+	rate.Add(2000, 999); // producer resumed after the reader expired the whole window
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 2000));
+	rate.Add(3000, 1500); // late, but still inside the current window
+	ASSERT_EQUALS(uint64_t(3000), RateAt(rate, 2000));
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 2500));
+}
+
+TEST(DisplayRateCounterTest, OlderPublisherCannotRewindWindow)
+{
+	CDisplayRateCounter rate;
+	rate.Add(1000, 100);
+	rate.CalculateRate(2000);
+	rate.CalculateRate(100);
+	rate.Add(2000, 100);
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, 2000));
+}
+
+TEST(DisplayRateCounterTest, WireRatesSaturateInsteadOfWrapping)
+{
+	ASSERT_EQUALS(uint32_t(1234), CDisplayRateCounter::ClampRate(1234));
+	const uint64_t limit = (uint64_t(1) << 32) - 1;
+	ASSERT_EQUALS(uint32_t(limit), CDisplayRateCounter::ClampRate(limit));
+	ASSERT_EQUALS(uint32_t(limit), CDisplayRateCounter::ClampRate(limit + 1));
+	ASSERT_EQUALS(uint32_t(limit), CDisplayRateCounter::ClampRate(uint64_t(1) << 40));
+}
+
+TEST(DisplayRateCounterTest, ConcurrentProducersKeepEveryByte)
+{
+	CDisplayRateCounter rate;
+	std::vector<std::thread> threads;
+	for (unsigned i = 0; i < 4; ++i) {
+		threads.emplace_back([&rate, i]() {
+			for (unsigned j = 0; j < 1000; ++j) {
+				rate.Add(123, (uint64_t(1) << 40) + i);
+			}
+		});
+	}
+	for (auto &thread : threads) {
+		thread.join();
+	}
+	ASSERT_EQUALS(uint64_t(4 * 1000 * 123), RateAt(rate, (uint64_t(1) << 40) + 3));
+	ASSERT_EQUALS(uint64_t(0), RateAt(rate, (uint64_t(1) << 40) + 1003));
 }

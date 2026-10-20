@@ -377,7 +377,7 @@ public:
 	uint32 GetUploadDatarate() const { return m_nUpDatarate; }
 	uint32 GetDisplayUploadDatarate() const
 	{
-		return IsDownloading() ? m_displayUploadRate.GetRate(GetTickCount64()) : 0;
+		return IsDownloading() ? CDisplayRateCounter::ClampRate(m_displayUploadRate.GetRate()) : 0;
 	}
 
 	uint64 GetUpStartTimeDelay() const { return ::GetTickCount64() - m_dwUploadTime; }
@@ -850,7 +850,6 @@ private:
 	//! session tally in its credit metadata. See ProcessHelloTypePacket.
 	bool m_metaSessionCounted = false;
 	uint64 m_lastUploadDisplayUpdate;
-	uint32 m_lastDisplayUploadRate = 0;
 	uint8 m_byEmuleVersion;
 	uint8 m_byDataCompVer;
 	bool m_bEmuleProtocol;

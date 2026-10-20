@@ -101,6 +101,7 @@ private:
 	std::set<CMD4Hash> suspendedUploadsSet; // set for suspended uploads
 	uint64 m_nLastStartUpload;
 	uint64 m_lastSort;
+	uint64 m_lastDisplayUpdate = 0;
 	bool lastupslotHighID; // VQB lowID alternation
 	bool m_allowKicking;
 	// This KnownFile collects all currently uploading clients for display in the upload list control

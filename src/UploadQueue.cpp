@@ -280,6 +280,21 @@ void CUploadQueue::Process()
 		}
 	}
 
+	if (tick - m_lastDisplayUpdate >= 1000) {
+		m_lastDisplayUpdate = tick;
+		// Many peers can upload the same file. Refresh each file once, after all peer
+		// snapshots are published, rather than repainting it once per peer mid-sweep.
+		std::set<const CKnownFile *> files;
+		for (const CClientRef &client : m_uploadinglist) {
+			if (const CKnownFile *file = client.GetUploadFile()) {
+				files.insert(file);
+			}
+		}
+		for (const CKnownFile *file : files) {
+			Notify_SharedFilesUpdateItem(const_cast<CKnownFile *>(file));
+		}
+	}
+
 	// Save used bandwidth for speed calculations
 	uint64 sentBytes = theApp->uploadBandwidthThrottler->GetNumberOfSentBytesSinceLastCallAndReset();
 	(void)theApp->uploadBandwidthThrottler->GetNumberOfSentBytesOverheadSinceLastCallAndReset();

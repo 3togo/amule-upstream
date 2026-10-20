@@ -85,6 +85,9 @@ add_executable (DisplayRateCounterTest DisplayRateCounterTest.cpp)
 add_test (NAME DisplayRateCounterTest COMMAND DisplayRateCounterTest)
 target_include_directories (DisplayRateCounterTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (DisplayRateCounterTest muleunit mulecommon)
+if (LIBATOMIC)
+	target_link_libraries (DisplayRateCounterTest ${LIBATOMIC})
+endif()
 
 # EC push delivery resumes after the recursion cap without a socket completion.
 add_executable (ECNotificationDrainTest ECNotificationDrainTest.cpp)
@@ -2611,6 +2614,11 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiRestartIntegrationTest.py $<TARGET_FILE:amuled>
 		)
 		if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+			add_test (NAME DisplayRatesIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/DisplayRatesIntegrationTest.py $<TARGET_FILE:amuled>
+			)
+			set_tests_properties (DisplayRatesIntegrationTest PROPERTIES TIMEOUT 90)
 			add_test (NAME UploadRefillIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/UploadRefillIntegrationTest.py

@@ -1435,7 +1435,8 @@ void CamuleDlg::ShowTransferRate()
 		buffer = CFormat(_("Up: %.1f%s (%.1f) | Down: %.1f%s (%.1f)")) %
 			 (showMBpsUp ? MBpsUp : kBpsUp) %
 			 (showMBpsUp ? _(" MiB/s") : ((kBpsUp > 0) ? _(" KiB/s") : "")) %
-			 (theStats::GetDisplayUpOverheadRate() / 1024.0) % (showMBpsDown ? MBpsDown : kBpsDown) %
+			 (theStats::GetDisplayUpOverheadRate() / 1024.0) %
+			 (showMBpsDown ? MBpsDown : kBpsDown) %
 			 (showMBpsDown ? _(" MiB/s") : ((kBpsDown > 0) ? _(" KiB/s") : "")) %
 			 (theStats::GetDisplayDownOverheadRate() / 1024.0);
 	} else {
@@ -1451,8 +1452,18 @@ void CamuleDlg::ShowTransferRate()
 	wxStaticText *label = CastChild("speedLabel", wxStaticText);
 	UpdateStatusLabel(label, buffer);
 	if (!label->GetToolTip()) {
-		label->SetToolTip(_("Speeds are averaged over the last second. Total upload includes control traffic; "
-			"peer speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."));
+#ifdef CLIENT_GUI
+		// Older daemons still send longer averages in the same compatible speed fields.
+		label->SetToolTip(_(
+			"Transfer speeds are reported by the daemon. Total upload includes control traffic; "
+			"peer upload speeds include file packets only. Values in parentheses show protocol "
+			"overhead in KiB/s."));
+#else
+		label->SetToolTip(_("Live speeds are averaged over the last second. Total upload includes "
+				    "control traffic; "
+				    "peer upload speeds include file packets only. Values in parentheses "
+				    "show protocol overhead in KiB/s."));
+#endif
 	}
 
 	// Show upload/download speed in title

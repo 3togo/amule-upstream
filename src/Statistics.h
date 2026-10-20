@@ -285,7 +285,7 @@ public:
 		s_displayUpOverheadRate.Add(size, GetTickCount64());
 	}
 	static double GetUpOverheadRate() { return s_upOverheadRate->GetRate(); }
-	static double GetDisplayUpOverheadRate() { return s_displayUpOverheadRate.GetRate(GetTickCount64()); }
+	static uint64 GetDisplayUpOverheadRate() { return s_displayUpOverheadRate.GetRate(); }
 	static void AddSuccessfulUpload() { ++(*s_totalSuccUploads); }
 	static void AddFailedUpload() { ++(*s_totalFailedUploads); }
 	static void AddUploadTime(uint32 time) { (*s_totalUploadTime) += time; }
@@ -297,7 +297,7 @@ public:
 	static uint32 GetWaitingUserCount() { return (*s_waitingUploads); }
 	static double GetUploadRate() { return s_uploadrate->GetRate(); }
 	// Display counters use one second; GetUploadRate/GetDownloadRate retain 30 seconds.
-	static double GetDisplayUploadRate() { return s_displayUploadRate.GetRate(GetTickCount64()); }
+	static uint64 GetDisplayUploadRate() { return s_displayUploadRate.GetRate(); }
 
 	// Download
 	static uint64 GetTotalReceivedBytes() { return s_totalReceived; }
@@ -334,7 +334,7 @@ public:
 		s_displayDownOverheadRate.Add(size, GetTickCount64());
 	}
 	static double GetDownOverheadRate() { return s_downOverheadRate->GetRate(); }
-	static double GetDisplayDownOverheadRate() { return s_displayDownOverheadRate.GetRate(GetTickCount64()); }
+	static uint64 GetDisplayDownOverheadRate() { return s_displayDownOverheadRate.GetRate(); }
 	static void AddFoundSource() { ++(*s_foundSources); }
 	static void RemoveFoundSource() { --(*s_foundSources); }
 	static uint32 GetFoundSources() { return (*s_foundSources); }
@@ -344,7 +344,7 @@ public:
 	static void RemoveDownloadingSource() { --(*s_activeDownloads); }
 	static uint32 GetDownloadingSources() { return (*s_activeDownloads); }
 	static double GetDownloadRate() { return s_downloadrate->GetRate(); }
-	static double GetDisplayDownloadRate() { return s_displayDownloadRate.GetRate(GetTickCount64()); }
+	static uint64 GetDisplayDownloadRate() { return s_displayDownloadRate.GetRate(); }
 
 	// Connection
 	static CStatTreeItemTimer *GetServerConnectTimer() { return s_sinceConnected; }
@@ -726,15 +726,15 @@ public:
 	static uint64 GetTotalSentBytes() { return s_statData[sdTotalSentBytes]; }
 	static double GetUploadRate() { return (double)s_statData[sdUpload]; }
 	// The daemon sends its one-second display rates in the EC speed fields.
-	static double GetDisplayUploadRate() { return GetUploadRate(); }
+	static uint64 GetDisplayUploadRate() { return s_statData[sdUpload]; }
 	static double GetUpOverheadRate() { return (double)s_statData[sdUpOverhead]; }
-	static double GetDisplayUpOverheadRate() { return GetUpOverheadRate(); }
+	static uint64 GetDisplayUpOverheadRate() { return s_statData[sdUpOverhead]; }
 
 	static uint64 GetTotalReceivedBytes() { return s_statData[sdTotalReceivedBytes]; }
 	static double GetDownloadRate() { return (double)s_statData[sdDownload]; }
-	static double GetDisplayDownloadRate() { return GetDownloadRate(); }
+	static uint64 GetDisplayDownloadRate() { return s_statData[sdDownload]; }
 	static double GetDownOverheadRate() { return (double)s_statData[sdDownOverhead]; }
-	static double GetDisplayDownOverheadRate() { return GetDownOverheadRate(); }
+	static uint64 GetDisplayDownOverheadRate() { return s_statData[sdDownOverhead]; }
 
 	static uint32 GetWaitingUserCount() { return s_statData[sdWaitingClients]; }
 	static uint32 GetBannedCount() { return s_statData[sdBannedClients]; }

@@ -73,7 +73,11 @@ void CUpDownClient::SetUploadState(uint8 eNewState)
 		}
 
 		// don't add any final cleanups for US_NONE here
+		const bool changedActivity = m_nUploadState == US_UPLOADING || eNewState == US_UPLOADING;
 		m_nUploadState = eNewState;
+		if (changedActivity && m_uploadingfile) {
+			Notify_SharedFilesUpdateItem(m_uploadingfile);
+		}
 		UpdateDisplayedInfo(true);
 	}
 }
@@ -506,21 +510,19 @@ uint32 CUpDownClient::SendBlockData()
 		m_nUpDatarate = 0; //-1;
 	}
 
+	const uint32 previousRate = GetDisplayUploadDatarate();
 	if (IsDownloading()) {
 		m_displayUploadRate.Add(sentBytesCompleteFile + sentBytesPartFile, curTick);
+		m_displayUploadRate.CalculateRate(curTick);
+	}
+	if (GetDisplayUploadDatarate() != previousRate && m_uploadingfile) {
+		// Dirty every published change, including expiry between GUI refreshes. Otherwise
+		// a remote poll can retain an intermediate speed after the file becomes idle.
+		m_uploadingfile->MarkECChanged();
 	}
 
 	if (curTick - m_lastUploadDisplayUpdate >= 1000) {
 		m_lastUploadDisplayUpdate = curTick;
-		const uint32 displayRate = GetDisplayUploadDatarate();
-		if (displayRate != m_lastDisplayUploadRate) {
-			m_lastDisplayUploadRate = displayRate;
-			if (m_uploadingfile) {
-				// Rates can fall to zero without new transferred bytes to dirty the file.
-				m_uploadingfile->MarkECChanged();
-				Notify_SharedFilesUpdateItem(m_uploadingfile);
-			}
-		}
 		Notify_SharedCtrlRefreshClient(ECID(), AVAILABLE_SOURCE);
 	}
 

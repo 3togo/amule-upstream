@@ -736,8 +736,8 @@ void CMuleTrayIcon::UpdateTray()
 
 wxMenu *CMuleTrayIcon::CreatePopupMenu()
 {
-	float kBpsUp = theStats::GetUploadRate() / 1024.0;
-	float kBpsDown = theStats::GetDownloadRate() / 1024.0;
+	float kBpsUp = theStats::GetDisplayUploadRate() / 1024.0;
+	float kBpsDown = theStats::GetDisplayDownloadRate() / 1024.0;
 	float MBpsUp = kBpsUp / 1024.0;
 	float MBpsDown = kBpsDown / 1024.0;
 	bool showMBpsUp = (MBpsUp >= 1);

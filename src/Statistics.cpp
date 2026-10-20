@@ -335,6 +335,10 @@ void CStatistics::CalculateRates()
 	s_upOverheadRate->CalculateRate(now);
 	s_downloadrate->CalculateRate(now);
 	s_uploadrate->CalculateRate(now);
+	s_displayUploadRate.CalculateRate(now);
+	s_displayDownloadRate.CalculateRate(now);
+	s_displayUpOverheadRate.CalculateRate(now);
+	s_displayDownOverheadRate.CalculateRate(now);
 }
 
 /* ------------------------------- GRAPHS ---------------------------- */
