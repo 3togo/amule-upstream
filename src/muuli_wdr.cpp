@@ -90,6 +90,43 @@
 
 // Implement window functions
 
+namespace
+{
+// Keep the original text control (including the search-history dropdown) and
+// its text events. Reserve the button's space so typing does not move the row.
+wxSizer *WithTextClearButton(wxWindow *input)
+{
+    wxWindow *parent = input->GetParent();
+    const wxWindowID inputId = input->GetId();
+    auto *row = new wxBoxSizer(wxHORIZONTAL);
+    row->Add(input, wxSizerFlags(1).CenterVertical());
+    auto *clear = new wxBitmapButton(parent, wxID_ANY,
+        wxArtProvider::GetBitmapBundle(wxART_CROSS_MARK, wxART_BUTTON),
+        wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+    clear->SetToolTip(_("Clear"));
+    clear->SetName(_("Clear"));
+    row->Add(clear, wxSizerFlags().CenterVertical().Border(wxLEFT, 2).ReserveSpaceEvenIfHidden());
+    clear->Show(!dynamic_cast<wxTextEntry *>(input)->GetValue().IsEmpty());
+
+    // Bind by ID on the parent: Search can replace its Name control when the
+    // remember-history preference changes. Neither callback retains that control.
+    parent->Bind(wxEVT_TEXT, [clear, row](wxCommandEvent &event) {
+        clear->Show(!event.GetString().IsEmpty());
+        row->Layout();
+        event.Skip();
+    }, inputId);
+    clear->Bind(wxEVT_BUTTON, [parent, inputId](wxCommandEvent &) {
+        wxWindow *field = parent->FindWindow(inputId);
+        if (auto *entry = dynamic_cast<wxTextEntry *>(field)) {
+            // wxComboBox::Clear() also deletes history; only clear the text.
+            entry->SetValue(wxEmptyString);
+            field->SetFocus();
+        }
+    });
+    return row;
+}
+}
+
 wxSizer *s_dlgcnt;
 wxSizer *contentSizer;
 wxSizer *s_fed2klh;
@@ -237,7 +274,7 @@ wxSizer *searchDlg( wxWindow *parent, bool call_fit, bool set_sizer )
     wxStaticText *item4 = new wxStaticText( item2, -1, LabelWithColon( _("Name") ), wxDefaultPosition, wxDefaultSize, 0 );
     item3->Add( item4, wxSizerFlags().Center().Border(wxALL, 5) );
     wxComboBox *item5 = new wxComboBox( item2, IDC_SEARCHNAME, "", wxDefaultPosition, wxSize(80,-1), 0, nullptr, wxTE_PROCESS_ENTER );
-    item3->Add( item5, wxSizerFlags(1).Center().Border(wxALL, 5) );
+    item3->Add( WithTextClearButton(item5), wxSizerFlags(1).Center().Border(wxALL, 5) );
     wxFlexGridSizer *item6 = new wxFlexGridSizer( 1, 0, 0, 0 );
 
     wxStaticText *item7 = new wxStaticText( item2, -1, _("Type"), wxDefaultPosition, wxDefaultSize, 0 );
@@ -457,7 +494,7 @@ wxSizer *transferTopPane( wxWindow *parent, bool call_fit, bool set_sizer )
     wxStaticText *itemDlFilterLabel = new wxStaticText( parent, -1, _("Filter:"), wxDefaultPosition, wxDefaultSize, 0 );
     item1->Add( itemDlFilterLabel, wxSizerFlags().Center().Border(wxLEFT, 5) );
     wxTextCtrl *itemDlFilter = new wxTextCtrl( parent, IDC_TRANSFER_FILTER, "", wxDefaultPosition, wxSize(150,-1), 0 );
-    item1->Add( itemDlFilter, wxSizerFlags().Center().Border(wxLEFT|wxRIGHT, 5) );
+    item1->Add( WithTextClearButton(itemDlFilter), wxSizerFlags().Center().Border(wxLEFT|wxRIGHT, 5) );
     item0->Add( item1, wxSizerFlags().Expand().CenterVertical() );
     CDownloadListCtrl *item5 = new CDownloadListCtrl( parent, ID_DLOADLIST, wxDefaultPosition, wxDefaultSize, 0 );
     item5->SetName( "downloadList" );
@@ -3607,7 +3644,7 @@ wxSizer *sharedfilesTopDlg( wxWindow *parent, bool call_fit, bool set_sizer )
     wxStaticText *itemShFilterLabel = new wxStaticText( parent, -1, _("Filter:"), wxDefaultPosition, wxDefaultSize, 0 );
     itemShLeft->Add( itemShFilterLabel, wxSizerFlags().CenterVertical().Border(wxLEFT, 10) );
     wxTextCtrl *itemShFilter = new wxTextCtrl( parent, IDC_SHARED_FILTER, "", wxDefaultPosition, wxSize(150,-1), 0 );
-    itemShLeft->Add( itemShFilter, wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
+    itemShLeft->Add( WithTextClearButton(itemShFilter), wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
     item1->Add( itemShLeft, wxSizerFlags(1).CenterVertical() );
 
     // "Show Clients for" as a label + inline radio buttons. This replaces a
