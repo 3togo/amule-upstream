@@ -90,8 +90,8 @@ run_phase() {
 	local script=$1
 	echo "==================== $script ===================="
 	# This phase owns an offline core/API pair on private ports.
-	if [ "$script" = "45-all-search.sh" ]; then
-		AMULEAPI_BIN="$BIN" bash "$SCRIPT_DIR/$script"
+	if [ "$script" = "45-all-search.sh" ] || [ "$script" = "26-rfc-followup-endpoints.sh" ]; then
+		AMULEAPI_BIN="$BIN" bash "$SCRIPT_DIR/$script" --offline
 		return $?
 	fi
 	# Narrowly target the regtest daemon so a dev who happens to have
