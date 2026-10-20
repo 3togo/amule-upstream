@@ -42,6 +42,7 @@
 #include "amuleDlg.h" // Needed for CLIENT_SKIN_SIZE (clientImages' artIds static_assert)
 #include "KadContactHistogram.h"
 #include "DialogLayout.h" // Scrollable details dialogs
+#include "TextClearButton.h"
 #include "OtherFunctions.h" // Needed for LabelWithColon
 
 #include <wx/artprov.h> // Needed for the "amule:" art ids (status bar + transfer window icons)
@@ -90,45 +91,6 @@
 
 // Implement window functions
 
-namespace
-{
-// Keep the original text control (including the search-history dropdown) and
-// its text events. The clear button stays visible even when the field is empty.
-wxSizer *WithTextClearButton(wxWindow *input)
-{
-    wxWindow *parent = input->GetParent();
-    const wxWindowID inputId = input->GetId();
-    auto *row = new wxBoxSizer(wxHORIZONTAL);
-    row->Add(input, wxSizerFlags(1).CenterVertical());
-    auto *clear = new wxBitmapButton(parent, wxID_ANY,
-        wxArtProvider::GetBitmapBundle(wxART_CROSS_MARK, wxART_BUTTON, input->FromDIP(wxSize(20, 20))),
-        wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
-    clear->SetToolTip(_("Clear"));
-    // Use a larger icon and a square button without clipping native button
-    // padding (notably on macOS) or making it shorter than the text field.
-    const wxSize buttonSize = clear->GetBestSize();
-    const int side = wxMax(input->GetBestSize().y, wxMax(buttonSize.x, buttonSize.y));
-    clear->SetMinSize(wxSize(side, side));
-    row->Add(clear, wxSizerFlags().CenterVertical().Border(wxLEFT, 2));
-    clear->Enable(!dynamic_cast<wxTextEntry *>(input)->GetValue().IsEmpty());
-
-    // Bind by ID on the parent: Search can replace its Name control when the
-    // remember-history preference changes. Neither callback retains that control.
-    parent->Bind(wxEVT_TEXT, [clear](wxCommandEvent &event) {
-        clear->Enable(!event.GetString().IsEmpty());
-        event.Skip();
-    }, inputId);
-    clear->Bind(wxEVT_BUTTON, [parent, inputId](wxCommandEvent &) {
-        wxWindow *field = parent->FindWindow(inputId);
-        if (auto *entry = dynamic_cast<wxTextEntry *>(field)) {
-            // wxComboBox::Clear() also deletes history; only clear the text.
-            entry->SetValue(wxEmptyString);
-            field->SetFocus();
-        }
-    });
-    return row;
-}
-}
 
 wxSizer *s_dlgcnt;
 wxSizer *contentSizer;

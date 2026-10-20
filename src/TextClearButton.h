@@ -1,0 +1,77 @@
+//
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// Any parts of this program derived from the xMule, lMule or eMule project,
+// or contributed by third-party developers are copyrighted by their
+// respective authors.
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
+//
+
+#ifndef TEXT_CLEAR_BUTTON_H
+#define TEXT_CLEAR_BUTTON_H
+
+#include <wx/artprov.h>
+#include <wx/bmpbuttn.h>
+#include <wx/sizer.h>
+#include <wx/textentry.h>
+
+// Keep the original text control (including the search-history dropdown) and
+// its text events. The clear button stays visible even when the field is empty.
+inline wxSizer *WithTextClearButton(wxWindow *input)
+{
+	wxWindow *parent = input->GetParent();
+	const wxWindowID inputId = input->GetId();
+	auto *row = new wxBoxSizer(wxHORIZONTAL);
+	row->Add(input, wxSizerFlags(1).CenterVertical());
+	// Bitmap bundles take the size at 100% DPI and scale it automatically.
+	auto *clear = new wxBitmapButton(parent,
+		wxID_ANY,
+		wxArtProvider::GetBitmapBundle(wxART_CROSS_MARK, wxART_BUTTON, wxSize(20, 20)),
+		wxDefaultPosition,
+		wxDefaultSize,
+		wxBU_EXACTFIT);
+	clear->SetToolTip(_("Clear"));
+	// Use a larger icon and a square button without clipping native button
+	// padding (notably on macOS) or making it shorter than the text field.
+	const wxSize buttonSize = clear->GetBestSize();
+	const int side = wxMax(input->GetBestSize().y, wxMax(buttonSize.x, buttonSize.y));
+	clear->SetMinSize(wxSize(side, side));
+	row->Add(clear, wxSizerFlags().CenterVertical().Border(wxLEFT, 2));
+	clear->Enable(!dynamic_cast<wxTextEntry *>(input)->GetValue().IsEmpty());
+
+	// Bind by ID on the parent: Search can replace its Name control when the
+	// remember-history preference changes. Neither callback retains that control.
+	parent->Bind(
+		wxEVT_TEXT,
+		[clear](wxCommandEvent &event) {
+			clear->Enable(!event.GetString().IsEmpty());
+			event.Skip();
+		},
+		inputId);
+	clear->Bind(wxEVT_BUTTON, [parent, inputId](wxCommandEvent &) {
+		wxWindow *field = parent->FindWindow(inputId);
+		if (auto *entry = dynamic_cast<wxTextEntry *>(field)) {
+			// wxComboBox::Clear() also deletes history; only clear the text.
+			entry->SetValue(wxEmptyString);
+			field->SetFocus();
+		}
+	});
+	return row;
+}
+
+#endif // TEXT_CLEAR_BUTTON_H
