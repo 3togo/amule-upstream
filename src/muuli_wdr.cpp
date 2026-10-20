@@ -91,7 +91,6 @@
 
 // Implement window functions
 
-
 wxSizer *s_dlgcnt;
 wxSizer *contentSizer;
 wxSizer *s_fed2klh;

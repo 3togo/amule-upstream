@@ -25,7 +25,9 @@
 #ifndef TEXT_CLEAR_BUTTON_H
 #define TEXT_CLEAR_BUTTON_H
 
-#include <wx/artprov.h>
+#include "CamuleArtProvider.h"
+
+#include <wx/settings.h>
 #include <wx/bmpbuttn.h>
 #include <wx/sizer.h>
 #include <wx/textentry.h>
@@ -38,19 +40,29 @@ inline wxSizer *WithTextClearButton(wxWindow *input)
 	const wxWindowID inputId = input->GetId();
 	auto *row = new wxBoxSizer(wxHORIZONTAL);
 	row->Add(input, wxSizerFlags(1).CenterVertical());
-	// Bitmap bundles take the size at 100% DPI and scale it automatically.
+	const int side = input->GetBestSize().y;
 	auto *clear = new wxBitmapButton(parent,
 		wxID_ANY,
-		wxArtProvider::GetBitmapBundle(wxART_CROSS_MARK, wxART_BUTTON, wxSize(20, 20)),
+		wxNullBitmap,
 		wxDefaultPosition,
-		wxDefaultSize,
-		wxBU_EXACTFIT);
+		wxSize(side, side),
+		wxBU_EXACTFIT | wxBORDER_NONE);
 	clear->SetToolTip(_("Clear"));
-	// Use a larger icon and a square button without clipping native button
-	// padding (notably on macOS) or making it shorter than the text field.
-	const wxSize buttonSize = clear->GetBestSize();
-	const int side = wxMax(input->GetBestSize().y, wxMax(buttonSize.x, buttonSize.y));
+	// Keep the row at the field's height, including on macOS where a native
+	// button bezel would otherwise increase it and shift neighbouring labels.
 	clear->SetMinSize(wxSize(side, side));
+	const auto updateArtwork = [clear]() {
+		// Bundles take a size at 100% DPI and rasterize the SVG at each scale.
+		clear->SetBitmap(CamuleArtProvider::GetMenuBitmapBundle(
+			"menu_x_lg", wxSize(16, 16), wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT)));
+		clear->SetBitmapDisabled(CamuleArtProvider::GetMenuBitmapBundle(
+			"menu_x_lg", wxSize(16, 16), wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT)));
+	};
+	updateArtwork();
+	clear->Bind(wxEVT_SYS_COLOUR_CHANGED, [updateArtwork](wxSysColourChangedEvent &event) {
+		updateArtwork();
+		event.Skip();
+	});
 	row->Add(clear, wxSizerFlags().CenterVertical().Border(wxLEFT, 2));
 	clear->Enable(!dynamic_cast<wxTextEntry *>(input)->GetValue().IsEmpty());
 

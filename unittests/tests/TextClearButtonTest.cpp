@@ -8,7 +8,7 @@
 
 #include <iostream>
 #include <stdexcept>
-#include <vector>
+#include <cmath>
 
 class ClearButtonTestApp : public wxApp
 {
@@ -26,8 +26,7 @@ void Require(bool condition, const char *message)
 	}
 }
 
-// On wxMSW FromDIP() scales coordinates, unlike wxGTK/wxOSX. Override
-// both DPI queries so this exercises the same bundle request at 100% and 200%.
+// Exercise field sizing and artwork with normal and high-DPI text controls.
 class DpiTextCtrl : public wxTextCtrl
 {
 public:
@@ -43,22 +42,6 @@ private:
 	double m_scale;
 };
 
-class RecordingArtProvider : public wxArtProvider
-{
-public:
-	std::vector<wxSize> requestedSizes;
-
-protected:
-	wxBitmapBundle CreateBitmapBundle(
-		const wxArtID &id, const wxArtClient &client, const wxSize &size) override
-	{
-		if (id == wxART_CROSS_MARK && client == wxART_BUTTON) {
-			requestedSizes.push_back(size);
-		}
-		return wxBitmapBundle(); // Keep the real native artwork.
-	}
-};
-
 class TextCounter : public wxEvtHandler
 {
 public:
@@ -70,20 +53,87 @@ public:
 	}
 };
 
+void CheckArtwork(const wxBitmap &bitmap, wxSystemColour colourId)
+{
+	Require(bitmap.IsOk(), "Clear artwork must be available");
+	const auto bundle = CamuleArtProvider::GetMenuBitmapBundle(
+		"menu_x_lg", wxSize(16, 16), wxSystemSettings::GetColour(colourId));
+	const auto expected = bundle.GetBitmap(bitmap.GetSize()).ConvertToImage();
+	const auto actual = bitmap.ConvertToImage();
+	Require(actual.HasAlpha() && expected.HasAlpha(), "SVG artwork must retain transparency");
+	int visiblePixels = 0;
+	for (int y = 0; y < actual.GetHeight(); ++y) {
+		for (int x = 0; x < actual.GetWidth(); ++x) {
+			Require(std::abs(int(actual.GetAlpha(x, y)) - int(expected.GetAlpha(x, y))) <= 1,
+				"Clear artwork must use the menu_x_lg silhouette");
+			if (actual.GetAlpha(x, y) >= 200) {
+				++visiblePixels;
+				const int redError =
+					std::abs(int(actual.GetRed(x, y)) - int(expected.GetRed(x, y)));
+				const int greenError =
+					std::abs(int(actual.GetGreen(x, y)) - int(expected.GetGreen(x, y)));
+				const int blueError =
+					std::abs(int(actual.GetBlue(x, y)) - int(expected.GetBlue(x, y)));
+				Require(redError <= 3 && greenError <= 3 && blueError <= 3,
+					"Clear artwork must use the current theme colour");
+			}
+		}
+	}
+	Require(visiblePixels > 0, "Clear cross must be visible");
+}
+
 void CheckRow(wxWindow *field, wxSizer *outer)
 {
 	auto *parent = field->GetParent();
 	const auto id = field->GetId();
 	auto *entry = dynamic_cast<wxTextEntry *>(field);
+	// Compare against master's label-and-field row using the native metrics.
+	auto *label = new wxStaticText(parent, wxID_ANY, "Filter:");
+	auto *baseline = new wxBoxSizer(wxHORIZONTAL);
+	baseline->Add(label, wxSizerFlags().CenterVertical());
+	baseline->Add(field, wxSizerFlags().CenterVertical());
+	const int baselineHeight = baseline->GetMinSize().y;
+	baseline->SetDimension(0, 0, 600, baselineHeight);
+	const int baselineLabelOffset = label->GetPosition().y - field->GetPosition().y;
+	baseline->Detach(label);
+	baseline->Detach(field);
+	delete baseline;
+
 	auto *row = WithTextClearButton(field);
-	outer->Add(row, wxSizerFlags().Expand());
+	auto *labelledRow = new wxBoxSizer(wxHORIZONTAL);
+	labelledRow->Add(label, wxSizerFlags().CenterVertical());
+	labelledRow->Add(row, wxSizerFlags(1).CenterVertical());
+	outer->Add(labelledRow, wxSizerFlags().Expand());
 	outer->Layout();
+	Require(labelledRow->GetMinSize().y == baselineHeight,
+		"Clear button must preserve master's labelled row height");
+	Require(label->GetPosition().y - field->GetPosition().y == baselineLabelOffset,
+		"Clear button must preserve master's label alignment");
 	auto *clear = dynamic_cast<wxBitmapButton *>(row->GetItem(size_t(1))->GetWindow());
 	Require(clear && clear->IsShown(), "Clear button must always be visible");
 	Require(clear->IsEnabled() == !entry->GetValue().IsEmpty(), "Initial enabled state");
 	const wxSize buttonMin = clear->GetMinSize();
-	Require(buttonMin.x == buttonMin.y && buttonMin.y >= field->GetBestSize().y,
-		"Square button must accommodate the text field");
+	Require(buttonMin == wxSize(field->GetBestSize().y, field->GetBestSize().y),
+		"Square button must stay at the field's height");
+	Require(clear->GetBorder() == wxBORDER_NONE, "Clear button must have no native bezel");
+	Require(row->GetMinSize().y == field->GetBestSize().y,
+		"Clear button must not increase the row height");
+	Require(clear->GetBitmap().GetLogicalSize() == clear->FromDIP(wxSize(16, 16)),
+		"Clear icon must remain 16 DIP at every scale");
+	CheckArtwork(clear->GetBitmap(), wxSYS_COLOUR_BTNTEXT);
+	CheckArtwork(clear->GetBitmapDisabled(), wxSYS_COLOUR_GRAYTEXT);
+
+	// Seed stale colours, then simulate a theme switch. Both states must be rebuilt.
+	const auto stale =
+		CamuleArtProvider::GetMenuBitmapBundle("menu_x_lg", wxSize(16, 16), wxColour(253, 1, 127));
+	clear->SetBitmap(stale);
+	clear->SetBitmapDisabled(stale);
+	wxSysColourChangedEvent themeChanged;
+	clear->GetEventHandler()->ProcessEvent(themeChanged);
+	CheckArtwork(clear->GetBitmap(), wxSYS_COLOUR_BTNTEXT);
+	CheckArtwork(clear->GetBitmapDisabled(), wxSYS_COLOUR_GRAYTEXT);
+	Require(row->GetMinSize().y == field->GetBestSize().y,
+		"Theme updates must preserve the field-height row");
 
 	const wxRect geometry = field->GetRect();
 	entry->SetValue("ubuntu");
@@ -133,6 +183,7 @@ int main(int argc, char **argv)
 		wxEntryCleanup();
 		return 1;
 	}
+	wxInitAllImageHandlers();
 	int status = 0;
 	{
 		wxGUIEventLoop loop;
@@ -145,26 +196,7 @@ int main(int argc, char **argv)
 		wxYield();
 		try {
 			for (double scale : { 1.0, 2.0 }) {
-				auto *provider = new RecordingArtProvider;
-				wxArtProvider::Push(provider); // Also clears the art-provider cache.
-				try {
-					CheckRow(new DpiTextCtrl(frame, scale), outer);
-					// Native fallback artwork may re-enter the provider with pixel
-					// sizes while rasterizing (e.g. 40x40 on Retina). Exercise a
-					// later high-resolution request on every platform and check
-					// the helper's initial bundle request, not the last raster size.
-					const auto highResolution = wxArtProvider::GetBitmapBundle(
-						wxART_CROSS_MARK, wxART_BUTTON, wxSize(40, 40));
-					Require(highResolution.IsOk(),
-						"High-resolution artwork must be available");
-					Require(!provider->requestedSizes.empty() &&
-							provider->requestedSizes.front() == wxSize(20, 20),
-						"Initial bitmap bundle size must remain 20 DIP at every DPI");
-				} catch (...) {
-					wxArtProvider::Pop();
-					throw;
-				}
-				wxArtProvider::Pop();
+				CheckRow(new DpiTextCtrl(frame, scale), outer);
 			}
 			auto *combo = new wxComboBox(frame, wxID_ANY);
 			combo->Append("saved term");
