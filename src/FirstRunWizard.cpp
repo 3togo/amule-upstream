@@ -41,9 +41,9 @@
 #include <wx/msgdlg.h>
 #include <wx/valtext.h>
 
-#include "amule.h"                  // Needed for theApp / glob_prefs
-#include "AutostartManager.h"       // Needed for Integrations page autostart toggle
-#include "Preferences.h"            // Needed for thePrefs
+#include "amule.h"            // Needed for theApp / glob_prefs
+#include "AutostartManager.h" // Needed for Integrations page autostart toggle
+#include "Preferences.h"      // Needed for thePrefs
 #include "FolderAccess.h"
 #include "ProtocolHandlerManager.h" // Needed for Integrations page URL-scheme toggles
 #include <common/Format.h>
