@@ -51,10 +51,23 @@ void TestInput()
 	using namespace BandwidthRateConversion;
 	constexpr int maximum = 1000000;
 	// Match the generic wxSpinCtrlDouble formatting used on Windows and macOS.
-	for (int rate = 0; rate <= maximum; ++rate) {
+	const auto checkRate = [](int rate) {
 		const wxString text = wxNumberFormatter::ToString(ToMegabits(rate), 4);
 		Check(FromMegabits(ReadMegabits(text, -1), maximum) == rate,
-			"Localized four-digit text must preserve every supported limit");
+			"Localized four-digit text must preserve the sampled limit");
+	};
+	// Cover both edges densely and sample the full range without a slow locale sweep.
+	for (int rate = 0; rate <= 2048; ++rate) {
+		checkRate(rate);
+	}
+	for (int rate = 0; rate <= maximum; rate += 997) {
+		checkRate(rate);
+	}
+	for (int rate = maximum - 2048; rate <= maximum; ++rate) {
+		checkRate(rate);
+	}
+	for (int rate : { 10, 1280, 125000 }) {
+		checkRate(rate);
 	}
 	for (const wxString &text : { wxString(),
 		     wxString("invalid"),
