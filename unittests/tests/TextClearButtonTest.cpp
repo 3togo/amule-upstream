@@ -117,7 +117,7 @@ void CheckRow(wxWindow *field, wxSizer *outer)
 		"Square button must stay at the field's height");
 	Require((clear->GetWindowStyleFlag() & wxBORDER_MASK) != wxBORDER_NONE,
 		"Clear button must look like a button");
-	Require(row->GetItem(clear)->GetBorder() == clear->FromDIP(5),
+	Require(row->GetItem(clear)->GetBorder() == field->FromDIP(5),
 		"Clear button must keep a gap for the field's focus ring");
 	Require(row->GetMinSize().y == field->GetBestSize().y,
 		"Clear button must not increase the row height");
