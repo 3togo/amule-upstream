@@ -540,14 +540,19 @@ _wait_for_diff_resume() {
 }
 
 # --- 10. /events ?channels= filter. ------------------------------
-# Test 8 left the daemon disconnected. Start the fixture's contact-free Kad
-# component again; it can accept an All search without joining the public network.
+# Test 8 left the daemon disconnected. Restore both networks for subsequent
+# live phases. The fixture only restarts its contact-free Kad component, which
+# accepts an All search without joining the public network.
+CONNECT_NETWORK=both
+if [ "${1:-}" = "--fixture-ready" ]; then
+	CONNECT_NETWORK=kad
+fi
 RC=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${H_AUTH[@]}" \
-	-H "Content-Type: application/json" -d '{"network":"kad"}' "$API/networks/connect")
+	-H "Content-Type: application/json" -d "{\"network\":\"$CONNECT_NETWORK\"}" "$API/networks/connect")
 if [ "$RC" = "202" ]; then
-	_pass "restart isolated Kad component → 202"
+	_pass "reconnect $CONNECT_NETWORK → 202"
 else
-	_fail "restart isolated Kad component" "expected 202, got $RC"
+	_fail "reconnect $CONNECT_NETWORK" "expected 202, got $RC"
 fi
 : > "$SSE"
 ( curl -s -m 20 -N "${H_AUTH[@]}" \

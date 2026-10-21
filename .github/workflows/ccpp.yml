@@ -504,6 +504,7 @@ jobs:
           fi
           echo "running ${#PHASES[@]} phases: ${PHASES[*]}"
           set +e
+          AMULEAPI_SMOKE_OFFLINE=1 \
           AMULEAPI_BIN="$GITHUB_WORKSPACE/build/src/webapi/amuleapi" \
           AMULE_SHARED_DIR="$RUNNER_TEMP/amuled-conf/Incoming" \
             ./run-all.sh "${PHASES[@]}" 2>&1 | tee "$LOG"
