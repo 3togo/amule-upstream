@@ -1,4 +1,5 @@
-# Fork-only validation harness; checks out the exact upstream PR source.
+# Fork-only Intel validation using PR #1972's dependency recipe.
+# Product source is checked out at the exact upstream PR #2026 revision.
 name: Tray macOS exact-source validation
 'on':
   push:
@@ -15,7 +16,6 @@ env:
   AMULE_ICON_TEST_REQUIRE_GUI: '1'
   cmake_macos_deps: |-
     boost \
-    ccache \
     cryptopp \
     gd \
     gettext \
@@ -40,7 +40,9 @@ env:
     -DBUILD_WEBSERVER=YES \
     -DENABLE_NLS=YES \
     -DENABLE_UPNP=YES
-  cmake_macos_config_flags: -DENABLE_IP2COUNTRY=YES
+  cmake_macos_config_flags: |-
+    -DENABLE_IP2COUNTRY=YES \
+    -DENABLE_CCACHE=OFF
   ctest_flags: |-
     --test-dir build \
     --output-on-failure
@@ -58,7 +60,6 @@ jobs:
       matrix:
         runner:
         - macos-26-intel
-        - macos-15
         build_type:
         - Debug
         - Release
@@ -82,14 +83,11 @@ jobs:
           xcodebuild -version
           clang++ --version
           cmake --version
-          printf 'source: %s
-        ' "$VALIDATED_SOURCE"
-          printf 'source tree: %s
-        ' "$(git rev-parse 'HEAD^{tree}')"
+          printf 'source: %s\n' "$VALIDATED_SOURCE"
+          printf 'source tree: %s\n' "$(git rev-parse 'HEAD^{tree}')"
         } | tee validation-results/environment.txt
     - name: install deps
       run: |
-        brew update
         brew install ${{ env.cmake_macos_deps }}
         # Homebrew installs into /opt/homebrew on Apple Silicon — not a
         # default compiler/linker/pkg-config search path. aMule's custom
@@ -103,6 +101,11 @@ jobs:
         echo "$(brew --prefix gettext)/bin" >> "$GITHUB_PATH"
 
         { brew list --versions; wx-config --version; } | tee -a validation-results/environment.txt
+      env:
+        HOMEBREW_NO_AUTO_UPDATE: '1'
+        HOMEBREW_NO_INSTALL_UPGRADE: '1'
+        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: '1'
+        HOMEBREW_NO_INSTALL_CLEANUP: '1'
     - name: create build system
       run: |
         cmake \
@@ -116,6 +119,8 @@ jobs:
         set -o pipefail
         ctest ${{ env.ctest_flags }} --output-junit fast-results.xml --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' 2>&1 | tee validation-results/fast-tests.log
         ctest ${{ env.ctest_flags }} --output-junit slow-results.xml --timeout 60 -R '${{ env.ctest_slow_unit_tests }}' 2>&1 | tee validation-results/slow-tests.log
+      env:
+        AMULE_ICON_TEST_OUTPUT: ${{ github.workspace }}/validation-results/artwork
     - name: Publish validation summary
       if: always()
       run: |
