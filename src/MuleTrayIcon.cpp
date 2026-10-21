@@ -544,9 +544,9 @@ void CMuleTrayIcon::RebuildMenu()
 // desktops that still consume GtkStatusIcon; on Wayland the icon goes nowhere, which is what the
 // libayatana-appindicator3 backend above is for.
 
-#include <algorithm> // Needed for std::max / std::min
+#include "TrayIconBundle.h"
 
-#include <wx/artprov.h> // Needed for wxArtProvider::GetBitmap
+#include <wx/artprov.h> // Needed for wxArtProvider::GetBitmapBundle
 
 #include <wx/menu.h>
 
@@ -649,7 +649,7 @@ void CMuleTrayIcon::Close(wxCommandEvent &WXUNUSED(event))
 CMuleTrayIcon::CMuleTrayIcon()
 {
 	Old_Icon = -1;
-	Old_SpeedSize = 0xFFFF; // must be > any possible one.
+	Old_Percent = 0xFFFF; // must be > any possible one.
 	m_visible = true;
 }
 
@@ -659,7 +659,7 @@ CMuleTrayIcon::~CMuleTrayIcon() {}
 
 void CMuleTrayIcon::SetTrayIcon(int Icon, uint32 percent)
 {
-	wxASSERT(Icon >= 0 && Icon < (int)WXSIZEOF(BaseImage));
+	wxCHECK_RET(Icon >= 0 && Icon < (int)WXSIZEOF(BaseImage), "Invalid tray icon state");
 
 	if (!BaseImage[Icon].IsOk()) {
 		const char *artId = "amule:tray_disconnected";
@@ -673,55 +673,24 @@ void CMuleTrayIcon::SetTrayIcon(int Icon, uint32 percent)
 		default:
 			break;
 		}
-		wxImage image = wxArtProvider::GetBitmap(artId, wxART_OTHER).ConvertToImage();
-		if (!image.IsOk()) {
+		BaseImage[Icon] = wxArtProvider::GetBitmapBundle(artId, wxART_OTHER);
+		if (!BaseImage[Icon].IsOk()) {
 			return;
 		}
-		// Artwork that predates alpha marks its transparency with pure red. Turn that into
-		// a real alpha channel once, here, so everything below works on one representation.
-		if (!image.HasAlpha()) {
-			image.SetMaskColour(255, 0, 0);
-			image.InitAlpha();
-		}
-		BaseImage[Icon] = image;
 	}
 
-	const wxImage &base = BaseImage[Icon];
-	const int width = base.GetWidth();
-	const int height = base.GetHeight();
-	const int barHeight = (height * (int)percent) / 100;
-
-	if ((Old_Icon == Icon) && (Old_SpeedSize == barHeight)) {
+	percent = std::min(percent, uint32(100));
+	const wxColour barColour = CStatisticsDlg::getColors(11);
+	if (Old_Icon == Icon && Old_Percent == (int)percent && Old_BarColour == barColour) {
 		return;
 	}
 	Old_Icon = Icon;
-	Old_SpeedSize = barHeight;
+	Old_Percent = (int)percent;
+	Old_BarColour = barColour;
 
-	// Always compose onto a copy of the untouched artwork. Composing onto the icon we produced
-	// last time loses transparency a little more each round -- an icon converted back to a
-	// bitmap returns its transparent pixels as black, so a rising transfer rate ends up with a
-	// solid black background.
-	//
-	// The bar is written into the image rather than drawn with a wxDC because wxMSW's DC writes
-	// the colour channels and leaves alpha alone: a bar drawn over transparent pixels keeps
-	// alpha 0 and never appears.
-	wxImage composed = base.Copy();
-	if (barHeight > 0) {
-		const wxColour barColour = CStatisticsDlg::getColors(11);
-		// Two pixels wide, in the last two columns, growing from the bottom. It used to sit
-		// two columns further in, which newer artwork fills, so the bar landed on the
-		// drawing instead of beside it.
-		const int barLeft = std::max(0, width - 2);
-		const int barRight = std::min(width, barLeft + 2);
-		for (int y = height - barHeight; y < height; ++y) {
-			for (int x = barLeft; x < barRight; ++x) {
-				composed.SetRGB(x, y, barColour.Red(), barColour.Green(), barColour.Blue());
-				composed.SetAlpha(x, y, wxALPHA_OPAQUE);
-			}
-		}
-	}
-
-	CurrentIcon.CopyFromBitmap(wxBitmap(composed));
+	// Keep the bundle until the native backend chooses its pixel size. Flattening it to
+	// wxIcon here would lose the SVG's resolution and prevent subsequent DPI changes.
+	CurrentIcon = MuleTray::MakeIconBundle(BaseImage[Icon], percent, barColour);
 	UpdateTray();
 }
 

@@ -108,3 +108,27 @@ highlighted/disabled rows and high contrast, and physical mixed-DPI transitions.
 Inspect macOS menus in light/dark mode and flags on Retina/non-Retina displays.
 Check live OS appearance changes while the application runs. Simulated sizes
 and Linux tests do not replace those native desktop sessions.
+
+## Tray artwork
+
+The three `tray_*.svg` files use adem4ik's v1 artwork contributed in
+[aMule issue #1665](https://github.com/amule-org/amule/issues/1665),
+from `amule_tray_fixed.zip` (SHA-256
+`702dc1513a2bf88f7523d39aa77cc24e81767be55c70be805fb77ae375e7435f`).
+The `try1_fixed/amule_22_norm_fixed.svg`, `amule_22_yellow_fixed.svg` and
+`amule_22_gray_fixed.svg` files map to `tray_high`, `tray_low` and
+`tray_disconnected`, respectively. Arc arguments are separated for wx 3.2's
+NanoSVG parser; fills and gradients already contain the state colours without
+SVG filters. The matching 22×22 PNG fallbacks are rendered with wx/NanoSVG.
+The last two columns are reserved for the download-speed bar.
+
+The wxTaskBarIcon backend retains SVG bundles and draws the speed bar at each
+requested pixel size. Linux AppIndicator continues to resolve the existing
+scalable `org.amule.aMule` icon from the desktop theme. macOS template styling
+and Linux per-state named icons remain separate work.
+
+`IconArtworkTest` also checks tray composition at 16, 22, 33, 44, 66 and 88 pixels,
+including a return from 4x to 1x, empty/half/full bars, percentages above 100 and
+preservation of artwork and transparency. `AMULE_ICON_TEST_OUTPUT` exports tray
+renders. Native Windows/macOS tray sizing and physical display transitions still
+need desktop verification.

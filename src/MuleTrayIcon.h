@@ -68,8 +68,8 @@ typedef struct _AppIndicator AppIndicator;
 typedef struct _GtkWidget GtkWidget;
 #else
 #include <wx/taskbar.h>
-#include <wx/icon.h>
-#include <wx/image.h>
+#include <wx/bmpbndl.h>
+#include <wx/colour.h>
 class wxMenu;
 #endif
 
@@ -143,15 +143,15 @@ private:
 	void Close(wxCommandEvent &);
 
 	int Old_Icon;
-	int Old_SpeedSize;
+	int Old_Percent;
+	wxColour Old_BarColour;
 	bool m_visible;
 
 	// The unmodified artwork for each state, indexed by TRAY_ICON_*, loaded once. SetTrayIcon()
-	// composes the speed bar onto a copy of one of these rather than onto the icon it drew last
-	// time -- see the comment there.
-	wxImage BaseImage[3];
+	// wraps one of these in a bundle that draws the speed bar at the requested pixel size.
+	wxBitmapBundle BaseImage[3];
 
-	wxIcon CurrentIcon;
+	wxBitmapBundle CurrentIcon;
 	wxString CurrentTip;
 
 	wxDECLARE_EVENT_TABLE();
