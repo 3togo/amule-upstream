@@ -115,7 +115,10 @@ void CheckRow(wxWindow *field, wxSizer *outer)
 	const wxSize buttonMin = clear->GetMinSize();
 	Require(buttonMin == wxSize(field->GetBestSize().y, field->GetBestSize().y),
 		"Square button must stay at the field's height");
-	Require(clear->GetBorder() == wxBORDER_NONE, "Clear button must have no native bezel");
+	Require((clear->GetWindowStyleFlag() & wxBORDER_MASK) != wxBORDER_NONE,
+		"Clear button must look like a button");
+	Require(row->GetItem(clear)->GetBorder() == clear->FromDIP(5),
+		"Clear button must keep a gap for the field's focus ring");
 	Require(row->GetMinSize().y == field->GetBestSize().y,
 		"Clear button must not increase the row height");
 	Require(clear->GetBitmap().GetLogicalSize() == clear->FromDIP(wxSize(16, 16)),

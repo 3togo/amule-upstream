@@ -41,15 +41,11 @@ inline wxSizer *WithTextClearButton(wxWindow *input)
 	auto *row = new wxBoxSizer(wxHORIZONTAL);
 	row->Add(input, wxSizerFlags(1).CenterVertical());
 	const int side = input->GetBestSize().y;
-	auto *clear = new wxBitmapButton(parent,
-		wxID_ANY,
-		wxNullBitmap,
-		wxDefaultPosition,
-		wxSize(side, side),
-		wxBU_EXACTFIT | wxBORDER_NONE);
+	auto *clear = new wxBitmapButton(
+		parent, wxID_ANY, wxNullBitmap, wxDefaultPosition, wxSize(side, side), wxBU_EXACTFIT);
 	clear->SetToolTip(_("Clear"));
-	// Keep the row at the field's height, including on macOS where a native
-	// button bezel would otherwise increase it and shift neighbouring labels.
+	// A fixed square keeps the row at the field's height: on macOS the bezel's
+	// best size is taller and would shift neighbouring labels.
 	clear->SetMinSize(wxSize(side, side));
 	const auto updateArtwork = [clear]() {
 		// Bundles take a size at 100% DPI and rasterize the SVG at each scale.
@@ -63,7 +59,8 @@ inline wxSizer *WithTextClearButton(wxWindow *input)
 		updateArtwork();
 		event.Skip();
 	});
-	row->Add(clear, wxSizerFlags().CenterVertical().Border(wxLEFT, 2));
+	// Clear of the macOS focus ring, which is drawn outside the field.
+	row->Add(clear, wxSizerFlags().CenterVertical().Border(wxLEFT, input->FromDIP(5)));
 	clear->Enable(!dynamic_cast<wxTextEntry *>(input)->GetValue().IsEmpty());
 
 	// Bind by ID on the parent: Search can replace its Name control when the
