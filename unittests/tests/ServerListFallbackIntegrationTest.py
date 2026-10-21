@@ -100,7 +100,7 @@ def start_api(binary, root, ec_port):
 
 def run(binary, root, responses, sources, expected, *, url=None, startup=False,
         success=True, reload=False, overlap=False, skipped=False, cancel=False,
-        automatic=False, api_binary=None, legacy='', missing=False):
+        automatic=False, api_binary=None, legacy='', missing=False, connects=False):
     requests = []
     release = threading.Event()
 
@@ -194,6 +194,10 @@ def run(binary, root, responses, sources, expected, *, url=None, startup=False,
                             log.count('Failed to download server.met from ' + base) +
                             log.count('Skipped download of server.met')) >= len(expected)
                 wait_for(proc, completed, root)
+            if connects:
+                # SERVER_MET's only entry; nothing listens there, so the attempt is all we see.
+                wait_for(proc, lambda: 'Connecting to Server 203.0.113.7' in
+                         (root / 'logfile').read_text(errors='replace'), root)
             time.sleep(0.3)
         if cancel:
             assert not (root / 'server.met.download').exists()
@@ -552,6 +556,9 @@ def main():
             case('first-run', {'/backup': GOOD}, ['/primary', '/backup'], ['/primary', '/backup'], startup=True)
             case('first-run-merges-all', {'/first': GOOD, '/last': SECOND}, ['/first', '/last'],
                  ['/first', '/last'], startup=True)
+            # The startup auto-update replaces the empty-list download, so it must connect too.
+            case('auto-update-empty-list-connects', {'/backup': GOOD}, ['/backup'], ['/backup'],
+                 startup=True, automatic=True, connects=True)
             case('http-failure', {'/backup': GOOD}, ['/primary', '/backup'], ['/primary', '/backup'])
             case('invalid-download', {'/primary': (200, b'invalid'), '/backup': GOOD},
                  ['/primary', '/backup'], ['/primary', '/backup'])

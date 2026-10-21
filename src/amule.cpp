@@ -1255,7 +1255,8 @@ bool CamuleApp::OnInit()
 	}
 #endif // ENABLE_VERSION_CHECK
 	if (thePrefs::GetNetworkED2K() && thePrefs::AutoServerlist()) {
-		serverlist->StartAutoUpdate();
+		// With an empty list, the manual completion path connects once the update ends.
+		serverlist->UpdateServerMetFromURL(wxEmptyString, false, serverlist->GetServerCount() != 0);
 	}
 
 	// Start the fs-watcher after the initial scan so directories exist in shareddir_list
