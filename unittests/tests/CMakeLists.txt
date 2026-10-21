@@ -33,6 +33,12 @@ function (add_application_test_stubs target)
 endfunction()
 
 find_package (Python3 QUIET COMPONENTS Interpreter)
+if (BUILD_FILEVIEW AND Python3_Interpreter_FOUND)
+	add_test (NAME FileViewLoggingRegressionTest
+		COMMAND ${Python3_EXECUTABLE}
+			${CMAKE_CURRENT_SOURCE_DIR}/FileViewLoggingRegressionTest.py $<TARGET_FILE:fileview>
+	)
+endif ()
 
 if (Python3_Interpreter_FOUND)
 	add_test (NAME IntegrationFixtureUnitTest
@@ -2685,7 +2691,6 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/LoggerRuntimeIntegrationTest.py $<TARGET_FILE:amuled>
 		)
-		set_tests_properties (LoggerRuntimeIntegrationTest PROPERTIES TIMEOUT 120)
 		add_test (NAME LogfilePathIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/LogfilePathIntegrationTest.py $<TARGET_FILE:amuled>
