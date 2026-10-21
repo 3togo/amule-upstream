@@ -20,7 +20,7 @@ import urllib.request
 import zlib
 
 from AllSearchIntegrationTest import (C, connect_daemon, exact, free_ports,
-                                      integer, string)
+                                      integer, string, tag)
 from DaemonConfig import write_amule_conf
 
 TOKEN = '0123456789abcdef' * 4
@@ -66,7 +66,7 @@ def stop(proc):
 
 
 @contextmanager
-def api_fixture(binary, root, ec_port, enabled=True, configured=True):
+def api_fixture(binary, root, ec_port, enabled=True, configured=True, token=TOKEN, threshold=30):
     root.mkdir()
     env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8')
     with (root / 'api.log').open('w') as log:
@@ -77,13 +77,15 @@ def api_fixture(binary, root, ec_port, enabled=True, configured=True):
         static.mkdir()
         (static / 'index.html').write_text('fixture SPA')
         digest = hashlib.md5(b'regression').hexdigest().upper()
-        text = config.read_text().replace('PasswordMD5=', 'PasswordMD5=' + digest, 1)
+        text = config.read_text().replace('FailureWindowSeconds=60\nFailureThreshold=30\nLockoutSeconds=300\n', '')
+        text = text.replace('PasswordMD5=', 'PasswordMD5=' + digest, 1)
         text = text.replace('StaticRoot=', f'StaticRoot={static}', 1)
         text = text.replace('BasePath=', 'BasePath=/amule', 1)
-        # Enabled is omitted for the default-on case, as in an existing profile.
-        metrics = '[Metrics]\n' + ('' if enabled else 'Enabled=0\n')
-        text = text.replace('[Metrics]\nEnabled=1\nToken=',
-                            metrics + 'Token=' + (TOKEN if configured else ''))
+        # Explicit opt-in; omission must retain the default-off behavior.
+        metrics = '[Metrics]\n' + ('Enabled=1\n' if enabled else '')
+        metrics += f'FailureThreshold={threshold}\nFailureWindowSeconds=60\nLockoutSeconds=25\n'
+        text = text.replace('[Metrics]\nEnabled=0\nToken=',
+                            metrics + 'Token=' + (token if configured else ''))
         config.write_text(text)
         port = free_ports(1)[0]
         base = f'http://127.0.0.1:{port}'
@@ -126,6 +128,27 @@ class CoreHandler(socketserver.BaseRequestHandler):
                     reply, tags = C['EC_OP_NOOP'], []
                     if op == C['EC_OP_STAT_REQ']:
                         reply = C['EC_OP_STATS']
+                        if self.server.populated:
+                            tags = [tag(C['EC_TAG_STATS_SESSION_SENT_BYTES'], struct.pack('!Q', 1234567890123), 5),
+                                    tag(C['EC_TAG_STATS_SESSION_RECEIVED_BYTES'], struct.pack('!Q', 9876543210123), 5),
+                                    integer(C['EC_TAG_STATS_ACTIVE_CONNECTIONS'], 7),
+                                    integer(C['EC_TAG_STATS_UPTIME_SECONDS'], 42),
+                                    tag(C['EC_TAG_CONNSTATE'], b'\x01', 2, [
+                                        tag(C['EC_TAG_SERVER'], bytes([1, 2, 3, 4]) + struct.pack('!H', 4661), 8)])]
+                    if op == C['EC_OP_GET_UPDATE']:
+                        if self.server.populated:
+                            tags = [tag(C['EC_TAG_CLIENT'], children=[
+                                tag(C['EC_TAG_CLIENT'], struct.pack('!I', 1), 4,
+                                    [tag(C['EC_TAG_CLIENT_UPLOAD_STATE'], b'\x00', 2)]),
+                                tag(C['EC_TAG_CLIENT'], struct.pack('!I', 2), 4,
+                                    [tag(C['EC_TAG_CLIENT_UPLOAD_STATE'], b'\x01', 2)])]),
+                                tag(C['EC_TAG_SERVER'], children=[
+                                    tag(C['EC_TAG_SERVER'], struct.pack('!I', 1), 4, [
+                                        integer(C['EC_TAG_SERVER_IP'], 0x04030201),
+                                        tag(C['EC_TAG_SERVER_PORT'], struct.pack('!H', 4661), 3),
+                                        integer(C['EC_TAG_SERVER_USERS'], 12345)])])]
+                        else:
+                            tags = [tag(C['EC_TAG_CLIENT']), tag(C['EC_TAG_SERVER'])]
                     if op == self.server.fail_opcode:
                         reply = C['EC_OP_FAILED']
                 payload = bytes([reply]) + struct.pack('!H', len(tags)) + b''.join(tags)
@@ -141,6 +164,7 @@ class Core(socketserver.ThreadingTCPServer):
 def fake_core_checks(binary, root):
     with Core(('127.0.0.1', 0), CoreHandler) as core:
         core.ops = []
+        core.populated = False
         core.fail_opcode = None
         core.hold, core.entered, core.release = threading.Event(), threading.Event(), threading.Event()
         threading.Thread(target=core.serve_forever, daemon=True).start()
@@ -154,7 +178,11 @@ def fake_core_checks(binary, root):
                 core.release.set()
                 eventually(lambda: 'amule_ec_connected 1\n' in request(base, token=TOKEN)[2])
                 text = request(base, token=TOKEN)[2]
+                assert 'amule_transferred_bytes_alltime' not in text, text
                 assert 'amule_transferred_bytes_total' not in text, text
+                assert 'amule_uptime_seconds' not in text, text
+                assert 'amule_active_connections' not in text, text
+                assert 'daemon_version="metrics-fixture"' in text, text
                 assert 'amule_speed_limit_bytes_per_second' not in text, text
                 assert 'amule_shared_files' not in text, text
                 print('PASS: startup and older-daemon missing values are omitted')
@@ -171,6 +199,28 @@ def fake_core_checks(binary, root):
                 core.hold.clear()
                 core.release.set()
                 print('PASS: 25 scrapes complete while EC is blocked, with zero extra EC requests')
+
+                core.populated = True
+                expected = ('amule_active_uploads 1\n',
+                            'amule_transferred_bytes_total{direction="upload"} 1234567890123\n',
+                            'amule_transferred_bytes_total{direction="download"} 9876543210123\n',
+                            'amule_active_connections 7\n', 'amule_uptime_seconds 42\n',
+                            'amule_servers 1\n', 'amule_connected_server_users 12345\n')
+                # A fixture transition may occur between STAT_REQ and GET_UPDATE.
+                # Wait for a complete tick with the new data in both replies.
+                def populated_snapshot():
+                    text = request(base, token=TOKEN)[2]
+                    return text if all(sample in text for sample in expected) else None
+                eventually(populated_snapshot)
+                core.populated = False
+                def cleared_snapshot():
+                    text = request(base, token=TOKEN)[2]
+                    return ('amule_active_uploads 0\n' in text and 'amule_servers 0\n' in text
+                            and all(name not in text for name in ('amule_connected_server_users',
+                                    'amule_transferred_bytes_total', 'amule_uptime_seconds')))
+                eventually(cleared_snapshot)
+                print('PASS: nonzero cached counts and 64-bit session tags; omissions and removals clear values')
+
 
                 code, headers, body = request(base, token=TOKEN, method='HEAD')
                 assert code == 200 and body == '' and int(headers['Content-Length']) > 0
@@ -212,6 +262,19 @@ def fake_core_checks(binary, root):
                 assert code == 429 and int(retry_headers['Retry-After']) > 0
                 assert request(base, '/api/v1/status', jwt)[0] == 200
                 print('PASS: metrics lockout does not lock out JWT clients')
+            with api_fixture(binary, root / 'custom-limit', core.server_address[1], threshold=4) as (base, _):
+                for _ in range(4):
+                    assert request(base, token='bad')[0] == 401
+                code, headers, _ = request(base, token=TOKEN)
+                assert code == 429 and 0 < int(headers['Retry-After']) <= 25
+                assert request(base, '/api/v1/status', 'invalid-jwt')[0] == 401
+                print('PASS: configurable metrics limiter retains independent state')
+            with api_fixture(binary, root / 'invalid-token', core.server_address[1], token='bad token') as (base, _):
+                assert request(base, '/metrics')[0] == 404
+                assert request(base, '/api/v1/health')[0] == 200
+                diagnostic = (root / 'invalid-token' / 'api.log').read_text()
+                assert 'metrics disabled' in diagnostic and 'bad token' not in diagnostic
+                print('PASS: malformed optional credential disables metrics without stopping API')
             with api_fixture(binary, root / 'reverse', core.server_address[1]) as (base, _):
                 eventually(lambda: 'amule_ec_connected 1\n' in request(base, token=TOKEN)[2])
                 for _ in range(30):
@@ -228,7 +291,7 @@ def fake_core_checks(binary, root):
                 assert request(base, '/metrics')[0] == 404
                 assert request(base, '/amule/metrics', TOKEN)[0] == 404
                 assert request(base, '/api/v1/health')[0] == 200
-                print('PASS: default-on without a token starts normally and exposes no metrics')
+                print('PASS: enabled without a token starts normally and exposes no metrics')
         finally:
             core.release.set()
             core.shutdown()
@@ -248,8 +311,13 @@ def real_daemon_checks(daemon, binary, root):
             with api_fixture(binary, root / 'real-api', ec) as (base, _):
                 eventually(lambda: 'amule_ec_connected 1\n' in request(base, token=TOKEN)[2])
                 code, _, text = request(base, token=TOKEN)
-                for expected in ('amule_transferred_bytes_total{direction="upload"}',
-                                 'amule_transferred_bytes_total{direction="download"}',
+                for expected in ('amule_transferred_bytes_alltime{direction="upload"}',
+                                 'amule_transferred_bytes_alltime{direction="download"}',
+                                 'amule_transferred_bytes_total{direction="upload"} 0\n',
+                                 'amule_transferred_bytes_total{direction="download"} 0\n',
+                                 'amule_active_connections 0\n', 'amule_uptime_seconds ',
+                                 'amule_active_uploads 0\n', 'amule_servers 0\n',
+                                 'daemon_version="',
                                  'amule_speed_limit_bytes_per_second{direction="upload"}',
                                  'amule_shared_files 0\n', 'amule_banned_clients 0\n',
                                  'amule_network_connected{network="ed2k"} 0\n',
@@ -259,9 +327,15 @@ def real_daemon_checks(daemon, binary, root):
                 assert 'amule_ed2k_network_users' not in text
                 promtool = shutil.which('promtool')
                 if promtool:
-                    subprocess.run([promtool, 'check', 'metrics'], input=text,
+                    subprocess.run([promtool, 'check', 'metrics', '--lint=none', '--extended'], input=text,
                                    text=True, check=True, capture_output=True)
-                    print('PASS: real daemon exposition passes promtool check metrics')
+                    lint = subprocess.run([promtool, 'check', 'metrics'], input=text,
+                                          text=True, capture_output=True)
+                    # The proposal deliberately reserves _total for session counters.
+                    expected_lint = 'amule_transferred_bytes_alltime counter metrics should have \"_total\" suffix'
+                    assert lint.returncode == 3, (lint.returncode, lint.stdout, lint.stderr)
+                    assert (lint.stdout + lint.stderr).strip() == expected_lint, (lint.stdout, lint.stderr)
+                    print('PASS: promtool parses real-daemon output; only the specified alltime suffix lint remains')
                 else:
                     print('LIMITATION: promtool unavailable; exposition validator not run')
                 print('PASS: existing real-daemon EC statistics without joining public networks')

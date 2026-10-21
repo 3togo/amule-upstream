@@ -180,8 +180,11 @@ bool CAmuleApiConfig::LoadAmuleapiConf(const wxString &path)
 			       "TokenLockoutSeconds=300\n"
 			       "\n"
 			       "[Metrics]\n"
-			       "Enabled=1\n"
+			       "Enabled=0\n"
 			       "Token=\n"
+			       "FailureWindowSeconds=60\n"
+			       "FailureThreshold=30\n"
+			       "LockoutSeconds=300\n"
 			       "\n"
 			       "[Streaming]\n"
 			       "EventBusRingCapacity=16384\n"
@@ -294,6 +297,12 @@ bool CAmuleApiConfig::LoadAmuleapiConf(const wxString &path)
 	if (cfg.Read("/Metrics/Token", &s)) {
 		m_metrics.token = std::string(s.utf8_str());
 	}
+	if (cfg.Read("/Metrics/FailureWindowSeconds", &n) && n > 0)
+		m_metrics.failure_window_seconds = static_cast<unsigned>(n);
+	if (cfg.Read("/Metrics/FailureThreshold", &n) && n > 0)
+		m_metrics.failure_threshold = static_cast<unsigned>(n);
+	if (cfg.Read("/Metrics/LockoutSeconds", &n) && n > 0)
+		m_metrics.lockout_seconds = static_cast<unsigned>(n);
 	if (m_metrics.IsActive()) {
 		// RFC 6750 b64token alphabet: a printable token that survives a bearer header
 		// unchanged. Require a useful minimum length; generate 32 random bytes in practice.
@@ -306,9 +315,11 @@ bool CAmuleApiConfig::LoadAmuleapiConf(const wxString &path)
 				std::string::npos ||
 			(end != std::string::npos &&
 				token.find_first_not_of('=', end) != std::string::npos)) {
-			m_lastError = "[Metrics]/Token must be a 32-256 character bearer token when metrics "
-				      "are enabled";
-			return false;
+			std::fputs("amuleapi: invalid [Metrics]/Token (expected 32-256 bearer-token "
+				   "characters); metrics disabled\n",
+				stderr);
+			m_metrics.enabled = false;
+			m_metrics.token.clear();
 		}
 	}
 

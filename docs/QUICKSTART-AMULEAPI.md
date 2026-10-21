@@ -350,9 +350,9 @@ left off after a dropped connection — see
   fetch a server list from a URL you supply. Treat the admin password like
   the password to the machine.
 
-## Prometheus metrics (proof of concept)
+## Prometheus metrics
 
-Metrics default to enabled in amuleapi. Configure the dedicated read-only endpoint
+Metrics default to disabled in amuleapi. Configure the dedicated read-only endpoint
 by generating a random token (for example, `openssl rand -hex 32`), adding it to
 `amuleapi.conf`, and restarting amuleapi:
 
@@ -363,13 +363,18 @@ Token=REPLACE_WITH_YOUR_RANDOM_64_CHARACTER_HEX_TOKEN
 ```
 
 Without a token, amuleapi starts normally and `/metrics` returns 404; no metrics
-aggregation runs. Set `Enabled=0` to explicitly disable metrics even with a token.
+aggregation runs. Set `Enabled=1` with a valid token to opt in; `Enabled=0` disables
+metrics even with a token. A malformed token logs an error and leaves metrics off
+while the API starts normally.
 This setting is local to amuleapi: other EC clients do not request or enable metrics.
 
 An active endpoint requires a 32–256 character bearer token. Keep the config and
 the scraper's token file private. This credential only grants access to metrics;
 API session cookies and JWTs cannot authenticate a scrape. Rotation requires
-changing the configuration and restarting amuleapi. Remote scrapes should use the
+changing the configuration and restarting amuleapi. The independent authentication
+limiter defaults to 30 failures per 60 seconds and a 300 second lockout; configure
+`FailureThreshold`, `FailureWindowSeconds`, and `LockoutSeconds` under `[Metrics]`
+with positive integer values to change these limits. Remote scrapes should use the
 same TLS reverse proxy as the API.
 
 Prometheus configuration (the credentials file contains just the token):
@@ -404,5 +409,5 @@ receivers:
 Add this receiver to the Collector's existing metrics pipeline. When using
 `[Server]/BasePath=/amule`, set `metrics_path: /amule/metrics` in either scraper.
 The endpoint emits Prometheus text 0.0.4; native OpenMetrics negotiation and OTLP
-push are outside this proof of concept. See the [metrics contract](api/REFERENCE.md#get-metrics)
+push are outside this endpoint's scope. See the [metrics contract](api/REFERENCE.md#get-metrics)
 for the available measurements and failure behavior.

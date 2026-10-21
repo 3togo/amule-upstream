@@ -19,7 +19,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
 #include "Metrics.h"
@@ -79,8 +79,11 @@ public:
 std::string SerializeMetrics(const MetricsSnapshot &snapshot, const std::string &version)
 {
 	Writer w;
-	w.Family("build_info", "Version of the amuleapi exporter.");
-	w.Sample("build_info", 1, "{version=\"" + EscapeLabel(version) + "\"}");
+	w.Family("build_info", "Versions of amuleapi and the connected daemon.");
+	w.Sample("build_info",
+		1,
+		"{version=\"" + EscapeLabel(version) + "\",daemon_version=\"" +
+			EscapeLabel(snapshot.daemon_version) + "\"}");
 	w.Gauge("ec_connected",
 		"Whether the last EC refresh completed successfully.",
 		snapshot.ec_connected ? 1 : 0);
@@ -133,18 +136,39 @@ std::string SerializeMetrics(const MetricsSnapshot &snapshot, const std::string 
 				"{direction=\"download\"}");
 	}
 	if (s.total_sent_bytes.present || s.total_received_bytes.present) {
-		w.Family("transferred_bytes_total",
+		w.Family("transferred_bytes_alltime",
 			"Persisted lifetime transferred bytes; may reset when daemon statistics are reset.",
 			"counter");
 		if (s.total_sent_bytes.present)
-			w.Sample("transferred_bytes_total",
+			w.Sample("transferred_bytes_alltime",
 				s.total_sent_bytes.value,
 				"{direction=\"upload\"}");
 		if (s.total_received_bytes.present)
-			w.Sample("transferred_bytes_total",
+			w.Sample("transferred_bytes_alltime",
 				s.total_received_bytes.value,
 				"{direction=\"download\"}");
 	}
+	if (s.session_sent_bytes.present || s.session_received_bytes.present) {
+		w.Family("transferred_bytes_total", "Bytes transferred in the daemon session.", "counter");
+		if (s.session_sent_bytes.present)
+			w.Sample("transferred_bytes_total",
+				s.session_sent_bytes.value,
+				"{direction=\"upload\"}");
+		if (s.session_received_bytes.present)
+			w.Sample("transferred_bytes_total",
+				s.session_received_bytes.value,
+				"{direction=\"download\"}");
+	}
+	if (s.active_connections.present)
+		w.Gauge("active_connections", "Active daemon connections.", s.active_connections.value);
+	if (s.uptime_seconds.present)
+		w.Gauge("uptime_seconds", "Daemon uptime in seconds.", s.uptime_seconds.value);
+	w.Gauge("active_uploads", "Clients currently uploading.", snapshot.active_uploads);
+	w.Gauge("servers", "Servers in the daemon server list.", snapshot.servers);
+	if (snapshot.connected_server_users.present)
+		w.Gauge("connected_server_users",
+			"Users on the connected eD2k server.",
+			snapshot.connected_server_users.value);
 	w.Gauge("upload_queue_length", "Clients waiting in the upload queue.", s.ul_queue_len);
 	w.Gauge("sources_found", "Total sources found for downloads.", s.total_src_count);
 	if (s.shared_file_count.present)

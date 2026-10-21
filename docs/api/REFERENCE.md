@@ -3457,36 +3457,39 @@ Corrections that cannot be made additively wait for `/api/v2/`. There is no alia
 
 Optional Prometheus text 0.0.4 exposition, outside the `/api/v1` namespace.
 `BasePath` applies as for the API. Also supports `HEAD`; other methods return
-405. Enabled by default in amuleapi (`[Metrics]/Enabled=1`), but inactive until a
-metrics token is configured. Explicitly disabled or unconfigured endpoints return
+405. Disabled by default (`[Metrics]/Enabled=0`). Set `Enabled=1` and configure a
+dedicated metrics token to activate collection. Disabled or unconfigured endpoints return
 404 even when static frontend fallback is enabled. Other EC clients do not enable
 or request metrics; this is an amuleapi-local configuration, not an EC capability.
 
 Configure a dedicated `[Metrics]/Token` (32–256 characters from the RFC 6750
 bearer-token alphabet). An empty or absent token leaves the endpoint inactive and
-allows normal startup. A nonempty invalid token prevents startup when metrics are
-enabled. Set `[Metrics]/Enabled=0` to explicitly disable the endpoint. Send `Authorization: Bearer <token>`;
+allows normal startup. A nonempty invalid token logs a diagnostic without the credential and disables
+metrics for that run; the API still starts normally. Send `Authorization: Bearer <token>`;
 JWTs and session cookies are not accepted. Missing or invalid tokens return 401
 with `WWW-Authenticate: Bearer realm="metrics"`. A separate per-address limiter
 locks out metrics after 30 failures in 60 seconds for 300 seconds, returning 429
-with `Retry-After`; neither this limiter nor the API's JWT limiter affects the
-other. These limits use the socket peer address, so clients behind one proxy
+with `Retry-After`. Configure it independently with `[Metrics]/FailureThreshold`,
+`FailureWindowSeconds`, and `LockoutSeconds` (positive integers, defaults 30, 60,
+and 300). Neither this limiter nor the API's JWT limiter affects the other. These limits use the socket peer address, so clients behind one proxy
 share the metrics limit.
 
 Successful responses use `Content-Type: text/plain; version=0.0.4; charset=utf-8`
 and `Cache-Control: no-store`. They have no ETag and do not return 304. Output has
 English descriptions, locale-independent numbers, escaped labels, and a final
-newline. No library or protocol extension is required.
+newline. No new library is required. Four additive statistics tags carry session bytes,
+active connections, and uptime on the existing FULL/INC_UPDATE statistics reply;
+older daemons omit these measurements. No additional EC request is made.
 
 Each scrape copies a compact snapshot published after a successful refresh. It
 makes **no EC requests**, reads no files, and does not walk file/client maps.
-Download counts are aggregated during refresh, only when metrics
+Download, uploading-client, and server counts are aggregated during refresh, only when metrics
 are active (enabled with a token). Labels are bounded; no filenames, hashes, addresses, or client/server
 identifiers appear. Samples have no explicit Prometheus timestamps.
 
 | Metric | Type / labels | Meaning |
 |---|---|---|
-| `amule_build_info` | gauge, `version` | amuleapi binary version; value 1 |
+| `amule_build_info` | gauge, `version`, `daemon_version` | amuleapi binary version and daemon version from the EC handshake (empty before the first successful refresh); value 1 |
 | `amule_ec_connected` | gauge | Last EC refresh succeeded (0/1) |
 | `amule_snapshot_timestamp_seconds` | gauge | Unix time of last successful refresh; absent before the first |
 | `amule_network_connected` | gauge, `network="ed2k\|kad"` | Network connection state (0/1) |
@@ -3494,7 +3497,13 @@ identifiers appear. Samples have no explicit Prometheus timestamps.
 | `amule_kad_firewalled` | gauge, `protocol="tcp\|udp"` | Firewall verdict, only when available |
 | `amule_transfer_rate_bytes_per_second` | gauge, `direction="upload\|download"`, `kind="data\|overhead"` | Data and additional overhead rates |
 | `amule_speed_limit_bytes_per_second` | gauge, `direction` | Configured limit; zero means unlimited |
-| `amule_transferred_bytes_total` | counter, `direction` | Persisted lifetime bytes, not session bytes |
+| `amule_transferred_bytes_alltime` | counter, `direction` | Persisted lifetime bytes from `statistics.dat` |
+| `amule_transferred_bytes_total` | counter, `direction` | Exact session bytes; resets on daemon restart |
+| `amule_active_uploads` | gauge | Cached clients whose upload state is uploading |
+| `amule_active_connections` | gauge | Active daemon connections; omitted on older daemons |
+| `amule_uptime_seconds` | gauge | Daemon uptime; omitted on older daemons |
+| `amule_servers` | gauge | Cached server-list size |
+| `amule_connected_server_users` | gauge | Users on the connected eD2k server; omitted while disconnected or absent from the server cache |
 | `amule_upload_queue_length` | gauge | Waiting upload clients |
 | `amule_sources_found` | gauge | Download sources found |
 | `amule_shared_files` | gauge | Daemon's shared-file count |
@@ -3513,6 +3522,11 @@ and `unknown`. All appear, including zero counts; unrecognized states count as
 `unknown`. Optional EC tags absent from older daemons produce no corresponding
 series. Real zeros remain zero. Lifetime counters may decrease after a statistics
 reset or replacement of the daemon's profile; use `rate()` to handle resets.
+The proposal reserves `_total` for session counters and `_alltime` for persisted
+counters. Consequently `promtool check metrics` reports the conventional counter
+suffix warning for `amule_transferred_bytes_alltime`; use `promtool check metrics
+--lint=none --extended` to validate parsing. Regression checks require this to be the only
+exposition lint diagnostic.
 
 Before the first successful refresh, output contains build information and
 `amule_ec_connected 0`. After a failed refresh it also retains the previous
@@ -3525,7 +3539,7 @@ refresh health and freshness. A hung refresh retains the last published state,
 so monitor freshness as well as connectivity. Existing process shutdown behavior
 on EC connection loss is unchanged; if amuleapi exits, the HTTP scrape fails.
 
-Uptime, session-byte counters, active-transfer/connection counts, per-file labels,
-native OpenMetrics negotiation, and OTLP push are deferred. See the
-[quickstart](../QUICKSTART-AMULEAPI.md#prometheus-metrics-proof-of-concept) for
+Per-file labels, native OpenMetrics negotiation, and OTLP push remain outside
+this endpoint's scope. See the
+[quickstart](../QUICKSTART-AMULEAPI.md#prometheus-metrics) for
 Prometheus and OpenTelemetry Collector configuration.

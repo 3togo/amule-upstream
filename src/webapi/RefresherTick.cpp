@@ -139,6 +139,9 @@ SearchFetchOutcome FetchOneSearchFull(CamuleapiApp &app, CState &state, std::uin
 
 bool RefresherTick(CamuleapiApp &app, CState &state, MetricsSnapshot *metrics)
 {
+	if (metrics)
+		metrics->daemon_version = std::string(app.GetDaemonVersion().utf8_str());
+
 	// Per-tick budget: a few EC ops via SendRecvSerialized (m_ec_mtx-serialised). Any failure
 	// bails the whole tick so the cache stays internally consistent. STAT_REQ runs first as the
 	// cheapest probe: an EC drop between ticks is caught before larger queries burn roundtrips.
@@ -225,6 +228,8 @@ bool RefresherTick(CamuleapiApp &app, CState &state, MetricsSnapshot *metrics)
 
 		state.MutateServers([&](std::map<std::uint32_t, ServerSnapshot> &cache) {
 			ApplyGetUpdateToServers(resp, cache);
+			if (metrics)
+				metrics->CountServers(cache);
 		});
 
 		state.MutateFriends([&](std::map<std::uint32_t, FriendSnapshot> &cache) {
@@ -238,6 +243,8 @@ bool RefresherTick(CamuleapiApp &app, CState &state, MetricsSnapshot *metrics)
 		state.MutateClientsWithFiles(
 			[&](std::map<std::uint32_t, ClientSnapshot> &cache, const FileMap &files) {
 				ApplyGetUpdateToClients(resp, cache, files);
+				if (metrics)
+					metrics->CountClients(cache);
 			});
 		delete resp;
 

@@ -589,7 +589,9 @@ CApiDispatcher::CApiDispatcher(CAmuleApiConfig &config, CJwt &jwt, webapi::CStat
 m_authRateLimiter(webapi::CRateLimiter::Config{ config.AuthCfg().token_failure_window_seconds,
 	config.AuthCfg().token_failure_threshold,
 	config.AuthCfg().token_lockout_seconds })
-, m_metricsRateLimiter(webapi::CRateLimiter::Config{ 60, 30, 300 })
+, m_metricsRateLimiter(webapi::CRateLimiter::Config{ config.MetricsCfg().failure_window_seconds,
+	  config.MetricsCfg().failure_threshold,
+	  config.MetricsCfg().lockout_seconds })
 {
 }
 

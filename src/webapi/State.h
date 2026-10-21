@@ -1256,6 +1256,10 @@ struct OptionalStat
 
 struct StatusSnapshot
 {
+	OptionalStat session_sent_bytes;
+	OptionalStat session_received_bytes;
+	OptionalStat active_connections;
+	OptionalStat uptime_seconds;
 	OptionalStat total_sent_bytes;
 	OptionalStat total_received_bytes;
 	OptionalStat upload_limit_bytes_per_second;
@@ -1518,7 +1522,13 @@ struct MetricsSnapshot
 	KadSnapshot kad;
 	bool ec_connected = false;
 	std::time_t snapshot_at = 0;
+	std::string daemon_version;
+	std::uint64_t active_uploads = 0;
+	std::uint64_t servers = 0;
+	OptionalStat connected_server_users;
 	std::array<std::uint64_t, 11> downloads{};
+	void CountClients(const std::map<std::uint32_t, ClientSnapshot> &clients);
+	void CountServers(const std::map<std::uint32_t, ServerSnapshot> &servers);
 	static const std::array<const char *, 11> &DownloadStatuses();
 	void CountDownloads(const FileMap &files);
 };

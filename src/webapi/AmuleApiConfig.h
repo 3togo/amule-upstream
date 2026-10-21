@@ -99,7 +99,10 @@ public:
 	struct Metrics
 	{
 		// Local to amuleapi; other EC clients never enable metrics implicitly.
-		bool enabled = true;
+		bool enabled = false;
+		unsigned failure_window_seconds = 60;
+		unsigned failure_threshold = 30;
+		unsigned lockout_seconds = 300;
 		std::string token; // Dedicated scrape credential; never authorizes API operations.
 		bool IsActive() const { return enabled && !token.empty(); }
 	};

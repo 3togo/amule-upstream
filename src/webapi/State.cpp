@@ -121,6 +121,30 @@ void MetricsSnapshot::CountDownloads(const FileMap &files)
 	}
 }
 
+void MetricsSnapshot::CountClients(const std::map<std::uint32_t, ClientSnapshot> &clients)
+{
+	active_uploads = 0;
+	for (const auto &entry : clients) {
+		if (entry.second.upload_state == "uploading")
+			++active_uploads;
+	}
+}
+
+void MetricsSnapshot::CountServers(const std::map<std::uint32_t, ServerSnapshot> &cache)
+{
+	servers = cache.size();
+	connected_server_users = {};
+	if (status.ed2k_state != "connected")
+		return;
+	const std::string address = status.server_ip + ":" + std::to_string(status.server_port);
+	for (const auto &entry : cache) {
+		if (entry.second.address == address) {
+			connected_server_users = { entry.second.users, true };
+			break;
+		}
+	}
+}
+
 MetricsSnapshot CState::Metrics() const
 {
 	std::shared_lock<std::shared_timed_mutex> lock(m_mu);

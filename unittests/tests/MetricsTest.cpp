@@ -19,7 +19,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
 #include <muleunit/test.h>
@@ -53,12 +53,13 @@ TEST(Metrics, EscapesLabelsAndIgnoresGlobalNumberLocale)
 	s.ec_connected = true;
 	s.snapshot_at = 1234567;
 	s.status.total_sent_bytes = { 123456789012345ULL, true };
+	s.daemon_version = "daemon\\\"\nnext";
 	LocaleGuard guard;
 	const auto text = SerializeMetrics(s, "version\\\"\nnext");
-	ASSERT_TRUE(
-		text.find("amule_build_info{version=\"version\\\\\\\"\\nnext\"} 1\n") != std::string::npos);
+	ASSERT_TRUE(text.find("amule_build_info{version=\"version\\\\\\\"\\nnext\",daemon_version="
+			      "\"daemon\\\\\\\"\\nnext\"} 1\n") != std::string::npos);
 	ASSERT_TRUE(text.find("amule_snapshot_timestamp_seconds 1234567\n") != std::string::npos);
-	ASSERT_TRUE(text.find("amule_transferred_bytes_total{direction=\"upload\"} 123456789012345\n") !=
+	ASSERT_TRUE(text.find("amule_transferred_bytes_alltime{direction=\"upload\"} 123456789012345\n") !=
 		    std::string::npos);
 	ASSERT_EQUALS('\n', text.back());
 }
@@ -72,15 +73,15 @@ TEST(Metrics, OmitsUnavailableMeasurementsButRetainsRealZero)
 	ASSERT_TRUE(missing.find("amule_disk_free_bytes") == std::string::npos);
 	ASSERT_TRUE(missing.find("amule_kad_network_users") == std::string::npos);
 	ASSERT_TRUE(missing.find("amule_ed2k_high_id") == std::string::npos);
-	ASSERT_TRUE(missing.find("amule_transferred_bytes_total") == std::string::npos);
+	ASSERT_TRUE(missing.find("amule_transferred_bytes_alltime") == std::string::npos);
 	ASSERT_TRUE(missing.find("amule_shared_files") == std::string::npos);
 	s.status.temp_free_bytes = 0;
 	s.status.total_received_bytes = { 0, true };
 	s.status.download_limit_bytes_per_second = { 0, true };
 	const auto zero = SerializeMetrics(s, "test");
 	ASSERT_TRUE(zero.find("amule_disk_free_bytes{dir=\"temp\"} 0\n") != std::string::npos);
-	ASSERT_TRUE(
-		zero.find("amule_transferred_bytes_total{direction=\"download\"} 0\n") != std::string::npos);
+	ASSERT_TRUE(zero.find("amule_transferred_bytes_alltime{direction=\"download\"} 0\n") !=
+		    std::string::npos);
 	ASSERT_TRUE(zero.find("amule_speed_limit_bytes_per_second{direction=\"download\"} 0\n") !=
 		    std::string::npos);
 }
@@ -166,4 +167,66 @@ TEST(Metrics, ConnectedNetworkGatesExposeRealZeroValues)
 	ASSERT_TRUE(text.find("amule_kad_indexed{type=\"sources\"} 0\n") != std::string::npos);
 	ASSERT_TRUE(text.find("amule_kad_index_load 0\n") != std::string::npos);
 	ASSERT_TRUE(text.find("amule_kad_indexed{type=\"load\"}") == std::string::npos);
+}
+
+TEST(Metrics, CountsCachedClientsAndServersAndClearsMissingConnectedServer)
+{
+	MetricsSnapshot s;
+	s.ec_connected = true;
+	s.snapshot_at = 1;
+	s.status.ed2k_state = "connected";
+	s.status.server_ip = "1.2.3.4";
+	s.status.server_port = 4661;
+	std::map<std::uint32_t, ClientSnapshot> clients;
+	clients[1].upload_state = "uploading";
+	clients[2].upload_state = "queued";
+	clients[3].upload_state = "uploading";
+	s.CountClients(clients);
+	std::map<std::uint32_t, ServerSnapshot> servers;
+	servers[1].address = "1.2.3.4:4661";
+	servers[1].users = 12345;
+	servers[2].address = "1.2.3.4:4662";
+	servers[2].users = 999;
+	s.CountServers(servers);
+	const auto text = SerializeMetrics(s, "test");
+	ASSERT_TRUE(text.find("amule_active_uploads 2\n") != std::string::npos);
+	ASSERT_TRUE(text.find("amule_servers 2\n") != std::string::npos);
+	ASSERT_TRUE(text.find("amule_connected_server_users 12345\n") != std::string::npos);
+	servers[1].users = 0;
+	s.CountServers(servers);
+	ASSERT_TRUE(
+		SerializeMetrics(s, "test").find("amule_connected_server_users 0\n") != std::string::npos);
+	servers.erase(1);
+	s.CountServers(servers);
+	ASSERT_TRUE(SerializeMetrics(s, "test").find("amule_connected_server_users") == std::string::npos);
+	s.status.ed2k_state = "disconnected";
+	s.CountServers(servers);
+	s.CountClients({});
+	ASSERT_EQUALS(static_cast<std::uint64_t>(0), s.active_uploads);
+	ASSERT_FALSE(s.connected_server_users.present);
+}
+
+TEST(Metrics, SessionStatisticsAreOptionalAndSeparateFromLifetimeTotals)
+{
+	MetricsSnapshot s;
+	s.ec_connected = true;
+	s.snapshot_at = 1;
+	const auto missing = SerializeMetrics(s, "test");
+	ASSERT_TRUE(missing.find("amule_transferred_bytes_total") == std::string::npos);
+	ASSERT_TRUE(missing.find("amule_active_connections") == std::string::npos);
+	ASSERT_TRUE(missing.find("amule_uptime_seconds") == std::string::npos);
+	s.status.session_sent_bytes = { 1234567890123ULL, true };
+	s.status.session_received_bytes = { 0, true };
+	s.status.total_sent_bytes = { 9999999999999ULL, true };
+	s.status.active_connections = { 0, true };
+	s.status.uptime_seconds = { 42, true };
+	const auto text = SerializeMetrics(s, "test");
+	ASSERT_TRUE(text.find("amule_transferred_bytes_total{direction=\"upload\"} 1234567890123\n") !=
+		    std::string::npos);
+	ASSERT_TRUE(
+		text.find("amule_transferred_bytes_total{direction=\"download\"} 0\n") != std::string::npos);
+	ASSERT_TRUE(text.find("amule_transferred_bytes_alltime{direction=\"upload\"} 9999999999999\n") !=
+		    std::string::npos);
+	ASSERT_TRUE(text.find("amule_active_connections 0\n") != std::string::npos);
+	ASSERT_TRUE(text.find("amule_uptime_seconds 42\n") != std::string::npos);
 }

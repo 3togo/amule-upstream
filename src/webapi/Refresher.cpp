@@ -258,6 +258,10 @@ void ParseStatusFromPacket(const CECPacket *resp, StatusSnapshot &out)
 			value.present = true;
 		}
 	};
+	optional_stat(EC_TAG_STATS_SESSION_SENT_BYTES, out.session_sent_bytes);
+	optional_stat(EC_TAG_STATS_SESSION_RECEIVED_BYTES, out.session_received_bytes);
+	optional_stat(EC_TAG_STATS_ACTIVE_CONNECTIONS, out.active_connections);
+	optional_stat(EC_TAG_STATS_UPTIME_SECONDS, out.uptime_seconds);
 	optional_stat(EC_TAG_STATS_TOTAL_SENT_BYTES, out.total_sent_bytes);
 	optional_stat(EC_TAG_STATS_TOTAL_RECEIVED_BYTES, out.total_received_bytes);
 	optional_stat(EC_TAG_STATS_UL_SPEED_LIMIT, out.upload_limit_bytes_per_second);
