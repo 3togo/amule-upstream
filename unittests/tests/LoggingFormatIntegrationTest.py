@@ -14,7 +14,7 @@ from AllSearchIntegrationTest import (C, connect_daemon, free_ports,
                                       retry_port_collisions, string, tag)
 from DaemonConfig import write_amule_conf
 
-STAMP = r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{4}'
+STAMP = r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}'
 # Legacy macros include a source basename and line number in Debug builds.
 SOURCE = r'(?:[^()\r\n]+\(\d+\): )?'
 

@@ -3,12 +3,12 @@
 Core logs and the console logger use UTF-8 text with an explicit severity:
 
 ```text
-2026-10-18T17:42:31.123+0800 INFO  Disconnected from eD2k
-2026-10-18T17:42:31.124+0800 WARN  [wx] A warning
+2026-10-18T17:42:31.123+08:00 INFO  Disconnected from eD2k
+2026-10-18T17:42:31.124+08:00 WARN  [wx] A warning
 ```
 
 The timestamp uses the emitting process's local time with milliseconds and a
-numeric UTC offset (`+0800` in this example). This keeps desktop times familiar
+numeric UTC offset (`+08:00` in this example). This keeps desktop times familiar
 and makes server logs unambiguous, including across daylight-saving transitions.
 Millisecond precision distinguishes bursts of messages within the same second.
 The instant is captured before the core logger queues a worker-thread message.
@@ -35,15 +35,18 @@ space for ordinary messages, `!` for status-bar messages and `.` for logfile-onl
 messages. Logfile-only messages remain excluded from EC replay. Human stdout
 omits this byte. Existing remote GUIs can continue stripping the marker.
 
-The standalone console logger shares the formatter. Its category is `console`;
+The standalone console logger shares the formatter. Its category identifies the
+program (`amulecmd`, `amuleweb` or `amuleapi`);
 explicit `CLogger::Log` calls can supply a subsystem. Debug builds retain source
 file/line details in legacy messages.
 
 ## Follow-up work
 
 The amuleapi descriptor tee still timestamps arbitrary stdout/stderr, including
-startup messages and crash output. Its direct diagnostics and wxLogStderr target
-retain their current format; migrating them is separate work. The tee recognizes
+startup messages and crash output. Direct diagnostics use the shared formatter
+with explicit WARN/ERROR severity,
+and the wx log target preserves native severity and emission time. Raw descriptor
+output receives the shared INFO prefix and the `amuleapi` tag. The tee recognizes
 the shared local-time prefix with its numeric offset across pipe-read boundaries
 to avoid double timestamps on console logger records, while preserving
 raw-output capture and the crash descriptor. Rotation, the EC protocol and crash output remain unchanged.
@@ -53,7 +56,7 @@ JSON Lines output, and core logfile rotation can be introduced separately.
 
 ## Review sequence for 3.2.0
 
-This format is a candidate for agreement in #1441, not a settled interface. It
+The format and sequence are proposed in #1441 and accepted by one reviewer. It
 changes GUI, status-bar, Web UI, EC/API and file output, and belongs to 3.2.0.
 The proposed sequence is to review severity/format independently, then add
 runtime debug categories in Release with a benchmark against the current Release
@@ -61,5 +64,5 @@ build with every category disabled. That follow-up must keep message constructio
 behind the category check, preserve existing debug-only diagnostic blocks, and
 measure the disabled path before enabling it in production. It should include
 thread-safe category controls and their preferences/EC integration. This PR makes
-no claim about the performance of runtime categories. Maintainer agreement on
-this sequence remains pending.
+no claim about the performance of runtime categories. Final maintainer agreement
+remains pending.

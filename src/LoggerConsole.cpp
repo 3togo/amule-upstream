@@ -27,6 +27,9 @@
 #include <mutex>
 #include <common/StringFunctions.h> // for char2unicode()
 
+#include <wx/filename.h>
+#include <wx/stdpaths.h>
+
 #include "Logger.h" // for Add(Debug)LogLineM()
 
 wxDEFINE_EVENT(MULE_EVT_LOGLINE, wxEvent);
@@ -85,7 +88,7 @@ void CLogger::AddLogLine(const wxString &file,
 	(void)line;
 #endif
 	Log(type != logStandard && !critical ? LogLevel::Debug : LogLevel::Info,
-		"console",
+		wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetName(),
 		message,
 		critical,
 		toStdout,
@@ -104,7 +107,8 @@ void CLogger::Log(LogLevel level,
 
 void CLogger::Log(const CLogRecord &record, bool, bool, bool)
 {
-	const wxScopedCharBuffer text = FormatLogLines(record).utf8_str();
+	const wxString rendered = FormatLogLines(record);
+	const wxScopedCharBuffer text = rendered.utf8_str();
 	// Write each complete record under one lock, including multiline messages.
 	static std::mutex mutex;
 	const std::lock_guard<std::mutex> lock(mutex);

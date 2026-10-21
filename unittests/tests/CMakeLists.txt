@@ -1960,8 +1960,7 @@ if (LIBATOMIC)
 endif()
 
 # amuleapi log tee: CRotatingLog's size cap, line stamping and the tee itself.
-# LogTee.cpp is plain POSIX/std (no wx), so only muleunit + mulecommon are
-# needed for the harness.
+# The tee shares the wx-based log formatter, linked through mulecommon.
 add_executable (LogTeeTest
 	LogTeeTest.cpp
 	${CMAKE_SOURCE_DIR}/src/webapi/LogTee.cpp

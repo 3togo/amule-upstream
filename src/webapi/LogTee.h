@@ -89,7 +89,7 @@ private:
 	volatile std::sig_atomic_t m_crashFd = -1;
 };
 
-// Legacy timestamp for unstructured output captured from the process descriptors.
+// Shared-format INFO prefix for unstructured output captured from the process descriptors.
 std::string LocalLogStamp();
 
 // Prefixes each line with a timestamp as the bytes stream past. Stateful because a line can

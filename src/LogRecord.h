@@ -86,6 +86,17 @@ inline char LegacyLogMarker(bool toStatusBar, bool toGUI)
 	return !toGUI ? '.' : (toStatusBar ? '!' : ' ');
 }
 
+inline wxString FormatLogPrefix(const CLogRecord &record)
+{
+	// wx returns the basic numeric offset; RFC 3339 uses a colon between hours and minutes.
+	wxString offset = record.timestamp.Format("%z");
+	offset.insert(3, ":");
+	return record.timestamp.Format("%Y-%m-%dT%H:%M:%S") +
+	       wxString::Format(".%03u", static_cast<unsigned>(record.timestamp.GetMillisecond())) + offset +
+	       " " + LogLevelName(record.level) + " " +
+	       (record.category.IsEmpty() ? wxString() : "[" + record.category + "] ");
+}
+
 // Render at the sink, using the emission time retained in the record. Every physical
 // line has its own prefix; a blank record remains a blank line, as in the old logger.
 inline wxString FormatLogLines(const CLogRecord &record)
@@ -94,11 +105,7 @@ inline wxString FormatLogLines(const CLogRecord &record)
 	if (text.IsEmpty()) {
 		return "\n";
 	}
-	const wxString prefix =
-		record.timestamp.Format("%Y-%m-%dT%H:%M:%S") +
-		wxString::Format(".%03u", static_cast<unsigned>(record.timestamp.GetMillisecond())) +
-		record.timestamp.Format("%z") + " " + LogLevelName(record.level) + " " +
-		(record.category.IsEmpty() ? wxString() : "[" + record.category + "] ");
+	const wxString prefix = FormatLogPrefix(record);
 	wxString result;
 	wxStringTokenizer tokens(text, "\n", wxTOKEN_RET_EMPTY);
 	while (tokens.HasMoreTokens()) {

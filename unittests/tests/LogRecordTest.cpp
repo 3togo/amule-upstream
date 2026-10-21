@@ -47,7 +47,8 @@ std::string Text(const wxString &text)
 }
 std::string Stamp()
 {
-	return Text(FixedTime().Format("%Y-%m-%dT%H:%M:%S")) + ".123" + Text(FixedTime().Format("%z")) + " ";
+	return Text(FixedTime().Format("%Y-%m-%dT%H:%M:%S")) + ".123" +
+	       Text(FixedTime().Format("%z")).insert(3, ":") + " ";
 }
 } // namespace
 
