@@ -25,6 +25,20 @@ add_test (NAME QuicCMakeConfigTest
 
 # Native icon rendering needs wx core and a display (skipped if unavailable).
 if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
+	add_executable (TextClearButtonTest
+		TextClearButtonTest.cpp
+		${CMAKE_SOURCE_DIR}/src/CamuleArtProvider.cpp
+		${CMAKE_SOURCE_DIR}/src/icons/icon_data.c
+	)
+	target_include_directories (TextClearButtonTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+	target_link_libraries (TextClearButtonTest PRIVATE wxWidgets::CORE)
+	if (WIN32)
+		target_sources (TextClearButtonTest PRIVATE IconArtworkTest.rc)
+		target_include_directories (TextClearButtonTest PRIVATE ${CMAKE_SOURCE_DIR})
+	endif ()
+	add_test (NAME TextClearButtonTest COMMAND TextClearButtonTest)
+	set_tests_properties (TextClearButtonTest PROPERTIES SKIP_RETURN_CODE 77 LABELS "gui")
+
 	add_executable (IconArtworkTest
 		IconArtworkTest.cpp
 		${CMAKE_SOURCE_DIR}/src/CamuleArtProvider.cpp
@@ -79,6 +93,15 @@ target_include_directories (IPFilterIPv6Test PRIVATE
 	${Boost_INCLUDE_DIR}
 )
 target_link_libraries (IPFilterIPv6Test muleunit mulecommon ${Boost_LIBRARIES})
+
+# Live speed displays: one-second startup, step changes, idle expiry, and peer totals.
+add_executable (DisplayRateCounterTest DisplayRateCounterTest.cpp)
+add_test (NAME DisplayRateCounterTest COMMAND DisplayRateCounterTest)
+target_include_directories (DisplayRateCounterTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (DisplayRateCounterTest muleunit mulecommon)
+if (LIBATOMIC)
+	target_link_libraries (DisplayRateCounterTest ${LIBATOMIC})
+endif()
 
 # EC push delivery resumes after the recursion cap without a socket completion.
 add_executable (ECNotificationDrainTest ECNotificationDrainTest.cpp)
@@ -2630,6 +2653,15 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiRestartIntegrationTest.py $<TARGET_FILE:amuled>
 		)
 		if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+			add_test (NAME DisplayRatesIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/DisplayRatesIntegrationTest.py $<TARGET_FILE:amuled>
+			)
+			set_tests_properties (DisplayRatesIntegrationTest PROPERTIES TIMEOUT 90)
+			add_test (NAME DownloadDisplayRatesIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/DownloadDisplayRatesIntegrationTest.py $<TARGET_FILE:amuled>
+			)
 			add_test (NAME UploadRefillIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/UploadRefillIntegrationTest.py
@@ -2770,8 +2802,9 @@ if (TARGET wxWidgets::CORE)
 	if (WIN32)
 		target_sources (DialogLayoutTest PRIVATE DialogLayoutTest.rc)
 	endif()
-	target_include_directories (DialogLayoutTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
-	target_link_libraries (DialogLayoutTest PRIVATE wxWidgets::CORE)
+	target_include_directories (DialogLayoutTest PRIVATE
+		${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/libs)
+	target_link_libraries (DialogLayoutTest PRIVATE wxWidgets::CORE mulecommon)
 	add_test (NAME DialogLayoutTest COMMAND DialogLayoutTest)
 	set_tests_properties (DialogLayoutTest PROPERTIES SKIP_RETURN_CODE 77)
 	add_executable (BandwidthLimitSliderTest BandwidthLimitSliderTest.cpp)
@@ -3068,6 +3101,12 @@ if (BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
 endif ()
 
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Interpreter_FOUND)
+	if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		add_test (NAME NetworkPreferencesIntegrationTest
+			COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/NetworkPreferencesIntegrationTest.py
+				$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
+		)
+	endif ()
 	add_test (NAME AmuleApiEcPasswordIntegrationTest
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiEcPasswordIntegrationTest.py
 			$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>

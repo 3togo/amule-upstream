@@ -555,13 +555,13 @@ msgstr ""
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
-msgstr ""
+msgid "Could not bind ports to the specified address: %s"
+msgstr "Nuk mund te lidh portat tek adresa e dhene: %s"
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
-msgstr "Nuk mund te lidh portat tek adresa e dhene: %s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -1037,6 +1037,14 @@ msgstr ""
 #, c-format
 msgid "Up: %.1f%s | Down: %.1f%s"
 msgstr "Ngarkim: %.1f%s | Shkarkim: %.1f%s"
+
+#: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
 
 #: src/amuleDlg.cpp
 #, c-format
@@ -2212,14 +2220,6 @@ msgstr ""
 "Feedback nga: %s (%s)\n"
 "\n"
 
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "Enter new name for this file:"
-msgstr "Futni nje emer te ti per kete fail:"
-
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "File rename"
-msgstr "Riemertim i failit"
-
 #: src/DownloadListCtrl.cpp src/GenericClientListCtrl.cpp
 #: src/SharedFilesCtrl.cpp
 #, c-format
@@ -2889,6 +2889,14 @@ msgstr ""
 #: src/SharedFilesCtrl.cpp
 msgid "OK"
 msgstr "Ne rregull"
+
+#: src/FileRenameDialog.h
+msgid "Enter new name for this file:"
+msgstr "Futni nje emer te ti per kete fail:"
+
+#: src/FileRenameDialog.h
+msgid "File rename"
+msgstr "Riemertim i failit"
 
 #: src/ExternalCommand.cpp
 msgid "The command has no executable."
@@ -4132,7 +4140,7 @@ msgstr "Kopjo"
 msgid "Paste"
 msgstr "Ngjit"
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr "Pastro"
@@ -4146,7 +4154,7 @@ msgstr "Zgjidhi te gjitha"
 msgid "KiB/s"
 msgstr ""
 
-#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 msgid "Unlimited"
 msgstr "E pakufijshme"
 
@@ -5051,6 +5059,11 @@ msgstr "Kufiri i ngarkimit"
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
 msgstr "Vendndodhja e slotit"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Bandwidth calculator..."
+msgstr "Kufijtë e brezit"
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -6758,7 +6771,7 @@ msgstr "Do te perdoret porta e vendosur (%d)"
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr ""
 
-#: src/BandwidthLimitSlider.h
+#: src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "KiB/s (%.2f MiB/s)"
 msgstr ""
@@ -7229,6 +7242,25 @@ msgstr[1] "Intervali i rifreskimit te lidhjeve te serverit: %d minuta"
 #: src/PrefsUnifiedDlg.cpp
 msgid "Server connection refresh interval: Disabled"
 msgstr "Intervali i rifreskimit te lidhjeve te serverit: I c'aktivizuar"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Bandwidth calculator"
+msgstr "Kufijtë e brezit"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Enter limits in Mbit/s. Zero means unlimited."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Download (Mbit/s)"
+msgstr "Shkarkimet (%i)"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Upload (Mbit/s)"
+msgstr "Kufiri i ngarkimit"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "disabled"

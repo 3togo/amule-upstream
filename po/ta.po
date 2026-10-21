@@ -520,12 +520,12 @@ msgstr ""
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgid "Could not bind ports to the specified address: %s"
 msgstr ""
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
 msgstr ""
 
 #: src/amule.cpp
@@ -985,6 +985,14 @@ msgstr ""
 #: src/amuleDlg.cpp
 #, c-format
 msgid "Up: %.1f%s | Down: %.1f%s"
+msgstr ""
+
+#: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
 msgstr ""
 
 #: src/amuleDlg.cpp
@@ -2140,14 +2148,6 @@ msgid ""
 "\n"
 msgstr ""
 
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "Enter new name for this file:"
-msgstr ""
-
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "File rename"
-msgstr ""
-
 #: src/DownloadListCtrl.cpp src/GenericClientListCtrl.cpp
 #: src/SharedFilesCtrl.cpp
 #, c-format
@@ -2785,6 +2785,14 @@ msgstr ""
 #: src/FileDetailDialog.cpp src/muuli_wdr.cpp src/ServerWnd.cpp
 #: src/SharedFilesCtrl.cpp
 msgid "OK"
+msgstr ""
+
+#: src/FileRenameDialog.h
+msgid "Enter new name for this file:"
+msgstr ""
+
+#: src/FileRenameDialog.h
+msgid "File rename"
 msgstr ""
 
 #: src/ExternalCommand.cpp
@@ -3999,7 +4007,7 @@ msgstr ""
 msgid "Paste"
 msgstr ""
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr ""
@@ -4013,7 +4021,7 @@ msgstr ""
 msgid "KiB/s"
 msgstr ""
 
-#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 msgid "Unlimited"
 msgstr ""
 
@@ -4904,6 +4912,10 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth calculator..."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -6579,7 +6591,7 @@ msgstr ""
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr ""
 
-#: src/BandwidthLimitSlider.h
+#: src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "KiB/s (%.2f MiB/s)"
 msgstr ""
@@ -7020,6 +7032,22 @@ msgstr[1] ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Server connection refresh interval: Disabled"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Bandwidth calculator"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Enter limits in Mbit/s. Zero means unlimited."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Download (Mbit/s)"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Upload (Mbit/s)"
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp

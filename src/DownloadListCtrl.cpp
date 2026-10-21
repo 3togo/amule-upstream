@@ -36,6 +36,7 @@
 #include "DataToText.h"       // Needed for PriorityToStr
 #include "DownloadQueue.h"
 #include "FileDetailDialog.h" // Needed for CFileDetailDialog
+#include "FileRenameDialog.h" // Needed for AskNewFileName
 #include "FileLaunch.h"       // Needed for FileLaunch::Open / Reveal
 #include "GuiEvents.h"        // Needed for CoreNotify_*, Notify_DownloadCtrlDoItemSelectionChanged
 #include "Logger.h"
@@ -353,6 +354,30 @@ void CDownloadListCtrl::RemoveFile(CPartFile *file)
 	// caller is about to free.
 	ShowFile(file, false);
 	m_files.erase(file);
+	m_pendingUpdates.erase(file);
+}
+
+void CDownloadListCtrl::DeferUpdateItem(const void *item)
+{
+	CPartFile *file = const_cast<CPartFile *>(static_cast<const CPartFile *>(item));
+	if (m_files.find(file) != m_files.end()) {
+		m_pendingUpdates.insert(file);
+	}
+}
+
+void CDownloadListCtrl::RefreshLiveItems()
+{
+	for (auto it = m_pendingUpdates.begin(); it != m_pendingUpdates.end();) {
+		CPartFile *file = *it;
+		UpdateItem(file);
+		// Keep active rows on this GUI cadence even if the next core notification
+		// falls just after the timer. Idle rows need no extra periodic repaint.
+		if (file->GetTransferingSrcCount() || file->GetDisplayDownloadRate()) {
+			++it;
+		} else {
+			it = m_pendingUpdates.erase(it);
+		}
+	}
 }
 
 void CDownloadListCtrl::UpdateItem(const void *toupdate)
@@ -861,12 +886,19 @@ bool CDownloadListCtrl::OnListKey(wxKeyEvent &event)
 			CPartFile *file = reinterpret_cast<CPartFile *>(selected.front());
 			// Currently renaming of completed files causes problem with kad
 			if (file->IsPartFile()) {
-				wxString strNewName = ::wxGetTextFromUser(_("Enter new name for this file:"),
-					_("File rename"),
-					file->GetFileName().GetPrintable());
-				CPath newName = CPath(strNewName);
-				if (newName.IsOk() && (newName != file->GetFileName())) {
-					theApp->sharedfiles->RenameFile(file, newName);
+				const uint32 fileID = file->ECID();
+				wxString newName;
+				if (!AskNewFileName(this, file->GetFileName(), newName)) {
+					return true;
+				}
+				// Downloads can disappear or complete while the modal event loop runs.
+				if (!HasItemData(selected.front()) || file->ECID() != fileID ||
+					!file->IsPartFile()) {
+					return true;
+				}
+				CPath newPath(newName);
+				if (newPath.IsOk() && (newPath != file->GetFileName())) {
+					theApp->sharedfiles->RenameFile(file, newPath);
 				}
 			}
 		}
@@ -904,10 +936,10 @@ wxString CDownloadListCtrl::GetItemColumnText(wxUIntPtr item, unsigned column) c
 
 	case COLUMN_DL_SPEED:
 		if (file->GetTransferingSrcCount()) {
-			if (file->GetKBpsDown() >= 1024) {
-				return CFormat(_("%.1f MiB/s")) % (file->GetKBpsDown() / 1024.0);
+			if (file->GetDisplayKBpsDown() >= 1024) {
+				return CFormat(_("%.1f MiB/s")) % (file->GetDisplayKBpsDown() / 1024.0);
 			}
-			return CFormat(_("%.1f KiB/s")) % file->GetKBpsDown();
+			return CFormat(_("%.1f KiB/s")) % file->GetDisplayKBpsDown();
 		}
 		return wxEmptyString;
 
@@ -1142,7 +1174,7 @@ int CDownloadListCtrl::CompareItemData(
 		return mod * CmpAny(file1->GetCompletedSize(), file2->GetCompletedSize());
 
 	case COLUMN_DL_SPEED:
-		return mod * CmpAny(file1->GetKBpsDown(), file2->GetKBpsDown());
+		return mod * CmpAny(file1->GetDisplayKBpsDown(), file2->GetDisplayKBpsDown());
 
 	case COLUMN_DL_PROGRESS:
 		return mod * CmpAny(file1->GetPercentCompleted(), file2->GetPercentCompleted());

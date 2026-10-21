@@ -15,7 +15,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-19 13:39+0000\n"
+"PO-Revision-Date: 2026-10-21 09:04+0000\n"
 "Last-Translator: minterior <minterior@gmail.com>\n"
 "Language-Team: Català\n"
 "Language: ca\n"
@@ -570,13 +570,13 @@ msgstr "amuleapi es reiniciarà d'aquí a %u segons."
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
-msgstr "Connexió externa: no s'ha pogut vincular a «%s», s'escolta només a 127.0.0.1."
+msgid "Could not bind ports to the specified address: %s"
+msgstr "No s'han pogut vincular els ports a l'adreça especificada: %s"
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
-msgstr "No s'han pogut vincular els ports a l'adreça especificada: %s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgstr "Connexió externa: no s'ha pogut vincular a «%s», s'escolta només a 127.0.0.1."
 
 #: src/amule.cpp
 #, c-format
@@ -1048,6 +1048,14 @@ msgstr " KiB/s"
 #, c-format
 msgid "Up: %.1f%s | Down: %.1f%s"
 msgstr "PU: %.1f%s | BA: %.1f%s"
+
+#: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr "Les velocitats de transferència les informa el dimoni. La pujada total inclou el trànsit de control; les velocitats de pujada dels clients només inclouen els paquets de fitxers. Els valors entre parèntesis mostren la sobrecàrrega del protocol en KiB/s."
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr "Les velocitats en directe són la mitjana de l'últim segon. La pujada total inclou el trànsit de control; les velocitats de pujada dels clients només inclouen els paquets de fitxers. Els valors entre parèntesis mostren la sobrecàrrega del protocol en KiB/s."
 
 #: src/amuleDlg.cpp
 #, c-format
@@ -2212,14 +2220,6 @@ msgstr ""
 "Retroacció des de: %s (%s)\n"
 "\n"
 
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "Enter new name for this file:"
-msgstr "Introduïu un nom nou per al fitxer:"
-
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "File rename"
-msgstr "Reanomena"
-
 #: src/DownloadListCtrl.cpp src/GenericClientListCtrl.cpp
 #: src/SharedFilesCtrl.cpp
 #, c-format
@@ -2883,6 +2883,14 @@ msgstr "%.2f KiB/s"
 #: src/SharedFilesCtrl.cpp
 msgid "OK"
 msgstr "OK"
+
+#: src/FileRenameDialog.h
+msgid "Enter new name for this file:"
+msgstr "Introduïu un nom nou per al fitxer:"
+
+#: src/FileRenameDialog.h
+msgid "File rename"
+msgstr "Reanomena"
 
 #: src/ExternalCommand.cpp
 msgid "The command has no executable."
@@ -3994,7 +4002,7 @@ msgstr "S'ha iniciat el fil Asio %d"
 
 #: src/ListenSocket.cpp
 msgid "ListenSocket: Ok."
-msgstr "ListenSocket: Ok."
+msgstr "Sòcol escoltant: correcte."
 
 #: src/ListenSocket.cpp
 msgid "ERROR: Could not listen to TCP port."
@@ -4093,13 +4101,12 @@ msgid "Fit visible columns to contents"
 msgstr "Ajusta les columnes visibles al contingut"
 
 #: src/MuleDataViewCtrl.cpp
-#, fuzzy
 msgid "Show all columns (keep widths)"
-msgstr "Mostra els comentaris"
+msgstr "Mostra totes les columnes (mantén les amplades)"
 
 #: src/MuleDataViewCtrl.cpp
 msgid "Restore default columns and widths"
-msgstr ""
+msgstr "Restaura les columnes i les amplades predeterminades"
 
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
@@ -4114,7 +4121,7 @@ msgstr "Copia"
 msgid "Paste"
 msgstr "Enganxa"
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr "Neteja"
@@ -4128,7 +4135,7 @@ msgstr "Selecciona-ho tot"
 msgid "KiB/s"
 msgstr "KiB/s"
 
-#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 msgid "Unlimited"
 msgstr "Il·limitat"
 
@@ -5022,6 +5029,10 @@ msgstr "Activa el límit de pujada"
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
 msgstr "Per posició (slot)"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth calculator..."
+msgstr "Calculadora d'ample de banda..."
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -6725,7 +6736,7 @@ msgstr "S'usarà el port per defecte (%d)"
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr "Ajusta el límit activat entre 1 KiB/s i la capacitat de la línia."
 
-#: src/BandwidthLimitSlider.h
+#: src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "KiB/s (%.2f MiB/s)"
 msgstr "KiB/s (%.2f MiB/s)"
@@ -7194,6 +7205,22 @@ msgstr[1] "Interval de refresc de la connexió amb el servidor: %d minuts"
 #: src/PrefsUnifiedDlg.cpp
 msgid "Server connection refresh interval: Disabled"
 msgstr "Interval de refresc de la connexió amb el servidor: Inhabilitat"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Bandwidth calculator"
+msgstr "Calculadora d'ample de banda"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Enter limits in Mbit/s. Zero means unlimited."
+msgstr "Introduïu els límits en Mbit/s. Zero significa sense límit."
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Download (Mbit/s)"
+msgstr "Baixada (Mbit/s)"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Upload (Mbit/s)"
+msgstr "Pujada (Mbit/s)"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "disabled"

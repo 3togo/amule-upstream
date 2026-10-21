@@ -560,13 +560,13 @@ msgstr ""
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
-msgstr ""
+msgid "Could not bind ports to the specified address: %s"
+msgstr "Vrat ni bilo moč povezati z navedenim naslovom: %s"
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
-msgstr "Vrat ni bilo moč povezati z navedenim naslovom: %s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -1042,6 +1042,14 @@ msgstr ""
 #, c-format
 msgid "Up: %.1f%s | Down: %.1f%s"
 msgstr "Gor: %.1f%s | Dol: %.1f%s"
+
+#: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
 
 #: src/amuleDlg.cpp
 #, c-format
@@ -2238,14 +2246,6 @@ msgstr ""
 "Odziv od: %s (%s)\n"
 "\n"
 
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "Enter new name for this file:"
-msgstr "Vnesite novo ime za to datoteko:"
-
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "File rename"
-msgstr "Preimenuj datoteko"
-
 #: src/DownloadListCtrl.cpp src/GenericClientListCtrl.cpp
 #: src/SharedFilesCtrl.cpp
 #, c-format
@@ -2920,6 +2920,14 @@ msgstr ""
 #: src/SharedFilesCtrl.cpp
 msgid "OK"
 msgstr "V redu"
+
+#: src/FileRenameDialog.h
+msgid "Enter new name for this file:"
+msgstr "Vnesite novo ime za to datoteko:"
+
+#: src/FileRenameDialog.h
+msgid "File rename"
+msgstr "Preimenuj datoteko"
 
 #: src/ExternalCommand.cpp
 msgid "The command has no executable."
@@ -4181,7 +4189,7 @@ msgstr "Skopiraj"
 msgid "Paste"
 msgstr "Prilepi"
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr "Počisti"
@@ -4195,7 +4203,7 @@ msgstr "Izberi vse"
 msgid "KiB/s"
 msgstr ""
 
-#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 msgid "Unlimited"
 msgstr "Neomejeno"
 
@@ -5098,6 +5106,11 @@ msgstr "Omejitev pošiljanja"
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
 msgstr "Hitrost za eno mesto"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Bandwidth calculator..."
+msgstr "Omejitve povezave"
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -6817,7 +6830,7 @@ msgstr "Uporabljena bodo privzeta vrata (%d)"
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr ""
 
-#: src/BandwidthLimitSlider.h
+#: src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "KiB/s (%.2f MiB/s)"
 msgstr ""
@@ -7302,6 +7315,25 @@ msgstr[3] "Čas med osvežitvama povezave na strežnik: %d minute"
 #: src/PrefsUnifiedDlg.cpp
 msgid "Server connection refresh interval: Disabled"
 msgstr "Čas med osvežitvama povezave na strežnik: onemogočeno"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Bandwidth calculator"
+msgstr "Omejitve povezave"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Enter limits in Mbit/s. Zero means unlimited."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Download (Mbit/s)"
+msgstr "Prejemanja (%i)"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Upload (Mbit/s)"
+msgstr "Omejitev pošiljanja"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "disabled"

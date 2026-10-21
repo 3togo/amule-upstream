@@ -561,13 +561,13 @@ msgstr ""
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
-msgstr ""
+msgid "Could not bind ports to the specified address: %s"
+msgstr "無法選定使用此位址的通訊埠：%s"
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
-msgstr "無法選定使用此位址的通訊埠：%s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -1043,6 +1043,14 @@ msgstr ""
 #, c-format
 msgid "Up: %.1f%s | Down: %.1f%s"
 msgstr "上傳：%.1f%s | 下載：%.1f%s"
+
+#: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
 
 #: src/amuleDlg.cpp
 #, c-format
@@ -2211,14 +2219,6 @@ msgstr ""
 "%s (%s) 回覆訊息\n"
 "\n"
 
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "Enter new name for this file:"
-msgstr "請輸入新檔案名稱："
-
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "File rename"
-msgstr "更改檔名"
-
 #: src/DownloadListCtrl.cpp src/GenericClientListCtrl.cpp
 #: src/SharedFilesCtrl.cpp
 #, c-format
@@ -2887,6 +2887,14 @@ msgstr ""
 #: src/SharedFilesCtrl.cpp
 msgid "OK"
 msgstr "OK"
+
+#: src/FileRenameDialog.h
+msgid "Enter new name for this file:"
+msgstr "請輸入新檔案名稱："
+
+#: src/FileRenameDialog.h
+msgid "File rename"
+msgstr "更改檔名"
 
 #: src/ExternalCommand.cpp
 msgid "The command has no executable."
@@ -4121,7 +4129,7 @@ msgstr "複製"
 msgid "Paste"
 msgstr "貼上"
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr "清除"
@@ -4135,7 +4143,7 @@ msgstr "全選"
 msgid "KiB/s"
 msgstr ""
 
-#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 msgid "Unlimited"
 msgstr "無限制"
 
@@ -5037,6 +5045,11 @@ msgstr "上傳限制"
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
 msgstr "位置分配"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Bandwidth calculator..."
+msgstr "頻寬限制"
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -6741,7 +6754,7 @@ msgstr "使用預設通訊埠 (%d)"
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr ""
 
-#: src/BandwidthLimitSlider.h
+#: src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "KiB/s (%.2f MiB/s)"
 msgstr ""
@@ -7204,6 +7217,25 @@ msgstr[0] "伺服器連線更新間隔時間：%d 分鐘"
 #: src/PrefsUnifiedDlg.cpp
 msgid "Server connection refresh interval: Disabled"
 msgstr "伺服器連線更新間隔時間：已停用"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Bandwidth calculator"
+msgstr "頻寬限制"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Enter limits in Mbit/s. Zero means unlimited."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Download (Mbit/s)"
+msgstr "下載 (%i)"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Upload (Mbit/s)"
+msgstr "上傳限制"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "disabled"

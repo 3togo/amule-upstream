@@ -580,13 +580,13 @@ msgstr "amuleapi va redémarrer dans %u secondes."
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
-msgstr "Connexion externe : impossible de s’attacher à « %s » ; écoute limitée à 127.0.0.1."
+msgid "Could not bind ports to the specified address: %s"
+msgstr "Impossible de lier les ports à l'adresse spécifiée : %s"
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
-msgstr "Impossible de lier les ports à l'adresse spécifiée : %s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgstr "Connexion externe : impossible de s’attacher à « %s » ; écoute limitée à 127.0.0.1."
 
 #: src/amule.cpp
 #, c-format
@@ -1060,6 +1060,14 @@ msgstr " Kio/s"
 #, c-format
 msgid "Up: %.1f%s | Down: %.1f%s"
 msgstr "E : %.1f%s | R : %.1f%s"
+
+#: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
 
 #: src/amuleDlg.cpp
 #, c-format
@@ -2224,14 +2232,6 @@ msgstr ""
 "Retour de : %s (%s)\n"
 "\n"
 
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "Enter new name for this file:"
-msgstr "Entrez un nouveau nom pour ce fichier :"
-
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "File rename"
-msgstr "Renommer"
-
 #: src/DownloadListCtrl.cpp src/GenericClientListCtrl.cpp
 #: src/SharedFilesCtrl.cpp
 #, c-format
@@ -2897,6 +2897,14 @@ msgstr "%.2f Kio/s"
 #: src/SharedFilesCtrl.cpp
 msgid "OK"
 msgstr "OK"
+
+#: src/FileRenameDialog.h
+msgid "Enter new name for this file:"
+msgstr "Entrez un nouveau nom pour ce fichier :"
+
+#: src/FileRenameDialog.h
+msgid "File rename"
+msgstr "Renommer"
 
 #: src/ExternalCommand.cpp
 msgid "The command has no executable."
@@ -4128,7 +4136,7 @@ msgstr "Copier"
 msgid "Paste"
 msgstr "Coller"
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr "Effacer"
@@ -4142,7 +4150,7 @@ msgstr "Tout sélectionner"
 msgid "KiB/s"
 msgstr "Kio/s"
 
-#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 msgid "Unlimited"
 msgstr "Pas de limite"
 
@@ -5036,6 +5044,11 @@ msgstr "Activer la limite d'émission"
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
 msgstr "Attribution de slot"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Bandwidth calculator..."
+msgstr "Limites de la bande passante"
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -6740,7 +6753,7 @@ msgstr "Le port par défaut sera utilisé (%d)"
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr "Ajuster la limite activée de 1 KiB/s jusqu'à la capacité totale de la ligne."
 
-#: src/BandwidthLimitSlider.h
+#: src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "KiB/s (%.2f MiB/s)"
 msgstr "KiB/s (%.2f MiB/s)"
@@ -7210,6 +7223,25 @@ msgstr[1] "Intervalle de rafraîchissement de la connexion serveur : %d minutes
 #: src/PrefsUnifiedDlg.cpp
 msgid "Server connection refresh interval: Disabled"
 msgstr "Intervalle de rafraîchissement de la connexion serveur : Désactivé"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Bandwidth calculator"
+msgstr "Limites de la bande passante"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Enter limits in Mbit/s. Zero means unlimited."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Download (Mbit/s)"
+msgstr "Téléchargements (%i)"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Upload (Mbit/s)"
+msgstr "Limite d'émission"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "disabled"

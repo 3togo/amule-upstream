@@ -27,6 +27,7 @@
 #define UPDOWNCLIENT_H
 
 #include <atomic>
+#include "DisplayRateCounter.h"
 
 #include "Constants.h"    // Needed for ESourceFrom
 #include "GetTickCount.h" // Needed for GetTickCount64
@@ -212,7 +213,17 @@ public:
 	/// (or Connect() declined to start) and must not be touched again.
 	bool TryToConnect(bool bIgnoreMaxCon = false);
 	bool Connect();
+#if defined(ENABLE_NATT_SERVER_COORDINATION) && defined(AMULE_UTP_TRANSPORT)
+	//! Dials uTP for a temporary client at the server-announced endpoint. Do not mutate any
+	//! download source: OP_HELLO establishes identity before the client list attaches it.
+	bool TryServerVouchedLowIdUtpDial();
+#endif
 	void ConnectionEstablished();
+#ifdef AMULE_UTP_TRANSPORT
+	//! The uTP tie-break kept a different stream than the one that carried our file request;
+	//! ConnectionEstablished() asks again on the kept one.
+	void NoteFileRequestLostToSocketSwap() { m_fileRequestLostToSocketSwap = true; }
+#endif
 	const wxString &GetUserName() const { return m_Username; }
 	// Only use this when you know the real IP or when your clearing it.
 	void SetIP(uint32 val);
@@ -326,8 +337,29 @@ private:
 	void TrySendLugdunumNatCallbackRequest() const;
 	//! Sends OP_LOWID_HOLEPUNCH_REQUEST (ed2k-server) for this LowID source when its
 	//! preconditions hold. Mutually exclusive with the Lugdunum callback per server.
-	//! Called from TryToContact's LowID->LowID decline, so at most once per source.
-	void TrySendLowIdHolePunchRequest() const;
+	//! Called from TryToContact's LowID->LowID decline. Returns whether the request went out;
+	//! a busy server slot is not a send.
+	bool TrySendLowIdHolePunchRequest();
+	bool m_lowIdHolePunchRequested = false;
+#endif
+#if defined(ENABLE_NATT_SERVER_COORDINATION) && defined(AMULE_UTP_TRANSPORT)
+
+public:
+	//! Asks again for a DS_LOWTOLOWIP source whose request was never sent because the server
+	//! slot was busy.
+	void RetryLowIdHolePunchRequest();
+	//! A temporary client dialled on a server-announced endpoint. It becomes a download
+	//! source only through the client list match of its hello answer.
+	void MarkLowIdHolePunchDial() { m_lowIdHolePunchDial = true; }
+	bool TakeLowIdHolePunchDial()
+	{
+		const bool wasDial = m_lowIdHolePunchDial;
+		m_lowIdHolePunchDial = false;
+		return wasDial;
+	}
+
+private:
+	bool m_lowIdHolePunchDial = false;
 #endif
 
 public:
@@ -384,6 +416,10 @@ public:
 	uint64 GetSessionUp() const { return m_nTransferredUp - m_nCurSessionUp; }
 	void ResetSessionUp();
 	uint32 GetUploadDatarate() const { return m_nUpDatarate; }
+	uint32 GetDisplayUploadDatarate() const
+	{
+		return IsDownloading() ? CDisplayRateCounter::ClampRate(m_displayUploadRate.GetRate()) : 0;
+	}
 
 	uint64 GetUpStartTimeDelay() const { return ::GetTickCount64() - m_dwUploadTime; }
 	uint64 GetWaitStartTime() const;
@@ -466,7 +502,15 @@ public:
 
 	const BitVector &GetPartStatus() const { return m_downPartStatus; }
 	const BitVector &GetUpPartStatus() const { return m_upPartStatus; }
+	// Smoothed rate for pipelining and slow-source decisions.
 	float GetKBpsDown() const { return kBpsDown; }
+	uint32 GetDisplayDownloadRate() const
+	{
+		return GetDownloadState() == DS_DOWNLOADING
+			       ? CDisplayRateCounter::ClampRate(m_displayDownloadRate.GetRate())
+			       : 0;
+	}
+	float GetDisplayKBpsDown() const { return static_cast<float>(GetDisplayDownloadRate()) / 1024.0f; }
 	float CalculateKBpsDown();
 	uint16 GetRemoteQueueRank() const { return m_nRemoteQueueRank; }
 	uint16 GetOldRemoteQueueRank() const { return m_nOldRemoteQueueRank; }
@@ -631,7 +675,7 @@ public:
 
 	/// Per-tick poke from CPartFile::Process. Re-arms this client's socket if it suspended last
 	/// tick because the global CDownloadBandwidthThrottler bucket was empty, and returns the
-	/// client's current observed download speed for the per-file kBpsDown display sum. The
+	/// client's current observed download speed for the per-file smoothed rate sum. The
 	/// download cap (thePrefs::GetMaxDownload()) is enforced globally inside the throttler, not
 	/// per client.
 	float TickDownloadAndMeasure();
@@ -807,6 +851,10 @@ private:
 
 	// Upload data rate computation. Atomic: CUploadDiskIOThread reads the rate.
 	std::atomic<uint32> m_nUpDatarate;
+	void ResetDisplayUploadRate();
+	CDisplayRateCounter m_displayUploadRate;
+	uint64 m_lastDisplayUploadSample = 0;
+	CDisplayRateCounter m_displayDownloadRate;
 	uint32 m_nSumForAvgUpDataRate;
 	std::list<TransferredData> m_AvarageUDR_list;
 
@@ -853,7 +901,7 @@ private:
 	//! Whether this connection has already been counted towards the peer's
 	//! session tally in its credit metadata. See ProcessHelloTypePacket.
 	bool m_metaSessionCounted = false;
-	uint32 m_cSendblock;
+	uint64 m_lastUploadDisplayUpdate;
 	uint8 m_byEmuleVersion;
 	uint8 m_byDataCompVer;
 	bool m_bEmuleProtocol;
@@ -939,10 +987,12 @@ private:
 	uint8 m_nDownloadState;
 	uint16 m_nPartCount;
 	uint64 m_dwLastAskedTime;
+#ifdef AMULE_UTP_TRANSPORT
+	bool m_fileRequestLostToSocketSwap = false;
+#endif
 	wxString m_clientFilename;
 	uint64 m_nTransferredDown;
 	uint16 m_lastDownloadingPart; // last Part that was downloading
-	uint16 m_cShowDR;
 	uint64 m_dwLastBlockReceived;
 	uint16 m_nRemoteQueueRank;
 	uint16 m_nOldRemoteQueueRank;

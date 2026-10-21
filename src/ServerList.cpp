@@ -476,7 +476,7 @@ CServerList::~CServerList()
 	const CPath temporary(thePrefs::GetConfigDir() + "server.met.download");
 	if (temporary.FileExists())
 		CPath::RemoveFile(temporary);
-	if (thePrefs::GetNetworkED2K() && IsInitialized()) {
+	if (IsInitialized()) {
 		SaveServerMet();
 	}
 	while (!m_servers.empty()) {

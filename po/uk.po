@@ -558,13 +558,13 @@ msgstr ""
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
-msgstr ""
+msgid "Could not bind ports to the specified address: %s"
+msgstr "Неможливо прив'язати порт до визначеної адреси: %s"
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
-msgstr "Неможливо прив'язати порт до визначеної адреси: %s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgstr ""
 
 #: src/amule.cpp
 #, c-format
@@ -1040,6 +1040,14 @@ msgstr ""
 #, c-format
 msgid "Up: %.1f%s | Down: %.1f%s"
 msgstr "Вивантаження: %.1f%s | Звантаження: %.1f%s"
+
+#: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
 
 #: src/amuleDlg.cpp
 #, c-format
@@ -2231,14 +2239,6 @@ msgstr ""
 "Відгук від: %s (%s)\n"
 "\n"
 
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "Enter new name for this file:"
-msgstr "Введіть нову назву для цього файлу:"
-
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "File rename"
-msgstr "Змінити назву файлу"
-
 #: src/DownloadListCtrl.cpp src/GenericClientListCtrl.cpp
 #: src/SharedFilesCtrl.cpp
 #, c-format
@@ -2910,6 +2910,14 @@ msgstr ""
 #: src/SharedFilesCtrl.cpp
 msgid "OK"
 msgstr "Гаразд"
+
+#: src/FileRenameDialog.h
+msgid "Enter new name for this file:"
+msgstr "Введіть нову назву для цього файлу:"
+
+#: src/FileRenameDialog.h
+msgid "File rename"
+msgstr "Змінити назву файлу"
 
 #: src/ExternalCommand.cpp
 msgid "The command has no executable."
@@ -4164,7 +4172,7 @@ msgstr "Скопіювати"
 msgid "Paste"
 msgstr "Вставити"
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr "Очистити"
@@ -4178,7 +4186,7 @@ msgstr "Вибрати всі"
 msgid "KiB/s"
 msgstr ""
 
-#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 msgid "Unlimited"
 msgstr "Безмежно"
 
@@ -5082,6 +5090,11 @@ msgstr "Обмеження вивантаження"
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
 msgstr "Виділення шматків"
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Bandwidth calculator..."
+msgstr "Обмеження ширини смуги"
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -6797,7 +6810,7 @@ msgstr "Буде використовуватися порт за замовчу
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr ""
 
-#: src/BandwidthLimitSlider.h
+#: src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "KiB/s (%.2f MiB/s)"
 msgstr ""
@@ -7275,6 +7288,25 @@ msgstr[2] "Інтервал оновлення з'єднання з сервер
 #: src/PrefsUnifiedDlg.cpp
 msgid "Server connection refresh interval: Disabled"
 msgstr "Інтервал оновлення з'єднання з сервером: вимкнено"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Bandwidth calculator"
+msgstr "Обмеження ширини смуги"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Enter limits in Mbit/s. Zero means unlimited."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Download (Mbit/s)"
+msgstr "Звантаження (%i)"
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Upload (Mbit/s)"
+msgstr "Обмеження вивантаження"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "disabled"

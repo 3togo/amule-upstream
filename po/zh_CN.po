@@ -14,7 +14,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-19 09:22+0000\n"
+"PO-Revision-Date: 2026-10-21 09:04+0000\n"
 "Last-Translator: Mike Akiba <mike2718@gmail.com>\n"
 "Language-Team: Chinese Simplified <kde-i18n-doc@kde.org>\n"
 "Language: zh_CN\n"
@@ -569,13 +569,13 @@ msgstr "amuleapi 将在 %u 秒内重启。"
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
-msgstr "外部连接：无法绑定 '%s'，仅监听 127.0.0.1。"
+msgid "Could not bind ports to the specified address: %s"
+msgstr "无法绑定端口到指定的地址：%s"
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
-msgstr "无法绑定端口到指定的地址：%s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgstr "外部连接：无法绑定 '%s'，仅监听 127.0.0.1。"
 
 #: src/amule.cpp
 #, c-format
@@ -1047,6 +1047,14 @@ msgstr " KiB/s"
 #, c-format
 msgid "Up: %.1f%s | Down: %.1f%s"
 msgstr "上传: %.1f%s | 下载: %.1f%s"
+
+#: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr "传输速度由 daemon 程序报告。总上传包括控制流量；对等方上传速度只包括文件数据包。圆括号中值显示协议总开销，单位 KiB/s。"
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr "实时速度是过去一秒均值。总上传包括控制流量；对等方上传速度只包括文件数据包。圆括号中的值显示协议总开销，单位 KiB/s。"
 
 #: src/amuleDlg.cpp
 #, c-format
@@ -2211,14 +2219,6 @@ msgstr ""
 "报告来自: %s (%s)\n"
 "\n"
 
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "Enter new name for this file:"
-msgstr "请输入新文件名:"
-
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "File rename"
-msgstr "重命名文件"
-
 #: src/DownloadListCtrl.cpp src/GenericClientListCtrl.cpp
 #: src/SharedFilesCtrl.cpp
 #, c-format
@@ -2882,6 +2882,14 @@ msgstr "%.2f KiB/s"
 #: src/SharedFilesCtrl.cpp
 msgid "OK"
 msgstr "确定"
+
+#: src/FileRenameDialog.h
+msgid "Enter new name for this file:"
+msgstr "请输入新文件名:"
+
+#: src/FileRenameDialog.h
+msgid "File rename"
+msgstr "重命名文件"
 
 #: src/ExternalCommand.cpp
 msgid "The command has no executable."
@@ -4092,13 +4100,12 @@ msgid "Fit visible columns to contents"
 msgstr "使可见列适应内容"
 
 #: src/MuleDataViewCtrl.cpp
-#, fuzzy
 msgid "Show all columns (keep widths)"
-msgstr "显示所有评论"
+msgstr "显示所有列（保持宽度）"
 
 #: src/MuleDataViewCtrl.cpp
 msgid "Restore default columns and widths"
-msgstr ""
+msgstr "恢复默认列和宽度"
 
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
@@ -4113,7 +4120,7 @@ msgstr "复制"
 msgid "Paste"
 msgstr "粘贴"
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr "清除"
@@ -4127,7 +4134,7 @@ msgstr "全选"
 msgid "KiB/s"
 msgstr "KiB/s"
 
-#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 msgid "Unlimited"
 msgstr "无限制"
 
@@ -5021,6 +5028,10 @@ msgstr "启用上传限制"
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
 msgstr "槽速度"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth calculator..."
+msgstr "带宽计算器…"
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -6724,7 +6735,7 @@ msgstr "缺省端口将被使用（%d）"
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr "将启用的限制从 1 KiB/s 调整成线路容量。"
 
-#: src/BandwidthLimitSlider.h
+#: src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "KiB/s (%.2f MiB/s)"
 msgstr "KiB/s (%.2f MiB/s)"
@@ -7193,6 +7204,22 @@ msgstr[1] "服务器连接刷新周期：%d分钟"
 #: src/PrefsUnifiedDlg.cpp
 msgid "Server connection refresh interval: Disabled"
 msgstr "服务器连接刷新周期：已禁用"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Bandwidth calculator"
+msgstr "带宽计算器"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Enter limits in Mbit/s. Zero means unlimited."
+msgstr "输入速率限制，单位 Mbit/s。0 表示无限制。"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Download (Mbit/s)"
+msgstr "下载 (Mbit/s)"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Upload (Mbit/s)"
+msgstr "上传 (Mbit/s)"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "disabled"

@@ -13,7 +13,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-19 13:45+0000\n"
+"PO-Revision-Date: 2026-10-21 09:04+0000\n"
 "Last-Translator: Marcel Pol <marcel@timelord.nl>\n"
 "Language-Team: Dutch <nl@li.org>\n"
 "Language: nl\n"
@@ -568,13 +568,13 @@ msgstr "amuleapi zal opnieuw opstarten over %u seconden."
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
-msgstr "Externe verbinding: binden aan '%s' mislukt, alleen aan het luisteren naar 127.0.0.1."
+msgid "Could not bind ports to the specified address: %s"
+msgstr "Kon geen poorten koppelen aan het opgegeven adres: %s"
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
-msgstr "Kon geen poorten koppelen aan het opgegeven adres: %s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgstr "Externe verbinding: binden aan '%s' mislukt, alleen aan het luisteren naar 127.0.0.1."
 
 #: src/amule.cpp
 #, c-format
@@ -1046,6 +1046,14 @@ msgstr " KiB/s"
 #, c-format
 msgid "Up: %.1f%s | Down: %.1f%s"
 msgstr "Upload: %.1f%s | Download: %.1f%s"
+
+#: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr "Overdrachtsnelheid wordt gerapporteerd door de daemon. Totale uploads bevat ook controleverkeer. Peeruploadsnelheid bevat alleen bestandpakketten. Waardes tussen haakjes toten protocol-overhead in KiB/s."
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr "Live snelheid wordt gemiddeld genomen over de laatste seconde. Totale uploads bevat ook controleverkeer. Peeruploadsnelheid bevat alleen bestandpakketten. Waardes tussen haakjes toten protocol-overhead in KiB/s."
 
 #: src/amuleDlg.cpp
 #, c-format
@@ -2210,14 +2218,6 @@ msgstr ""
 "Feedback van: %s (%s)\n"
 "\n"
 
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "Enter new name for this file:"
-msgstr "Voer een nieuwe naam voor dit bestand in:"
-
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "File rename"
-msgstr "Naam wijzigen"
-
 #: src/DownloadListCtrl.cpp src/GenericClientListCtrl.cpp
 #: src/SharedFilesCtrl.cpp
 #, c-format
@@ -2882,6 +2882,14 @@ msgstr "%.2f KiB/s"
 #: src/SharedFilesCtrl.cpp
 msgid "OK"
 msgstr "OK"
+
+#: src/FileRenameDialog.h
+msgid "Enter new name for this file:"
+msgstr "Voer een nieuwe naam voor dit bestand in:"
+
+#: src/FileRenameDialog.h
+msgid "File rename"
+msgstr "Naam wijzigen"
 
 #: src/ExternalCommand.cpp
 msgid "The command has no executable."
@@ -4112,7 +4120,7 @@ msgstr "Kopiëren"
 msgid "Paste"
 msgstr "Plakken"
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr "Wissen"
@@ -4126,7 +4134,7 @@ msgstr "Alles selecteren"
 msgid "KiB/s"
 msgstr "KiB/s"
 
-#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h
+#: src/MuleTrayIcon.cpp src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 msgid "Unlimited"
 msgstr "Onbegrensd"
 
@@ -5021,6 +5029,10 @@ msgstr "Schakel uploadlimiet in"
 #: src/muuli_wdr.cpp
 msgid "Slot Allocation"
 msgstr "Slot-toewijzing"
+
+#: src/muuli_wdr.cpp
+msgid "Bandwidth calculator..."
+msgstr "Bandbreedte rekenmachine..."
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -6724,7 +6736,7 @@ msgstr "Standaard poort zal worden gebruikt (%d)"
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr "Pas de ingeschakelde limiet aan van 1 KiB/s tot aan de kabelcapaciteit."
 
-#: src/BandwidthLimitSlider.h
+#: src/BandwidthLimitSlider.h src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "KiB/s (%.2f MiB/s)"
 msgstr "KiB/s (%.2f MiB/s)"
@@ -7193,6 +7205,22 @@ msgstr[1] "Server-verbinding verversingsinterval: %d minuten"
 #: src/PrefsUnifiedDlg.cpp
 msgid "Server connection refresh interval: Disabled"
 msgstr "Server verbinding verversingstijd: Uitgeschakeld"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Bandwidth calculator"
+msgstr "Bandbreedte rekenmachine"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Enter limits in Mbit/s. Zero means unlimited."
+msgstr "Voer limieten in Mbit/s in. Nul betekent ongelimiteerd."
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Download (Mbit/s)"
+msgstr "Download (Mbit/s)"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Upload (Mbit/s)"
+msgstr "Upload (Mbit/s)"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "disabled"

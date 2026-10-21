@@ -37,6 +37,7 @@ src/ExternalConn.cpp
 src/ExternalConnector.cpp
 src/FileDetailDialog.cpp
 src/FileDetailListCtrl.cpp
+src/FileRenameDialog.h
 src/ExternalCommand.cpp
 src/FileLaunch.cpp
 src/FirstRunWizard.cpp
@@ -105,6 +106,7 @@ src/Statistics.cpp
 src/StatisticsDlg.cpp
 src/StatTree.cpp
 src/TerminationProcess.cpp
+src/TextClearButton.h
 src/TextClient.cpp
 src/TextClient.h
 src/ThreadTasks.cpp
