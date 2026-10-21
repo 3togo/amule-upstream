@@ -206,14 +206,6 @@ void require(bool ok, const char *message)
 	if (!ok)
 		throw std::runtime_error(message);
 }
-// MSW and Cocoa store premultiplied RGB. A bitmap -> image -> bitmap round
-// trip can quantize an antialiased channel by one premultiplied value. Compare
-// visible colour with that allowance; fully opaque pixels must still match exactly.
-static bool MatchesVisibleChannel(int actual, int expected, int alpha)
-{
-	return actual == expected || (alpha < 255 && std::abs(actual - expected) * alpha <= 255);
-}
-
 int main(int argc, char **argv)
 {
 	// Below CTest's 10 s limit; 0 disables it, e.g. under a debugger.
@@ -343,7 +335,11 @@ int main(int argc, char **argv)
 			for (int pixels : { 16, 22, 33, 44, 66, 88, 100, 22 }) {
 				Rendering(state, pixels / 22.0);
 				const wxSize size(pixels, pixels);
-				const auto base = artwork.GetBitmap(size).ConvertToImage();
+				// MSW/Cocoa premultiply bitmap RGB. Normalize the reference through
+				// the same native codec so edge quantization is not mistaken for
+				// damaged artwork; all resulting channels still compare exactly.
+				const auto base =
+					wxBitmap(artwork.GetBitmap(size).ConvertToImage()).ConvertToImage();
 				// 29/57/58% at 100 pixels exposed floating-point truncation.
 				for (unsigned int percent : { 0u, 29u, 50u, 57u, 58u, 100u, 200u, 0u }) {
 					const auto bundle = percent == 50 ? half
@@ -361,21 +357,15 @@ int main(int argc, char **argv)
 							require(image.GetAlpha(x, y) ==
 									(bar ? 255 : base.GetAlpha(x, y)),
 								"tray transparency or bar height changed");
-							const int alpha = bar ? 255 : base.GetAlpha(x, y);
-							require(MatchesVisibleChannel(image.GetRed(x, y),
-									bar ? colour.Red()
-									    : base.GetRed(x, y),
-									alpha) &&
-									MatchesVisibleChannel(
-										image.GetGreen(x, y),
-										bar ? colour.Green()
-										    : base.GetGreen(x, y),
-										alpha) &&
-									MatchesVisibleChannel(
-										image.GetBlue(x, y),
-										bar ? colour.Blue()
-										    : base.GetBlue(x, y),
-										alpha),
+							require(image.GetRed(x, y) ==
+										(bar ? colour.Red()
+										     : base.GetRed(x, y)) &&
+									image.GetGreen(x, y) ==
+										(bar ? colour.Green()
+										     : base.GetGreen(x, y)) &&
+									image.GetBlue(x, y) ==
+										(bar ? colour.Blue()
+										     : base.GetBlue(x, y)),
 								"tray bar overlaps artwork or has wrong "
 								"colour");
 						}
