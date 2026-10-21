@@ -1,9 +1,9 @@
 # aMule PR #2017 screenshots
 
-Actual captures of the installed Flatpak using a disposable offline profile and synthetic files.
+Actual installed Flatpak captures using a disposable offline profile and synthetic files.
 
-Captured from bundle source afa2b2287024e5e8e05c665813ca898033229731.
+Source: 2a3eee97abf26e11210f40691464bf58062bc703.
 
-01: No host folders listed by default; office sharing exclusions enabled.
-03: Checked Music folder, mixed parent state, and unchecked sibling folders.
+01: No automatic host roots; office exclusions enabled.
+03: Checked Music folder, mixed parent and unchecked siblings.
 04: Optional Home, /media, /mnt and /run/media approval hints.
