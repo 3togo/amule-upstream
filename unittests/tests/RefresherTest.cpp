@@ -2391,6 +2391,10 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 	CECEmptyTag srv(EC_TAG_PREFS_SERVERS);
 	srv.AddTag(CECTag(EC_TAG_SERVERS_DEAD_SERVER_RETRIES, static_cast<std::uint16_t>(5)));
 	srv.AddTag(CECTag(EC_TAG_SERVERS_UPDATE_URL, wxString::FromUTF8("http://srv")));
+	CECEmptyTag sources(EC_TAG_SERVERS_URL_LIST);
+	sources.AddTag(CECTag(EC_TAG_STRING, "http://srv"));
+	sources.AddTag(CECTag(EC_TAG_STRING, "https://backup"));
+	srv.AddTag(sources);
 	resp.AddTag(srv);
 
 	CECEmptyTag sec(EC_TAG_PREFS_SECURITY);
@@ -2448,6 +2452,9 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 
 	ASSERT_EQUALS(static_cast<std::uint32_t>(5), p.servers.dead_server_retry_count);
 	ASSERT_EQUALS(std::string("http://srv"), p.servers.update_url);
+	ASSERT_EQUALS(size_t(2), p.servers.update_urls.size());
+	ASSERT_EQUALS(std::string("http://srv"), p.servers.update_urls[0]);
+	ASSERT_EQUALS(std::string("https://backup"), p.servers.update_urls[1]);
 
 	// 3-state (#596): the middle/high value round-trips, not just 0/1, and
 	// decodes to its enum string rather than the wire int (#655).
@@ -2746,9 +2753,9 @@ TEST(Refresher, PrefsSchemaIsWellFormed)
 			++emitted;
 	}
 
-	// The documented payload is 131 fields. A row added or dropped without
+	// The documented payload is 132 fields. A row added or dropped without
 	// updating docs/api/REFERENCE.md should trip this.
-	ASSERT_EQUALS(static_cast<std::size_t>(131), emitted);
+	ASSERT_EQUALS(static_cast<std::size_t>(132), emitted);
 }
 
 // The schema's irregularities are enumerated rather than merely counted: each is deliberate and
@@ -2781,13 +2788,14 @@ TEST(Refresher, PrefsSchemaIrregularitiesStayContained)
 			const std::string id = std::string(f.category) + "." + f.key;
 			ASSERT_TRUE(id == "connection.proxy_user" || id == "geoip.custom_update_url" ||
 				    id == "geoip.maxmind_license" || id == "servers.update_url" ||
-				    id == "security.ipfilter_update_url" || id == "kad.update_url");
+				    id == "servers.update_urls" || id == "security.ipfilter_update_url" ||
+				    id == "kad.update_url");
 		}
 	}
 	ASSERT_EQUALS(static_cast<std::size_t>(2), inverted);
 	ASSERT_EQUALS(static_cast<std::size_t>(1), foreign_group);
 	ASSERT_EQUALS(static_cast<std::size_t>(1), bespoke);
-	ASSERT_EQUALS(static_cast<std::size_t>(6), admin_read);
+	ASSERT_EQUALS(static_cast<std::size_t>(7), admin_read);
 
 	// One category is gated on a tag proving the daemon has it. That tag must be one of the
 	// category's own value-encoded rows: a presence-encoded one is absent whenever it is false,

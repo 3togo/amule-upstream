@@ -1116,6 +1116,7 @@ struct PreferencesSnapshot
 		bool autoconnect_static_servers_only = false;
 		bool manual_servers_high_priority = false;
 		std::string update_url;
+		std::vector<std::string> update_urls;
 	} servers;
 
 	// [Security] EC_TAG_PREFS_SECURITY
