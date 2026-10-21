@@ -1,0 +1,141 @@
+# Fork-only validation harness; checks out the exact upstream PR source.
+name: Tray macOS exact-source validation
+'on':
+  push:
+    branches:
+    - tray/macos-validation-1665
+    paths:
+    - .github/workflows/tray-macos-validation.yml
+permissions:
+  contents: read
+concurrency:
+  group: tray-macos-validation-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  AMULE_ICON_TEST_REQUIRE_GUI: '1'
+  cmake_macos_deps: |-
+    boost \
+    ccache \
+    cryptopp \
+    gd \
+    gettext \
+    libmaxminddb \
+    libupnp \
+    pkg-config \
+    wxwidgets
+  cmake_common_config_flags: |-
+    -B build \
+    -DBUILD_ALC=YES \
+    -DBUILD_ALCC=YES \
+    -DBUILD_AMULECMD=YES \
+    -DBUILD_AMULEAPI=YES \
+    -DBUILD_CAS=YES \
+    -DBUILD_DAEMON=YES \
+    -DBUILD_WXCAS=YES \
+    -DBUILD_ED2K=YES \
+    -DBUILD_MONOLITHIC=YES \
+    -DBUILD_REMOTEGUI=YES \
+    -DBUILD_TESTING=YES \
+    -DENABLE_INTEGRATION_TESTS=YES \
+    -DBUILD_WEBSERVER=YES \
+    -DENABLE_NLS=YES \
+    -DENABLE_UPNP=YES
+  cmake_macos_config_flags: -DENABLE_IP2COUNTRY=YES
+  ctest_flags: |-
+    --test-dir build \
+    --output-on-failure
+  ctest_fast_exclude: ^(NetworkPreferencesIntegrationTest|ConnectorConfigPathTest-(amulecmd|amuleweb)|AmuleApiPasswordInputTest|AmuleApiEcPasswordIntegrationTest|CredentialsTest|AmuleApiConfigTest|IntegrationFixtureUnitTest|UnicodeCommandLineIntegrationTest|AmuleApiRestartIntegrationTest|AllSearchIntegrationTest|AllSearchClientCapabilityTest|ChatCaptchaIntegrationTest|PathDefaultsIntegrationTest|LogfilePathIntegrationTest|KadIndexLifecycleECTest|ShareWatcherMoveIntegrationTest|DisplayRatesIntegrationTest|DownloadDisplayRatesIntegrationTest|UploadRefillIntegrationTest|UploadRefillCompressedIntegrationTest|KnownHistoryIntegrationTest|ServerListSourcesIntegrationTest|ServerListGuiIntegrationTest|ServerListFallbackIntegrationTest|ServerListFallbackApiIntegrationTest|KadDistributionECTest|KadPopulatedDistributionECTest|KadLookupECTest|KadPopulatedLookupECTest|CompletedFileDeleteIntegrationTest|CompletedFileDeleteCapabilityTest|SharedMembershipIntegrationTest)$
+  ctest_slow_unit_tests: ^(CredentialsTest|AmuleApiConfigTest|IntegrationFixtureUnitTest|UnicodeCommandLineIntegrationTest|AmuleApiPasswordInputTest|ConnectorConfigPathTest-(amulecmd|amuleweb))$
+  ctest_shared_file_reverify: ^SharedFileReverifyIntegrationTest$
+  VALIDATED_SOURCE: 2daf0e0b89bc7cf4280291f58fce0b96ed095e2a
+jobs:
+  macos:
+    name: macOS ${{ matrix.runner }} (${{ matrix.build_type }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+        - macos-26-intel
+        - macos-15
+        build_type:
+        - Debug
+        - Release
+    steps:
+    - name: Check out exact PR source
+      uses: actions/checkout@v7
+      with:
+        ref: 2daf0e0b89bc7cf4280291f58fce0b96ed095e2a
+    - name: Verify source identity
+      run: |
+        test "$(git rev-parse HEAD)" = "$VALIDATED_SOURCE"
+        test -z "$(git status --porcelain)"
+        git log -1 --format='%H %s'
+        git rev-parse 'HEAD^{tree}'
+    - name: Record platform
+      run: |
+        mkdir -p validation-results
+        {
+          sw_vers
+          uname -m
+          xcodebuild -version
+          clang++ --version
+          cmake --version
+          printf 'source: %s
+        ' "$VALIDATED_SOURCE"
+          printf 'source tree: %s
+        ' "$(git rev-parse 'HEAD^{tree}')"
+        } | tee validation-results/environment.txt
+    - name: install deps
+      run: |
+        brew update
+        brew install ${{ env.cmake_macos_deps }}
+        # Homebrew installs into /opt/homebrew on Apple Silicon — not a
+        # default compiler/linker/pkg-config search path. aMule's custom
+        # cmake/cryptopp.cmake uses check_include_file_cxx which does NOT
+        # honour CMAKE_PREFIX_PATH, so export CPATH/LIBRARY_PATH directly.
+        BREW_PREFIX=$(brew --prefix)
+        echo "CPATH=$BREW_PREFIX/include" >> "$GITHUB_ENV"
+        echo "LIBRARY_PATH=$BREW_PREFIX/lib" >> "$GITHUB_ENV"
+        echo "PKG_CONFIG_PATH=$BREW_PREFIX/lib/pkgconfig:$(brew --prefix gd)/lib/pkgconfig:$(brew --prefix libupnp)/lib/pkgconfig:$(brew --prefix gettext)/lib/pkgconfig" >> "$GITHUB_ENV"
+        # gettext is keg-only on macOS; add msgfmt to PATH for NLS probe
+        echo "$(brew --prefix gettext)/bin" >> "$GITHUB_PATH"
+
+        { brew list --versions; wx-config --version; } | tee -a validation-results/environment.txt
+    - name: create build system
+      run: |
+        cmake \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          ${{ env.cmake_common_config_flags }} \
+          ${{ env.cmake_macos_config_flags }}
+    - name: make
+      run: cmake --build build --parallel "$(($(sysctl -n hw.logicalcpu)-1))"
+    - name: run tests
+      run: |
+        set -o pipefail
+        ctest ${{ env.ctest_flags }} --output-junit fast-results.xml --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' 2>&1 | tee validation-results/fast-tests.log
+        ctest ${{ env.ctest_flags }} --output-junit slow-results.xml --timeout 60 -R '${{ env.ctest_slow_unit_tests }}' 2>&1 | tee validation-results/slow-tests.log
+    - name: Publish validation summary
+      if: always()
+      run: |
+        {
+          echo '### Exact-source macOS validation'
+          echo "Source: \`$VALIDATED_SOURCE\`"
+          echo '```text'
+          cat validation-results/environment.txt
+          echo '```'
+          echo 'Native artwork rendering is required (AMULE_ICON_TEST_REQUIRE_GUI=1).'
+          echo 'Physical tray appearance and monitor transitions are outside this automated check.'
+        } >> "$GITHUB_STEP_SUMMARY"
+    - name: Retain validation evidence
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: tray-macos-${{ matrix.runner }}-${{ matrix.build_type }}
+        path: |
+          validation-results/
+          build/*-results.xml
+          build/Testing/Temporary/
+          build/CMakeFiles/CMakeConfigureLog.yaml
+        retention-days: 14
