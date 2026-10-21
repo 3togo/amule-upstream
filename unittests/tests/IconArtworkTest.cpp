@@ -267,15 +267,33 @@ int main(int argc, char **argv)
 			require(artwork.IsOk() && artwork.GetDefaultSize() == wxSize(22, 22),
 				"tray bundle invalid");
 			const auto natural = artwork.GetBitmap(wxSize(22, 22)).ConvertToImage();
-			int opaque = 0;
+			int opaque = 0, brown = 0, yellow = 0, gray = 0;
 			for (int y = 0; y < 22; ++y) {
 				require(natural.GetAlpha(20, y) == 0 && natural.GetAlpha(21, y) == 0,
 					"tray artwork intrudes into speed-bar columns");
 				for (int x = 0; x < 20; ++x) {
 					opaque += natural.GetAlpha(x, y) > 0;
+					if (natural.GetAlpha(x, y) == 255) {
+						const int r = natural.GetRed(x, y);
+						const int g = natural.GetGreen(x, y);
+						const int b = natural.GetBlue(x, y);
+						brown += r > g + 30 && g > b + 10;
+						yellow += std::abs(r - g) < 40 && g > b + 40;
+						gray += std::max({ r, g, b }) - std::min({ r, g, b }) < 5;
+					}
 				}
 			}
 			require(opaque > 80, "tray artwork rendered empty");
+			// NanoSVG ignores SVG colour filters: check the actual rendered fills,
+			// so a low-ID icon accidentally rendering brown cannot pass unnoticed.
+			if (std::strcmp(state, "tray_low") == 0) {
+				require(yellow > 25, "low-ID tray artwork is not yellow");
+			} else if (std::strcmp(state, "tray_high") == 0) {
+				require(brown > 30 && yellow == 0, "high-ID tray artwork is not brown");
+			} else {
+				require(gray > 80 && brown == 0 && yellow == 0,
+					"disconnected tray artwork is not gray");
+			}
 			wxMemoryInputStream pngStream(entry->png_data, entry->png_len);
 			const wxImage fallback(pngStream, wxBITMAP_TYPE_PNG);
 			require(fallback.IsOk() && fallback.HasAlpha() &&
@@ -314,11 +332,12 @@ int main(int argc, char **argv)
 			require(rasterImage.GetSize() == wxSize(44, 44) &&
 					rasterImage.GetAlpha(43, 0) == 255 && rasterImage.GetAlpha(0, 0) == 0,
 				"raster-only tray fallback lost size, bar or alpha");
-			for (int pixels : { 16, 22, 33, 44, 66, 88, 22 }) {
+			for (int pixels : { 16, 22, 33, 44, 66, 88, 100, 22 }) {
 				Rendering(state, pixels / 22.0);
 				const wxSize size(pixels, pixels);
 				const auto base = artwork.GetBitmap(size).ConvertToImage();
-				for (unsigned int percent : { 0u, 50u, 100u, 200u, 0u }) {
+				// 29/57/58% at 100 pixels exposed floating-point truncation.
+				for (unsigned int percent : { 0u, 29u, 50u, 57u, 58u, 100u, 200u, 0u }) {
 					const auto bundle = percent == 50 ? half
 									  : MuleTray::MakeIconBundle(
 										    artwork, percent, colour);
@@ -537,7 +556,7 @@ int main(int argc, char **argv)
 	Phase("done");
 	if (!status)
 		std::cout << "PASS: " << flags << " flags and " << menus
-			  << " menu icons at 1x/1.5x/2x/3x/4x; three tray states at 16-88px; fallback, "
+			  << " menu icons at 1x/1.5x/2x/3x/4x; three tray states at 16-100px; fallback, "
 			     "bitmap cache, DPI transition, menu "
 			     "semantics and live theme "
 			     "colour\n";
