@@ -47,7 +47,9 @@ public:
 		}
 		const int width = image.GetWidth();
 		const int height = image.GetHeight();
-		const int barHeight = static_cast<int>(height * (m_percent / 100.0));
+		// Integer arithmetic avoids dropping a row at exact boundaries (e.g.
+		// 29% of 100 pixels); widen first so large images cannot overflow.
+		const int barHeight = static_cast<int>((static_cast<long long>(height) * m_percent) / 100);
 		// The artwork reserves the final two columns of its 22-pixel canvas.
 		const int barWidth = std::max(1, wxRound(width * (2.0 / 22.0)));
 		for (int y = height - barHeight; y < height; ++y) {

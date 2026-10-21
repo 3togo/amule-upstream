@@ -127,8 +127,9 @@ requested pixel size. Linux AppIndicator continues to resolve the existing
 scalable `org.amule.aMule` icon from the desktop theme. macOS template styling
 and Linux per-state named icons remain separate work.
 
-`IconArtworkTest` also checks tray composition at 16, 22, 33, 44, 66 and 88 pixels,
-including a return from 4x to 1x, empty/half/full bars, percentages above 100 and
+`IconArtworkTest` also checks tray composition at 16, 22, 33, 44, 66, 88 and 100 pixels,
+including a return from 4x to 1x, empty/half/full bars, percentages above 100,
+exact percentage boundaries, distinct brown/yellow/gray state colours, and
 preservation of artwork and transparency. `AMULE_ICON_TEST_OUTPUT` exports tray
 renders. Native Windows/macOS tray sizing and physical display transitions still
 need desktop verification.
