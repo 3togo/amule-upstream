@@ -36,6 +36,7 @@
 #include "CountryFlags.h"
 #include <vector>
 #include "MenuIcons.h"
+#include "TrayIconBundle.h"
 #include "icons/icon_data.h"
 #include <iostream>
 #include <stdexcept>
@@ -257,6 +258,107 @@ int main(int argc, char **argv)
 			}
 		}
 
+		Phase("tray SVGs and speed bars");
+		for (const char *state : { "tray_high", "tray_low", "tray_disconnected" }) {
+			const auto entry = amule_find_icon(state);
+			require(entry && entry->svg_len, "tray SVG missing");
+			const auto artwork =
+				wxArtProvider::GetBitmapBundle(wxString("amule:") + state, wxART_OTHER);
+			require(artwork.IsOk() && artwork.GetDefaultSize() == wxSize(22, 22),
+				"tray bundle invalid");
+			const auto natural = artwork.GetBitmap(wxSize(22, 22)).ConvertToImage();
+			int opaque = 0;
+			for (int y = 0; y < 22; ++y) {
+				require(natural.GetAlpha(20, y) == 0 && natural.GetAlpha(21, y) == 0,
+					"tray artwork intrudes into speed-bar columns");
+				for (int x = 0; x < 20; ++x) {
+					opaque += natural.GetAlpha(x, y) > 0;
+				}
+			}
+			require(opaque > 80, "tray artwork rendered empty");
+			wxMemoryInputStream pngStream(entry->png_data, entry->png_len);
+			const wxImage fallback(pngStream, wxBITMAP_TYPE_PNG);
+			require(fallback.IsOk() && fallback.HasAlpha() &&
+					fallback.GetSize() == wxSize(22, 22),
+				"tray PNG fallback invalid");
+#ifdef wxHAS_SVG
+			// Some native bitmap conversions premultiply alpha; only compare RGB
+			// where fully opaque, avoiding round-trip differences at antialiased edges.
+			for (int y = 0; y < 22; ++y) {
+				for (int x = 0; x < 22; ++x) {
+					require(std::abs(int(natural.GetAlpha(x, y)) -
+							 int(fallback.GetAlpha(x, y))) <= 1,
+						"tray SVG and PNG fallback alpha differ");
+					if (natural.GetAlpha(x, y) == 255 && fallback.GetAlpha(x, y) == 255) {
+						require(natural.GetRed(x, y) == fallback.GetRed(x, y) &&
+								natural.GetGreen(x, y) ==
+									fallback.GetGreen(x, y) &&
+								natural.GetBlue(x, y) ==
+									fallback.GetBlue(x, y),
+							"tray SVG and PNG fallback colours differ");
+					}
+				}
+			}
+#endif
+			const wxColour colour(19, 137, 241);
+			// Revisit 1x after 4x using the same bundle, as on a monitor move.
+			const auto half = MuleTray::MakeIconBundle(artwork, 50, colour);
+#ifdef wxHAS_SVG
+			require(half.GetPreferredBitmapSizeAtScale(1.5) == wxSize(33, 33) &&
+					half.GetPreferredBitmapSizeAtScale(3) == wxSize(66, 66),
+				"tray bundle lost vector scale selection");
+#endif
+			const auto raster = MuleTray::MakeIconBundle(
+				wxBitmapBundle::FromBitmap(wxBitmap(fallback)), 100, colour);
+			const auto rasterImage = raster.GetBitmap(wxSize(44, 44)).ConvertToImage();
+			require(rasterImage.GetSize() == wxSize(44, 44) &&
+					rasterImage.GetAlpha(43, 0) == 255 && rasterImage.GetAlpha(0, 0) == 0,
+				"raster-only tray fallback lost size, bar or alpha");
+			for (int pixels : { 16, 22, 33, 44, 66, 88, 22 }) {
+				Rendering(state, pixels / 22.0);
+				const wxSize size(pixels, pixels);
+				const auto base = artwork.GetBitmap(size).ConvertToImage();
+				for (unsigned int percent : { 0u, 50u, 100u, 200u, 0u }) {
+					const auto bundle = percent == 50 ? half
+									  : MuleTray::MakeIconBundle(
+										    artwork, percent, colour);
+					const auto image = bundle.GetBitmap(size).ConvertToImage();
+					require(image.IsOk() && image.GetSize() == size && image.HasAlpha(),
+						"tray size or alpha lost");
+					const int barWidth = std::max(1, wxRound(pixels * 2.0 / 22));
+					const int barHeight = pixels * std::min(percent, 100u) / 100;
+					for (int y = 0; y < pixels; ++y) {
+						for (int x = 0; x < pixels; ++x) {
+							const bool bar = x >= pixels - barWidth &&
+									 y >= pixels - barHeight;
+							require(image.GetAlpha(x, y) ==
+									(bar ? 255 : base.GetAlpha(x, y)),
+								"tray transparency or bar height changed");
+							require(image.GetRed(x, y) ==
+										(bar ? colour.Red()
+										     : base.GetRed(x, y)) &&
+									image.GetGreen(x, y) ==
+										(bar ? colour.Green()
+										     : base.GetGreen(x, y)) &&
+									image.GetBlue(x, y) ==
+										(bar ? colour.Blue()
+										     : base.GetBlue(x, y)),
+								"tray bar overlaps artwork or has wrong "
+								"colour");
+						}
+					}
+					if (output) {
+						image.SaveFile(wxString::Format("%s/%s-%d-%u.png",
+								       output,
+								       state,
+								       pixels,
+								       percent),
+							wxBITMAP_TYPE_PNG);
+					}
+				}
+			}
+		}
+
 		Phase("legacy flag padding");
 		for (const char *code : { "an", "unknown" }) {
 			for (int scale : { 1, 2, 3 }) {
@@ -435,7 +537,8 @@ int main(int argc, char **argv)
 	Phase("done");
 	if (!status)
 		std::cout << "PASS: " << flags << " flags and " << menus
-			  << " menu icons at 1x/1.5x/2x/3x/4x; fallback, bitmap cache, DPI transition, menu "
+			  << " menu icons at 1x/1.5x/2x/3x/4x; three tray states at 16-88px; fallback, "
+			     "bitmap cache, DPI transition, menu "
 			     "semantics and live theme "
 			     "colour\n";
 	return status;
