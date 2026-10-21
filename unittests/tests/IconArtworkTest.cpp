@@ -206,6 +206,41 @@ void require(bool ok, const char *message)
 	if (!ok)
 		throw std::runtime_error(message);
 }
+// wx versions bundle different NanoSVG rasterizers: the same SVG can have
+// different antialiased coverage and shading. Validate each rendition's visible
+// requirements independently instead of requiring SVG/PNG byte identity.
+static void CheckTrayArtwork(const wxImage &image, const char *state)
+{
+	require(image.IsOk() && image.HasAlpha() && image.GetSize() == wxSize(22, 22),
+		"tray artwork dimensions or alpha invalid");
+	int opaque = 0, brown = 0, yellow = 0, gray = 0;
+	for (int y = 0; y < 22; ++y) {
+		require(image.GetAlpha(20, y) == 0 && image.GetAlpha(21, y) == 0,
+			"tray artwork intrudes into speed-bar columns");
+		for (int x = 0; x < 20; ++x) {
+			opaque += image.GetAlpha(x, y) > 0;
+			if (image.GetAlpha(x, y) == 255) {
+				const int r = image.GetRed(x, y);
+				const int g = image.GetGreen(x, y);
+				const int b = image.GetBlue(x, y);
+				brown += r > g + 30 && g > b + 10;
+				yellow += std::abs(r - g) < 40 && g > b + 40;
+				gray += std::max({ r, g, b }) - std::min({ r, g, b }) < 5;
+			}
+		}
+	}
+	require(opaque > 80, "tray artwork rendered empty");
+	// NanoSVG ignores SVG colour filters: check the actual rendered fills,
+	// so a low-ID icon accidentally rendering brown cannot pass unnoticed.
+	if (std::strcmp(state, "tray_low") == 0) {
+		require(yellow > 25, "low-ID tray artwork is not yellow");
+	} else if (std::strcmp(state, "tray_high") == 0) {
+		require(brown > 30 && yellow == 0, "high-ID tray artwork is not brown");
+	} else {
+		require(gray > 80 && brown == 0 && yellow == 0, "disconnected tray artwork is not gray");
+	}
+}
+
 int main(int argc, char **argv)
 {
 	// Below CTest's 10 s limit; 0 disables it, e.g. under a debugger.
@@ -267,57 +302,10 @@ int main(int argc, char **argv)
 			require(artwork.IsOk() && artwork.GetDefaultSize() == wxSize(22, 22),
 				"tray bundle invalid");
 			const auto natural = artwork.GetBitmap(wxSize(22, 22)).ConvertToImage();
-			int opaque = 0, brown = 0, yellow = 0, gray = 0;
-			for (int y = 0; y < 22; ++y) {
-				require(natural.GetAlpha(20, y) == 0 && natural.GetAlpha(21, y) == 0,
-					"tray artwork intrudes into speed-bar columns");
-				for (int x = 0; x < 20; ++x) {
-					opaque += natural.GetAlpha(x, y) > 0;
-					if (natural.GetAlpha(x, y) == 255) {
-						const int r = natural.GetRed(x, y);
-						const int g = natural.GetGreen(x, y);
-						const int b = natural.GetBlue(x, y);
-						brown += r > g + 30 && g > b + 10;
-						yellow += std::abs(r - g) < 40 && g > b + 40;
-						gray += std::max({ r, g, b }) - std::min({ r, g, b }) < 5;
-					}
-				}
-			}
-			require(opaque > 80, "tray artwork rendered empty");
-			// NanoSVG ignores SVG colour filters: check the actual rendered fills,
-			// so a low-ID icon accidentally rendering brown cannot pass unnoticed.
-			if (std::strcmp(state, "tray_low") == 0) {
-				require(yellow > 25, "low-ID tray artwork is not yellow");
-			} else if (std::strcmp(state, "tray_high") == 0) {
-				require(brown > 30 && yellow == 0, "high-ID tray artwork is not brown");
-			} else {
-				require(gray > 80 && brown == 0 && yellow == 0,
-					"disconnected tray artwork is not gray");
-			}
+			CheckTrayArtwork(natural, state);
 			wxMemoryInputStream pngStream(entry->png_data, entry->png_len);
 			const wxImage fallback(pngStream, wxBITMAP_TYPE_PNG);
-			require(fallback.IsOk() && fallback.HasAlpha() &&
-					fallback.GetSize() == wxSize(22, 22),
-				"tray PNG fallback invalid");
-#ifdef wxHAS_SVG
-			// Some native bitmap conversions premultiply alpha; only compare RGB
-			// where fully opaque, avoiding round-trip differences at antialiased edges.
-			for (int y = 0; y < 22; ++y) {
-				for (int x = 0; x < 22; ++x) {
-					require(std::abs(int(natural.GetAlpha(x, y)) -
-							 int(fallback.GetAlpha(x, y))) <= 1,
-						"tray SVG and PNG fallback alpha differ");
-					if (natural.GetAlpha(x, y) == 255 && fallback.GetAlpha(x, y) == 255) {
-						require(natural.GetRed(x, y) == fallback.GetRed(x, y) &&
-								natural.GetGreen(x, y) ==
-									fallback.GetGreen(x, y) &&
-								natural.GetBlue(x, y) ==
-									fallback.GetBlue(x, y),
-							"tray SVG and PNG fallback colours differ");
-					}
-				}
-			}
-#endif
+			CheckTrayArtwork(fallback, state);
 			const wxColour colour(19, 137, 241);
 			// Revisit 1x after 4x using the same bundle, as on a monitor move.
 			const auto half = MuleTray::MakeIconBundle(artwork, 50, colour);
