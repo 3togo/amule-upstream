@@ -20,6 +20,8 @@
 #define MI_CALL __stdcall
 #else
 #include <sys/resource.h>
+#include <sys/types.h>
+static_assert(sizeof(off_t) >= sizeof(int64_t), "Media probe requires 64-bit file offsets");
 #define MI_CALL
 #endif
 extern "C" {
