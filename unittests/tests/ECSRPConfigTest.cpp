@@ -65,6 +65,29 @@ public:
 int main()
 {
 	try {
+		wxString pending = "********";
+		Check(!ECClientPassword::ReadInput(pending, "********", false),
+			"untouched mask changed the password");
+		Check(ECClientPassword::ReadInput(pending, "new password", true),
+			"password edit was ignored");
+		const wxString digest = MD5Sum("new password").GetHash();
+		Check(pending == digest, "password edit was not hashed");
+		// A failed request closes the dialog; retry from a reopened masked field.
+		Check(ECClientPassword::Display(pending) == "********",
+			"pending digest was displayed as editable password text");
+		Check(ECClientPassword::ReadInput(pending, ECClientPassword::Display(pending), false) &&
+				pending == digest,
+			"retry changed a pending password digest");
+		// Retrying without closing the dialog still reads the original plaintext.
+		Check(ECClientPassword::ReadInput(pending, "new password", true) && pending == digest,
+			"retry in the same dialog changed the password");
+		Check(ECClientPassword::ReadInput(pending, "********", true) &&
+				pending == MD5Sum("********").GetHash(),
+			"literal mask password was ignored");
+		Check(ECClientPassword::ReadInput(pending, "", false) && pending.IsEmpty(),
+			"clearing a pending password was ignored");
+		Check(!ECClientPassword::ReadInput(pending, "", false),
+			"untouched empty password was changed");
 		// Confirmed remote rotations update reconnect state while respecting the
 		// user's save-password choice and credentials saved for other endpoints.
 		for (int scenario = 0; scenario < 6; ++scenario) {
