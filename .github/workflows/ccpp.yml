@@ -192,6 +192,7 @@ jobs:
           restore-keys: ${{ runner.os }}-${{ matrix.build_type }}-ccache-
       - name: install deps
         id: ubuntu-deps
+        # Bound package-manager stalls before compilation starts.
         timeout-minutes: 15
         run: |
           sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
