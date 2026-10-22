@@ -2703,7 +2703,6 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/LoggingFormatIntegrationTest.py $<TARGET_FILE:amuled>
 		)
-		set_tests_properties (LoggingFormatIntegrationTest PROPERTIES TIMEOUT 120)
 		add_test (NAME LogfilePathIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/LogfilePathIntegrationTest.py $<TARGET_FILE:amuled>
