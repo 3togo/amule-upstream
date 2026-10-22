@@ -35,6 +35,8 @@ const char *const KEY = "/ExternalConnect/ECPasswordVerifier";
 const char *const LEGACY = "/ExternalConnect/ECPassword";
 wxString CreateRecord(const wxString &digest)
 {
+	if (!digest.IsEmpty() && !IsPasswordDigest(std::string(digest.utf8_str())))
+		throw std::invalid_argument("Invalid EC password digest");
 	return digest.IsEmpty() ? wxString()
 				: wxString::FromUTF8(
 					  Verifier::Create(std::string(digest.utf8_str())).Encode().c_str());
@@ -83,8 +85,6 @@ bool StoreCredential(wxConfigBase &cfg, const wxString &digest, wxString &verifi
 {
 	error.clear();
 	try {
-		if (!digest.IsEmpty() && !IsPasswordDigest(std::string(digest.utf8_str())))
-			throw std::invalid_argument("Invalid EC password digest");
 		const wxString next = CreateRecord(digest);
 		// Unlike migration, an explicit rotation must never persist a new
 		// verifier alongside a stale legacy password: startup would interpret
