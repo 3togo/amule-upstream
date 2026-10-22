@@ -74,6 +74,8 @@ default filename is `remotelogfile`.
 Release and Debug builds both support **Preferences → Debugging**. Enable verbose
 logging and select the categories you need; changes apply immediately. Turning
 verbose logging off keeps your category selections. Debug logging is off by default.
+Debug logs can contain peer IP addresses, user hashes and file names; review them
+before sharing.
 
 For `amuled`, stop the daemon and set the same options in `amule.conf`, then restart:
 

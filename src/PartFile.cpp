@@ -4269,11 +4269,9 @@ void CPartFile::RequestAICHRecovery(uint16 nPart)
 		return;
 	}
 
-#ifdef __DEBUG__
 	AddDebugLogLineN(logAICHRecovery,
 		CFormat("Requesting AICH Hash (%s) form client %s") % (cAICHClients ? "HighId" : "LowID") %
 			pClient->GetClientFullInfo());
-#endif
 	pClient->SendAICHRequest(this, nPart);
 }
 
