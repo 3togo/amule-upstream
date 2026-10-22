@@ -87,7 +87,8 @@ if ((BUILD_MONOLITHIC OR BUILD_REMOTEGUI) AND AMULE_TRAY_GTK AND CMAKE_SYSTEM_NA
 	target_include_directories (NativeTrayIconTest BEFORE PRIVATE
 		"${CMAKE_CURRENT_BINARY_DIR}/native-tray" "${CMAKE_SOURCE_DIR}/src")
 	target_link_libraries (NativeTrayIconTest PRIVATE wxWidgets::CORE wxWidgets::ADV PkgConfig::TRAY_GTK)
-	target_link_options (NativeTrayIconTest PRIVATE "-Wl,--wrap=gtk_status_icon_new")
+	# Keep compatibility with the project's CMake 3.12 minimum.
+	target_link_libraries (NativeTrayIconTest PRIVATE "-Wl,--wrap=gtk_status_icon_new_from_pixbuf")
 	target_compile_options (NativeTrayIconTest PRIVATE -Wno-deprecated-declarations)
 	add_test (NAME NativeTrayIconTest COMMAND NativeTrayIconTest)
 	set_tests_properties (NativeTrayIconTest PROPERTIES SKIP_RETURN_CODE 77 LABELS "gui" TIMEOUT 30)

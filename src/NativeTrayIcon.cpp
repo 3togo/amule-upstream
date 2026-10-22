@@ -49,7 +49,14 @@ bool MuleTrayIconBase::SetIcon(const wxBitmapBundle &icon, const wxString &toolt
 	}
 	m_native->artwork = icon;
 	if (!m_native->status) {
-		m_native->status = gtk_status_icon_new();
+		// GTK2 gives an empty, unembedded icon an arbitrary initial allocation
+		// (often 200px). Initialize its artwork before it can ask the tray host
+		// to dock, as wx's GtkStatusIcon backend does.
+		const wxBitmap initial = icon.GetBitmap(icon.GetDefaultSize());
+		if (!initial.IsOk()) {
+			return false;
+		}
+		m_native->status = gtk_status_icon_new_from_pixbuf(initial.GetPixbuf());
 		gtk_status_icon_set_title(m_native->status, "aMule");
 		g_signal_connect(m_native->status,
 			"size-changed",
@@ -74,7 +81,10 @@ bool MuleTrayIconBase::SetIcon(const wxBitmapBundle &icon, const wxString &toolt
 			}),
 			this);
 	}
-	int size = gtk_status_icon_get_size(m_native->status);
+	// GTK documents get_size() as meaningful only after embedding. In particular,
+	// do not let GTK2's provisional allocation replace the default artwork.
+	int size = gtk_status_icon_is_embedded(m_native->status) ? gtk_status_icon_get_size(m_native->status)
+								 : icon.GetDefaultSize().y;
 	if (size <= 0) {
 		size = icon.GetDefaultSize().y;
 	}

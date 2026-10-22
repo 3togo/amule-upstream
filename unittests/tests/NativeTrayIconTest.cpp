@@ -3,6 +3,7 @@
 #include "NativeTrayIcon.h"
 #if defined(AMULE_NATIVE_TRAY_ICON) && defined(__WXGTK__)
 #include <wx/app.h>
+#include <wx/frame.h>
 #include <wx/bmpbndl.h>
 #include <wx/image.h>
 #include <wx/menu.h>
@@ -13,16 +14,22 @@
 
 // Observe the actual production GtkStatusIcon without exposing test accessors.
 static GtkStatusIcon *status;
-extern "C" GtkStatusIcon *__real_gtk_status_icon_new();
-extern "C" GtkStatusIcon *__wrap_gtk_status_icon_new()
+extern "C" GtkStatusIcon *__real_gtk_status_icon_new_from_pixbuf(GdkPixbuf *);
+extern "C" GtkStatusIcon *__wrap_gtk_status_icon_new_from_pixbuf(GdkPixbuf *pixbuf)
 {
-	status = __real_gtk_status_icon_new();
+	status = __real_gtk_status_icon_new_from_pixbuf(pixbuf);
 	return status;
 }
 class TestApp : public wxApp
 {
 public:
-	bool OnInit() override { return true; }
+	bool OnInit() override
+	{
+		// Match aMule's event-loop lifetime without showing an application window.
+		// GTK2 may otherwise end a frameless fixture's nested loop during idle.
+		SetTopWindow(new wxFrame(nullptr, wxID_ANY, "Native tray test"));
+		return true;
+	}
 };
 wxIMPLEMENT_APP_NO_MAIN(TestApp);
 static void require(bool ok, const char *message)
@@ -41,17 +48,40 @@ static void CheckLiveTray()
 		return;
 	}
 	require(requested.ToLong(&expected) && expected > 0, "invalid live tray size");
-	for (int attempt = 0; attempt < 250; ++attempt) {
-		wxYield();
-		GdkPixbuf *pixels = gtk_status_icon_get_pixbuf(status);
-		if (gtk_status_icon_is_embedded(status) && gtk_status_icon_get_size(status) == expected &&
-			pixels && gdk_pixbuf_get_width(pixels) == expected &&
-			gdk_pixbuf_get_height(pixels) == expected) {
-			std::cout << "PASS: live X11 tray embedded and rendered at " << expected << "px\n";
-			return;
-		}
-		wxMilliSleep(20);
+	struct LiveCheck
+	{
+		long size;
+		int attempts = 0;
+		bool matched = false;
+	} check{ expected };
+	// Run the real GTK main loop, as the GUI does. wxYield() alone is not a
+	// substitute for GTK2's plug/manager event processing in a frameless fixture.
+	g_timeout_add(
+		20,
+		+[](gpointer data) -> gboolean {
+			auto &state = *static_cast<LiveCheck *>(data);
+			GdkPixbuf *pixels = gtk_status_icon_get_pixbuf(status);
+			state.matched = gtk_status_icon_is_embedded(status) &&
+					gtk_status_icon_get_size(status) == state.size && pixels &&
+					gdk_pixbuf_get_width(pixels) == state.size &&
+					gdk_pixbuf_get_height(pixels) == state.size;
+			if (state.matched || ++state.attempts >= 250) {
+				gtk_main_quit();
+				return FALSE;
+			}
+			return TRUE;
+		},
+		&check);
+	gtk_main();
+	if (check.matched) {
+		std::cout << "PASS: live X11 tray embedded and rendered at " << expected << "px\n";
+		return;
 	}
+	GdkPixbuf *pixels = gtk_status_icon_get_pixbuf(status);
+	std::cerr << "Live tray: embedded=" << gtk_status_icon_is_embedded(status)
+		  << " slot=" << gtk_status_icon_get_size(status) << " expected=" << expected
+		  << " bitmap=" << (pixels ? gdk_pixbuf_get_width(pixels) : 0) << "x"
+		  << (pixels ? gdk_pixbuf_get_height(pixels) : 0) << '\n';
 	throw std::runtime_error("live tray did not embed and render at requested slot size");
 }
 

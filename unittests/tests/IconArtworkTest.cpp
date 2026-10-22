@@ -421,10 +421,10 @@ int main(int argc, char **argv)
 			for (double scale : { 1.0, 1.5, 2.0, 3.0, 4.0 }) {
 				Rendering(entry.name, scale);
 				wxBitmap b;
-				// wxMSW scales DIP into drawing coordinates before GetFlag;
-				// its logical bitmap dimensions are physical pixels. GTK/macOS
-				// instead use a backing scale with fixed logical dimensions.
-#ifdef __WXMSW__
+				// wxMSW scales DIP into drawing coordinates before GetFlag.
+				// GTK2 also has no bitmap backing-scale support: its logical
+				// dimensions are physical pixels. GTK3/macOS retain logical size.
+#if defined(__WXMSW__) || (defined(__WXGTK__) && !defined(__WXGTK3__))
 				const wxSize flagSize(wxRound(16 * scale), wxRound(12 * scale));
 				const double contentScale = 1.0;
 #else

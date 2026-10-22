@@ -19,6 +19,15 @@ static NSStatusItem *CaptureStatus(id bar, SEL method, CGFloat length)
 	status = reinterpret_cast<NSStatusItem *(*)(id, SEL, CGFloat)>(originalFactory)(bar, method, length);
 	return status;
 }
+static bool popupAnchoredToButton;
+static BOOL CapturePopup(id menu, SEL, NSMenuItem *, NSPoint, NSView *view)
+{
+	popupAnchoredToButton = view == status.button;
+	// Exercise Cocoa's real wx menu-item action and command routing, but avoid
+	// entering an interactive menu tracking loop on a CI runner.
+	[(NSMenu *)menu performActionForItemAtIndex:0];
+	return YES;
+}
 class TestApp : public wxApp
 {
 public:
@@ -71,6 +80,20 @@ int main(int argc, char **argv)
 			"menu bar image has wrong logical size");
 		[status.button performClick:nil];
 		require(tray.menus == 1, "native click lost wx menu dispatch");
+		wxMenu commandMenu;
+		commandMenu.Append(12345, "Test command");
+		bool commandReceived = false;
+		tray.Bind(wxEVT_MENU, [&](wxCommandEvent &) { commandReceived = true; }, 12345);
+		wxEvtHandler *previousHandler = commandMenu.GetEventHandler();
+		Method popup = class_getInstanceMethod(
+			[NSMenu class], @selector(popUpMenuPositioningItem:atLocation:inView:));
+		IMP previousPopup = method_setImplementation(popup, reinterpret_cast<IMP>(CapturePopup));
+		const bool shown = tray.MuleTrayIconBase::PopupMenu(&commandMenu);
+		method_setImplementation(popup, previousPopup);
+		require(shown && popupAnchoredToButton && commandReceived,
+			"native popup anchor or wx command dispatch lost");
+		require(commandMenu.GetEventHandler() == previousHandler,
+			"native popup did not restore wx menu handler");
 		NSStatusItem *removed = [status retain];
 		tray.RemoveIcon();
 		require(!tray.IsIconInstalled() && removed.button.target == nil,
