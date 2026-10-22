@@ -135,6 +135,31 @@ int main()
 		}
 		const std::string password = "0123456789abcdef0123456789abcdef";
 		const auto verifier = Verifier::Create(password);
+		// Migration must reject credentials that production clients cannot use,
+		// including a downgrade that replaces an existing verifier with one.
+		for (const auto &legacy : { wxString(32, '0'),
+			     wxString("d41d8cd98f00b204e9800998ecf8427e"),
+			     wxString("D41D8CD98F00B204E9800998ECF8427E"),
+			     wxString(32, 'z') }) {
+			for (bool existing : { false, true }) {
+				FaultConfig cfg;
+				const wxString original = wxString::FromUTF8(verifier.Encode().c_str());
+				if (existing)
+					cfg.Write("/ExternalConnect/ECPasswordVerifier", original);
+				cfg.Write("/ExternalConnect/ECPassword", legacy);
+				wxString active, warning;
+				Check(!LoadCredential(cfg, active, warning),
+					"unusable legacy credential migrated");
+				Check(!warning.IsEmpty() && cfg.calls == 0 &&
+						cfg.Read("/ExternalConnect/ECPassword", wxString()) ==
+							legacy &&
+						cfg.HasEntry("/ExternalConnect/ECPasswordVerifier") ==
+							existing &&
+						(!existing || cfg.Read("/ExternalConnect/ECPasswordVerifier",
+								      wxString()) == original),
+					"rejected migration modified configuration");
+			}
+		}
 		for (int failAt : { 0, 1, 2 }) {
 			FaultConfig cfg;
 			cfg.Write("/ExternalConnect/ECPassword", wxString::FromUTF8(password.c_str()));
