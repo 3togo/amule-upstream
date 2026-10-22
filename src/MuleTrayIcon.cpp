@@ -308,9 +308,8 @@ CMuleTrayIcon::CMuleTrayIcon()
 , m_menu(nullptr)
 , m_lastIconState(-1)
 {
-	// `org.amule.aMule` is both the AppStream/.desktop id and the icon name installed under
-	// share/icons/hicolor/*/apps/; AppIndicator3 looks it up via the standard XDG icon-theme
-	// path.
+	// Tray-state icons are installed under share/icons/hicolor alongside the application
+	// icon. AppIndicator resolves them through the standard XDG icon-theme path.
 	//
 	// AyatanaIndicators split the library into libayatana-appindicator-glib and started
 	// deprecating the GTK-based libayatana-appindicator3-0.1. Migrating is future work: -glib
@@ -319,12 +318,13 @@ CMuleTrayIcon::CMuleTrayIcon()
 	// declarations stays useful.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-	m_indicator = app_indicator_new(
-		"org.amule.aMule", "org.amule.aMule", APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
+	m_indicator = app_indicator_new("org.amule.aMule",
+		"org.amule.aMule-tray-disconnected",
+		APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
 #pragma GCC diagnostic pop
 
 	// ACTIVE = visible: the user already opted in by enabling the tray icon, and SetTrayIcon
-	// below only updates the menu label, never re-hiding the indicator.
+	// below changes artwork and the menu label without changing visibility.
 	// APP_INDICATOR_STATUS_ATTENTION is deliberately not used for the disconnected state -- it
 	// needs a separately-set attention icon, and without one some SNI hosts render the
 	// indicator as invisible.
@@ -371,11 +371,13 @@ void CMuleTrayIcon::SetVisible(bool visible)
 
 void CMuleTrayIcon::SetTrayIcon(int Icon, uint32 /*percent*/)
 {
-	// SNI has no per-frame icon overlays, so the legacy backend's percent bar is dropped here.
-	// Connection state shows through the menu label rather than the indicator's status, because
-	// flipping ACTIVE/ATTENTION can hide the indicator on hosts with no attention icon
-	// configured.
+	wxCHECK_RET(Icon >= TRAY_ICON_DISCONNECTED && Icon <= TRAY_ICON_HIGHID, "Invalid tray icon state");
+	// Keep visibility independent of connection state, including updates while hidden.
+	static const char *const names[] = {
+		"org.amule.aMule-tray-disconnected", "org.amule.aMule-tray-low", "org.amule.aMule-tray-high"
+	};
 	if (Icon != m_lastIconState) {
+		app_indicator_set_icon_full(m_indicator, names[Icon], names[Icon]);
 		m_lastIconState = Icon;
 		RebuildMenu();
 	}
@@ -554,7 +556,7 @@ void CMuleTrayIcon::RebuildMenu()
 
 // Event table
 
-wxBEGIN_EVENT_TABLE(CMuleTrayIcon, wxTaskBarIcon)
+wxBEGIN_EVENT_TABLE(CMuleTrayIcon, MuleTrayIconBase)
 #ifdef __WINDOWS__
 	// Windows convention: a single left click toggles show/hide of the main window.
 	// NSStatusItem opens the menu on single-click by its own default, so that path is left
@@ -673,7 +675,13 @@ void CMuleTrayIcon::SetTrayIcon(int Icon, uint32 percent)
 		default:
 			break;
 		}
+#ifdef __WXOSX_COCOA__
+		// Template images convey state through shape; colour is supplied by AppKit.
+		const wxString templateId = wxString(artId) + "_template";
+		BaseImage[Icon] = wxArtProvider::GetBitmapBundle(templateId, wxART_OTHER);
+#else
 		BaseImage[Icon] = wxArtProvider::GetBitmapBundle(artId, wxART_OTHER);
+#endif
 		if (!BaseImage[Icon].IsOk()) {
 			return;
 		}
@@ -689,7 +697,11 @@ void CMuleTrayIcon::SetTrayIcon(int Icon, uint32 percent)
 
 	// Let SetIcon() choose the native size before rasterizing the SVG and bar.
 	// DPI changes invalidate Old_Icon so the next tick replaces the flattened icon.
+#ifdef __WXOSX_COCOA__
+	CurrentIcon = MuleTray::MakeIconBundle(BaseImage[Icon], percent, *wxBLACK);
+#else
 	CurrentIcon = MuleTray::MakeIconBundle(BaseImage[Icon], percent, barColour);
+#endif
 	UpdateTray();
 }
 
@@ -725,7 +737,7 @@ void CMuleTrayIcon::UpdateTray()
 	if (!m_visible) {
 		return;
 	}
-#ifndef __WXCOCOA__
+#ifndef __WXOSX_COCOA__
 	if (IsOk())
 #endif
 	{

@@ -122,6 +122,7 @@ if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 		GenericClientListCtrl.cpp
 		KadDlg.cpp
 		MuleTrayIcon.cpp
+		NativeTrayIcon.cpp
 		# Compiled per-executable rather than into the shared muleappgui
 		# static lib: its #ifdef CLIENT_GUI branches need the consuming
 		# target's define, which a single shared object cannot provide.
@@ -149,7 +150,7 @@ if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 		# Obj-C++ helper for AppKit access (NSApp activation policy
 		# toggle for "minimize to tray" — drops the Dock icon while
 		# the main window is hidden so no Dock thumbnail is left).
-		list (APPEND GUI_SOURCES MacAppHelper.mm MenuIcons_mac.mm)
+		list (APPEND GUI_SOURCES MacAppHelper.mm MenuIcons_mac.mm NativeTrayIcon_mac.mm)
 	endif()
 endif()
 
