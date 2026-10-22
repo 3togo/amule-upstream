@@ -13,7 +13,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-19 13:45+0000\n"
+"PO-Revision-Date: 2026-10-22 09:54+0000\n"
 "Last-Translator: Marcel Pol <marcel@timelord.nl>\n"
 "Language-Team: Dutch <nl@li.org>\n"
 "Language: nl\n"
@@ -530,7 +530,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr "U hebt gevraagd om de webserver bij het opstarten uit te voeren, maar het programma amuleweb kan niet worden uitgevoerd. Installeer het pakket met de aMule-webserver, of bouw aMule vanuit de broncode met -DBUILD_WEBSERVER=YES en installeer het."
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "FOUT"
 
@@ -568,13 +568,13 @@ msgstr "amuleapi zal opnieuw opstarten over %u seconden."
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
-msgstr "Externe verbinding: binden aan '%s' mislukt, alleen aan het luisteren naar 127.0.0.1."
+msgid "Could not bind ports to the specified address: %s"
+msgstr "Kon geen poorten koppelen aan het opgegeven adres: %s"
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
-msgstr "Kon geen poorten koppelen aan het opgegeven adres: %s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgstr "Externe verbinding: binden aan '%s' mislukt, alleen aan het luisteren naar 127.0.0.1."
 
 #: src/amule.cpp
 #, c-format
@@ -1048,6 +1048,14 @@ msgid "Up: %.1f%s | Down: %.1f%s"
 msgstr "Upload: %.1f%s | Download: %.1f%s"
 
 #: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr "Overdrachtsnelheid wordt gerapporteerd door de daemon. Totale uploads bevat ook controleverkeer. Peeruploadsnelheid bevat alleen bestandpakketten. Waardes tussen haakjes toten protocol-overhead in KiB/s."
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr "Live snelheid wordt gemiddeld genomen over de laatste seconde. Totale uploads bevat ook controleverkeer. Peeruploadsnelheid bevat alleen bestandpakketten. Waardes tussen haakjes toten protocol-overhead in KiB/s."
+
+#: src/amuleDlg.cpp
 #, c-format
 msgid "aMule (%s | Connected)"
 msgstr "aMule (%s | Verbonden)"
@@ -1312,6 +1320,10 @@ msgstr "Kon de categorie niet verwijderen: %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Kan map '%s' niet aanmaken voor categorie '%s', map '%s' wordt behouden."
+
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr "Ongeldige URL"
 
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
@@ -2314,6 +2326,27 @@ msgstr[1] "Kon %u links niet toevoegen (zie log voor details)."
 #, c-format
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Ongeldige eD2k-link! FOUT: %s"
+
+#: src/EditServerListDlg.cpp
+msgid "Edit server list sources"
+msgstr "Bewerk bronnen van serverlijst"
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
+msgstr ""
+"Voer één server.met-URL per regel in.\n"
+"Opslaan vervangt de bronlijst en vewijdert regels met opmerkingen."
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr "Serverlijst-bronnen opslaan naar %s mislukt. Controleer de URLs en bestandstoestemmingen."
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
+msgstr "addresses.dat in de daemon configuratiemap"
 
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
@@ -4112,7 +4145,7 @@ msgstr "Kopiëren"
 msgid "Paste"
 msgstr "Plakken"
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr "Wissen"
@@ -5023,9 +5056,8 @@ msgid "Slot Allocation"
 msgstr "Slot-toewijzing"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
 msgid "Bandwidth calculator..."
-msgstr "Bandbreedtegrenzen"
+msgstr "Bandbreedte rekenmachine..."
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -5168,8 +5200,8 @@ msgid "retries"
 msgstr "pogingen"
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr "Lijst"
+msgid "Edit sources…"
+msgstr "Bronnen aanpassen…"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5775,17 +5807,17 @@ msgstr "Selecteer kleur voor deze Categorie (nu geselecteerd)"
 msgid "Click this button to reset the log."
 msgstr "Klik op deze knop om het logboek te wissen."
 
-#: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
-msgstr "Klik op deze knop om de lijst van servers te updaten van URL ..."
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
+msgid "Update server list"
+msgstr "Bewerk serverlijst"
 
 #: src/muuli_wdr.cpp
-msgid "Server list"
-msgstr "Server-lijst"
+msgid "One-off URL:"
+msgstr "Eenmalige URL:"
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
-msgstr "Voer de url naar een server.met bestand hier in en druk op de knop links om de lijst met bekende servers te vernieuwen."
+msgid "Download once"
+msgstr "Download een keer"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -7110,18 +7142,6 @@ msgid "Reset to defaults"
 msgstr "Terugzetten naar standaardwaarden"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr "Bewerk serverlijst"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-"Voeg hier URL's toe om server.met bestanden te downloaden.\n"
-"Slechts één url per regel."
-
-#: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
 msgstr "IP2Country-update mislukt"
 
@@ -7200,23 +7220,20 @@ msgid "Server connection refresh interval: Disabled"
 msgstr "Server verbinding verversingstijd: Uitgeschakeld"
 
 #: src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid "Bandwidth calculator"
-msgstr "Bandbreedtegrenzen"
+msgstr "Bandbreedte rekenmachine"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Enter limits in Mbit/s. Zero means unlimited."
-msgstr ""
+msgstr "Voer limieten in Mbit/s in. Nul betekent ongelimiteerd."
 
 #: src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid "Download (Mbit/s)"
-msgstr "Downloads (%i)"
+msgstr "Download (Mbit/s)"
 
 #: src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid "Upload (Mbit/s)"
-msgstr "Uploadgrens"
+msgstr "Upload (Mbit/s)"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "disabled"
@@ -7716,17 +7733,12 @@ msgid "IO failure while writing 'server.met': %s"
 msgstr "IO-fout bij het schrijven van 'server.met': %s"
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr "Ongeldige URL"
+msgid "A server list download is already in progress."
+msgstr "Een serverlijstdownload is al bezig."
 
 #: src/ServerList.cpp
-#, c-format
-msgid "Finished downloading the server list from %s"
-msgstr "Downloaden van serverlijst vanaf %s voltooid"
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
-msgstr "Geen serverlijstadres gevonden in 'addresses.dat'. Plaats een geldig serverlijstadres in dit bestand om uw serverlijst automatisch te updaten"
+msgid "No server list sources configured"
+msgstr "Geen serverlijstbronnen zijn ingesteld"
 
 #: src/ServerList.cpp
 #, c-format
@@ -7735,17 +7747,8 @@ msgstr "Begin downloaden serverlijst van %s"
 
 #: src/ServerList.cpp
 #, c-format
-msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
-msgstr "WAARSCHUWING: ongeldige URL opgegeven voor het auto-updaten van servers: %s"
-
-#: src/ServerList.cpp
-msgid "No valid server.met auto-download url on addresses.dat"
-msgstr "Geen geldige server.met auto-download url in addresses.dat"
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Failed to download the server list from %s"
-msgstr "Kon serverlijst niet downloaden van %s"
+msgid "Finished downloading the server list from %s"
+msgstr "Downloaden van serverlijst vanaf %s voltooid"
 
 #: src/ServerList.cpp
 msgid "Local server is filtered by the IPFilters, reconnecting to a different server!"
@@ -7953,6 +7956,14 @@ msgstr "Kan dns niet vinden voor server %s: Kan niet verbinden!"
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
 msgstr "aMuleGUI-log"
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
+msgstr "Download en voeg elke opgeslagen bron samen"
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr "Download deze server.met-URL een keer zonder het op te slaan."
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -10180,6 +10191,39 @@ msgstr "Kad kon de opgeslagen index niet laden. Bestaande indexbestanden zijn be
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr "Kad kon een index niet opslaan. De vorige kopie van dat bestand is bewaard."
+
+#~ msgid "List"
+#~ msgstr "Lijst"
+
+#~ msgid "Click on this button to update the servers list from URL ..."
+#~ msgstr "Klik op deze knop om de lijst van servers te updaten van URL ..."
+
+#~ msgid "Server list"
+#~ msgstr "Server-lijst"
+
+#~ msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+#~ msgstr "Voer de url naar een server.met bestand hier in en druk op de knop links om de lijst met bekende servers te vernieuwen."
+
+#~ msgid ""
+#~ "Add here URL's to download server.met files.\n"
+#~ "Only one url on each line."
+#~ msgstr ""
+#~ "Voeg hier URL's toe om server.met bestanden te downloaden.\n"
+#~ "Slechts één url per regel."
+
+#~ msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
+#~ msgstr "Geen serverlijstadres gevonden in 'addresses.dat'. Plaats een geldig serverlijstadres in dit bestand om uw serverlijst automatisch te updaten"
+
+#, c-format
+#~ msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
+#~ msgstr "WAARSCHUWING: ongeldige URL opgegeven voor het auto-updaten van servers: %s"
+
+#~ msgid "No valid server.met auto-download url on addresses.dat"
+#~ msgstr "Geen geldige server.met auto-download url in addresses.dat"
+
+#, c-format
+#~ msgid "Failed to download the server list from %s"
+#~ msgstr "Kon serverlijst niet downloaden van %s"
 
 #, c-format
 #~ msgid "Skipped deleting '%s': the selected file has changed."

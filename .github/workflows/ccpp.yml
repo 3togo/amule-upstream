@@ -149,7 +149,7 @@ env:
   # Integration tests start and restart real processes. Run them separately
   # on Ubuntu outside the fast unit-test time budget, with 300 s each so a hung daemon
   # still fails the job. AllSearchIntegrationTest takes about 15 s on the runners.
-  ctest_fast_exclude: '^(NetworkPreferencesIntegrationTest|ConnectorConfigPathTest-(amulecmd|amuleweb)|AmuleApiPasswordInputTest|AmuleApiEcPasswordIntegrationTest|CredentialsTest|AmuleApiConfigTest|IntegrationFixtureUnitTest|UnicodeCommandLineIntegrationTest|AmuleApiRestartIntegrationTest|AllSearchIntegrationTest|AllSearchClientCapabilityTest|ChatCaptchaIntegrationTest|PathDefaultsIntegrationTest|LoggerRuntimeIntegrationTest|LogfilePathIntegrationTest|KadIndexLifecycleECTest|ShareWatcherMoveIntegrationTest|DisplayRatesIntegrationTest|DownloadDisplayRatesIntegrationTest|UploadRefillIntegrationTest|UploadRefillCompressedIntegrationTest|KnownHistoryIntegrationTest|KadDistributionECTest|KadPopulatedDistributionECTest|KadLookupECTest|KadPopulatedLookupECTest|CompletedFileDeleteIntegrationTest|CompletedFileDeleteCapabilityTest|SharedMembershipIntegrationTest)$'
+  ctest_fast_exclude: '^(NetworkPreferencesIntegrationTest|ConnectorConfigPathTest-(amulecmd|amuleweb)|AmuleApiPasswordInputTest|AmuleApiEcPasswordIntegrationTest|CredentialsTest|AmuleApiConfigTest|IntegrationFixtureUnitTest|UnicodeCommandLineIntegrationTest|AmuleApiRestartIntegrationTest|AllSearchIntegrationTest|AllSearchClientCapabilityTest|ChatCaptchaIntegrationTest|PathDefaultsIntegrationTest|LoggerRuntimeIntegrationTest|LogfilePathIntegrationTest|KadIndexLifecycleECTest|ShareWatcherMoveIntegrationTest|DisplayRatesIntegrationTest|DownloadDisplayRatesIntegrationTest|UploadRefillIntegrationTest|UploadRefillCompressedIntegrationTest|KnownHistoryIntegrationTest|ServerListSourcesIntegrationTest|ServerListGuiIntegrationTest|ServerListFallbackIntegrationTest|ServerListFallbackApiIntegrationTest|KadDistributionECTest|KadPopulatedDistributionECTest|KadLookupECTest|KadPopulatedLookupECTest|CompletedFileDeleteIntegrationTest|CompletedFileDeleteCapabilityTest|SharedMembershipIntegrationTest)$'
 
 jobs:
   # Window IDs in muuli_wdr.h and each EC enum in the .abstract files must not repeat a value. Two
@@ -221,7 +221,7 @@ jobs:
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' &&
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 60 -R '${{ env.ctest_slow_unit_tests }}'
       - name: run integration tests
-        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '^(NetworkPreferencesIntegration|AmuleApiRestartIntegration|AllSearch(Integration|ClientCapability)|ChatCaptchaIntegration|PathDefaultsIntegration|LoggerRuntimeIntegration|LogfilePathIntegration|KadIndexLifecycleEC|ShareWatcherMoveIntegration|(Download)?DisplayRatesIntegration|UploadRefill(Compressed)?Integration|KnownHistoryIntegration|KadDistributionEC|KadPopulatedDistributionEC|Kad(Populated)?LookupEC|CompletedFileDelete(Integration|Capability)|SharedMembershipIntegration|AmuleApiEcPasswordIntegration)Test$'
+        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '^(NetworkPreferencesIntegration|AmuleApiRestartIntegration|AllSearch(Integration|ClientCapability)|ChatCaptchaIntegration|PathDefaultsIntegration|LoggerRuntimeIntegration|LogfilePathIntegration|KadIndexLifecycleEC|ShareWatcherMoveIntegration|(Download)?DisplayRatesIntegration|UploadRefill(Compressed)?Integration|KnownHistoryIntegration|ServerListSourcesIntegration|ServerListGuiIntegration|ServerListFallback(Api)?Integration|KadDistributionEC|KadPopulatedDistributionEC|Kad(Populated)?LookupEC|CompletedFileDelete(Integration|Capability)|SharedMembershipIntegration|AmuleApiEcPasswordIntegration)Test$'
       - name: run shared-file reverify integration test
         run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '${{ env.ctest_shared_file_reverify }}'
       # amuleapi_curl_smoke drives these two against a live daemon rather than
@@ -317,7 +317,7 @@ jobs:
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' &&
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 60 -R '${{ env.ctest_slow_unit_tests }}'
       - name: run integration tests
-        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '^(NetworkPreferencesIntegration|AmuleApiRestartIntegration|AllSearch(Integration|ClientCapability)|ChatCaptchaIntegration|PathDefaultsIntegration|LoggerRuntimeIntegration|LogfilePathIntegration|KadIndexLifecycleEC|ShareWatcherMoveIntegration|(Download)?DisplayRatesIntegration|UploadRefill(Compressed)?Integration|KnownHistoryIntegration|KadDistributionEC|KadPopulatedDistributionEC|Kad(Populated)?LookupEC|CompletedFileDelete(Integration|Capability)|SharedMembershipIntegration|AmuleApiEcPasswordIntegration)Test$'
+        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '^(NetworkPreferencesIntegration|AmuleApiRestartIntegration|AllSearch(Integration|ClientCapability)|ChatCaptchaIntegration|PathDefaultsIntegration|LoggerRuntimeIntegration|LogfilePathIntegration|KadIndexLifecycleEC|ShareWatcherMoveIntegration|(Download)?DisplayRatesIntegration|UploadRefill(Compressed)?Integration|KnownHistoryIntegration|ServerListSourcesIntegration|ServerListGuiIntegration|ServerListFallback(Api)?Integration|KadDistributionEC|KadPopulatedDistributionEC|Kad(Populated)?LookupEC|CompletedFileDelete(Integration|Capability)|SharedMembershipIntegration|AmuleApiEcPasswordIntegration)Test$'
       - name: run shared-file reverify integration test
         run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '${{ env.ctest_shared_file_reverify }}'
 
@@ -452,14 +452,15 @@ jobs:
           # reason, which is the direction of failure we want.
           #
           # 07, 10, 19, 20, 22 and 28 need a real ed2k search to come back
-          # with hits; 14, 16 and 26 need a live ed2k or Kad connection; 24
+          # with hits; 14 and 16 need a live ed2k or Kad connection; 24
           # needs enough event churn to be handed a cursor, which a daemon
           # with no peers never produces, so it sees resync(gap) where it
           # asserts resync(idle). Running any of them would mean putting a CI
           # runner on the ed2k network. 00 and 99 bracket the full suite with
           # a peer fixture built from a real search hit, so they go too.
-          # 45-all-search owns an offline core/API fixture and stays included
-          # to cover type=all in REST and SSE even though 19 is excluded.
+          # 26-rfc-followup-endpoints and 45-all-search own an offline
+          # core/API fixture, so channel filtering and type=all in REST/SSE
+          # stay covered even though the public-network phases are excluded.
           EXCLUDED=(
             00-peer-fixture.sh
             07-read-stats-and-search-results.sh
@@ -470,7 +471,6 @@ jobs:
             20-etag-conditional-get.sh
             22-sse-diff-emission.sh
             24-sse-resync.sh
-            26-rfc-followup-endpoints.sh
             28-list-pagination-sort.sh
             99-peer-fixture-teardown.sh
           )
@@ -504,6 +504,7 @@ jobs:
           fi
           echo "running ${#PHASES[@]} phases: ${PHASES[*]}"
           set +e
+          AMULEAPI_SMOKE_OFFLINE=1 \
           AMULEAPI_BIN="$GITHUB_WORKSPACE/build/src/webapi/amuleapi" \
           AMULE_SHARED_DIR="$RUNNER_TEMP/amuled-conf/Incoming" \
             ./run-all.sh "${PHASES[@]}" 2>&1 | tee "$LOG"

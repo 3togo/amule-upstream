@@ -42,6 +42,7 @@
 #include "amuleDlg.h" // Needed for CLIENT_SKIN_SIZE (clientImages' artIds static_assert)
 #include "KadContactHistogram.h"
 #include "DialogLayout.h" // Scrollable details dialogs
+#include "TextClearButton.h"
 #include "OtherFunctions.h" // Needed for LabelWithColon
 
 #include <wx/artprov.h> // Needed for the "amule:" art ids (status bar + transfer window icons)
@@ -237,7 +238,7 @@ wxSizer *searchDlg( wxWindow *parent, bool call_fit, bool set_sizer )
     wxStaticText *item4 = new wxStaticText( item2, -1, LabelWithColon( _("Name") ), wxDefaultPosition, wxDefaultSize, 0 );
     item3->Add( item4, wxSizerFlags().Center().Border(wxALL, 5) );
     wxComboBox *item5 = new wxComboBox( item2, IDC_SEARCHNAME, "", wxDefaultPosition, wxSize(80,-1), 0, nullptr, wxTE_PROCESS_ENTER );
-    item3->Add( item5, wxSizerFlags(1).Center().Border(wxALL, 5) );
+    item3->Add( WithTextClearButton(item5), wxSizerFlags(1).Center().Border(wxALL, 5) );
     wxFlexGridSizer *item6 = new wxFlexGridSizer( 1, 0, 0, 0 );
 
     wxStaticText *item7 = new wxStaticText( item2, -1, _("Type"), wxDefaultPosition, wxDefaultSize, 0 );
@@ -457,7 +458,7 @@ wxSizer *transferTopPane( wxWindow *parent, bool call_fit, bool set_sizer )
     wxStaticText *itemDlFilterLabel = new wxStaticText( parent, -1, _("Filter:"), wxDefaultPosition, wxDefaultSize, 0 );
     item1->Add( itemDlFilterLabel, wxSizerFlags().Center().Border(wxLEFT, 5) );
     wxTextCtrl *itemDlFilter = new wxTextCtrl( parent, IDC_TRANSFER_FILTER, "", wxDefaultPosition, wxSize(150,-1), 0 );
-    item1->Add( itemDlFilter, wxSizerFlags().Center().Border(wxLEFT|wxRIGHT, 5) );
+    item1->Add( WithTextClearButton(itemDlFilter), wxSizerFlags().Center().Border(wxLEFT|wxRIGHT, 5) );
     item0->Add( item1, wxSizerFlags().Expand().CenterVertical() );
     CDownloadListCtrl *item5 = new CDownloadListCtrl( parent, ID_DLOADLIST, wxDefaultPosition, wxDefaultSize, 0 );
     item5->SetName( "downloadList" );
@@ -491,7 +492,8 @@ wxSizer *transferBottomPane( wxWindow *parent, bool call_fit, bool set_sizer )
     wxStaticText *item4 = new wxStaticText( parent, -1, _("File sources:"), wxDefaultPosition, wxDefaultSize, 0 );
     item3->Add( item4, wxSizerFlags().Center() );
 
-    wxStaticText *item5 = new wxStaticText( parent, ID_CLIENTCOUNT, "0", wxDefaultPosition, wxDefaultSize, wxST_NO_AUTORESIZE );
+    // Let the count grow beyond its initial single digit when ShowSourcesCount relayouts the header.
+    wxStaticText *item5 = new wxStaticText( parent, ID_CLIENTCOUNT, "0", wxDefaultPosition, wxDefaultSize, 0 );
     item5->SetForegroundColour( wxSystemSettings::GetColour(wxSYS_COLOUR_HOTLIGHT) );
     item3->Add( item5, wxSizerFlags().CenterVertical().Border(wxLEFT|wxRIGHT, 5) );
     item1->Add( item3, wxSizerFlags().Center().Border(wxLEFT|wxRIGHT, 5) );
@@ -1739,7 +1741,7 @@ wxSizer *PreferencesServerTab( wxWindow *parent, bool call_fit, bool set_sizer )
     wxCheckBox *item6 = new wxCheckBox( parent, IDC_AUTOSERVER, _("Auto-update server list at startup"), wxDefaultPosition, wxDefaultSize, 0 );
     item5->Add( item6, wxSizerFlags().CenterVertical() );
 
-    wxButton *item7 = new wxButton( parent, IDC_EDITADR, _("List"), wxDefaultPosition, wxDefaultSize, 0 );
+    wxButton *item7 = new wxButton( parent, IDC_EDITADR, _("Edit sources…"), wxDefaultPosition, wxDefaultSize, 0 );
     item5->Add( item7, wxSizerFlags().CenterVertical().Right().Border(wxLEFT, 5) );
     item0->Add( item5, wxSizerFlags().Expand().CenterVertical() );
     wxCheckBox *item8 = new wxCheckBox( parent, IDC_UPDATESERVERCONNECT, _("Update server list when connecting to a server"), wxDefaultPosition, wxDefaultSize, 0 );
@@ -2717,21 +2719,27 @@ wxSizer *serverListDlgUp( wxWindow *parent, bool call_fit, bool set_sizer )
 
     wxBoxSizer *item1 = new wxBoxSizer( wxHORIZONTAL );
 
-    wxBitmapButton *item2 = new wxBitmapButton( parent, ID_UPDATELIST, wxArtProvider::GetBitmapBundle( "amule:reload" ), wxDefaultPosition, wxDefaultSize );
-    item2->SetToolTip( _("Click on this button to update the servers list from URL ...") );
+    wxStaticText *serverCount = new wxStaticText( parent, wxID_ANY, "" );
+    serverCount->SetName( "serverListLabel" );
+    item1->Add( serverCount, wxSizerFlags().Center().Border(wxRIGHT, 5) );
+    wxButton *item2 = new wxButton( parent, ID_UPDATELIST, _("Update server list") );
     item2->SetName( "updateList" );
     item1->Add( item2, wxSizerFlags().Center() );
+    wxButton *editSources = new wxButton( parent, wxID_ANY, _("Edit sources…") );
+    editSources->SetName( "editServerSources" );
+    item1->Add( editSources, wxSizerFlags().Center().Border(wxLEFT, 5) );
 
-    wxStaticText *item3 = new wxStaticText( parent, -1, _("Server list"), wxDefaultPosition, wxDefaultSize, 0 );
-    item3->SetName( "serverListLabel" );
+    wxStaticText *item3 = new wxStaticText( parent, -1, _("One-off URL:"), wxDefaultPosition, wxDefaultSize, 0 );
     item1->Add( item3, wxSizerFlags().Center().Border(wxLEFT|wxRIGHT, 5) );
     CMuleTextCtrl *item4 = new CMuleTextCtrl( parent, IDC_SERVERLISTURL, "", wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER );
-    item4->SetToolTip( _("Enter the url to a server.met file here and press the button to the left to update the list of known servers.") );
     // CenterVertical, not Expand: the row's height now follows the icon-bearing connect button,
     // taller than a one-line field on macOS, and Expand would stretch this single-line entry to
     // that height, rendering it two lines tall there. Proportion 1 still fills the row
     // horizontally.
     item1->Add( item4, wxSizerFlags(1).CenterVertical().Border(wxLEFT, 5) );
+    wxButton *downloadOnce = new wxButton( parent, wxID_ANY, _("Download once") );
+    downloadOnce->SetName( "downloadServerListOnce" );
+    item1->Add( downloadOnce, wxSizerFlags().Center().Border(wxLEFT, 5) );
     item1->AddStretchSpacer(1);
     // Placeholder label -- CServerWnd's ctor calls UpdateED2KConnectButton() right after
     // construction, which sets the real label and bitmap for the current state. Kept on this top
@@ -3610,7 +3618,7 @@ wxSizer *sharedfilesTopDlg( wxWindow *parent, bool call_fit, bool set_sizer )
     wxStaticText *itemShFilterLabel = new wxStaticText( parent, -1, _("Filter:"), wxDefaultPosition, wxDefaultSize, 0 );
     itemShLeft->Add( itemShFilterLabel, wxSizerFlags().CenterVertical().Border(wxLEFT, 10) );
     wxTextCtrl *itemShFilter = new wxTextCtrl( parent, IDC_SHARED_FILTER, "", wxDefaultPosition, wxSize(150,-1), 0 );
-    itemShLeft->Add( itemShFilter, wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
+    itemShLeft->Add( WithTextClearButton(itemShFilter), wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
     item1->Add( itemShLeft, wxSizerFlags(1).CenterVertical() );
 
     // "Show Clients for" as a label + inline radio buttons. This replaces a
@@ -4629,27 +4637,8 @@ wxBitmap amuleSpecial( size_t index )
     return wxNullBitmap;
 }
 
-void SetConnectButtonState(
-	wxButton *button, EConnButtonState state, bool enabled, const wxString &networkName)
+void SetButtonLabelAndBitmap(wxButton *button, const wxString &label, const wxString &artId)
 {
-	// networkName ("ED2K" / "Kad") is folded into the label itself, not concatenated after
-	// translation: the button sits in the same spot on both tabs, so without it there is
-	// nothing on the button telling you which network "Disconnect" affects (issue #402 review).
-	wxString label;
-	wxString artId;
-	switch (state) {
-	case ConnButtonConnecting:
-		label = wxString(CFormat(_("Cancel %s")) % networkName);
-		artId = "amule:toolbar_connecting";
-		break;
-	case ConnButtonConnected:
-		label = wxString(CFormat(_("Disconnect %s")) % networkName);
-		artId = "amule:toolbar_disconnect";
-		break;
-	default:
-		label = wxString(CFormat(_("Connect %s")) % networkName);
-		artId = "amule:toolbar_connect";
-	}
 	// The button sits inline next to a one-line URL field, where the art's native 32x32 toolbar
 	// size is too big (issue #402 review: "the button and the icon are too big") -- request the
 	// SVG rasterized straight at a more modest logical size instead of the toolbar's native
@@ -4676,14 +4665,38 @@ void SetConnectButtonState(
 	button->SetLabel(label);
 #endif
 
-	button->Enable(enabled);
-
 	// SetBitmap() grows the button's best size; without a re-layout here, a pane laid out
 	// before its first UpdateXConnectButton() call -- the Servers pane is visible at startup,
 	// unlike Kad's notebook page, which is first laid out only once shown, after its bitmap
 	// already landed -- paints with the stale text-only measurement, so the icon overlaps the
 	// label until the next window resize (#663 review).
 	button->GetParent()->Layout();
+}
+
+void SetConnectButtonState(
+	wxButton *button, EConnButtonState state, bool enabled, const wxString &networkName)
+{
+	// networkName ("ED2K" / "Kad") is folded into the label itself, not concatenated after
+	// translation: the button sits in the same spot on both tabs, so without it there is
+	// nothing on the button telling you which network "Disconnect" affects (issue #402 review).
+	wxString label;
+	wxString artId;
+	switch (state) {
+	case ConnButtonConnecting:
+		label = wxString(CFormat(_("Cancel %s")) % networkName);
+		artId = "amule:toolbar_connecting";
+		break;
+	case ConnButtonConnected:
+		label = wxString(CFormat(_("Disconnect %s")) % networkName);
+		artId = "amule:toolbar_disconnect";
+		break;
+	default:
+		label = wxString(CFormat(_("Connect %s")) % networkName);
+		artId = "amule:toolbar_connect";
+	}
+	SetButtonLabelAndBitmap(button, label, artId);
+
+	button->Enable(enabled);
 }
 
 wxBitmap amuleDlgImages( size_t index )

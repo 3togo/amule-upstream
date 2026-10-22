@@ -32,6 +32,7 @@ src/DataToText.cpp
 src/DirectoryTreeCtrl.cpp
 src/DownloadListCtrl.cpp
 src/DownloadQueue.cpp
+src/EditServerListDlg.cpp
 src/ExternalConn.cpp
 src/ExternalConnector.cpp
 src/FileDetailDialog.cpp
@@ -105,6 +106,7 @@ src/Statistics.cpp
 src/StatisticsDlg.cpp
 src/StatTree.cpp
 src/TerminationProcess.cpp
+src/TextClearButton.h
 src/TextClient.cpp
 src/TextClient.h
 src/ThreadTasks.cpp

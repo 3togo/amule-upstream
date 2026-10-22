@@ -15,7 +15,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-20 14:05+0000\n"
+"PO-Revision-Date: 2026-10-22 09:54+0000\n"
 "Last-Translator: minterior <minterior@gmail.com>\n"
 "Language-Team: Català\n"
 "Language: ca\n"
@@ -532,7 +532,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr "Heu demanat que s'executi el servidor web a l'inici, però el fitxer binari de l'amuleweb no es pot executar. Instal·leu el paquet que conté el servidor web de l'aMule, o compileu l'aMule des del codi font amb -DBUILD_WEBSERVER=YES i instal·leu-lo."
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "ERROR"
 
@@ -570,13 +570,13 @@ msgstr "amuleapi es reiniciarà d'aquí a %u segons."
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
-msgstr "Connexió externa: no s'ha pogut vincular a «%s», s'escolta només a 127.0.0.1."
+msgid "Could not bind ports to the specified address: %s"
+msgstr "No s'han pogut vincular els ports a l'adreça especificada: %s"
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
-msgstr "No s'han pogut vincular els ports a l'adreça especificada: %s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgstr "Connexió externa: no s'ha pogut vincular a «%s», s'escolta només a 127.0.0.1."
 
 #: src/amule.cpp
 #, c-format
@@ -1050,6 +1050,14 @@ msgid "Up: %.1f%s | Down: %.1f%s"
 msgstr "PU: %.1f%s | BA: %.1f%s"
 
 #: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr "Les velocitats de transferència les informa el dimoni. La pujada total inclou el trànsit de control; les velocitats de pujada dels clients només inclouen els paquets de fitxers. Els valors entre parèntesis mostren la sobrecàrrega del protocol en KiB/s."
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr "Les velocitats en directe són la mitjana de l'últim segon. La pujada total inclou el trànsit de control; les velocitats de pujada dels clients només inclouen els paquets de fitxers. Els valors entre parèntesis mostren la sobrecàrrega del protocol en KiB/s."
+
+#: src/amuleDlg.cpp
 #, c-format
 msgid "aMule (%s | Connected)"
 msgstr "aMule (%s | Connectat)"
@@ -1314,6 +1322,10 @@ msgstr "No s'ha pogut suprimir la categoria: %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "No s'ha pogut crear el directori '%s' per a la categoria '%s', es mantindrà el directori '%s'."
+
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr "Adreça invàlida"
 
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
@@ -2316,6 +2328,26 @@ msgstr[1] "No s'han pogut afegir %u enllaços (consulteu el registre per a més 
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Enllaç eD2k invàlid! ERROR: %s"
 
+#: src/EditServerListDlg.cpp
+#, fuzzy
+msgid "Edit server list sources"
+msgstr "Edita la llista de servidors"
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
+msgstr ""
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr ""
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
+msgstr ""
+
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
 msgstr "El client ha enviat un paquet després d'una autenticació fallida."
@@ -3057,9 +3089,9 @@ msgid ""
 "peers can reach you (a \"HighID\"). Turn off if your router\n"
 "doesn't support UPnP or you forward ports manually."
 msgstr ""
-"Permet que l'aMule demani al vostre encaminador que reenviï els ports\n"
-"de dalt perquè altres parells us puguin arribar (una «HighID»). Desactiveu-ho\n"
-"si el vostre encaminador no admet UPnP o si reenvieu els ports manualment."
+"Permet a l'aMule demanar al vostre encaminador reenviar els ports de dalt\n"
+"perquè altres parells arribin a vosaltres (una \"ID Alta\"). Desactiveu-ho si el\n"
+"vostre encaminador no admet UPnP o si reenvieu els ports manualment."
 
 #: src/FirstRunWizard.cpp
 msgid "Bootstrap files"
@@ -3460,7 +3492,7 @@ msgstr "Nodes (%u)"
 
 #: src/KadDlg.cpp
 msgid "Invalid ip to bootstrap"
-msgstr "IP invàlida per a l'arrancada"
+msgstr "IP no vàlida per inicialitzar"
 
 #: src/KadDlg.cpp
 msgid "Invalid port to bootstrap"
@@ -4113,7 +4145,7 @@ msgstr "Copia"
 msgid "Paste"
 msgstr "Enganxa"
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr "Neteja"
@@ -4436,7 +4468,7 @@ msgstr "Extensió"
 
 #: src/muuli_wdr.cpp
 msgid "Min Size"
-msgstr "Mida Mín."
+msgstr "Mida mínima"
 
 #: src/muuli_wdr.cpp
 msgid "Bytes"
@@ -4456,7 +4488,7 @@ msgstr "GiB"
 
 #: src/muuli_wdr.cpp
 msgid "Max Size"
-msgstr "Mida Màx."
+msgstr "Mida màxima"
 
 #: src/muuli_wdr.cpp
 msgid "Availability"
@@ -5023,9 +5055,8 @@ msgid "Slot Allocation"
 msgstr "Per posició (slot)"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
 msgid "Bandwidth calculator..."
-msgstr "Límits d'ample de banda"
+msgstr "Calculadora d'ample de banda..."
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -5049,7 +5080,7 @@ msgstr "Aquest port UDP és utilitzat per sol·licituds eD2k i Kad exteses"
 
 #: src/muuli_wdr.cpp
 msgid "UPnP TCP Port (Optional):"
-msgstr "UPnP Port TCP (Opcional):"
+msgstr "Port TCP UPnP (opcional):"
 
 #: src/muuli_wdr.cpp
 msgid "Bind local address to IP (empty for any):"
@@ -5168,8 +5199,9 @@ msgid "retries"
 msgstr "intents"
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr "Llista"
+#, fuzzy
+msgid "Edit sources…"
+msgstr "Fonts del fitxer:"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5649,7 +5681,7 @@ msgstr "Port TCP:"
 
 #: src/muuli_wdr.cpp
 msgid "Enable UPnP port forwarding on the EC port"
-msgstr "Activa l'encaminament UPnP al port de connexions externes"
+msgstr "Activa l'encaminament UPnP al port EC (connexions externes)"
 
 #: src/muuli_wdr.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Password"
@@ -5713,7 +5745,7 @@ msgstr "Plantilla web"
 
 #: src/muuli_wdr.cpp
 msgid "Full rights password"
-msgstr "Contrasenya de l'administrador:"
+msgstr "Contrasenya amb drets totals"
 
 #: src/muuli_wdr.cpp
 msgid "Enable Low rights User"
@@ -5721,19 +5753,19 @@ msgstr "Habilita l'usuari convidat"
 
 #: src/muuli_wdr.cpp
 msgid "Low rights password"
-msgstr "Contrasenya del convidat:"
+msgstr "Contrasenya amb drets restringits"
 
 #: src/muuli_wdr.cpp
 msgid "Enable UPnP port forwarding of the web server port"
-msgstr "Activa redirecció de ports UPnP en el port del servidor web"
+msgstr "Activa l'encaminament UPnP del port del servidor web"
 
 #: src/muuli_wdr.cpp
 msgid "Web server UPnP TCP port (Optional)"
-msgstr "Port TCP del servidor web (Opcional):"
+msgstr "Port TCP UPnP del servidor web (opcional)"
 
 #: src/muuli_wdr.cpp
 msgid "Page Refresh Time (in secs)"
-msgstr "Temps de refresc de la pàgina (en segons):"
+msgstr "Temps de refresc de la pàgina (en segons)"
 
 #: src/muuli_wdr.cpp
 msgid "Enable Gzip compression"
@@ -5775,17 +5807,18 @@ msgstr "Seleccioneu un color per a la Categoria (actualment seleccionat)"
 msgid "Click this button to reset the log."
 msgstr "Feu clic per a reiniciar el registre."
 
-#: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
-msgstr "Feu clic en aquest botó per a actualitzar la llista de servidors des d'una URL ..."
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
+msgid "Update server list"
+msgstr "Actualitza la llista de servidors"
 
 #: src/muuli_wdr.cpp
-msgid "Server list"
-msgstr "Llista de servidors"
+msgid "One-off URL:"
+msgstr "URL d'ús puntual:"
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
-msgstr "Introduïu l'adreça d'un fitxer server.met i premeu el botó de l'esquerra per a actualitzar la llista de servidors coneguts."
+#, fuzzy
+msgid "Download once"
+msgstr "Baixat"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -7110,18 +7143,6 @@ msgid "Reset to defaults"
 msgstr "Restableix els valors predeterminats"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr "Edita la llista de servidors"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-"Afegiu adreces URL d'on baixar el fitxer server.met.\n"
-"Només una adreça a cada línia."
-
-#: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
 msgstr "Ha fallat l'actualització d'IP2Country"
 
@@ -7200,23 +7221,20 @@ msgid "Server connection refresh interval: Disabled"
 msgstr "Interval de refresc de la connexió amb el servidor: Inhabilitat"
 
 #: src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid "Bandwidth calculator"
-msgstr "Límits d'ample de banda"
+msgstr "Calculadora d'ample de banda"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Enter limits in Mbit/s. Zero means unlimited."
-msgstr ""
+msgstr "Introduïu els límits en Mbit/s. Zero significa sense límit."
 
 #: src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid "Download (Mbit/s)"
-msgstr "Baixades (%i)"
+msgstr "Baixada (Mbit/s)"
 
 #: src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid "Upload (Mbit/s)"
-msgstr "Límit de pujada"
+msgstr "Pujada (Mbit/s)"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "disabled"
@@ -7716,17 +7734,12 @@ msgid "IO failure while writing 'server.met': %s"
 msgstr "Error d'E/S en escriure «server.met»: %s"
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr "Adreça invàlida"
+msgid "A server list download is already in progress."
+msgstr "Ja hi ha una descàrrega de la llista de servidors en curs."
 
 #: src/ServerList.cpp
-#, c-format
-msgid "Finished downloading the server list from %s"
-msgstr "S'ha acabat de baixar la llista de servidors des de %s"
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
-msgstr "No s'ha trobat cap adreça d'una llista de servidors al fitxer 'addresses.dat'. Enganxeu una adreça cap a una llista de servidors vàlida a aquest fitxer per a que es pugui actualitzar automàticament la llista de servidors"
+msgid "No server list sources configured"
+msgstr ""
 
 #: src/ServerList.cpp
 #, c-format
@@ -7735,17 +7748,8 @@ msgstr "Comença a baixar la llista de servidors des de %s"
 
 #: src/ServerList.cpp
 #, c-format
-msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
-msgstr "AVÍS: s'ha especificat una URL invàlida per a l'actualització automàtica de servidors: %s"
-
-#: src/ServerList.cpp
-msgid "No valid server.met auto-download url on addresses.dat"
-msgstr "No s'ha trobat una URL per a baixar un server.met al fitxer addresses.dat"
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Failed to download the server list from %s"
-msgstr "No s'ha pogut baixar la llista de servidors des de %s"
+msgid "Finished downloading the server list from %s"
+msgstr "S'ha acabat de baixar la llista de servidors des de %s"
 
 #: src/ServerList.cpp
 msgid "Local server is filtered by the IPFilters, reconnecting to a different server!"
@@ -7953,6 +7957,14 @@ msgstr "No es pot resoldre el dns per al servidor %s: Ha estat impossible connec
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
 msgstr "Registre de l'aMuleGUI"
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
+msgstr "Descarrega i fusiona totes les fonts desades"
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr "Descarrega aquesta URL de server.met un cop sense desar-la."
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -10176,6 +10188,39 @@ msgstr "Kad no ha pogut carregar l'índex desat. S'han conservat els fitxers d'�
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr "Kad no ha pogut desar un índex. S'ha conservat la còpia anterior d'aquest fitxer."
+
+#~ msgid "List"
+#~ msgstr "Llista"
+
+#~ msgid "Click on this button to update the servers list from URL ..."
+#~ msgstr "Feu clic en aquest botó per a actualitzar la llista de servidors des d'una URL ..."
+
+#~ msgid "Server list"
+#~ msgstr "Llista de servidors"
+
+#~ msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+#~ msgstr "Introduïu l'adreça d'un fitxer server.met i premeu el botó de l'esquerra per a actualitzar la llista de servidors coneguts."
+
+#~ msgid ""
+#~ "Add here URL's to download server.met files.\n"
+#~ "Only one url on each line."
+#~ msgstr ""
+#~ "Afegiu adreces URL d'on baixar el fitxer server.met.\n"
+#~ "Només una adreça a cada línia."
+
+#~ msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
+#~ msgstr "No s'ha trobat cap adreça d'una llista de servidors al fitxer 'addresses.dat'. Enganxeu una adreça cap a una llista de servidors vàlida a aquest fitxer per a que es pugui actualitzar automàticament la llista de servidors"
+
+#, c-format
+#~ msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
+#~ msgstr "AVÍS: s'ha especificat una URL invàlida per a l'actualització automàtica de servidors: %s"
+
+#~ msgid "No valid server.met auto-download url on addresses.dat"
+#~ msgstr "No s'ha trobat una URL per a baixar un server.met al fitxer addresses.dat"
+
+#, c-format
+#~ msgid "Failed to download the server list from %s"
+#~ msgstr "No s'ha pogut baixar la llista de servidors des de %s"
 
 #, c-format
 #~ msgid "Skipped deleting '%s': the selected file has changed."

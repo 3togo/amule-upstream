@@ -1372,8 +1372,7 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 	// Force port checking
 	thePrefs::SetPort(thePrefs::GetPort());
 
-	if ((CPath::GetFileSize(thePrefs::GetConfigDir() + "addresses.dat") == 0) &&
-		CastChild(IDC_AUTOSERVER, wxCheckBox)->IsChecked()) {
+	if (thePrefs::GetServerListURLs().empty() && CastChild(IDC_AUTOSERVER, wxCheckBox)->IsChecked()) {
 		thePrefs::UnsetAutoServerStart();
 		wxMessageBox(_("Your Auto-update server list is empty.\n'Auto-update server list at startup' "
 			       "will be disabled."),
@@ -1947,7 +1946,7 @@ void PrefsUnifiedDlg::OnCheckBoxChange(wxCommandEvent &event)
 		break;
 
 	case IDC_AUTOSERVER:
-		if ((CPath::GetFileSize(thePrefs::GetConfigDir() + "addresses.dat") == 0) &&
+		if (thePrefs::GetServerListURLs().empty() &&
 			CastChild(event.GetId(), wxCheckBox)->IsChecked()) {
 			wxMessageBox(_("Your Auto-update servers list is in blank.\nPlease fill in at least "
 				       "one URL to point to a valid server.met file.\nClick on the button "
@@ -2246,15 +2245,7 @@ void PrefsUnifiedDlg::OnButtonTweaksReset(wxCommandEvent &WXUNUSED(evt))
 
 void PrefsUnifiedDlg::OnButtonEditAddr(wxCommandEvent &WXUNUSED(evt))
 {
-	wxString fullpath(thePrefs::GetConfigDir() + "addresses.dat");
-
-	EditServerListDlg *test = new EditServerListDlg(this,
-		_("Edit server list"),
-		_("Add here URL's to download server.met files.\nOnly one url on each line."),
-		fullpath);
-
-	test->ShowModal();
-	delete test;
+	EditServerListSources(this);
 }
 
 void PrefsUnifiedDlg::OnButtonIPFilterReload(wxCommandEvent &WXUNUSED(event))

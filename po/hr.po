@@ -506,7 +506,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr ""
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "GREŠKA"
 
@@ -544,12 +544,12 @@ msgstr ""
 
 #: src/amule.cpp
 #, c-format
-msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
+msgid "Could not bind ports to the specified address: %s"
 msgstr ""
 
 #: src/amule.cpp
 #, c-format
-msgid "Could not bind ports to the specified address: %s"
+msgid "External connection: could not bind to '%s', listening on 127.0.0.1 only."
 msgstr ""
 
 #: src/amule.cpp
@@ -1020,6 +1020,14 @@ msgid "Up: %.1f%s | Down: %.1f%s"
 msgstr "Gore: %.1f | Dole: %.1f"
 
 #: src/amuleDlg.cpp
+msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
+
+#: src/amuleDlg.cpp
+msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
+msgstr ""
+
+#: src/amuleDlg.cpp
 #, c-format
 msgid "aMule (%s | Connected)"
 msgstr ""
@@ -1285,6 +1293,10 @@ msgstr "Vec pokusavate downloadovati fajl %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr ""
+
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr "Neispravna URL"
 
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
@@ -2308,6 +2320,26 @@ msgstr[2] ""
 #: src/DownloadQueue.cpp
 #, c-format
 msgid "Invalid eD2k link! ERROR: %s"
+msgstr ""
+
+#: src/EditServerListDlg.cpp
+#, fuzzy
+msgid "Edit server list sources"
+msgstr "%i servera pronadjeno u server.met"
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
+msgstr ""
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr ""
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -4094,7 +4126,7 @@ msgstr "Kopiraj"
 msgid "Paste"
 msgstr "Staviti"
 
-#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp
+#: src/MuleTextCtrl.cpp src/muuli_wdr.cpp src/TextClearButton.h
 #: src/utils/aLinkCreator/src/alcframe.cpp
 msgid "Clear"
 msgstr "Ocisti"
@@ -5167,8 +5199,9 @@ msgid "retries"
 msgstr "pokusaja"
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr "Lista"
+#, fuzzy
+msgid "Edit sources…"
+msgstr "Nadjeni izvori :"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5782,17 +5815,18 @@ msgstr "Izaberi boju za ovu kategoriju (trenutno izabrana)"
 msgid "Click this button to reset the log."
 msgstr ""
 
-#: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
-msgstr "Klikni ovdje da obnovis listu servera sa URL ..."
-
-#: src/muuli_wdr.cpp
-msgid "Server list"
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
+msgid "Update server list"
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
-msgstr "Ovdje unesite URL datoteke server.met i pritisnite gumb lijevo za ažuriranje popisa poznatih poslužitelja."
+msgid "One-off URL:"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "Download once"
+msgstr "Download"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -7121,18 +7155,6 @@ msgid "Reset to defaults"
 msgstr "Standard sistema"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr ""
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-"Dodaj ovdje URLs da dobijes server.met fajlove. \n"
-"Samo jedna URL po liniji."
-
-#: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
 msgstr ""
 
@@ -7742,16 +7764,11 @@ msgid "IO failure while writing 'server.met': %s"
 msgstr "Neocekivana fajl greska prilikom pisanja %s : %s"
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr "Neispravna URL"
+msgid "A server list download is already in progress."
+msgstr ""
 
 #: src/ServerList.cpp
-#, fuzzy, c-format
-msgid "Finished downloading the server list from %s"
-msgstr "Neuspio download serverliste od %s"
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
+msgid "No server list sources configured"
 msgstr ""
 
 #: src/ServerList.cpp
@@ -7760,18 +7777,9 @@ msgid "Start downloading server list from %s"
 msgstr ""
 
 #: src/ServerList.cpp
-#, c-format
-msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
-msgstr ""
-
-#: src/ServerList.cpp
-msgid "No valid server.met auto-download url on addresses.dat"
-msgstr "Nema valjanog URL-a za automatsko preuzimanje server.met datoteke u addresses.dat"
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Failed to download the server list from %s"
-msgstr ""
+#, fuzzy, c-format
+msgid "Finished downloading the server list from %s"
+msgstr "Neuspio download serverliste od %s"
 
 #: src/ServerList.cpp
 msgid "Local server is filtered by the IPFilters, reconnecting to a different server!"
@@ -7988,6 +7996,14 @@ msgstr "Nije moguće razriješiti DNS za poslužitelj %s: povezivanje nije mogu�
 #, fuzzy
 msgid "aMuleGUI Log"
 msgstr "aMule Log"
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr ""
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -10166,6 +10182,25 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "List"
+#~ msgstr "Lista"
+
+#~ msgid "Click on this button to update the servers list from URL ..."
+#~ msgstr "Klikni ovdje da obnovis listu servera sa URL ..."
+
+#~ msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+#~ msgstr "Ovdje unesite URL datoteke server.met i pritisnite gumb lijevo za ažuriranje popisa poznatih poslužitelja."
+
+#~ msgid ""
+#~ "Add here URL's to download server.met files.\n"
+#~ "Only one url on each line."
+#~ msgstr ""
+#~ "Dodaj ovdje URLs da dobijes server.met fajlove. \n"
+#~ "Samo jedna URL po liniji."
+
+#~ msgid "No valid server.met auto-download url on addresses.dat"
+#~ msgstr "Nema valjanog URL-a za automatsko preuzimanje server.met datoteke u addresses.dat"
 
 #, fuzzy, c-format
 #~ msgid "Failed to load country data for '%s'."
