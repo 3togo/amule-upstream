@@ -124,6 +124,9 @@ public:
 	// window's visibility changes outside the tray click path (close-button HideOnClose,
 	// minimize-to-tray).
 	void RebuildMenu();
+#else
+	// Force a new bundle on the next statistics tick, even while idle.
+	void InvalidateForDPIChange() { Old_Icon = -1; }
 #endif
 
 private:
@@ -143,7 +146,7 @@ private:
 	void Close(wxCommandEvent &);
 
 	int Old_Icon;
-	int Old_Percent;
+	uint32 Old_Percent;
 	wxColour Old_BarColour;
 	bool m_visible;
 

@@ -649,7 +649,7 @@ void CMuleTrayIcon::Close(wxCommandEvent &WXUNUSED(event))
 CMuleTrayIcon::CMuleTrayIcon()
 {
 	Old_Icon = -1;
-	Old_Percent = 0xFFFF; // must be > any possible one.
+	Old_Percent = 0;
 	m_visible = true;
 }
 
@@ -679,17 +679,16 @@ void CMuleTrayIcon::SetTrayIcon(int Icon, uint32 percent)
 		}
 	}
 
-	percent = std::min(percent, uint32(100));
 	const wxColour barColour = CStatisticsDlg::getColors(11);
-	if (Old_Icon == Icon && Old_Percent == (int)percent && Old_BarColour == barColour) {
+	if (Old_Icon == Icon && Old_Percent == percent && Old_BarColour == barColour) {
 		return;
 	}
 	Old_Icon = Icon;
-	Old_Percent = (int)percent;
+	Old_Percent = percent;
 	Old_BarColour = barColour;
 
-	// Keep the bundle until the native backend chooses its pixel size. Flattening it to
-	// wxIcon here would lose the SVG's resolution and prevent subsequent DPI changes.
+	// Let SetIcon() choose the native size before rasterizing the SVG and bar.
+	// DPI changes invalidate Old_Icon so the next tick replaces the flattened icon.
 	CurrentIcon = MuleTray::MakeIconBundle(BaseImage[Icon], percent, barColour);
 	UpdateTray();
 }

@@ -213,7 +213,7 @@ static void CheckTrayArtwork(const wxImage &image, const char *state)
 {
 	require(image.IsOk() && image.HasAlpha() && image.GetSize() == wxSize(22, 22),
 		"tray artwork dimensions or alpha invalid");
-	int opaque = 0, brown = 0, yellow = 0, gray = 0;
+	int opaque = 0, brown = 0, yellow = 0, gray = 0, white = 0;
 	for (int y = 0; y < 22; ++y) {
 		require(image.GetAlpha(20, y) == 0 && image.GetAlpha(21, y) == 0,
 			"tray artwork intrudes into speed-bar columns");
@@ -225,11 +225,18 @@ static void CheckTrayArtwork(const wxImage &image, const char *state)
 				const int b = image.GetBlue(x, y);
 				brown += r > g + 30 && g > b + 10;
 				yellow += std::abs(r - g) < 40 && g > b + 40;
-				gray += std::max({ r, g, b }) - std::min({ r, g, b }) < 5;
+				const int low = std::min({ r, g, b });
+				const int high = std::max({ r, g, b });
+				gray += high - low < 5 && low > 60 && high < 220;
+				// Limit the near-white check to the face: low-ID body
+				// gradients can otherwise satisfy it with black eyes.
+				white += low > 220 && y <= 10;
 			}
 		}
 	}
 	require(opaque > 80, "tray artwork rendered empty");
+	require(white >= 2, "tray artwork lost white eyes or muzzle");
+	require(gray >= 5, "tray artwork lost gray bench planks");
 	// NanoSVG ignores SVG colour filters: check the actual rendered fills,
 	// so a low-ID icon accidentally rendering brown cannot pass unnoticed.
 	if (std::strcmp(state, "tray_low") == 0) {
@@ -309,7 +316,17 @@ int main(int argc, char **argv)
 			const wxColour colour(19, 137, 241);
 			// Revisit 1x after 4x using the same bundle, as on a monitor move.
 			const auto half = MuleTray::MakeIconBundle(artwork, 50, colour);
-#ifdef wxHAS_SVG
+#ifdef __WXMSW__
+			// Compare with wx's independently queried native small-icon metrics at
+			// the current display DPI, rather than the artwork's 22px canvas.
+			wxFrame metricWindow(nullptr, wxID_ANY, "tray metrics");
+			require(half.GetPreferredBitmapSizeAtScale(metricWindow.GetDPIScaleFactor()) ==
+					wxSize(wxSystemSettings::GetMetric(wxSYS_SMALLICON_X, &metricWindow),
+						wxSystemSettings::GetMetric(
+							wxSYS_SMALLICON_Y, &metricWindow)),
+				"tray bundle does not use native small-icon metrics");
+#endif
+#if defined(wxHAS_SVG) && !defined(__WXMSW__)
 			require(half.GetPreferredBitmapSizeAtScale(1.5) == wxSize(33, 33) &&
 					half.GetPreferredBitmapSizeAtScale(3) == wxSize(66, 66),
 				"tray bundle lost vector scale selection");
@@ -320,7 +337,7 @@ int main(int argc, char **argv)
 			require(rasterImage.GetSize() == wxSize(44, 44) &&
 					rasterImage.GetAlpha(43, 0) == 255 && rasterImage.GetAlpha(0, 0) == 0,
 				"raster-only tray fallback lost size, bar or alpha");
-			for (int pixels : { 16, 22, 33, 44, 66, 88, 100, 22 }) {
+			for (int pixels : { 16, 17, 22, 24, 33, 39, 44, 66, 88, 100, 22 }) {
 				Rendering(state, pixels / 22.0);
 				const wxSize size(pixels, pixels);
 				// MSW/Cocoa premultiply bitmap RGB. Normalize the reference through
@@ -336,12 +353,26 @@ int main(int argc, char **argv)
 					const auto image = bundle.GetBitmap(size).ConvertToImage();
 					require(image.IsOk() && image.GetSize() == size && image.HasAlpha(),
 						"tray size or alpha lost");
-					const int barWidth = std::max(1, wxRound(pixels * 2.0 / 22));
+					const int barWidth = std::max(1, pixels / 11);
 					const int barHeight = pixels * std::min(percent, 100u) / 100;
 					for (int y = 0; y < pixels; ++y) {
 						for (int x = 0; x < pixels; ++x) {
 							const bool bar = x >= pixels - barWidth &&
 									 y >= pixels - barHeight;
+							if (bar) {
+								require(base.GetAlpha(x, y) == 0,
+									"speed bar overwrites artwork");
+							}
+							if (image.GetAlpha(x, y) !=
+								(bar ? 255 : base.GetAlpha(x, y))) {
+								std::cerr << state << " size=" << pixels
+									  << " percent=" << percent
+									  << " pixel=" << x << "," << y
+									  << " alpha="
+									  << int(image.GetAlpha(x, y))
+									  << " base="
+									  << int(base.GetAlpha(x, y)) << "\n";
+							}
 							require(image.GetAlpha(x, y) ==
 									(bar ? 255 : base.GetAlpha(x, y)),
 								"tray transparency or bar height changed");

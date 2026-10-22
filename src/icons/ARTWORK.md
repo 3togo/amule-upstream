@@ -118,18 +118,24 @@ from `amule_tray_fixed.zip` (SHA-256
 The `try1_fixed/amule_22_norm_fixed.svg`, `amule_22_yellow_fixed.svg` and
 `amule_22_gray_fixed.svg` files map to `tray_high`, `tray_low` and
 `tray_disconnected`, respectively. Arc arguments are separated for wx 3.2's
-NanoSVG parser; fills and gradients already contain the state colours without
-SVG filters. The matching 22×22 PNG fallbacks are rendered with wx/NanoSVG.
+NanoSVG parser. CSS class declarations are inlined into each element because
+NanoSVG ignores stylesheet rules; fills and gradients contain the state colours
+without SVG filters. The matching 22×22 PNG fallbacks are rendered with wx/NanoSVG.
 The last two columns are reserved for the download-speed bar.
 
-The wxTaskBarIcon backend retains SVG bundles and draws the speed bar at each
-requested pixel size. Linux AppIndicator continues to resolve the existing
+The wxTaskBarIcon backend draws the speed bar at the pixel size requested by
+`SetIcon()`. The native backend flattens the bundle; `wxEVT_DPI_CHANGED` invalidates
+the tray state so the next statistics tick submits a fresh bundle even while idle.
+On Windows, preferred sizes use the system small-icon metrics at the requested DPI
+(typically 16/24 pixels at 100/150%), with system metrics as the older-OS fallback.
+Linux AppIndicator continues to resolve the existing
 scalable `org.amule.aMule` icon from the desktop theme. macOS template styling
 and Linux per-state named icons remain separate work.
 
-`IconArtworkTest` also checks tray composition at 16, 22, 33, 44, 66, 88 and 100 pixels,
+`IconArtworkTest` also checks tray composition at 16, 17, 22, 24, 33, 39, 44, 66, 88 and 100 pixels,
 including a return from 4x to 1x, empty/half/full bars, percentages above 100,
-exact percentage boundaries, distinct brown/yellow/gray state colours, and
+exact percentage boundaries, distinct brown/yellow/gray state colours, white
+eyes and muzzle, non-black gray planks, transparent pixels beneath the bar, and
 preservation of artwork and transparency. `AMULE_ICON_TEST_OUTPUT` exports tray
 renders. Native Windows/macOS tray sizing and physical display transitions still
 need desktop verification.
