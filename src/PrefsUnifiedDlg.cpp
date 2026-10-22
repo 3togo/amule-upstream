@@ -1293,14 +1293,6 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 	GetCfg(IDC_NETWORKED2K)->TransferFromWindow();
 	GetCfg(IDC_NETWORKKAD)->TransferFromWindow();
 
-#ifdef CLIENT_GUI
-	// Send only after validation, including the network flags committed just above.
-	theApp->glob_prefs->SendChangesToRemote();
-#ifdef GEOIP_GUI
-	thePrefs::SetGeoIPUpdateRequested(false);
-#endif
-#endif
-
 	bool restart_needed = false;
 	wxString restart_needed_msg = _("aMule must be restarted to enable these changes:\n\n");
 #ifndef CLIENT_GUI
