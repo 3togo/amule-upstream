@@ -83,7 +83,13 @@ int main(int argc, char **argv)
 		wxMenu commandMenu;
 		commandMenu.Append(12345, "Test command");
 		bool commandReceived = false;
-		tray.Bind(wxEVT_MENU, [&](wxCommandEvent &) { commandReceived = true; }, 12345);
+		bool removeDuringCommand = false;
+		tray.Bind(wxEVT_MENU, [&](wxCommandEvent &) {
+			commandReceived = true;
+			if (removeDuringCommand) {
+				tray.RemoveIcon();
+			}
+		}, 12345);
 		wxEvtHandler *previousHandler = commandMenu.GetEventHandler();
 		Method popup = class_getInstanceMethod(
 			[NSMenu class], @selector(popUpMenuPositioningItem:atLocation:inView:));
@@ -94,6 +100,15 @@ int main(int argc, char **argv)
 			"native popup anchor or wx command dispatch lost");
 		require(commandMenu.GetEventHandler() == previousHandler,
 			"native popup did not restore wx menu handler");
+		removeDuringCommand = true;
+		commandReceived = false;
+		method_setImplementation(popup, reinterpret_cast<IMP>(CapturePopup));
+		const bool removedFromMenu = tray.MuleTrayIconBase::PopupMenu(&commandMenu);
+		method_setImplementation(popup, previousPopup);
+		require(removedFromMenu && commandReceived && !tray.IsIconInstalled() &&
+				commandMenu.GetEventHandler() == previousHandler,
+			"removing icon during native menu command broke popup cleanup");
+		require(tray.SetIcon(bundle, "restored after command"), "restore after menu command failed");
 		NSStatusItem *removed = [status retain];
 		tray.RemoveIcon();
 		require(!tray.IsIconInstalled() && removed.button.target == nil,
