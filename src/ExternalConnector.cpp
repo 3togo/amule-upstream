@@ -258,7 +258,6 @@ CaMuleExternalConnector::CaMuleExternalConnector()
 , m_port(-1)
 , m_ZLIB(false)
 , m_forceZLIB(false)
-, m_ECEncryption(true)
 , m_canMultiSearch(false)
 , m_canSearchProgressUnion(true)
 , m_canChat(false)
@@ -457,7 +456,7 @@ void CaMuleExternalConnector::ConnectAndRun(const wxString &ProgName, const wxSt
 		m_ECClient = new CRemoteConnect(NULL);
 		m_ECClient->SetCapabilities(m_ZLIB, true, false); // ZLIB, UTF8 numbers, notification
 		m_ECClient->SetForceZlib(m_forceZLIB);
-		m_ECClient->SetCanAEAD(m_ECEncryption);
+		m_ECClient->SetTokenCredential(m_ECTokenCredential);
 		m_ECClient->SetCanMultiSearch(m_canMultiSearch);
 		m_ECClient->SetCanSearchProgressUnion(m_canSearchProgressUnion);
 		m_ECClient->SetCanChatSessions(m_canChat);
@@ -549,12 +548,6 @@ void CaMuleExternalConnector::OnInitCmdLine(wxCmdLineParser &parser, const char 
 	}
 	parser.AddSwitch("", "version", _("Print program version."), wxCMD_LINE_PARAM_OPTIONAL);
 	parser.AddSwitch("",
-		"disable-ec-encryption",
-		_("Do not encrypt the External Connect session. Encryption is on by default "
-		  "whenever the remote aMule supports it; turning it off leaves everything "
-		  "after the login readable and modifiable by anyone on the path."),
-		wxCMD_LINE_PARAM_OPTIONAL);
-	parser.AddSwitch("",
 		"force-zlib",
 		_("Force ZLIB compression regardless of dialed-IP locality (useful when the server is "
 		  "reachable over a VPN tunnel that resolves to a LAN IP)."),
@@ -607,6 +600,9 @@ bool CaMuleExternalConnector::OnCmdLineParsed(wxCmdLineParser &parser)
 		}
 		CECFileConfig aMuleConfig(aMuleConfigFile);
 		LoadAmuleConfig(aMuleConfig);
+		if (m_password.IsEmpty())
+			Show(_("The daemon verifier cannot supply a client password. Use -P or the password "
+			       "prompt. A saved client password will be preserved.\n"));
 		SaveConfigFile();
 		exit(FlushConfigFile() ? 0 : 1);
 	}
@@ -637,9 +633,6 @@ bool CaMuleExternalConnector::OnCmdLineParsed(wxCmdLineParser &parser)
 		}
 	}
 
-	if (parser.Found("disable-ec-encryption")) {
-		m_ECEncryption = false;
-	}
 	if (parser.Found("force-zlib")) {
 		m_forceZLIB = true;
 	}
@@ -673,6 +666,9 @@ void CaMuleExternalConnector::LoadAmuleConfig(CECFileConfig &cfg)
 	m_host = "127.0.0.1";
 	m_port = cfg.Read("/ExternalConnect/ECPort", 4712l);
 	cfg.ReadHash("/ExternalConnect/ECPassword", &m_password);
+	if (cfg.HasEntry("/ExternalConnect/ECPasswordVerifier")) {
+		m_password.Clear();
+	}
 	m_language = cfg.Read("/eMule/Language", "");
 	theLogger.SetVerbose(cfg.Read("/eMule/VerboseDebug", 0l) != 0);
 }
@@ -710,7 +706,8 @@ void CaMuleExternalConnector::SaveConfigFile()
 		m_configFile->Write("/Locale", m_language);
 		m_configFile->Write("/EC/Host", m_host);
 		m_configFile->Write("/EC/Port", m_port);
-		m_configFile->WriteHash("/EC/Password", m_password);
+		if (!m_password.IsEmpty())
+			m_configFile->WriteHash("/EC/Password", m_password);
 		// ZLIB was read in LoadConfigFile but never written here, so toggling --disable-
 		// zlib did not persist and any value in the config file silently reset to the
 		// enabled default on every save (#817).

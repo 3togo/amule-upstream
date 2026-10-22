@@ -64,6 +64,7 @@
 #include "DataToText.h"       // Needed for GetSoftName()
 #include "DownloadListCtrl.h" // Needed for CDownloadListCtrl
 #include "ECPrefsDiff.h"      // Needed for MakePrefsDiffPacket
+#include "ECClientPassword.h"
 #include "Friend.h"
 #include "GetTickCount.h" // Needed for GetTickCount64
 #include "GuiEvents.h"
@@ -1735,13 +1736,23 @@ static wxString AllowedRemoteDirsHint()
 		 "folder, one absolute path per line, then restart the daemon.");
 }
 
+void CamuleRemoteGuiApp::CommitECPasswordChange(const wxString &digest)
+{
+	wxConfigBase *cfg = wxConfigBase::Get();
+	if (!ECClientPassword::Commit(*cfg, m_ecHost, m_ecPort, m_ecPass, digest))
+		AddLogLineC(_("The EC password changed on the daemon, but the saved client password "
+			      "could not be updated."));
+}
+
 class CPrefsSetHandler : public CECPacketHandlerBase
 {
+	wxString m_ecPassword;
 	std::shared_ptr<unsigned> m_pendingNetworkWrites;
 
 public:
-	explicit CPrefsSetHandler(std::shared_ptr<unsigned> pendingNetworkWrites)
-	: m_pendingNetworkWrites(std::move(pendingNetworkWrites))
+	explicit CPrefsSetHandler(const wxString &ecPassword, std::shared_ptr<unsigned> pendingNetworkWrites)
+	: m_ecPassword(ecPassword)
+	, m_pendingNetworkWrites(std::move(pendingNetworkWrites))
 	{
 		if (m_pendingNetworkWrites) {
 			++*m_pendingNetworkWrites;
@@ -1760,6 +1771,14 @@ private:
 
 	void HandlePacket(const CECPacket *packet) override
 	{
+		if (packet->GetOpCode() == EC_OP_NOOP && !m_ecPassword.IsEmpty()) {
+			theApp->CommitECPasswordChange(m_ecPassword);
+			thePrefs::LoadECVerifier("set");
+			// A late reply must not discard a newer edit. Failed/aborted requests
+			// retain the pending input so an explicit retry can send it again.
+			if (thePrefs::PendingECPass() == m_ecPassword)
+				thePrefs::ClearPendingECPass();
+		}
 		if (packet->GetOpCode() == EC_OP_FAILED) {
 			// A refused incoming/temp/shared folder comes back as one or more
 			// EC_TAG_SHAREDDIR_REJECTED tags (all reason code 3 here -- outside the allowed
@@ -1800,19 +1819,31 @@ private:
 	}
 };
 
-void CPreferencesRem::SendChangesToRemote()
+void CPreferencesRem::SendChangesToRemote(bool includeECPassword)
 {
 	auto current = std::make_unique<CEC_Prefs_Packet>(
 		m_exchange_send_selected_prefs, EC_DETAIL_UPDATE, EC_DETAIL_FULL);
 	if (m_remoteState) {
 		const std::unique_ptr<CECPacket> changes = MakePrefsDiffPacket(*m_remoteState, *current);
+		wxString ecPassword;
+		CMD4Hash digest;
+		if (includeECPassword && thePrefs::PendingECPass() != "********" &&
+			digest.Decode(thePrefs::PendingECPass())) {
+			ecPassword = thePrefs::PendingECPass();
+			auto *remote = changes->GetTagByName(EC_TAG_PREFS_REMOTECTRL);
+			if (!remote) {
+				changes->AddTag(CECEmptyTag(EC_TAG_PREFS_REMOTECTRL));
+				remote = changes->GetTagByName(EC_TAG_PREFS_REMOTECTRL);
+			}
+			remote->AddTag(CECTag(EC_TAG_EXTERNALCONN_PASSWD, digest));
+		}
 		if (changes->GetTagCount() > 0) {
 			const CECTag *connection = changes->GetTagByName(EC_TAG_PREFS_CONNECTIONS);
 			const bool networksChanged =
 				connection && (connection->GetTagByName(EC_TAG_NETWORK_ED2K) ||
 						      connection->GetTagByName(EC_TAG_NETWORK_KADEMLIA));
-			m_conn->SendRequest(
-				new CPrefsSetHandler(networksChanged ? m_pendingNetworkWrites : nullptr),
+			m_conn->SendRequest(new CPrefsSetHandler(ecPassword,
+						    networksChanged ? m_pendingNetworkWrites : nullptr),
 				changes.get());
 		}
 	}

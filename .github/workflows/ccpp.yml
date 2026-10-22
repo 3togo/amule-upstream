@@ -68,6 +68,7 @@ env:
     ccache \
     cmake \
     gettext \
+    python3-cryptography \
     libayatana-appindicator3-dev \
     libboost-dev \
     libcrypto++-dev \
@@ -91,6 +92,7 @@ env:
     cryptopp \
     gd \
     gettext \
+    python3-cryptography \
     libmediainfo libmaxminddb \
     libupnp \
     pkg-config \

@@ -3675,6 +3675,34 @@ if (ENABLE_INTEGRATION_TESTS AND ENABLE_IP2COUNTRY AND BUILD_DAEMON AND BUILD_AM
 	endif ()
 endif ()
 
+add_executable (ECAsyncProbe ECAsyncProbe.cpp ${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp ${CMAKE_SOURCE_DIR}/src/NetworkFunctions.cpp)
+target_include_directories (ECAsyncProbe PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
+target_link_libraries (ECAsyncProbe PRIVATE ec mulesocket mulecommon)
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULECMD AND Python3_Interpreter_FOUND)
+	add_test (NAME ECSRPIntegrationTest COMMAND ${Python3_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/ECSRPIntegrationTest.py
+		$<TARGET_FILE:amuled> $<TARGET_FILE:amulecmd> $<TARGET_FILE:ECAsyncProbe>)
+	set_tests_properties (ECSRPIntegrationTest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Interpreter_FOUND AND UNIX AND NOT APPLE)
+	add_test (NAME ECSRPApiIntegrationTest COMMAND ${Python3_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/ECSRPApiIntegrationTest.py
+		$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>)
+	set_tests_properties (ECSRPApiIntegrationTest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_WEBSERVER AND Python3_Interpreter_FOUND AND UNIX AND NOT APPLE)
+	set (ec_srp_web_args $<TARGET_FILE:amuled> $<TARGET_FILE:amuleweb>)
+	if (BUILD_AMULEAPI)
+		list (APPEND ec_srp_web_args $<TARGET_FILE:amuleapi>)
+	endif()
+	add_test (NAME ECSRPWebIntegrationTest COMMAND ${Python3_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/ECSRPWebIntegrationTest.py ${ec_srp_web_args})
+	set_tests_properties (ECSRPWebIntegrationTest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
 if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 	add_executable (WindowGeometryTest WindowGeometryTest.cpp)
 	target_include_directories (WindowGeometryTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
