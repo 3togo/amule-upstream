@@ -35,6 +35,52 @@
 
 namespace MuleTray
 {
+// Resample the original PNG directly at the requested size. Smooth filtering
+// can bleed neighbouring artwork into the bar area, so reserve it afterwards.
+class ArtworkFallbackImpl : public wxBitmapBundleImpl
+{
+public:
+	ArtworkFallbackImpl(const wxImage &image, const wxSize &size)
+	: m_image(image.Copy())
+	, m_size(size)
+	{
+	}
+	wxSize GetDefaultSize() const override { return m_size; }
+	wxSize GetPreferredBitmapSizeAtScale(double scale) const override
+	{
+		return wxSize(wxRound(m_size.x * scale), wxRound(m_size.y * scale));
+	}
+	wxBitmap GetBitmap(const wxSize &size) override
+	{
+		wxImage image = size == m_image.GetSize()
+					? m_image.Copy()
+					: m_image.Scale(size.x, size.y, wxIMAGE_QUALITY_HIGH);
+		if (!image.HasAlpha()) {
+			image.InitAlpha();
+		}
+		const int barWidth = std::max(1, size.x / 11);
+		for (int y = 0; y < size.y; ++y) {
+			for (int x = size.x - barWidth; x < size.x; ++x) {
+				image.SetAlpha(x, y, wxALPHA_TRANSPARENT);
+			}
+		}
+		return wxBitmap(image);
+	}
+
+private:
+	wxImage m_image;
+	wxSize m_size;
+};
+
+inline wxBitmapBundle MakeArtworkFallback(const wxImage &image, const wxSize &size = wxDefaultSize)
+{
+	if (!image.IsOk()) {
+		return wxBitmapBundle();
+	}
+	return wxBitmapBundle::FromImpl(
+		new ArtworkFallbackImpl(image, size == wxDefaultSize ? image.GetSize() : size));
+}
+
 // Compose at the size requested by SetIcon(). Native taskbar backends flatten the
 // bundle, so callers must set it again after a DPI change.
 class IconBundleImpl : public wxBitmapBundleImpl

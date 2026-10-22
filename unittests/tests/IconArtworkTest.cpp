@@ -248,6 +248,54 @@ static void CheckTrayArtwork(const wxImage &image, const char *state)
 	}
 }
 
+static void CheckTrayComposition(
+	const wxBitmapBundle &artwork, const char *state, const char *format, const char *output)
+{
+	Phase(std::strcmp(format, "svg") == 0 ? "tray SVG composition" : "tray PNG fallback composition");
+	const wxColour colour(19, 137, 241);
+	const auto half = MuleTray::MakeIconBundle(artwork, 50, colour);
+	for (int pixels : { 16, 17, 22, 24, 33, 39, 44, 66, 88, 100, 22 }) {
+		Rendering(state, pixels / 22.0);
+		const wxSize size(pixels, pixels);
+		// Normalize the reference through the same native bitmap codec as the
+		// composed image: MSW/Cocoa premultiply RGB at antialiased edges.
+		const auto base = wxBitmap(artwork.GetBitmap(size).ConvertToImage()).ConvertToImage();
+		for (unsigned int percent : { 0u, 29u, 50u, 57u, 58u, 100u, 200u, 0u }) {
+			const auto bundle =
+				percent == 50 ? half : MuleTray::MakeIconBundle(artwork, percent, colour);
+			const auto image = bundle.GetBitmap(size).ConvertToImage();
+			require(image.IsOk() && image.GetSize() == size && image.HasAlpha(),
+				"tray size or alpha lost");
+			const int barWidth = std::max(1, pixels / 11);
+			const int barHeight = pixels * std::min(percent, 100u) / 100;
+			for (int y = 0; y < pixels; ++y) {
+				for (int x = 0; x < pixels; ++x) {
+					const bool bar = x >= pixels - barWidth && y >= pixels - barHeight;
+					if (bar) {
+						require(base.GetAlpha(x, y) == 0,
+							"speed bar overwrites artwork");
+					}
+					require(image.GetAlpha(x, y) == (bar ? 255 : base.GetAlpha(x, y)),
+						"tray transparency or bar height changed");
+					require(image.GetRed(x, y) ==
+								(bar ? colour.Red() : base.GetRed(x, y)) &&
+							image.GetGreen(x, y) == (bar ? colour.Green()
+										     : base.GetGreen(x, y)) &&
+							image.GetBlue(x, y) ==
+								(bar ? colour.Blue() : base.GetBlue(x, y)),
+						"tray bar overlaps artwork or has wrong colour");
+				}
+			}
+			if (output) {
+				image.SaveFile(
+					wxString::Format(
+						"%s/%s-%s-%d-%u.png", output, state, format, pixels, percent),
+					wxBITMAP_TYPE_PNG);
+			}
+		}
+	}
+}
+
 int main(int argc, char **argv)
 {
 	// Below CTest's 10 s limit; 0 disables it, e.g. under a debugger.
@@ -331,74 +379,8 @@ int main(int argc, char **argv)
 					half.GetPreferredBitmapSizeAtScale(3) == wxSize(66, 66),
 				"tray bundle lost vector scale selection");
 #endif
-			const auto raster = MuleTray::MakeIconBundle(
-				wxBitmapBundle::FromBitmap(wxBitmap(fallback)), 100, colour);
-			const auto rasterImage = raster.GetBitmap(wxSize(44, 44)).ConvertToImage();
-			require(rasterImage.GetSize() == wxSize(44, 44) &&
-					rasterImage.GetAlpha(43, 0) == 255 && rasterImage.GetAlpha(0, 0) == 0,
-				"raster-only tray fallback lost size, bar or alpha");
-			for (int pixels : { 16, 17, 22, 24, 33, 39, 44, 66, 88, 100, 22 }) {
-				Rendering(state, pixels / 22.0);
-				const wxSize size(pixels, pixels);
-				// MSW/Cocoa premultiply bitmap RGB. Normalize the reference through
-				// the same native codec so edge quantization is not mistaken for
-				// damaged artwork; all resulting channels still compare exactly.
-				const auto base =
-					wxBitmap(artwork.GetBitmap(size).ConvertToImage()).ConvertToImage();
-				// 29/57/58% at 100 pixels exposed floating-point truncation.
-				for (unsigned int percent : { 0u, 29u, 50u, 57u, 58u, 100u, 200u, 0u }) {
-					const auto bundle = percent == 50 ? half
-									  : MuleTray::MakeIconBundle(
-										    artwork, percent, colour);
-					const auto image = bundle.GetBitmap(size).ConvertToImage();
-					require(image.IsOk() && image.GetSize() == size && image.HasAlpha(),
-						"tray size or alpha lost");
-					const int barWidth = std::max(1, pixels / 11);
-					const int barHeight = pixels * std::min(percent, 100u) / 100;
-					for (int y = 0; y < pixels; ++y) {
-						for (int x = 0; x < pixels; ++x) {
-							const bool bar = x >= pixels - barWidth &&
-									 y >= pixels - barHeight;
-							if (bar) {
-								require(base.GetAlpha(x, y) == 0,
-									"speed bar overwrites artwork");
-							}
-							if (image.GetAlpha(x, y) !=
-								(bar ? 255 : base.GetAlpha(x, y))) {
-								std::cerr << state << " size=" << pixels
-									  << " percent=" << percent
-									  << " pixel=" << x << "," << y
-									  << " alpha="
-									  << int(image.GetAlpha(x, y))
-									  << " base="
-									  << int(base.GetAlpha(x, y)) << "\n";
-							}
-							require(image.GetAlpha(x, y) ==
-									(bar ? 255 : base.GetAlpha(x, y)),
-								"tray transparency or bar height changed");
-							require(image.GetRed(x, y) ==
-										(bar ? colour.Red()
-										     : base.GetRed(x, y)) &&
-									image.GetGreen(x, y) ==
-										(bar ? colour.Green()
-										     : base.GetGreen(x, y)) &&
-									image.GetBlue(x, y) ==
-										(bar ? colour.Blue()
-										     : base.GetBlue(x, y)),
-								"tray bar overlaps artwork or has wrong "
-								"colour");
-						}
-					}
-					if (output) {
-						image.SaveFile(wxString::Format("%s/%s-%d-%u.png",
-								       output,
-								       state,
-								       pixels,
-								       percent),
-							wxBITMAP_TYPE_PNG);
-					}
-				}
-			}
+			CheckTrayComposition(artwork, state, "svg", output);
+			CheckTrayComposition(MuleTray::MakeArtworkFallback(fallback), state, "png", output);
 		}
 
 		Phase("legacy flag padding");

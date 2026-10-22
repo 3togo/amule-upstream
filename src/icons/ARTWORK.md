@@ -121,7 +121,9 @@ The `try1_fixed/amule_22_norm_fixed.svg`, `amule_22_yellow_fixed.svg` and
 NanoSVG parser. CSS class declarations are inlined into each element because
 NanoSVG ignores stylesheet rules; fills and gradients contain the state colours
 without SVG filters. The matching 22×22 PNG fallbacks are rendered with wx/NanoSVG.
-The last two columns are reserved for the download-speed bar.
+The last two columns are reserved for the download-speed bar. PNG fallback
+bundles resample the original directly at each requested size and clear the
+reserved bar columns after filtering, so blurred edge pixels cannot occupy them.
 
 The wxTaskBarIcon backend draws the speed bar at the pixel size requested by
 `SetIcon()`. The native backend flattens the bundle; `wxEVT_DPI_CHANGED` invalidates
@@ -136,6 +138,9 @@ and Linux per-state named icons remain separate work.
 including a return from 4x to 1x, empty/half/full bars, percentages above 100,
 exact percentage boundaries, distinct brown/yellow/gray state colours, white
 eyes and muzzle, non-black gray planks, transparent pixels beneath the bar, and
-preservation of artwork and transparency. `AMULE_ICON_TEST_OUTPUT` exports tray
+preservation of artwork and transparency, for both SVG and PNG fallback bundles.
+The transfer-rate conversion also handles zero capacity and non-finite or
+out-of-range percentages before converting to an integer.
+`AMULE_ICON_TEST_OUTPUT` exports tray
 renders. Native Windows/macOS tray sizing and physical display transitions still
 need desktop verification.

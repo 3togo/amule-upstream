@@ -65,6 +65,7 @@
 #include "MuleTextCtrl.h" // Needed for CMuleTextCtrl (fast-links placeholder)
 #include "MuleLogCtrl.h"  // Needed for CMuleLogCtrl (the log/server-info panes)
 #include "MuleTrayIcon.h"
+#include "BandwidthRateConversion.h"
 #include "muuli_wdr.h"   // Needed for ID_BUTTON*
 #include "Preferences.h" // Needed for CPreferences
 #include "PrefsUnifiedDlg.h"
@@ -1522,7 +1523,8 @@ void CamuleDlg::ShowTransferRate()
 	wxASSERT((m_wndTaskbarNotifier != NULL) == thePrefs::UseTrayIcon());
 	if (m_wndTaskbarNotifier) {
 		// set trayicon-icon
-		int percentDown = (int)ceil((kBpsDown * 100) / thePrefs::GetMaxGraphDownloadRate());
+		const int percentDown =
+			BandwidthRateConversion::ToPercent(kBpsDown, thePrefs::GetMaxGraphDownloadRate());
 		UpdateTrayIcon(percentDown);
 
 		wxString buffer2;
