@@ -99,12 +99,22 @@ public:
 	{
 #ifdef __WXMSW__
 		// The notification area uses the system small-icon metric, not our 22px canvas.
-		// Resolve dynamically to keep compatibility with older Windows versions.
+		// Size it by the taskbar's DPI: wxTaskBarIcon passes the scale of its hidden
+		// window, which never gets WM_DPICHANGED and keeps the DPI the process started
+		// with. Resolve dynamically to keep compatibility with older Windows versions.
+		const HMODULE user32 = ::GetModuleHandleW(L"user32.dll");
 		using GetMetricsForDpi = int(WINAPI *)(int, UINT);
+		using GetDpiForWindowFn = UINT(WINAPI *)(HWND);
 		const auto getMetrics = reinterpret_cast<GetMetricsForDpi>(
-			::GetProcAddress(::GetModuleHandleW(L"user32.dll"), "GetSystemMetricsForDpi"));
+			::GetProcAddress(user32, "GetSystemMetricsForDpi"));
+		const auto getDpiForWindow =
+			reinterpret_cast<GetDpiForWindowFn>(::GetProcAddress(user32, "GetDpiForWindow"));
 		if (getMetrics) {
-			const UINT dpi = static_cast<UINT>(wxRound(96 * scale));
+			const HWND taskbar = ::FindWindowW(L"Shell_TrayWnd", nullptr);
+			UINT dpi = taskbar && getDpiForWindow ? getDpiForWindow(taskbar) : 0;
+			if (dpi == 0) {
+				dpi = static_cast<UINT>(wxRound(96 * scale));
+			}
 			return wxSize(getMetrics(SM_CXSMICON, dpi), getMetrics(SM_CYSMICON, dpi));
 		}
 		return wxSize(::GetSystemMetrics(SM_CXSMICON), ::GetSystemMetrics(SM_CYSMICON));

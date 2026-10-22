@@ -132,8 +132,10 @@ Native tooltip updates also resubmit the retained bundle on each statistics tick
 Cocoa and GTK with wxWidgets 3.2 do not emit this DPI event, and the tray's display
 can change independently of the main window. wx's AppIndicator backend skips
 tooltip-only submissions to avoid repeated icon-file writes and registrations.
-On Windows, preferred sizes use the system small-icon metrics at the requested DPI
+On Windows, preferred sizes use the system small-icon metrics at the taskbar's DPI
 (typically 16/24 pixels at 100/150%), with system metrics as the older-OS fallback.
+wx passes the scale of a hidden window that keeps its startup DPI, so that scale is
+only the fallback when the taskbar's DPI is unavailable.
 Linux AppIndicator continues to resolve the existing
 scalable `org.amule.aMule` icon from the desktop theme. macOS template styling
 and Linux per-state named icons remain separate work.
