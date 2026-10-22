@@ -187,6 +187,8 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.build_type }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
           restore-keys: ${{ runner.os }}-${{ matrix.build_type }}-ccache-
       - name: install deps
+        # Bound package-manager stalls before compilation starts.
+        timeout-minutes: 15
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
