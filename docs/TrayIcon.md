@@ -9,9 +9,11 @@ no speed overlay; rates remain available in the window and tray menu.
 
 Without that dependency, wxGTK builds with their own AppIndicator support use
 wx's backend. Other wxGTK builds using GTK 2.18+ or GTK3 use a native
-GtkStatusIcon adapter for X11 trays. The adapter renders the SVG and speed bar at the size GTK requests,
+GtkStatusIcon adapter for X11 trays. The adapter renders the SVG and speed bar
+at the size GTK requests,
 including changes while running. The matching GTK2 or GTK3 headers and
-libraries are discovered explicitly through pkg-config for both `amule` and `amulegui`; headless builds,
+libraries are discovered explicitly through pkg-config for both `amule` and
+`amulegui`; headless builds,
 Windows and Cocoa do not acquire a GTK dependency. wx builds using GTK older
 than 2.18 retain wx's legacy implementation. AppIndicator3 is selected only
 for wxGTK3, avoiding incompatible GTK major versions and GTK calls on wxQt
@@ -39,6 +41,15 @@ Run the GUI tests with a working display. Linux CI can use `xvfb-run -a ctest
 --test-dir build -R 'IconArtwork|NativeTrayIcon' --output-on-failure`. The
 `scripts/check-tray-backend-build.py build --require-remote-gui` check also
 compiles the fallback production consumers even when libayatana is installed.
+
+For actual X11 embedding, install stalonetray and run `xvfb-run -a bash
+scripts/check-tray-host.sh build/unittests/tests/NativeTrayIconTest`. This checks
+22, 32, 48 and 64 pixel slots, both before and after icon removal/restoration,
+without injecting resize signals. The host forces full-slot allocation instead
+of following GTK2's smaller natural-size hints; the test checks actual pixbuf
+dimensions to reject host-side stretching. Set `STALONETRAY` to use a private
+executable.
+The Linux C/C++ CI jobs run this check automatically.
 Theme lookup should additionally be checked after installation in a private
 staging prefix, including remote-GUI-only installations. Native platform CI
 and desktop smoke checks remain necessary for OS-specific behavior.

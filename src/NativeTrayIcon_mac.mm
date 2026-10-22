@@ -96,7 +96,15 @@ bool MuleTrayIconBase::PopupMenu(wxMenu *menu)
 	wxEvtHandler *previous = menu->GetEventHandler();
 	menu->SetEventHandler(this);
 	menu->UpdateUI();
-	[m_native->status popUpStatusItemMenu:(NSMenu *)menu->GetHMenu()];
+	// NSStatusItem::popUpStatusItemMenu was deprecated in 10.14. Track the
+	// freshly built wx menu through NSMenu's public contextual-menu API instead.
+	NSStatusBarButton *button = m_native->status.button;
+	const NSRect bounds = button.bounds;
+	const NSPoint anchor =
+		NSMakePoint(NSMinX(bounds), button.isFlipped ? NSMaxY(bounds) : NSMinY(bounds));
+	[button highlight:YES];
+	[(NSMenu *)menu->GetHMenu() popUpMenuPositioningItem:nil atLocation:anchor inView:button];
+	[button highlight:NO];
 	menu->SetEventHandler(previous);
 	return true;
 }
