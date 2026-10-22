@@ -128,6 +128,10 @@ reserved bar columns after filtering, so blurred edge pixels cannot occupy them.
 The wxTaskBarIcon backend draws the speed bar at the pixel size requested by
 `SetIcon()`. The native backend flattens the bundle; `wxEVT_DPI_CHANGED` invalidates
 the tray state so the next statistics tick submits a fresh bundle even while idle.
+Native tooltip updates also resubmit the retained bundle on each statistics tick:
+Cocoa and GTK with wxWidgets 3.2 do not emit this DPI event, and the tray's display
+can change independently of the main window. wx's AppIndicator backend skips
+tooltip-only submissions to avoid repeated icon-file writes and registrations.
 On Windows, preferred sizes use the system small-icon metrics at the requested DPI
 (typically 16/24 pixels at 100/150%), with system metrics as the older-OS fallback.
 Linux AppIndicator continues to resolve the existing

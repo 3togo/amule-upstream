@@ -695,13 +695,13 @@ void CMuleTrayIcon::SetTrayIcon(int Icon, uint32 percent)
 
 void CMuleTrayIcon::SetTrayToolTip(const wxString &Tip)
 {
-	// Called on every rate update. wx's AppIndicator backend shows no tooltip, yet each of its
-	// SetIcon() calls writes a new icon file and re-registers the indicator with the host.
-	if (Tip == CurrentTip) {
-		return;
-	}
 	CurrentTip = Tip;
 #if !(defined(wxUSE_APPINDICATOR) && wxUSE_APPINDICATOR)
+	// Native backends flatten the bundle in SetIcon(). Refresh even with an unchanged tooltip:
+	// Cocoa and GTK before wx 3.3 do not emit wxEVT_DPI_CHANGED, and the tray's display can
+	// change independently of the main window. Reuse the bundle and let the backend select
+	// its current size. wx's AppIndicator backend has no tooltip and would instead write a
+	// new icon file and re-register the indicator on every tick.
 	UpdateTray();
 #endif
 }
