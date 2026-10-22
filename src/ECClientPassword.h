@@ -25,8 +25,8 @@
 #ifndef EC_CLIENT_PASSWORD_H
 #define EC_CLIENT_PASSWORD_H
 
-#include <wx/config.h>
 #include "Types.h"
+#include <wx/config.h>
 #include <common/MD5Sum.h>
 
 namespace ECClientPassword
