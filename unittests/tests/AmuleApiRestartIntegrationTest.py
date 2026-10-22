@@ -30,15 +30,9 @@ def authenticate_token(host, port, token):
     ec = EC.__new__(EC)
     ec.sock = socket.create_connection((host, port), timeout=10)
     try:
-        op, tags = ec.call(C['EC_OP_AUTH_REQ'], [
-            string(C['EC_TAG_CLIENT_NAME'], 'API restart regression'),
-            string(C['EC_TAG_CLIENT_VERSION'], '1'),
-            tag(C['EC_TAG_PROTOCOL_VERSION'], struct.pack('!H', C['EC_CURRENT_PROTOCOL_VERSION']), 3),
-        ])
-        assert op == C['EC_OP_AUTH_SALT'], (op, tags)
-        salt_hash = hashlib.md5(f"{tags[C['EC_TAG_PASSWD_SALT']][0]:X}".encode()).hexdigest()
-        proof = hashlib.md5((token.lower() + salt_hash).encode()).digest()
-        return ec.call(C['EC_OP_AUTH_PASSWD'], [tag(C['EC_TAG_PASSWD_HASH'], proof, 9)])[0]
+        from ECWire import authenticate
+        ec.sock, op, _ = authenticate(ec.sock, bytes.fromhex(token), credential=1)
+        return op
     finally:
         ec.sock.close()
 
@@ -142,7 +136,19 @@ def run(binary, root, scenario):
                 helper_path.unlink()
             if scenario != 'active-shutdown':
                 released_at = time.monotonic()
-                (root / 'allow-exit').touch()
+                if scenario == 'unread':
+                    from ECWire import authenticate
+                    token = (root / 'retired-token').read_text().strip()
+                    def revoke_pending_token():
+                        (root / 'allow-exit').touch()
+                        wait_until(proc, root, lambda: 'amuleapi will restart in 0 seconds.' in
+                                   (root / 'logfile').read_text(errors='replace'))
+                    with socket.create_connection(('127.0.0.1', ec_port), timeout=15) as pending:
+                        _, op, _ = authenticate(pending, bytes.fromhex(token), credential=1,
+                                                before_proof=revoke_pending_token)
+                        assert op == C['EC_OP_AUTH_FAIL'], 'pending proof accepted after token revocation'
+                else:
+                    (root / 'allow-exit').touch()
                 wait_until(proc, root, lambda: 'amuleapi will restart in 0 seconds.' in
                            (root / 'logfile').read_text(errors='replace'),
                            timeout=10 if scenario == 'verbose' else 90)
