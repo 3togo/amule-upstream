@@ -106,7 +106,8 @@ work. Remote preference snapshots never consume or retain a pending EC digest;
 the edit is sent explicitly at commit and cleared only on acknowledgement.
 Confirmed changes update the GUI's reconnect credential and, only if the active
 credential was already saved for that endpoint, its saved client password.
-Failed requests preserve the pending edit for retry; cancelling discards it.
+Failed requests preserve the pending edit for retry; reopening the dialog displays
+a mask and keeps the pending digest intact. Cancelling discards it.
 
 Config backups and saved client digests are not revoked by deleting the live
 key. A downgrade has no ECPassword and requires setting a password again with
@@ -151,7 +152,10 @@ the production daemon and clients. Fault-injected config tests cover failed
 commits, interrupted cleanup, restart and malformed existing verifiers.
 The asynchronous GUI transport is also queried for connection locality during
 login to verify that UI queries do not change SRP state. Both client transports
-reject missing or tampered server evidence before sending commands.
+reject missing or tampered server evidence before sending commands. Plaintext
+packets after key setup are rejected in the shared packet reader, including final
+authentication replies and synchronous command replies, and immediately report
+connection loss to event-driven clients.
 `ECSRPApiIntegrationTest` runs the production amuleapi against an offline core
 with both a configured password and a spawned token, including an obsolete
 `Encryption=0` setting. The token case uses a wrong configured password to rule

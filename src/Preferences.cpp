@@ -25,6 +25,7 @@
 
 #include <wx/wx.h>
 #include "Preferences.h"
+#include "ECClientPassword.h"
 #include "libs/ec/cpp/ECSRPConfig.h"
 #include "ServerListSources.h"
 #include <wx/file.h>
@@ -480,22 +481,21 @@ public:
 #ifndef AMULE_DAEMON
 	bool TransferToWindow() override
 	{
-		const bool ok = Cfg_Str::TransferToWindow();
-		if (auto *field = wxDynamicCast(m_widget, wxTextCtrl))
+		if (auto *field = wxDynamicCast(m_widget, wxTextCtrl)) {
+			field->ChangeValue(ECClientPassword::Display(m_value));
 			field->DiscardEdits();
-		return ok;
+			return true;
+		}
+		return false;
 	}
 	bool TransferFromWindow() override
 	{
-		if (!Cfg_Str::TransferFromWindow())
-			return false;
-		// Typing the displayed mask is still a legitimate password edit. Value
-		// comparison alone cannot distinguish that from leaving the field alone.
-		const auto *field = wxDynamicCast(m_widget, wxTextCtrl);
-		SetChanged(HasChanged() || (m_value == "********" && field && field->IsModified()));
-		if (HasChanged() && !m_value.IsEmpty())
-			m_value = MD5Sum(m_value).GetHash();
-		return true;
+		if (const auto *field = wxDynamicCast(m_widget, wxTextCtrl)) {
+			SetChanged(
+				ECClientPassword::ReadInput(m_value, field->GetValue(), field->IsModified()));
+			return true;
+		}
+		return false;
 	}
 #endif
 };

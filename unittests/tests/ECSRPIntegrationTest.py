@@ -66,10 +66,13 @@ class BadServerProof(socketserver.BaseRequestHandler):
     def handle(self):
         try:
             def evidence(proof):
+                if self.server.plaintext:
+                    return [W.tag('EC_TAG_SRP_M2', proof)]
                 if self.server.missing:
                     return []
                 return [W.tag('EC_TAG_SRP_M2', bytes([proof[0] ^ 1]) + proof[1:])]
-            encrypted = W.accept(self.request, server_proof=evidence)
+            encrypted = W.accept(self.request, server_proof=evidence,
+                                 plaintext=self.server.plaintext)
             self.request.settimeout(3)
             try:
                 self.server.extra = encrypted.recv(8)
@@ -96,6 +99,16 @@ class OldDaemon(socketserver.BaseRequestHandler):
         self.request.settimeout(3)
         try: self.server.extra=self.request.recv(4096)
         except (socket.timeout,ConnectionResetError): self.server.extra=b''
+
+class PlaintextReply(socketserver.BaseRequestHandler):
+    def handle(self):
+        try:
+            encrypted = W.accept(self.request)
+            W.read(encrypted)  # The client's first authenticated command.
+            self.request.sendall(W.packet('EC_OP_FAILED', [
+                W.tag('EC_TAG_STRING', b'injected plaintext response\0', 6)]))
+        except BaseException as exc:
+            self.server.error = exc
 
 def rate_limit_boundary(daemon, cmd, async_probe, root, env):
     """An admitted challenge may finish even if its reservation arms the lockout."""
@@ -338,22 +351,40 @@ def main(daemon,cmd,async_probe):
             malicious.shutdown();assert malicious.extra==b''
         print('PASS: unauthenticated excessive scrypt cost rejected without proof')
         for binary in (cmd, async_probe):
-            for missing in (False, True):
+            for missing, plaintext in ((False, False), (True, False), (False, True)):
                 with FixtureServer(('127.0.0.1', 0), BadServerProof) as bad:
                     bad.missing = missing
+                    bad.plaintext = plaintext
                     bad.extra = None
                     bad.error = None
                     threading.Thread(target=bad.serve_forever, daemon=True).start()
                     args = ([cmd, '-h', '127.0.0.1', '-p', str(bad.server_address[1]),
                              '-P', 'regression', '-c', 'status'] if binary == cmd else
                             [async_probe, str(bad.server_address[1])])
-                    out = subprocess.run(args, env=env, capture_output=True, text=True, timeout=20)
-                    assert 'failed to prove' in out.stdout + out.stderr, out
+                    start = time.monotonic()
+                    out = subprocess.run(args, env=env, capture_output=True, text=True,
+                                         timeout=10 if plaintext else 20)
+                    message = out.stdout + out.stderr
+                    assert ('failed to prove' in message or
+                            (plaintext and 'unencrypted packet' in message)), out
+                    if plaintext:
+                        assert time.monotonic() - start < 10, 'authentication failure waited for watchdog'
                     assert 'Succeeded!' not in out.stdout + out.stderr, out
                     bad.shutdown()
                     assert bad.error is None, bad.error
                     assert bad.extra == b'', 'command sent before validating daemon proof'
         print('PASS: amulecmd and GUI transport reject missing/tampered server proofs before commands')
+        with FixtureServer(('127.0.0.1', 0), PlaintextReply) as bad:
+            bad.error = None
+            threading.Thread(target=bad.serve_forever, daemon=True).start()
+            out = subprocess.run([cmd, '-h', '127.0.0.1', '-p', str(bad.server_address[1]),
+                                  '-P', 'regression', '-c', 'status'],
+                                 env=env, capture_output=True, text=True, timeout=5)
+            bad.shutdown()
+            assert bad.error is None, bad.error
+            assert 'injected plaintext response' not in out.stdout + out.stderr, out
+            assert 'unencrypted packet' in out.stdout + out.stderr, out
+        print('PASS: synchronous command replies require encryption after authentication')
         out=subprocess.run([cmd,'--disable-ec-encryption'],env=env,capture_output=True,text=True,timeout=5)
         assert 'Unknown' in out.stdout+out.stderr or 'unknown' in out.stdout+out.stderr,out
         print('PASS: old daemon and removed encryption switch fail clearly')
