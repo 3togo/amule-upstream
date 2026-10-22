@@ -1142,11 +1142,9 @@ bool CUpDownClient::ProcessMuleInfoPacket(const uint8_t *pachPacket, uint32 nSiz
 				break;
 
 			default:
-#ifdef __DEBUG__
 				AddDebugLogLineN(logPacketErrors,
 					CFormat("Unknown Mule tag (%s) from client: %s") %
 						temptag.GetFullInfo() % GetClientFullInfo());
-#endif
 
 				break;
 			}
@@ -1623,12 +1621,10 @@ bool CUpDownClient::Disconnected(const wxString &strReason, bool bFromSocket)
 		m_bHelloAnswerPending = false;
 		m_fSentOutOfPartReqs = 0;
 	}
-#ifdef __DEBUG__
 	AddDebugLogLineN(logClient,
 		CFormat("--- %s client D:%d U:%d \"%s\"; Reason was %s") %
 			(bDelete ? "Deleted" : "Disconnected") % m_nDownloadState % m_nUploadState %
 			GetClientFullInfo() % strReason);
-#endif
 
 	return bDelete;
 }
@@ -3149,7 +3145,6 @@ bool CUpDownClient::CheckHandshakeFinished() const
 	return true;
 }
 
-#ifdef __DEBUG__
 wxString CUpDownClient::GetClientFullInfo()
 {
 	if (m_clientVerString.IsEmpty()) {
@@ -3160,7 +3155,6 @@ wxString CUpDownClient::GetClientFullInfo()
 	       (m_Username.IsEmpty() ? wxString(_("Unknown")) : m_Username) % GetFullIP() % GetUserPort() %
 	       m_clientSoftString % m_clientVerString % m_strModVersion;
 }
-#endif
 
 wxString CUpDownClient::GetClientShortInfo()
 {
@@ -3413,9 +3407,7 @@ uint8 CUpDownClient::GetSecureIdentState()
 
 			AddDebugLogLineN(logClient,
 				"A client sent secure ident state before telling us the SUI capabilities");
-#ifdef __DEBUG__
 			AddDebugLogLineN(logClient, "Client info: " + GetClientFullInfo());
-#endif
 			AddDebugLogLineN(
 				logClient, "This client won't be disconnected, but it should be. :P");
 		}
@@ -3727,20 +3719,16 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 							       "can send a message to him. However your "
 							       "client does not supports captchas, so you "
 							       "will not be able to chat with this user.");
-#ifdef __DEBUG__
 						AddDebugLogLineN(logClient,
 							CFormat("Received message from client not supporting "
 								"captchas, filtered and sent notifier (%s)") %
 								GetClientFullInfo());
-#endif
 					} else {
-#ifdef __DEBUG__
 						AddDebugLogLineN(logClient,
 							CFormat("Received message from client not supporting "
 								"captchas, filtered, didn't send notifier "
 								"(%s)") %
 								GetClientFullInfo());
-#endif
 					}
 				}
 				return;
@@ -3751,11 +3739,9 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 				if (m_strCaptchaChallenge.CmpNoCase(message.Trim().Right(std::min(
 					    message.Length(), m_strCaptchaChallenge.Length()))) == 0) {
 					// allright
-#ifdef __DEBUG__
 					AddDebugLogLineN(logClient,
 						CFormat("Captcha solved, showing withheld message (%s)") %
 							GetClientFullInfo());
-#endif
 					m_nChatCaptchaState =
 						CA_CAPTCHASOLVED; // this state isn't persitent, but the
 								  // messagecounter will be used to determine
@@ -3771,10 +3757,8 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 					theStats::AddUpOverheadOther(packet->GetPacketSize());
 					SafeSendPacket(packet);
 				} else { // wrong, cleanup and ignore
-#ifdef __DEBUG__
 					AddDebugLogLineN(logClient,
 						CFormat("Captcha answer failed (%s)") % GetClientFullInfo());
-#endif
 					m_nChatCaptchaState = CA_NONE;
 					m_strCaptchaChallenge.Clear();
 					m_strCaptchaPendingMsg.Clear();
