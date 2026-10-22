@@ -53,6 +53,7 @@ static void CheckLiveTray()
 		long size;
 		int attempts = 0;
 		bool matched = false;
+		bool finished = false;
 	} check{ expected };
 	// Run the real GTK main loop, as the GUI does. wxYield() alone is not a
 	// substitute for GTK2's plug/manager event processing in a frameless fixture.
@@ -66,13 +67,18 @@ static void CheckLiveTray()
 					gdk_pixbuf_get_width(pixels) == state.size &&
 					gdk_pixbuf_get_height(pixels) == state.size;
 			if (state.matched || ++state.attempts >= 250) {
+				state.finished = true;
 				gtk_main_quit();
 				return FALSE;
 			}
 			return TRUE;
 		},
 		&check);
-	gtk_main();
+	// wx idle processing can quit a nested GTK2 loop before our timer finishes.
+	// Keep pumping until the callback removes itself, so it cannot outlive check.
+	do {
+		gtk_main();
+	} while (!check.finished);
 	if (check.matched) {
 		std::cout << "PASS: live X11 tray embedded and rendered at " << expected << "px\n";
 		return;
