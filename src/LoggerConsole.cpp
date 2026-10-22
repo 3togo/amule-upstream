@@ -27,9 +27,6 @@
 #include <mutex>
 #include <common/StringFunctions.h> // for char2unicode()
 
-#include <wx/filename.h>
-#include <wx/stdpaths.h>
-
 #include "Logger.h" // for Add(Debug)LogLineM()
 
 wxDEFINE_EVENT(MULE_EVT_LOGLINE, wxEvent);
@@ -88,7 +85,7 @@ void CLogger::AddLogLine(const wxString &file,
 	(void)line;
 #endif
 	Log(type != logStandard && !critical ? LogLevel::Debug : LogLevel::Info,
-		wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetName(),
+		m_programName,
 		message,
 		critical,
 		toStdout,

@@ -180,6 +180,10 @@ public:
 	/// paths drive the same gate.
 	void SetVerbose(bool verbose);
 
+	/// Console program identity. Set once during startup, before starting worker threads.
+	/// Use the declared program name so renaming or symlinking a binary cannot change its tag.
+	void SetProgramName(const wxString &name) { m_programName = name; }
+
 	/// True if logging to stdout is enabled.
 	bool IsEnabledStdoutLog() const { return m_StdoutLog; }
 
@@ -252,6 +256,7 @@ public:
 	}
 
 private:
+	wxString m_programName;
 	class wxFFileOutputStream *applog; // the logfile
 	wxString m_LogfileName;
 	int m_crashFd = -1;

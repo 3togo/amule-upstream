@@ -36,7 +36,9 @@ messages. Logfile-only messages remain excluded from EC replay. Human stdout
 omits this byte. Existing remote GUIs can continue stripping the marker.
 
 The standalone console logger shares the formatter. Its category identifies the
-program (`amulecmd`, `amuleweb` or `amuleapi`);
+program (`amulecmd`, `amuleweb` or `amuleapi`). The connector initializes it once
+from its declared program name before starting workers, so renaming the executable
+or invoking it through a symlink does not change the tag;
 explicit `CLogger::Log` calls can supply a subsystem. Debug builds retain source
 file/line details in legacy messages.
 
