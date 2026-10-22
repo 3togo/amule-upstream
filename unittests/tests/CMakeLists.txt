@@ -27,7 +27,7 @@ if (Python3_Interpreter_FOUND)
 		${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
 	)
 	target_include_directories (ConsoleLoggerProbe PRIVATE
-		${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+		${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs
 	)
 	target_link_libraries (ConsoleLoggerProbe mulecommon)
 	add_test (NAME ConsoleLoggerIdentityTest
