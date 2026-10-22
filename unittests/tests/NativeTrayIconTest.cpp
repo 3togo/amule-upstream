@@ -90,8 +90,16 @@ class TestTray : public MuleTrayIconBase
 public:
 	int menus = 0;
 	int clicks = 0;
+	int singleClicks = 0;
+	bool handleSingleClick = false;
 	TestTray()
 	{
+		Bind(wxEVT_TASKBAR_LEFT_DOWN, [this](wxTaskBarIconEvent &event) {
+			++singleClicks;
+			if (!handleSingleClick) {
+				event.Skip();
+			}
+		});
 		Bind(wxEVT_TASKBAR_LEFT_DCLICK, [this](wxTaskBarIconEvent &) { ++clicks; });
 	}
 	wxMenu *CreatePopupMenu() override { return new wxMenu; }
@@ -133,13 +141,18 @@ int main(int argc, char **argv)
 		g_signal_emit_by_name(status, "activate");
 		g_signal_emit_by_name(status, "popup-menu", 3u, 0u);
 		require(tray.clicks == 1 && tray.menus == 1, "native events lost wx dispatch");
+		require(tray.singleClicks == 1, "native activation skipped single-click event");
+		tray.handleSingleClick = true;
+		g_signal_emit_by_name(status, "activate");
+		require(tray.singleClicks == 2 && tray.clicks == 1,
+			"handled single click also dispatched double click");
 		g_object_ref(status); // Retain to check callbacks cannot reach a removed owner.
 		GtkStatusIcon *removed = status;
 		tray.RemoveIcon();
 		require(!tray.IsIconInstalled() && !gtk_status_icon_get_visible(removed),
 			"RemoveIcon left icon visible");
 		g_signal_emit_by_name(removed, "activate");
-		require(tray.clicks == 1, "removed icon kept callbacks");
+		require(tray.clicks == 1 && tray.singleClicks == 2, "removed icon kept callbacks");
 		g_object_unref(removed);
 		require(tray.SetIcon(bundle, "restored"), "restore failed");
 		require(tray.IsIconInstalled() && gtk_status_icon_get_visible(status),

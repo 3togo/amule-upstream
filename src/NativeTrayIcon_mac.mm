@@ -93,19 +93,30 @@ bool MuleTrayIconBase::PopupMenu(wxMenu *menu)
 	if (!m_native->status || !menu) {
 		return false;
 	}
-	wxEvtHandler *previous = menu->GetEventHandler();
+	// A menu command can remove the icon while native menu tracking is active.
+	// Keep its button alive until highlighting and menu routing are restored.
+	struct PopupState
+	{
+		wxMenu *menu;
+		wxEvtHandler *previous;
+		NSStatusBarButton *button;
+		~PopupState()
+		{
+			[button highlight:NO];
+			[button release];
+			menu->SetEventHandler(previous);
+		}
+	} popup{ menu, menu->GetEventHandler(), [m_native->status.button retain] };
 	menu->SetEventHandler(this);
 	menu->UpdateUI();
 	// NSStatusItem::popUpStatusItemMenu was deprecated in 10.14. Track the
 	// freshly built wx menu through NSMenu's public contextual-menu API instead.
-	NSStatusBarButton *button = m_native->status.button;
+	NSStatusBarButton *button = popup.button;
 	const NSRect bounds = button.bounds;
 	const NSPoint anchor =
 		NSMakePoint(NSMinX(bounds), button.isFlipped ? NSMaxY(bounds) : NSMinY(bounds));
 	[button highlight:YES];
 	[(NSMenu *)menu->GetHMenu() popUpMenuPositioningItem:nil atLocation:anchor inView:button];
-	[button highlight:NO];
-	menu->SetEventHandler(previous);
 	return true;
 }
 #endif

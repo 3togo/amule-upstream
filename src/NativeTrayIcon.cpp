@@ -68,8 +68,12 @@ bool MuleTrayIconBase::SetIcon(const wxBitmapBundle &icon, const wxString &toolt
 			"activate",
 			G_CALLBACK(+[](GtkStatusIcon *, gpointer data) {
 				auto *owner = static_cast<MuleTrayIconBase *>(data);
-				wxTaskBarIconEvent event(wxEVT_TASKBAR_LEFT_DCLICK, owner);
-				owner->SafelyProcessEvent(event);
+				// Preserve wxGTK's single-click event and its compatibility fallback.
+				wxTaskBarIconEvent event(wxEVT_TASKBAR_LEFT_DOWN, owner);
+				if (!owner->SafelyProcessEvent(event)) {
+					event.SetEventType(wxEVT_TASKBAR_LEFT_DCLICK);
+					owner->SafelyProcessEvent(event);
+				}
 			}),
 			this);
 		g_signal_connect(m_native->status,
