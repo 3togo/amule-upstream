@@ -1702,13 +1702,10 @@ void CUpDownClient::ProcessAICHRequest(const uint8_t *packet, uint32 size)
 			pKnownFile->GetAICHHashset()->GetMasterHash().Write(&fileResponse);
 			if (pKnownFile->GetAICHHashset()->CreatePartRecoveryData(
 				    nPart * PARTSIZE, &fileResponse)) {
-#ifdef __DEBUG__
 				AddDebugLogLineN(logAICHTransfer,
 					CFormat("AICH Packet Request: Successfully created and send "
 						"recoverydata for '%s' to %s") %
 						pKnownFile->GetFileName() % GetClientFullInfo());
-
-#endif
 				CPacket *packAnswer = new CPacket(fileResponse, OP_EMULEPROT, OP_AICHANSWER);
 				theStats::AddUpOverheadOther(packAnswer->GetPacketSize());
 				AddDebugLogLineN(
@@ -1716,26 +1713,20 @@ void CUpDownClient::ProcessAICHRequest(const uint8_t *packet, uint32 size)
 				SafeSendPacket(packAnswer);
 				return;
 			} else {
-#ifdef __DEBUG__
 				AddDebugLogLineN(logAICHTransfer,
 					CFormat("AICH Packet Request: Failed to create recoverydata for '%s' "
 						"to %s") %
 						pKnownFile->GetFileName() % GetClientFullInfo());
-#endif
 			}
 		} else {
-#ifdef __DEBUG__
 			AddDebugLogLineN(logAICHTransfer,
 				CFormat("AICH Packet Request: Failed to create recoverydata - Hashset not "
 					"ready or requested Hash differs from Masterhash for '%s' to %s") %
 					pKnownFile->GetFileName() % GetClientFullInfo());
-#endif
 		}
 	} else {
-#ifdef __DEBUG__
 		AddDebugLogLineN(logAICHTransfer,
 			"AICH Packet Request: Failed to find requested shared file - " + GetClientFullInfo());
-#endif
 	}
 
 	CPacket *packAnswer = new CPacket(OP_AICHANSWER, 16, OP_EMULEPROT);
@@ -1759,12 +1750,10 @@ void CUpDownClient::ProcessAICHFileHash(CMemFile *data, const CPartFile *file)
 		SetReqFileAICHHash(new CAICHHash(ahMasterHash));
 		pPartFile->GetAICHHashset()->UntrustedHashReceived(ahMasterHash, GetConnectIP());
 	} else {
-#ifdef __DEBUG__
 		AddDebugLogLineN(logAICHTransfer,
 			"ProcessAICHFileHash(): PartFile not found or Partfile differs from requested "
 			"file, " +
 				GetClientFullInfo());
-#endif
 	}
 }
 // File_checked_for_headers
