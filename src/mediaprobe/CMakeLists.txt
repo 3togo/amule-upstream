@@ -5,6 +5,11 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   option(BUILD_TESTING "Build tests" ON)
   enable_testing()
 endif()
+# The helper does not link wxWidgets, so it must request large-file stdio itself.
+# Apply this to both executables, including standalone helper builds.
+if(NOT WIN32)
+  add_compile_definitions(_FILE_OFFSET_BITS=64)
+endif()
 find_library(MEDIAINFO_LIBRARY NAMES mediainfo libmediainfo.so.0)
 if(NOT MEDIAINFO_LIBRARY)
   message(FATAL_ERROR "MediaInfoLib required: install libmediainfo-dev or configure -DENABLE_MEDIA_PROBE=OFF")
