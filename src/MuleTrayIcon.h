@@ -124,7 +124,8 @@ public:
 	// window's visibility changes outside the tray click path (close-button HideOnClose,
 	// minimize-to-tray).
 	void RebuildMenu();
-#else
+#endif
+#ifndef WITH_LIBAYATANA_APPINDICATOR
 	// Force a new bundle on the next statistics tick, even while idle.
 	void InvalidateForDPIChange() { Old_Icon = -1; }
 #endif
