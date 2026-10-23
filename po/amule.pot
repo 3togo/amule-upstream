@@ -4747,10 +4747,6 @@ msgid "Download-Speed"
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Check a folder or press Space to share it. A mixed checkbox means subfolders are selected. Right-click to include all subfolders."
-msgstr ""
-
-#: src/muuli_wdr.cpp
 msgid "Upload-Speed"
 msgstr ""
 
@@ -5326,6 +5322,10 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Check folders to share; right-click to include subfolders."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Check a folder or press Space to share it. A mixed checkbox means subfolders are selected. Right-click to include all subfolders."
 msgstr ""
 
 #: src/muuli_wdr.cpp
