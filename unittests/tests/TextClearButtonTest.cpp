@@ -1,6 +1,8 @@
 // Copyright (c) 2026 aMule Team
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "GuiTestDiagnostics.h"
+
 #include <wx/wx.h>
 #include <wx/evtloop.h>
 
@@ -20,14 +22,6 @@ wxIMPLEMENT_APP_NO_MAIN(ClearButtonTestApp);
 
 namespace
 {
-void ClearButtonAssertHandler(
-	const wxString &file, int line, const wxString &func, const wxString &cond, const wxString &msg)
-{
-	std::cerr << file.ToUTF8().data() << ":" << line << ": " << func.ToUTF8().data() << ": assertion "
-		  << cond.ToUTF8().data() << " failed: " << msg.ToUTF8().data() << '\n';
-	std::exit(EXIT_FAILURE);
-}
-
 void Require(bool condition, const char *message)
 {
 	if (!condition) {
@@ -186,14 +180,12 @@ void CheckRow(wxWindow *field, wxSizer *outer)
 
 int main(int argc, char **argv)
 {
-	delete wxLog::SetActiveTarget(new wxLogStderr);
-	wxSetAssertHandler(ClearButtonAssertHandler);
+	InstallGuiTestAssertHandler();
 	if (!wxEntryStart(argc, argv)) {
 		std::cerr << "No GUI display: clear-button checks skipped\n";
 		return 77;
 	}
-	// wxEntryStart deletes the startup target. Keep later diagnostics off modal dialogs.
-	delete wxLog::SetActiveTarget(new wxLogStderr);
+	RestoreGuiTestLog();
 	if (!wxTheApp->CallOnInit()) {
 		wxEntryCleanup();
 		return 1;

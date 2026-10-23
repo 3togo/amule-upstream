@@ -22,6 +22,8 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
+#include "GuiTestDiagnostics.h"
+
 #include <wx/wx.h>
 #include <wx/numformatter.h>
 
@@ -139,15 +141,15 @@ void TestInput()
 
 int main(int argc, char **argv)
 {
+	InstallGuiTestAssertHandler();
 	if (!wxEntryStart(argc, argv)) {
 		return 77;
 	}
+	RestoreGuiTestLog();
 	int result = 0;
 	if (!wxTheApp->CallOnInit()) {
 		result = 1;
 	} else {
-		// Locale initialization warnings must not open a modal GUI in a headless test.
-		delete wxLog::SetActiveTarget(new wxLogStderr());
 		const int language =
 			argc > 1 && wxString(argv[1]) == "it" ? wxLANGUAGE_ITALIAN : wxLANGUAGE_ENGLISH_US;
 		wxLocale locale;
