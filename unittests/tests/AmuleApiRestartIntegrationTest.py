@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 
+from ECWire import authenticate  # Preflight in the parent before starting fixtures.
 from AllSearchIntegrationTest import (C, EC, check_daemon_ports, integer,
                                       retry_port_collisions, string, tag)
 from LogfilePathIntegrationTest import daemon_env, write_config
@@ -30,7 +31,6 @@ def authenticate_token(host, port, token):
     ec = EC.__new__(EC)
     ec.sock = socket.create_connection((host, port), timeout=10)
     try:
-        from ECWire import authenticate
         ec.sock, op, _ = authenticate(ec.sock, bytes.fromhex(token), credential=1)
         return op
     finally:
@@ -137,7 +137,6 @@ def run(binary, root, scenario):
             if scenario != 'active-shutdown':
                 released_at = time.monotonic()
                 if scenario == 'unread':
-                    from ECWire import authenticate
                     token = (root / 'retired-token').read_text().strip()
                     def revoke_pending_token():
                         (root / 'allow-exit').touch()
