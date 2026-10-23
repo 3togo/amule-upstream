@@ -188,6 +188,15 @@ def password_edit_regressions(port, root, peer):
             assert original_record in (root / 'amule.conf').read_text()
             EC(port).sock.close()
 
+        # Never scan one remote group for authorization and apply another.
+        empty_remote = tag(C['EC_TAG_PREFS_REMOTECTRL'], children=[])
+        remote = tag(C['EC_TAG_PREFS_REMOTECTRL'], children=[
+            tag(C['EC_TAG_EXTERNALCONN_PASSWD'], hashlib.md5(b'new-password').digest(), 9)])
+        for groups in ([empty_remote, remote], [remote, empty_remote]):
+            reply, _ = editor.call(C['EC_OP_SET_PREFERENCES'], [full] + groups)
+            assert reply == C['EC_OP_FAILED'], 'duplicate remote-control groups accepted'
+            assert original_record in (root / 'amule.conf').read_text()
+
         # Keep the port occupied until the daemon replies, guaranteeing bind failure.
         with socket.socket() as occupied:
             occupied.bind(('127.0.0.1', 0))
@@ -196,7 +205,8 @@ def password_edit_regressions(port, root, peer):
                 tag(C['EC_TAG_CONN_TCP_PORT'], struct.pack('!H', occupied.getsockname()[1]), 3)])
             remote = tag(C['EC_TAG_PREFS_REMOTECTRL'], children=[
                 tag(C['EC_TAG_EXTERNALCONN_PASSWD'], hashlib.md5(b'must-not-commit').digest(), 9)])
-            assert editor.call(C['EC_OP_SET_PREFERENCES'], [full, connection, remote])[0] == C['EC_OP_FAILED']
+            reply, error = editor.call(C['EC_OP_SET_PREFERENCES'], [full, connection, remote])
+            assert reply == C['EC_OP_FAILED'] and b'The EC password was not changed.' in error[C['EC_TAG_STRING']][0]
         assert original_record in (root / 'amule.conf').read_text(), 'failed port rebind committed a password rotation'
         EC(port).sock.close()
         with socket.create_connection(('127.0.0.1', peer), timeout=5):
@@ -265,7 +275,7 @@ def main(daemon,cmd,async_probe):
                     # Missing token follows a full SRP exchange and rejects a guess.
                     with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
                         encrypted,op,_=W.authenticate(sock,os.urandom(16),credential=1)
-                        assert op==C['EC_OP_AUTH_FAIL']
+                        assert op==C['EC_OP_AUTH_FAIL'] and isinstance(encrypted, W.EncryptedSocket)
                     with FixtureServer(('127.0.0.1',0),Relay) as relay:
                         relay.target=port;relay.error=None;relay.observed=None
                         threading.Thread(target=relay.serve_forever,daemon=True).start()
@@ -292,6 +302,23 @@ def main(daemon,cmd,async_probe):
                     EC(port).sock.close()
                     with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
                         assert W.authenticate(sock,hashlib.md5(b'regression').digest(),proof_mutator=lambda m: W.packet('EC_OP_AUTH_REQ',[]))[1]==C['EC_OP_AUTH_FAIL']
+                    # Reject the whole buffered batch: a valid M1 behind a dropped
+                    # clear/invalid-flags packet must not register a dying notifier.
+                    clear = W.packet('EC_OP_STAT_REQ', [])
+                    for prefix in (clear, struct.pack('!I', 0x60) + clear[4:]):
+                        granted = (root / 'logfile').read_text().count('Access granted.')
+                        with socket.create_connection(('127.0.0.1', port), timeout=10) as sock:
+                            try:
+                                W.authenticate(sock, hashlib.md5(b'regression').digest(),
+                                    capabilities=[W.tag('EC_TAG_CAN_NOTIFY')], proof_prefix=prefix)
+                            except (EOFError, ConnectionResetError, BrokenPipeError):
+                                pass
+                            else:
+                                raise AssertionError('proof behind rejected packet was dispatched')
+                        time.sleep(1)
+                        assert proc.poll() is None, 'rejected batch killed the daemon'
+                        assert (root / 'logfile').read_text().count('Access granted.') == granted, 'buffered proof authorized a dropped socket'
+                        EC(port).sock.close()
                     saved_m1=[]
                     with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
                         def capture(m):

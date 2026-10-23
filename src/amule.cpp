@@ -1425,6 +1425,7 @@ bool CamuleApp::OnInit()
 #endif
 
 		bool webserver_ok = false;
+		bool tokenPrepared = true;
 		if (amulewebPath.IsEmpty()) {
 			AddLogLineC(CFormat(_("Not starting %s: it is neither next to aMule nor on PATH.")) %
 				    thePrefs::GetWSPath());
@@ -1444,6 +1445,8 @@ bool CamuleApp::OnInit()
 			} else {
 				delete p;
 			}
+		} else {
+			tokenPrepared = false;
 		}
 		if (!webserver_ok) {
 			ClearAmulewebToken();
@@ -1451,7 +1454,14 @@ bool CamuleApp::OnInit()
 			// not yet visible on Windows, so a modal ShowAlert spawns invisible and blocks
 			// the message loop waiting on input that cannot be given -- aMule then boots
 			// into an unresponsive white window with only the error ding audible.
-			CallAfter([this]() {
+			CallAfter([this, tokenPrepared]() {
+				if (!tokenPrepared) {
+					ShowAlert(_("Could not prepare the amuleweb authentication token. "
+						    "The web server was not started."),
+						_("ERROR"),
+						wxOK | wxICON_ERROR);
+					return;
+				}
 				ShowAlert(_("You requested to run web server on startup, "
 					    "but the amuleweb binary cannot be run. Please "
 					    "install the package containing aMule web "

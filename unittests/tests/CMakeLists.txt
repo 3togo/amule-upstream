@@ -3189,3 +3189,51 @@ add_executable (ECSRPConfigTest ECSRPConfigTest.cpp ${CMAKE_SOURCE_DIR}/src/Logg
 target_include_directories (ECSRPConfigTest PRIVATE ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
 target_link_libraries (ECSRPConfigTest PRIVATE ec mulecommon)
 add_test (NAME ECSRPConfigTest COMMAND ECSRPConfigTest)
+
+# ECWire exits 77 when Python cryptography is unavailable. Preserve that skip
+# through every fixture that imports its EC helper, including indirect imports.
+foreach (ec_wire_test IN ITEMS
+	KadPopulatedDistributionECTest
+	KadPopulatedLookupECTest
+	UploadRefillCompressedIntegrationTest
+	ServerListFallbackApiIntegrationTest
+	ChatCaptchaIntegrationTest
+	AllSearchClientCapabilityTest
+	AllSearchIntegrationTest
+	AmuleApiEcPasswordIntegrationTest
+	AmuleApiRestartIntegrationTest
+	CancelCompletedIntegrationTest
+	CategoryTagECTest
+	CompletedFileDeleteCapabilityTest
+	CompletedFileDeleteIntegrationTest
+	DisplayRatesIntegrationTest
+	DownloadDisplayRatesIntegrationTest
+	ECSRPApiIntegrationTest
+	ECSRPIntegrationTest
+	ECSRPWebIntegrationTest
+	ED2KLinkIntegrationTest
+	IntegrationFixtureUnitTest
+	KadDistributionECTest
+	KadIndexLifecycleECTest
+	KadLookupECTest
+	KadSourceTagsECTest
+	KnownHistoryIntegrationTest
+	LogfilePathIntegrationTest
+	NetworkPreferencesIntegrationTest
+	PacketReceiveIntegrationTest
+	PathDefaultsIntegrationTest
+	ServerListFallbackIntegrationTest
+	ServerListGuiIntegrationTest
+	ServerListSourcesIntegrationTest
+	ServerTrustIntegrationTest
+	ShareWatcherMoveIntegrationTest
+	SharedFileReverifyIntegrationTest
+	SharedMembershipIntegrationTest
+	UnwritableTagIntegrationTest
+	UpdateUrlPrivacyTest
+	UploadRefillIntegrationTest
+)
+	if (TEST ${ec_wire_test})
+		set_tests_properties (${ec_wire_test} PROPERTIES SKIP_RETURN_CODE 77)
+	endif ()
+endforeach ()

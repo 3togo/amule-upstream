@@ -43,6 +43,7 @@
 #include "ExternalConn.h"        // Interface declarations
 #include <stdexcept>
 #include "libs/ec/cpp/ECSRP.h"
+#include "libs/ec/cpp/ECSRPConfig.h"
 #include "ECFullResponseCache.h" // Needed for s_ec*FullCache
 #include "updownclient.h"        // Needed for CUpDownClient
 #include "Server.h"              // Needed for CServer
@@ -766,8 +767,7 @@ const CECPacket *CECServerSocket::OnPacketReceived(const CECPacket *packet, uint
 	packet->DebugPrint(true, trueSize);
 
 	const CECPacket *reply = NULL;
-	if (IsCryptReady() && !WasLastPacketEncrypted()) {
-		CloseSocket();
+	if (IsDestroying()) {
 		return nullptr;
 	}
 
@@ -789,6 +789,7 @@ const CECPacket *CECServerSocket::OnPacketReceived(const CECPacket *packet, uint
 
 void CECServerSocket::OnLost()
 {
+	m_conn_state = CONN_FAILED;
 	CancelNotifications();
 	AddLogLineN(_("External connection closed."));
 	theApp->ECServerHandler->m_ec_notifier->Remove_EC_Client(this);
@@ -4067,34 +4068,50 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 			request->GetTagByNameSafe(EC_TAG_SELECT_PREFS)->GetInt(), request->GetDetailLevel());
 		break;
 	case EC_OP_SET_PREFERENCES: {
+		const CECTag *remote = nullptr;
+		bool duplicateRemote = false;
 		bool changesPassword = false;
 		for (const auto &group : *request) {
-			if (group.GetTagName() == EC_TAG_PREFS_REMOTECTRL &&
-				group.GetTagByName(EC_TAG_EXTERNALCONN_PASSWD))
-				changesPassword = true;
+			if (group.GetTagName() == EC_TAG_PREFS_REMOTECTRL) {
+				duplicateRemote = duplicateRemote || remote != nullptr;
+				remote = &group;
+				changesPassword = changesPassword ||
+						  group.GetTagByName(EC_TAG_EXTERNALCONN_PASSWD) != nullptr;
+			}
 		}
-		if (changesPassword && m_srpCredential != ECSRP::Password) {
-			response = new CECPacket(EC_OP_FAILED);
-			response->AddTag(CECTag(EC_TAG_STRING,
-				wxTRANSLATE(
-					"Only password-authenticated sessions may change the EC password.")));
+		auto failedPreferences = [changesPassword](const wxString &message) {
+			auto *failed = new CECPacket(EC_OP_FAILED);
+			failed->AddTag(CECTag(EC_TAG_STRING,
+				message + (changesPassword ? "\n" + _("The EC password was not changed.")
+							   : wxString())));
+			return failed;
+		};
+		if (duplicateRemote) {
+			response = failedPreferences(
+				_("Duplicate remote-control preference groups are not allowed."));
 			break;
 		}
-		// Validate before Apply() can mutate any other preference. Commit only
-		// after the fallible port rebind, so a failed reply never hides a rotation.
-		const auto *remote = request->GetTagByName(EC_TAG_PREFS_REMOTECTRL);
+		if (changesPassword && m_srpCredential != ECSRP::Password) {
+			response = failedPreferences(
+				_("Only password-authenticated sessions may change the EC password."));
+			break;
+		}
 		const auto *password = remote ? remote->GetTagByName(EC_TAG_EXTERNALCONN_PASSWD) : nullptr;
-		wxString nextPassword;
+		wxString nextVerifier;
 		if (password) {
 			if (!password->IsMD4() || password->GetTagCount() != 0 ||
 				!ECSRP::IsPasswordDigest(
 					std::string(password->GetMD4Data().Encode().utf8_str()))) {
-				response = new CECPacket(EC_OP_FAILED);
-				response->AddTag(CECTag(EC_TAG_STRING,
-					wxTRANSLATE("Could not update EC password verifier.")));
+				response = failedPreferences(_("Could not update EC password verifier."));
 				break;
 			}
-			nextPassword = password->GetMD4Data().Encode();
+			try {
+				// Complete the fallible scrypt work before any preference is applied.
+				nextVerifier = ECSRP::PrepareCredential(password->GetMD4Data().Encode());
+			} catch (const std::exception &) {
+				response = failedPreferences(_("Could not generate EC password verifier."));
+				break;
+			}
 		}
 		const bool ed2kWasEnabled = thePrefs::GetNetworkED2K();
 		const bool kadWasEnabled = thePrefs::GetNetworkKademlia();
@@ -4109,20 +4126,17 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		wxString networkMessage;
 		try {
 			if (!static_cast<const CEC_Prefs_Packet *>(request)->Apply()) {
-				response = new CECPacket(EC_OP_FAILED);
-				response->AddTag(CECTag(EC_TAG_STRING,
+				response = failedPreferences(
 					CFormat(_("Could not save server list sources to %s. Check the URLs "
-						  "and file "
-						  "permissions.")) %
-						(thePrefs::GetConfigDir() + "addresses.dat")));
+						  "and file permissions.")) %
+					(thePrefs::GetConfigDir() + "addresses.dat"));
 				break;
 			}
 		} catch (const std::exception &) {
-			response = new CECPacket(EC_OP_FAILED);
-			response->AddTag(
-				CECTag(EC_TAG_STRING, wxTRANSLATE("Could not update EC password verifier.")));
+			response = failedPreferences(_("Could not apply preferences."));
 			break;
 		}
+
 		// Apply() left any amuleapi password the client sent sitting in the
 		// preferences as a pending request; this is what turns it into a
 		// stored, stretched record in amuleapi-passwords. Logged rather than
@@ -4163,18 +4177,14 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		AdvertisedIPv6ForPeers();
 #endif
 		if (password && !portRebindFailed) {
-			if (!thePrefs::SetECPass(nextPassword)) {
-				response = new CECPacket(EC_OP_FAILED);
-				response->AddTag(CECTag(EC_TAG_STRING,
-					wxTRANSLATE("Could not update EC password verifier.")));
+			if (!thePrefs::SetECPasswordVerifier(nextVerifier)) {
+				response = failedPreferences(_("Other preferences were applied, but the EC "
+							       "password verifier could not be saved."));
 				break;
 			}
 			AddLogLineN(CFormat(_("EC password changed by %s")) % GetPeer());
 		}
-		response = new CECPacket(portRebindFailed ? EC_OP_FAILED : EC_OP_NOOP);
-		if (portRebindFailed) {
-			response->AddTag(CECTag(EC_TAG_STRING, networkMessage));
-		}
+		response = portRebindFailed ? failedPreferences(networkMessage) : new CECPacket(EC_OP_NOOP);
 		break;
 	}
 

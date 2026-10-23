@@ -1759,8 +1759,7 @@ private:
 		if (packet->GetOpCode() == EC_OP_NOOP && !m_ecPassword.IsEmpty()) {
 			theApp->CommitECPasswordChange(m_ecPassword);
 			thePrefs::LoadECVerifier("set");
-			// A late reply must not discard a newer edit. Failed/aborted requests
-			// retain the pending input so an explicit retry can send it again.
+			// A late reply must not discard an edit in a newly opened dialog.
 			if (thePrefs::PendingECPass() == m_ecPassword)
 				thePrefs::ClearPendingECPass();
 		}

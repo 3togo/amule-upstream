@@ -72,7 +72,7 @@ int main()
 			"password edit was ignored");
 		const wxString digest = MD5Sum("new password").GetHash();
 		Check(pending == digest, "password edit was not hashed");
-		// A failed request closes the dialog; retry from a reopened masked field.
+		// While the dialog remains open, an unchanged mask must not rehash a pending digest.
 		Check(ECClientPassword::Display(pending) == "********",
 			"pending digest was displayed as editable password text");
 		Check(ECClientPassword::ReadInput(pending, ECClientPassword::Display(pending), false) &&
@@ -164,6 +164,22 @@ int main()
 								      wxString()) == original),
 					"rejected migration modified configuration");
 			}
+		}
+		// Generation can be completed before Apply() without changing saved state;
+		// committing the prepared record still rolls back a failed flush.
+		const wxString prepared = PrepareCredential(wxString::FromUTF8(password.c_str()));
+		for (bool fail : { false, true }) {
+			FaultConfig cfg;
+			cfg.Write("/ExternalConnect/ECPassword", "previous");
+			cfg.failAt = fail ? 1 : 0;
+			wxString active = "unchanged", error;
+			Check(StorePreparedCredential(cfg, prepared, active, error) == !fail,
+				"prepared verifier commit ignored persistence failure");
+			Check(active == (fail ? wxString("unchanged") : prepared),
+				"prepared commit changed the active verifier after failure");
+			Check(fail ? cfg.Read("/ExternalConnect/ECPassword", wxString()) == "previous"
+				   : !cfg.HasEntry("/ExternalConnect/ECPassword"),
+				"prepared commit did not preserve or remove the legacy key atomically");
 		}
 		for (int failAt : { 0, 1, 2 }) {
 			FaultConfig cfg;

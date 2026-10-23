@@ -483,12 +483,16 @@ msgid "web server running on pid %d"
 msgstr ""
 
 #: src/amule.cpp
-msgid "You requested to run web server on startup, but the amuleweb binary cannot be run. Please install the package containing aMule web server, or build aMule from source with -DBUILD_WEBSERVER=YES and install it."
+msgid "Could not prepare the amuleweb authentication token. The web server was not started."
 msgstr ""
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
 #: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
+msgstr ""
+
+#: src/amule.cpp
+msgid "You requested to run web server on startup, but the amuleweb binary cannot be run. Please install the package containing aMule web server, or build aMule from source with -DBUILD_WEBSERVER=YES and install it."
 msgstr ""
 
 #: src/amule.cpp
@@ -2533,6 +2537,14 @@ msgid "Client could not be swapped to that file."
 msgstr ""
 
 #: src/ExternalConn.cpp
+msgid "The EC password was not changed."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "Duplicate remote-control preference groups are not allowed."
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "Only password-authenticated sessions may change the EC password."
 msgstr ""
 
@@ -2541,8 +2553,20 @@ msgid "Could not update EC password verifier."
 msgstr ""
 
 #: src/ExternalConn.cpp
+msgid "Could not generate EC password verifier."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "Could not apply preferences."
+msgstr ""
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Could not save the amuleapi password: %s"
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "Other preferences were applied, but the EC password verifier could not be saved."
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -9963,11 +9987,15 @@ msgid "Could not generate ECPasswordVerifier; external connections are disabled.
 msgstr ""
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not generate ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "EC password change rejected: could not persist ECPasswordVerifier. The active credential is unchanged."
 msgstr ""
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
-msgid "EC password change rejected: could not generate ECPasswordVerifier. The active credential is unchanged."
+msgid "EC password change rejected: could not store ECPasswordVerifier. The active credential is unchanged."
 msgstr ""
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp

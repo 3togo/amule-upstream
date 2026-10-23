@@ -36,7 +36,7 @@ The main ROMix array needs 32 MiB plus implementation overhead. The cost is
 paid once per client login and when generating a verifier, not per command on
 an established connection. `x` is wiped after constructing the client proof;
 there is no process cache or disk cache. Separate amulecmd invocations each
-perform their own login. Slower platforms still require performance validation.
+perform their own login.
 
 The stored `/ExternalConnect/ECPasswordVerifier` is exactly:
 
@@ -81,6 +81,10 @@ Proofs use constant-time comparison. The legacy salt tag, MD5 response and
 password-keyed AEAD confirmation tags are retired; their tag IDs are not reused.
 
 ## Migration and credential changes
+
+Legacy ECPassword values containing an empty-password digest, all zeros or invalid
+hex are refused without altering the saved verifier. Run `amuled --ec-config` to
+set a new EC password before starting external connections.
 
 When the verifier key is absent, the core derives a verifier from the existing
 ECPassword digest, writes and flushes it, then deletes and flushes the old key.

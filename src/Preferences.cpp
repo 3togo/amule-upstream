@@ -219,6 +219,7 @@ uint32 CPreferences::s_ECAuthFailureWindowSeconds;
 uint32 CPreferences::s_ECAuthFailureThreshold;
 uint32 CPreferences::s_ECAuthLockoutSeconds;
 wxString CPreferences::s_ECPasswordVerifier;
+wxString CPreferences::s_ECPasswordLoadError;
 wxString CPreferences::s_ECPasswordInput;
 bool CPreferences::s_TransmitOnlyUploadingClients;
 bool CPreferences::s_IPFilterClients;
@@ -469,7 +470,9 @@ public:
 	{
 #ifndef CLIENT_GUI
 		wxString verifier, error;
-		if (!ECSRP::LoadCredential(*cfg, verifier, error))
+		const bool loaded = ECSRP::LoadCredential(*cfg, verifier, error);
+		CPreferences::SetECPasswordLoadError(loaded ? wxString() : error);
+		if (!loaded)
 			verifier = "invalid";
 		CPreferences::LoadECVerifier(verifier);
 		if (!error.IsEmpty())
@@ -505,8 +508,22 @@ bool CPreferences::SetECPass(const wxString &digest)
 {
 	wxString error;
 	const bool ok = ECSRP::StoreCredential(*wxConfigBase::Get(), digest, s_ECPasswordVerifier, error);
+	if (ok)
+		s_ECPasswordLoadError.clear();
 	if (!error.IsEmpty())
 		AddLogLineC(error);
+	return ok;
+}
+
+bool CPreferences::SetECPasswordVerifier(const wxString &record)
+{
+	wxString error;
+	const bool ok =
+		ECSRP::StorePreparedCredential(*wxConfigBase::Get(), record, s_ECPasswordVerifier, error);
+	if (!error.IsEmpty())
+		AddLogLineC(error);
+	if (ok)
+		s_ECPasswordLoadError.clear();
 	return ok;
 }
 

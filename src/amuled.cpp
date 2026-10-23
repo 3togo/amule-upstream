@@ -287,6 +287,9 @@ int CamuleDaemonApp::OnRun()
 			       "the option --ec-config or set the key \"AcceptExternalConnections\" to 1 in "
 			       "the file ~/.aMule/amule.conf"));
 		return 0;
+	} else if (!thePrefs::ECPasswordLoadError().IsEmpty()) {
+		AddLogLineCS(thePrefs::ECPasswordLoadError());
+		return 1;
 	} else if (thePrefs::ECPasswordVerifier().IsEmpty()) {
 		AddLogLineCS(_("ERROR: An EC password is required. Run amuled --ec-config to set it."));
 		return 0;

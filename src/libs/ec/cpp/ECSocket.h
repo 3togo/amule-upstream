@@ -107,15 +107,14 @@ private:
 	// m_crypt_ready says the keys exist; m_crypt_enabled says to seal outgoing
 	// packets. Separate because the packet that completes the handshake must still go
 	// out in clear -- the daemon sends EC_OP_AUTH_SALT unencrypted and only then
-	// switches on, which m_crypt_enable_after_write expresses. Incoming packets are
-	// decided per packet by EC_FLAG_ENCRYPTED.
+	// switches on, which m_crypt_enable_after_write expresses. ReadPacket rejects every clear incoming
+	// packet after key setup.
 	ECCrypt::Session m_crypt;
 	bool m_crypt_ready;
 	bool m_crypt_enabled;
 	bool m_crypt_enable_after_write;
 
-	// Whether the packet ReadPacket last returned arrived sealed, so the app dispatch
-	// can reject cleartext injected into a session that negotiated encryption.
+	// Whether the last accepted packet arrived sealed (also used by transport tests).
 	bool m_last_rx_encrypted;
 
 protected:
