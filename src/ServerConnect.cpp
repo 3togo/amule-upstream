@@ -308,18 +308,12 @@ void CServerConnect::ConnectionEstablished(CServerSocket *sender)
 			dwCryptFlags |= SRVCAP_SUPPORTCRYPT;
 		}
 
-		// Keep callback negotiation conservative when the server connection is
-		// already obfuscated: requesting (or requiring) crypt on top of an
-		// obfuscated link makes the server pick callback semantics that do not
-		// match the transport we actually ended up with.
-		if (!sender->IsServerCryptEnabledConnection()) {
-			if (thePrefs::IsClientCryptLayerRequested()) {
-				dwCryptFlags |= SRVCAP_REQUESTCRYPT;
-			}
+		if (thePrefs::IsClientCryptLayerRequested()) {
+			dwCryptFlags |= SRVCAP_REQUESTCRYPT;
+		}
 
-			if (thePrefs::IsClientCryptLayerRequired()) {
-				dwCryptFlags |= SRVCAP_REQUIRECRYPT;
-			}
+		if (thePrefs::IsClientCryptLayerRequired()) {
+			dwCryptFlags |= SRVCAP_REQUIRECRYPT;
 		}
 
 		uint32 dwNatTraversalFlags = 0;
@@ -584,24 +578,30 @@ void CServerConnect::CheckForTimeout()
 			CServerSocket *value = it->second;
 			++it;
 			if (!value->IsSolving()) {
-				AddLogLineN(CFormat(_("Connection attempt to %s (%s:%i) timed out.")) %
-					    value->info % value->cur_server->GetFullIP() %
-					    value->cur_server->GetPort());
-
-				connectionattemps.erase(key);
-
-				// A single obfuscated connection attempt that times out is not
-				// proof the server is unreachable: the obfuscated handshake can
-				// stall where a plain one would succeed. Retry the same server
-				// without obfuscation before giving up on it, mirroring the
-				// connection-failure path in ConnectionFailed().
-				CServer *retryServer = value->cur_server;
+				// Retry with the server-list entry, not the socket-owned copy
+				// which DestroySocket() deletes.
+				CServer *retryServer = nullptr;
 				if (singleconnecting && value->IsServerCryptEnabledConnection() &&
 					!thePrefs::IsClientCryptLayerRequired()) {
+					retryServer = theApp->serverlist->GetServerByAddress(
+						value->cur_server->GetAddress(),
+						value->cur_server->GetPort());
+				}
+
+				if (retryServer) {
 					AddLogLineN(CFormat(_("Connection attempt to %s (%s:%i) timed out; "
 							      "retrying without obfuscation.")) %
 						    value->info % retryServer->GetFullIP() %
 						    retryServer->GetPort());
+				} else {
+					AddLogLineN(
+						CFormat(_("Connection attempt to %s (%s:%i) timed out.")) %
+						value->info % value->cur_server->GetFullIP() %
+						value->cur_server->GetPort());
+				}
+
+				connectionattemps.erase(key);
+				if (retryServer) {
 					DestroySocket(value);
 					ConnectToServer(retryServer, false, true);
 					// The retry replaced the whole attempt map, so this sweep is over.
