@@ -1204,7 +1204,12 @@ const CECPacket *CECSocket::ReadPacket()
 	// An application-level check alone leaves synchronous command replies open
 	// to plaintext injection after an otherwise authenticated encrypted login.
 	if (m_crypt_ready && !(flags & EC_FLAG_ENCRYPTED)) {
-		AddLogLineC("EC received an unencrypted packet after key setup; dropping the connection.");
+		const char *const message =
+			"EC received an unencrypted packet after key setup; dropping the connection.";
+		// Console clients may exit from OnLost before queued logger events run.
+		fprintf(stderr, "amule: %s\n", message);
+		fflush(stderr);
+		AddLogLineC(message);
 		CloseAndDispatchLost();
 		return nullptr;
 	}
