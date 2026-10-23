@@ -33,7 +33,8 @@
 #include <atomic> // Needed for std::atomic (m_listGeneration)
 #include <deque>
 #include <functional> // Needed for std::function (LoadProgressCb)
-#include <vector>     // Needed for std::vector (GetPartFileDirs)
+#include <set>
+#include <vector> // Needed for std::vector (GetPartFileDirs)
 
 class CSharedFileList;
 class CSearchFile;
@@ -202,6 +203,10 @@ public:
 	/// Stops source-requests from non-connected servers.
 	void StopUDPRequests();
 
+	/// Asks the non-connected servers for sources of a download that just became active, without
+	/// waiting up to UDPSERVERREASKTIME for the next pass over every download.
+	void RequestGlobalSources(const CMD4Hash &fileHash);
+
 	/* Kad Stuff */
 
 	/// Adds a Kad source to a download.
@@ -268,6 +273,10 @@ private:
 	uint64 m_dwNextTCPSrcReq;
 	uint8 m_udcounter;
 	CServer *m_udpserver;
+	// Hashes, not pointers: a download can be deleted while it waits.
+	std::set<CMD4Hash> m_udpPendingFiles;
+	// The files the UDP pass in progress asks about; empty for a pass over every download.
+	std::set<CMD4Hash> m_udpPassFiles;
 
 	/// Stores a source with a dynamic hostname.
 	struct Hostname_Entry

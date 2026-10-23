@@ -384,6 +384,7 @@ void CDownloadQueue::AddDownload(CPartFile *file, bool paused, uint8 category)
 		m_listGeneration.fetch_add(1, std::memory_order_relaxed);
 		DoSortByPriority();
 	}
+	RequestGlobalSources(file->GetFileHash());
 
 	NotifyObservers(EventType(EventType::INSERTED, file));
 	if (category < theApp->glob_prefs->GetCatCount()) {
@@ -590,7 +591,8 @@ void CDownloadQueue::Process()
 		if (m_udcounter == 10) {
 			m_udcounter = 0;
 			if (theApp->serverconnect->IsUDPSocketAvailable()) {
-				if ((curTick - m_lastudpsearchtime) > UDPSERVERREASKTIME) {
+				if ((curTick - m_lastudpsearchtime) > UDPSERVERREASKTIME ||
+					m_queueServers.IsActive() || !m_udpPendingFiles.empty()) {
 					SendNextUDPPacket();
 				}
 			}
@@ -938,12 +940,23 @@ static bool IsConnectedServer(const CServer *server)
 
 bool CDownloadQueue::SendNextUDPPacket()
 {
-	if (m_filelist.empty() || !theApp->serverconnect->IsUDPSocketAvailable() ||
-		!theApp->IsConnectedED2K()) {
+	if (m_filelist.empty()) {
+		m_udpPendingFiles.clear();
+		return false;
+	}
+	if (!theApp->serverconnect->IsUDPSocketAvailable() || !theApp->IsConnectedED2K()) {
 		return false;
 	}
 
 	if (!m_queueServers.IsActive()) {
+		// A pass over every download also covers the ones waiting for their own.
+		if ((::GetTickCount64() - m_lastudpsearchtime) > UDPSERVERREASKTIME) {
+			m_udpPassFiles.clear();
+		} else {
+			m_udpPassFiles.swap(m_udpPendingFiles);
+		}
+		m_udpPendingFiles.clear();
+
 		AddObserver(&m_queueFiles);
 
 		theApp->serverlist->AddObserver(&m_queueServers);
@@ -980,7 +993,8 @@ bool CDownloadQueue::SendNextUDPPacket()
 			uint8 status = file->GetStatus();
 
 			if ((status == PS_READY || status == PS_EMPTY) &&
-				file->GetSourceCount() < thePrefs::GetMaxSourcePerFileUDP()) {
+				file->GetSourceCount() < thePrefs::GetMaxSourcePerFileUDP() &&
+				(m_udpPassFiles.empty() || m_udpPassFiles.count(file->GetFileHash()))) {
 				if (file->IsLargeFile() && !m_udpserver->SupportsLargeFilesUDP()) {
 					AddDebugLogLineN(logDownloadQueue,
 						"UDP Request for sources on a large file ignored: server "
@@ -1036,7 +1050,18 @@ void CDownloadQueue::DoStopUDPRequests()
 	RemoveObserver(&m_queueFiles);
 
 	m_udpserver = 0;
-	m_lastudpsearchtime = ::GetTickCount64();
+	// Only a pass over every download restarts the wait for the next one.
+	if (m_udpPassFiles.empty()) {
+		m_lastudpsearchtime = ::GetTickCount64();
+	}
+	m_udpPassFiles.clear();
+}
+
+void CDownloadQueue::RequestGlobalSources(const CMD4Hash &fileHash)
+{
+	wxMutexLocker lock(m_mutex);
+
+	m_udpPendingFiles.insert(fileHash);
 }
 
 // Comparison function needed by sort. Returns true if file1 precedes file2
