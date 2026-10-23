@@ -98,7 +98,7 @@ private:
 		READ_OPEN_FAILED
 	};
 
-	// StartCreateNextBlockPackage runs each block through PrepareRead, ReadBlock, CommitRead.
+	// Prepare, read, commit and deliver each block before starting another read.
 	bool StartCreateNextBlockPackage(uint32 clientId); // eMule ref: line 185
 	ReadRequest_Struct *PrepareRead(uint32 clientId);
 	static ReadResult ReadBlock(ReadRequest_Struct *req);
@@ -108,7 +108,6 @@ private:
 	bool ReleaseOpenFile(OpenFile_Struct *pFileStruct);  // eMule ref: line 498, decrement-only
 
 	std::atomic<bool> m_bRun{ false }; // eMule ref: m_bRun (line 77)
-	bool m_bSignalThrottler;           // eMule ref: m_bSignalThrottler (line 78)
 
 	wxMutex m_mutex;
 	wxCondition m_condition; // replaces m_eventNewBlockRequests + m_eventSocketNeedsData
@@ -121,8 +120,7 @@ private:
 	// LRU handle cache: front is most recently used, idle structs (nInUse == 0) are evicted
 	// from the back once the list exceeds MAX_CACHED_OPEN_FILES. eMule ref: line 83.
 	std::list<OpenFile_Struct *> m_listOpenFiles;
-	std::list<ReadRequest_Struct *> m_listFinishedIO; // eMule ref: line 85
-	// m_listPendingIO not needed -- reads are synchronous, go straight to m_listFinishedIO
+	// Reads are synchronous and delivered immediately; no pending or finished read lists.
 };
 
 #endif

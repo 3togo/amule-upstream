@@ -2659,6 +2659,12 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiRestartIntegrationTest.py $<TARGET_FILE:amuled>
 		)
 		if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+			add_library (UploadReadDelay MODULE UploadReadDelay.cpp)
+			add_test (NAME UploadStorageDelayIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/UploadStorageDelayIntegrationTest.py
+					$<TARGET_FILE:amuled> $<TARGET_FILE:UploadReadDelay>
+			)
 			add_test (NAME DisplayRatesIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/DisplayRatesIntegrationTest.py $<TARGET_FILE:amuled>
