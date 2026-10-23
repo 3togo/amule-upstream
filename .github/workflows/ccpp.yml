@@ -68,7 +68,6 @@ env:
     ccache \
     cmake \
     gettext \
-    python3-cryptography \
     libayatana-appindicator3-dev \
     libboost-dev \
     libcrypto++-dev \
@@ -82,6 +81,7 @@ env:
     locales \
     pkg-config \
     po4a \
+    python3-cryptography \
     xvfb \
     xauth \
     wx3.2-headers

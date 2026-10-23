@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import signal
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -13,7 +14,7 @@ import time
 import urllib.error
 import urllib.request
 
-from AllSearchIntegrationTest import connect_daemon, free_ports, retry_port_collisions, stop_daemon, tag
+from AllSearchIntegrationTest import EC, connect_daemon, free_ports, retry_port_collisions, stop_daemon, tag
 from DaemonConfig import write_amule_conf
 import ECWire as W
 
@@ -113,8 +114,19 @@ def run(daemon_binary, web_binary, api_binary=None):
                         # A rejected password edit must not apply unrelated prefs either.
                         password_tag=W.tag('EC_TAG_EXTERNALCONN_PASSWD',hashlib.md5(b'evil').digest(),9)
                         group=tag(W.C['EC_TAG_PREFS_REMOTECTRL'],children=[password_tag])
-                        encrypted.sendall(W.packet('EC_OP_SET_PREFERENCES',[group]))
+                        editor = EC(ec_port)
+                        full = tag(W.C['EC_TAG_DETAIL_LEVEL'], bytes([W.C['EC_DETAIL_FULL']]), 2)
+                        select = tag(W.C['EC_TAG_SELECT_PREFS'], struct.pack('!I', W.C['EC_PREFS_GENERAL']), 4)
+                        def nickname():
+                            _, prefs = editor.call(W.C['EC_OP_GET_PREFERENCES'], [full, select])
+                            return prefs[W.C['EC_TAG_PREFS_GENERAL']][1][W.C['EC_TAG_USER_NICK']][0]
+                        original_nick = nickname()
+                        general = tag(W.C['EC_TAG_PREFS_GENERAL'], children=[
+                            tag(W.C['EC_TAG_USER_NICK'], b'token-must-not-apply\0', 6)])
+                        encrypted.sendall(W.packet('EC_OP_SET_PREFERENCES',[group, general]))
                         assert W.read(encrypted)[0]==W.C['EC_OP_FAILED']
+                        assert nickname() == original_nick, 'token password edit applied unrelated preferences'
+                        editor.sock.close()
                     EC_salt=[]
                     for selector in (1,2):
                         with socket.create_connection(('127.0.0.1',ec_port),timeout=10) as sock:

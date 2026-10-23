@@ -78,10 +78,12 @@ class EncryptedSocket:
         cipher_class=AESGCM if cipher==1 else ChaCha20Poly1305
         self.enc=cipher_class(material[0]);self.dec=cipher_class(material[1])
         self.tp,self.rp=material[2:]
-    def sendall(self,data):
+    def seal(self,data):
         flags,length=struct.unpack('!II',data[:8]);assert len(data)==8+length
         body=self.enc.encrypt(self.tp+struct.pack('!Q',self.tx),data[8:],None);self.tx+=1
-        self.sock.sendall(struct.pack('!II',flags|8,len(body))+body)
+        return struct.pack('!II',flags|8,len(body))+body
+    def sendall(self,data):
+        self.sock.sendall(self.seal(data))
     def recv(self,n):
         if not self.pending:
             flags,length=struct.unpack('!II',exact(self.sock,8));assert flags&8,'clear packet after salt'
@@ -91,7 +93,7 @@ class EncryptedSocket:
     def close(self): self.sock.close()
     def __getattr__(self,name): return getattr(self.sock,name)
 
-def authenticate(sock,digest,credential=0,capabilities=(),before_proof=None, request_mutator=None, proof_mutator=None, challenge=None):
+def authenticate(sock,digest,credential=0,capabilities=(),before_proof=None, request_mutator=None, proof_mutator=None, challenge=None, proof_prefix=b''):
     priv=X25519PrivateKey.generate();pub=priv.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw);cn=os.urandom(32)
     a=int.from_bytes(os.urandom(32),'big');A=pow(5,a,N)
     fields=[tag('EC_TAG_CLIENT_NAME',b'EC integration\0',6),tag('EC_TAG_CLIENT_VERSION',b'1\0',6),
@@ -116,7 +118,7 @@ def authenticate(sock,digest,credential=0,capabilities=(),before_proof=None, req
     m1,m2=proofs(S,context(credential,salt,transcript,A,B))
     message=packet('EC_OP_AUTH_PASSWD',[tag('EC_TAG_SRP_M1',m1)])
     if proof_mutator: message=proof_mutator(m1)
-    encrypted.sendall(message)
+    sock.sendall(proof_prefix + encrypted.seal(message))
     op,tags=read(encrypted)
     if op==C['EC_OP_AUTH_OK']: assert hmac.compare_digest(tags[C['EC_TAG_SRP_M2']],m2)
     return encrypted,op,tags

@@ -608,12 +608,15 @@ public:
 	static const wxString &ECPasswordVerifier() { return s_ECPasswordVerifier; }
 #ifndef CLIENT_GUI
 	static bool SetECPass(const wxString &pass);
+	static bool SetECPasswordVerifier(const wxString &record);
+	static const wxString &ECPasswordLoadError() { return s_ECPasswordLoadError; }
 #endif
 	static const wxString &PendingECPass() { return s_ECPasswordInput; }
 	static void ClearPendingECPass()
 	{
 		s_ECPasswordInput = s_ECPasswordVerifier.IsEmpty() ? "" : "********";
 	}
+	static void SetECPasswordLoadError(const wxString &error) { s_ECPasswordLoadError = error; }
 	static void LoadECVerifier(const wxString &verifier)
 	{
 		const bool placeholder = s_ECPasswordInput.IsEmpty() || s_ECPasswordInput == "********";
@@ -1160,6 +1163,7 @@ protected:
 	static uint32 s_ECAuthFailureThreshold;
 	static uint32 s_ECAuthLockoutSeconds;
 	static wxString s_ECPasswordVerifier;
+	static wxString s_ECPasswordLoadError;
 	static wxString s_ECPasswordInput;
 	static bool s_TransmitOnlyUploadingClients;
 

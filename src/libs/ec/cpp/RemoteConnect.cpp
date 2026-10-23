@@ -547,10 +547,6 @@ bool CRemoteConnect::VerifyServerProof(const CECPacket *reply)
 const CECPacket *CRemoteConnect::OnPacketReceived(const CECPacket *packet, uint32 trueSize)
 {
 	CECPacket *next_packet = 0;
-	if (IsCryptReady() && !WasLastPacketEncrypted()) {
-		CloseSocket();
-		return nullptr;
-	}
 	// Liveness stamp for the reply watchdog. Taken for EVERY inbound packet,
 	// handshake included, so a fresh connection is never mistaken for a quiet one.
 	m_lastReplyAt = std::chrono::steady_clock::now();

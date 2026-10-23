@@ -1356,6 +1356,22 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 		return;
 	}
 
+	// Credential changes commit only after validation and cancellable work above.
+#ifndef CLIENT_GUI
+	if (CfgChanged(IDC_EXT_CONN_PASSWD)) {
+		if (!thePrefs::SetECPass(thePrefs::PendingECPass())) {
+			wxMessageBox(_("Could not update EC password verifier."),
+				_("ERROR"),
+				wxOK | wxICON_ERROR,
+				this);
+			if (wxWindow *field = FindWindow(IDC_EXT_CONN_PASSWD))
+				field->SetFocus();
+			return;
+		}
+		thePrefs::ClearPendingECPass();
+	}
+#endif
+
 	const bool ed2kWasEnabled = thePrefs::GetNetworkED2K();
 	const bool kadWasEnabled = thePrefs::GetNetworkKademlia();
 	GetCfg(IDC_NETWORKED2K)->TransferFromWindow();
@@ -1492,21 +1508,7 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 		}
 	}
 
-	// Credential changes commit only after validation and cancellable work above.
-#ifndef CLIENT_GUI
-	if (CfgChanged(IDC_EXT_CONN_PASSWD)) {
-		if (!thePrefs::SetECPass(thePrefs::PendingECPass())) {
-			wxMessageBox(_("Could not update EC password verifier."),
-				_("ERROR"),
-				wxOK | wxICON_ERROR,
-				this);
-			if (wxWindow *field = FindWindow(IDC_EXT_CONN_PASSWD))
-				field->SetFocus();
-			return;
-		}
-		thePrefs::ClearPendingECPass();
-	}
-#else
+#ifdef CLIENT_GUI
 	theApp->glob_prefs->SendChangesToRemote(true);
 #ifdef GEOIP_GUI
 	thePrefs::SetGeoIPUpdateRequested(false);
@@ -1774,6 +1776,7 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 			this);
 	}
 
+	thePrefs::ClearPendingECPass();
 	EndSharedDirsSession();
 	Show(false);
 }
