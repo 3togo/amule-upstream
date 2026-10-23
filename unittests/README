@@ -235,10 +235,16 @@ Upload storage-delay regression (Linux)
 With BUILD_DAEMON=ON, BUILD_TESTING=ON and ENABLE_INTEGRATION_TESTS=ON:
 
   cmake --build build --target amuled UploadReadDelay
-  ctest --test-dir build -R '^UploadStorageDelayIntegrationTest$' --output-on-failure
+  ctest --test-dir build -R '^UploadRefillIntegrationTest$' --output-on-failure
 
-The test uses isolated offline daemon profiles and two loopback peers. A test-only
-LD_PRELOAD library gates actual reads of one synthetic shared file with pipes.
+UploadRefillIntegrationTest also runs the controlled storage-delay cases, using
+the existing CI integration-test budget. The delay cases can be run separately:
+
+  python3 unittests/tests/UploadStorageDelayIntegrationTest.py \
+    build/src/amuled build/unittests/tests/libUploadReadDelay.so
+
+The delay test uses isolated offline daemon profiles and two loopback peers. A
+test-only LD_PRELOAD library gates actual reads of one synthetic shared file with pipes.
 While a later read is held, the preceding block must already reach its peer.
 A continuously drained twelve-request queue must yield to the other peer after
 at most eleven reads, for small, full, three-block and mixed request sizes.
