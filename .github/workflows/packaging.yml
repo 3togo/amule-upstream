@@ -336,9 +336,6 @@ jobs:
           - arch: arm64
             archcmd: ''
             brew_prefix: /opt/homebrew
-          - arch: x86_64
-            archcmd: 'arch -x86_64'
-            brew_prefix: /usr/local
     runs-on: macos-15
     env:
       # What the .app build needs from Homebrew. On x86_64 the keg cache is
@@ -653,10 +650,8 @@ jobs:
   macos-universal2:
     name: macOS Universal2 .dmg
     needs: macos-build
-    if: >-
-      github.event_name != 'workflow_dispatch' ||
-      inputs.only == '' ||
-      contains(inputs.only, 'macos')
+    # Validation-only fork branch: maintainer deferred Intel/Universal2.
+    if: ${{ false }}
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
