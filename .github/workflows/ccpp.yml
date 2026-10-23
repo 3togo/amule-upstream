@@ -363,7 +363,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: install deps
-        id: ubuntu-deps
         timeout-minutes: 15
         run: |
           sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
@@ -417,7 +416,6 @@ jobs:
       # stays matched without installing compilers and development headers here.
       # apt-get satisfy takes it as a Depends field, versions included.
       - name: install runtime deps
-        timeout-minutes: 15
         run: |
           sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
           sudo apt-get update
