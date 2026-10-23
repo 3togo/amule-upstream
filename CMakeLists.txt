@@ -460,37 +460,22 @@ if (_amule_wxgtk_idx GREATER -1 AND NOT APPLE)
 			"required — install `pkg-config` if cmake didn't find it.")
 	endif()
 endif()
-# The native GtkStatusIcon adapter calls GTK directly. wx-config does not
-# expose GTK's private include paths or its link libraries. Probe the toolkit
-# rather than the OS, and match the GTK major version used by wx.
-set (AMULE_TRAY_GTK OFF)
-set (AMULE_TRAY_GTK3 OFF)
+# AppIndicator3 can only be used with wxGTK3. Check wx's toolkit without
+# requiring GTK development headers for the wxTaskBarIcon fallback.
+set (AMULE_WXGTK3 OFF)
 if (_amule_wxgtk_idx GREATER -1 AND (BUILD_MONOLITHIC OR BUILD_REMOTEGUI))
 	include (CheckCXXSourceCompiles)
 	include (CMakePushCheckState)
 	cmake_push_check_state (RESET)
 	set (CMAKE_REQUIRED_LIBRARIES wxWidgets::CORE)
+	unset (AMULE_WXGTK3 CACHE)
+	unset (AMULE_WXGTK3)
 	check_cxx_source_compiles ("#include <wx/defs.h>
 #ifndef __WXGTK3__
 #error Not GTK3
 #endif
 int main() { return 0; }" AMULE_WXGTK3)
-	check_cxx_source_compiles ("#include <wx/defs.h>
-#if !defined(__WXGTK218__) || defined(__WXGTK4__)
-#error No supported GtkStatusIcon API
-#endif
-int main() { return 0; }" AMULE_WXGTK_STATUS_ICON)
 	cmake_pop_check_state ()
-	if (AMULE_WXGTK_STATUS_ICON)
-		find_package (PkgConfig REQUIRED)
-		set (AMULE_TRAY_GTK ON)
-		if (AMULE_WXGTK3)
-			pkg_check_modules (TRAY_GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
-			set (AMULE_TRAY_GTK3 ON)
-		else ()
-			pkg_check_modules (TRAY_GTK REQUIRED IMPORTED_TARGET gtk+-2.0>=2.18)
-		endif ()
-	endif ()
 endif ()
 unset (_amule_wxgtk_idx)
 
@@ -511,7 +496,7 @@ unset (_amule_wxgtk_idx)
 # AppIndicator3 requires GTK3 widgets. Mixing it with wxGTK2 loads two
 # incompatible GTK major versions; wxQt also cannot pass its window to GTK.
 set (WITH_LIBAYATANA_APPINDICATOR OFF)
-if ((BUILD_MONOLITHIC OR BUILD_REMOTEGUI) AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND AMULE_TRAY_GTK3)
+if ((BUILD_MONOLITHIC OR BUILD_REMOTEGUI) AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND AMULE_WXGTK3)
 	find_package (PkgConfig QUIET)
 	if (PkgConfig_FOUND)
 		# `0.1` is the API version (never bumped, every release uses it),
@@ -594,10 +579,10 @@ endif()
 
 if ((BUILD_MONOLITHIC OR BUILD_REMOTEGUI) AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	foreach (state IN ITEMS high low disconnected)
-		install (FILES "src/icons/tray_${state}.svg"
+		install (FILES "src/icons/sni/tray_${state}.svg"
 			RENAME "org.amule.aMule-tray-${state}.svg"
 			DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps")
-		install (FILES "src/icons/tray_${state}.png"
+		install (FILES "src/icons/sni/tray_${state}.png"
 			RENAME "org.amule.aMule-tray-${state}.png"
 			DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/22x22/apps")
 	endforeach ()

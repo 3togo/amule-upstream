@@ -1,6 +1,27 @@
+//								-*- C++ -*-
 // This file is part of the aMule Project.
-// Copyright (c) 2026 aMule Team ( https://amule-org.github.io )
-// Licensed under the GNU GPL, version 2 or later; see LICENSE.md.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// Any parts of this program derived from the xMule, lMule or eMule project,
+// or contributed by third-party developers are copyrighted by their
+// respective authors.
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
+//
+
 #include "NativeTrayIcon.h"
 #if defined(AMULE_NATIVE_TRAY_ICON) && defined(__WXOSX_COCOA__)
 #import <AppKit/AppKit.h>
@@ -28,6 +49,10 @@ struct MuleTrayIconBase::Impl
 {
 	NSStatusItem *status = nil;
 	AMuleTrayTarget *target = nil;
+	wxBitmapBundle icon;
+	wxString tooltip;
+	int pixels = 0;
+	CGFloat points = 0;
 };
 MuleTrayIconBase::MuleTrayIconBase()
 : m_native(new Impl)
@@ -56,6 +81,10 @@ bool MuleTrayIconBase::SetIcon(const wxBitmapBundle &icon, const wxString &toolt
 	const CGFloat scale =
 		m_native->status.button.window.backingScaleFactor ?: [NSScreen mainScreen].backingScaleFactor;
 	const int pixels = wxRound(points * std::max<CGFloat>(1, scale));
+	if (m_native->pixels == pixels && m_native->points == points && m_native->icon.IsSameAs(icon) &&
+		m_native->tooltip == tooltip) {
+		return true;
+	}
 	const wxBitmap bitmap = icon.GetBitmap(wxSize(pixels, pixels));
 	if (!bitmap.IsOk()) {
 		return false;
@@ -68,6 +97,10 @@ bool MuleTrayIconBase::SetIcon(const wxBitmapBundle &icon, const wxString &toolt
 	m_native->status.button.image = image;
 	[image release];
 	m_native->status.button.toolTip = [NSString stringWithUTF8String:tooltip.utf8_str()];
+	m_native->icon = icon;
+	m_native->tooltip = tooltip;
+	m_native->pixels = pixels;
+	m_native->points = points;
 	return true;
 }
 
@@ -80,6 +113,8 @@ bool MuleTrayIconBase::RemoveIcon()
 		[m_native->target release];
 		m_native->status = nil;
 		m_native->target = nil;
+		m_native->icon = wxBitmapBundle();
+		m_native->pixels = 0;
 	}
 	return true;
 }

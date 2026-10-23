@@ -159,3 +159,11 @@ states after AppKit applies its template tint. The final two columns remain clea
 for the speed bar. Windows and Linux continue using the coloured tray artwork.
 Render the 22-pixel PNG twins with librsvg and regenerate `icon_data.c` using
 `embed_icons.py`; both vector and raster fallbacks are checked in.
+
+## Installed tray state variants
+
+The `sni/` variants reuse the existing coloured tray artwork. They shift its
+20-pixel-wide content right by one pixel on the 22-pixel canvas, replacing the
+asymmetric speed-bar reserve with equal margins. SVGs use a `-1 0 22 22` viewBox;
+PNG pixels are translated by one pixel without rescaling. These files are
+installed for AppIndicator theme lookup and are not separately embedded.
