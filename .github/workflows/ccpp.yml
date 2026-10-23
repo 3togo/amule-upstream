@@ -13,6 +13,7 @@ on:
       - 'scripts/check-unique-ids.py'
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
+      - '.github/apt-ci.conf'
   pull_request:
     branches: [ "**" ]
     paths:
@@ -25,6 +26,7 @@ on:
       - 'scripts/check-unique-ids.py'
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
+      - '.github/apt-ci.conf'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/master' && github.sha || '' }}
@@ -188,12 +190,12 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.build_type }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
           restore-keys: ${{ runner.os }}-${{ matrix.build_type }}-ccache-
       - name: install deps
+        id: ubuntu-deps
         timeout-minutes: 15
         run: |
-          # Bound stalled mirror connections and retry transient download failures.
-          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-          sudo apt-get "${apt_options[@]}" update
-          sudo apt-get "${apt_options[@]}" install -y --no-install-recommends ${{ env.cmake_ubuntu_deps }}
+          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
+          sudo apt-get update
+          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
           # Exercise grouped numbers and decimal commas in the calculator tests.
           sudo localedef -i en_US -f UTF-8 en_US.UTF-8
           sudo localedef -i it_IT -f UTF-8 it_IT.UTF-8
@@ -224,11 +226,8 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ runner.os }}-${{ matrix.build_type }}-ccache-${{ github.run_id }}
       - name: ccache stats
-        if: always()
-        run: |
-          if command -v ccache >/dev/null 2>&1; then
-            ccache --show-stats
-          fi
+        if: always() && steps.ubuntu-deps.outcome == 'success'
+        run: ccache --show-stats
       - name: run tests
         run: |
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' &&
@@ -309,12 +308,12 @@ jobs:
           key: ${{ runner.os }}-experimental-${{ matrix.build_type }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
           restore-keys: ${{ runner.os }}-experimental-${{ matrix.build_type }}-ccache-
       - name: install deps
+        id: ubuntu-deps
         timeout-minutes: 15
         run: |
-          # Bound stalled mirror connections and retry transient download failures.
-          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-          sudo apt-get "${apt_options[@]}" update
-          sudo apt-get "${apt_options[@]}" install -y --no-install-recommends ${{ env.cmake_ubuntu_deps }}
+          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
+          sudo apt-get update
+          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
           # Exercise grouped numbers and decimal commas in the calculator tests.
           sudo localedef -i en_US -f UTF-8 en_US.UTF-8
           sudo localedef -i it_IT -f UTF-8 it_IT.UTF-8
@@ -339,11 +338,8 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ runner.os }}-experimental-${{ matrix.build_type }}-ccache-${{ github.run_id }}
       - name: ccache stats
-        if: always()
-        run: |
-          if command -v ccache >/dev/null 2>&1; then
-            ccache --show-stats
-          fi
+        if: always() && steps.ubuntu-deps.outcome == 'success'
+        run: ccache --show-stats
       - name: run tests
         run: |
           xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' &&
@@ -367,12 +363,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: install deps
+        id: ubuntu-deps
         timeout-minutes: 15
         run: |
-          # Bound stalled mirror connections and retry transient download failures.
-          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-          sudo apt-get "${apt_options[@]}" update
-          sudo apt-get "${apt_options[@]}" install -y --no-install-recommends ${{ env.cmake_ubuntu_deps }}
+          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
+          sudo apt-get update
+          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
       - uses: ./.github/actions/ngtcp2
       - name: fetch CMake ${{ env.CMAKE_MIN }}
         run: |
@@ -421,11 +417,12 @@ jobs:
       # stays matched without installing compilers and development headers here.
       # apt-get satisfy takes it as a Depends field, versions included.
       - name: install runtime deps
+        timeout-minutes: 15
         run: |
-          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-          sudo apt-get "${apt_options[@]}" update
+          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
+          sudo apt-get update
           test -s runtime-deps.txt
-          sudo apt-get "${apt_options[@]}" satisfy -y --no-install-recommends "$(cat runtime-deps.txt)" jq
+          sudo apt-get satisfy -y "$(cat runtime-deps.txt)" jq
       # Every peer-to-peer switch is off, so the daemon joins no ed2k server,
       # bootstraps no Kad and opens no UPnP mapping. It still makes the two
       # ordinary startup fetches over HTTPS -- the release check and the GeoIP
@@ -606,10 +603,7 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.build_type }}-ccache-${{ github.run_id }}
       - name: ccache stats
         if: always()
-        run: |
-          if command -v ccache >/dev/null 2>&1; then
-            ccache --show-stats
-          fi
+        run: ccache --show-stats
       - name: run tests
         run: |
           ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' &&
@@ -713,10 +707,7 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.build_type }}-ccache-${{ github.run_id }}
       - name: ccache stats
         if: always() && steps.windows-deps.outcome == 'success'
-        run: |
-          if command -v ccache >/dev/null 2>&1; then
-            ccache --show-stats
-          fi
+        run: ccache --show-stats
       - name: run tests
         run: |
           # IconArtworkTest's watchdog writes a minidump here if the test hangs.
