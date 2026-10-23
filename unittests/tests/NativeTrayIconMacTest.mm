@@ -78,18 +78,27 @@ int main(int argc, char **argv)
 		require(status.button.image.size.height > 0 &&
 				status.button.image.size.height < [NSStatusBar systemStatusBar].thickness,
 			"menu bar image has wrong logical size");
+		NSImage *unchanged = status.button.image;
+		require(tray.SetIcon(bundle, "template test") && status.button.image == unchanged,
+			"unchanged rate tick rebuilt the native image");
+		require(tray.SetIcon(bundle, "changed tooltip") &&
+				[status.button.toolTip isEqualToString:@"changed tooltip"],
+			"changed tooltip was ignored");
 		[status.button performClick:nil];
 		require(tray.menus == 1, "native click lost wx menu dispatch");
 		wxMenu commandMenu;
 		commandMenu.Append(12345, "Test command");
 		bool commandReceived = false;
 		bool removeDuringCommand = false;
-		tray.Bind(wxEVT_MENU, [&](wxCommandEvent &) {
-			commandReceived = true;
-			if (removeDuringCommand) {
-				tray.RemoveIcon();
-			}
-		}, 12345);
+		tray.Bind(
+			wxEVT_MENU,
+			[&](wxCommandEvent &) {
+				commandReceived = true;
+				if (removeDuringCommand) {
+					tray.RemoveIcon();
+				}
+			},
+			12345);
 		wxEvtHandler *previousHandler = commandMenu.GetEventHandler();
 		Method popup = class_getInstanceMethod(
 			[NSMenu class], @selector(popUpMenuPositioningItem:atLocation:inView:));

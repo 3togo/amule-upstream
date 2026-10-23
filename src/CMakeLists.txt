@@ -404,9 +404,6 @@ if (BUILD_MONOLITHIC)
 		target_compile_definitions (amule PRIVATE HAVE_GIO)
 	endif()
 
-	if (AMULE_TRAY_GTK)
-		target_link_libraries (amule PRIVATE PkgConfig::TRAY_GTK)
-	endif ()
 
 	if (WITH_LIBAYATANA_APPINDICATOR)
 		target_include_directories (amule PRIVATE ${AYATANA_APPINDICATOR_INCLUDE_DIRS})
@@ -657,9 +654,6 @@ if (BUILD_REMOTEGUI)
 		target_compile_definitions (amulegui PRIVATE HAVE_GIO)
 	endif()
 
-	if (AMULE_TRAY_GTK)
-		target_link_libraries (amulegui PRIVATE PkgConfig::TRAY_GTK)
-	endif ()
 
 	if (WITH_LIBAYATANA_APPINDICATOR)
 		target_include_directories (amulegui PRIVATE ${AYATANA_APPINDICATOR_INCLUDE_DIRS})

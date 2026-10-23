@@ -78,22 +78,6 @@ if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 	endif()
 endif()
 
-# Force the fallback backend even on builders with libayatana installed.
-if ((BUILD_MONOLITHIC OR BUILD_REMOTEGUI) AND AMULE_TRAY_GTK AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	file (READ "${CMAKE_BINARY_DIR}/config.h" native_tray_config)
-	string (REGEX REPLACE "#define WITH_LIBAYATANA_APPINDICATOR[^\n]*" "" native_tray_config "${native_tray_config}")
-	file (WRITE "${CMAKE_CURRENT_BINARY_DIR}/native-tray/config.h" "${native_tray_config}")
-	add_executable (NativeTrayIconTest NativeTrayIconTest.cpp ${CMAKE_SOURCE_DIR}/src/NativeTrayIcon.cpp)
-	target_include_directories (NativeTrayIconTest BEFORE PRIVATE
-		"${CMAKE_CURRENT_BINARY_DIR}/native-tray" "${CMAKE_SOURCE_DIR}/src")
-	target_link_libraries (NativeTrayIconTest PRIVATE wxWidgets::CORE wxWidgets::ADV PkgConfig::TRAY_GTK)
-	# Keep compatibility with the project's CMake 3.12 minimum.
-	target_link_libraries (NativeTrayIconTest PRIVATE "-Wl,--wrap=gtk_status_icon_new_from_pixbuf")
-	target_compile_options (NativeTrayIconTest PRIVATE -Wno-deprecated-declarations)
-	add_test (NAME NativeTrayIconTest COMMAND NativeTrayIconTest)
-	set_tests_properties (NativeTrayIconTest PROPERTIES SKIP_RETURN_CODE 77 LABELS "gui" TIMEOUT 30)
-endif ()
-
 if (APPLE AND (BUILD_MONOLITHIC OR BUILD_REMOTEGUI))
 	add_executable (NativeTrayIconMacTest NativeTrayIconMacTest.mm ${CMAKE_SOURCE_DIR}/src/NativeTrayIcon_mac.mm)
 	target_include_directories (NativeTrayIconMacTest PRIVATE "${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}/src")

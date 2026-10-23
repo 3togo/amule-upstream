@@ -71,7 +71,6 @@ env:
     locales \
     pkg-config \
     po4a \
-    stalonetray \
     xvfb \
     xauth \
     wx3.2-headers
@@ -212,8 +211,6 @@ jobs:
         run: cmake --build build
       # Normal Ubuntu builds select libayatana and would miss Linux-only
       # declaration/definition guard mismatches in the wxTaskBarIcon backend.
-      - name: exercise live X11 tray slot sizes
-        run: xvfb-run -a bash scripts/check-tray-host.sh build/unittests/tests/NativeTrayIconTest
       - name: compile wxTaskBarIcon without libayatana
         if: matrix.build_type == 'Release'
         run: python3 scripts/check-tray-backend-build.py build --require-remote-gui

@@ -318,9 +318,8 @@ CMuleTrayIcon::CMuleTrayIcon()
 	// declarations stays useful.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-	m_indicator = app_indicator_new("org.amule.aMule",
-		"org.amule.aMule-tray-disconnected",
-		APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
+	m_indicator = app_indicator_new(
+		"org.amule.aMule", "org.amule.aMule", APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
 #pragma GCC diagnostic pop
 
 	// ACTIVE = visible: the user already opted in by enabling the tray icon, and SetTrayIcon
@@ -377,7 +376,10 @@ void CMuleTrayIcon::SetTrayIcon(int Icon, uint32 /*percent*/)
 		"org.amule.aMule-tray-disconnected", "org.amule.aMule-tray-low", "org.amule.aMule-tray-high"
 	};
 	if (Icon != m_lastIconState) {
-		app_indicator_set_icon_full(m_indicator, names[Icon], names[Icon]);
+		const char *name = gtk_icon_theme_has_icon(gtk_icon_theme_get_default(), names[Icon])
+					   ? names[Icon]
+					   : "org.amule.aMule";
+		app_indicator_set_icon_full(m_indicator, name, name);
 		m_lastIconState = Icon;
 		RebuildMenu();
 	}
@@ -710,7 +712,7 @@ void CMuleTrayIcon::SetTrayToolTip(const wxString &Tip)
 	CurrentTip = Tip;
 #if !(defined(wxUSE_APPINDICATOR) && wxUSE_APPINDICATOR)
 	// Native backends flatten the bundle in SetIcon(). Refresh even with an unchanged tooltip:
-	// Cocoa and GTK before wx 3.3 do not emit wxEVT_DPI_CHANGED, and the tray's display can
+	// Cocoa does not emit wxEVT_DPI_CHANGED, and the tray's display can
 	// change independently of the main window. Reuse the bundle and let the backend select
 	// its current size. wx's AppIndicator backend has no tooltip and would instead write a
 	// new icon file and re-register the indicator on every tick.

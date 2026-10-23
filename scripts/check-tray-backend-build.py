@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 
-SOURCES = {"MuleTrayIcon.cpp", "NativeTrayIcon.cpp", "amuleDlg.cpp"}
+SOURCES = {"MuleTrayIcon.cpp", "amuleDlg.cpp"}
 
 
 def main():
@@ -28,7 +28,6 @@ def main():
     for entry in entries:
         if Path(entry["file"]).name in SOURCES:
             command = entry.get("arguments") or shlex.split(entry["command"])
-            # NativeTrayIcon.cpp is also compiled into its focused regression test.
             # Only probe real GUI consumers here.
             if not any("CMakeFiles/amule.dir/" in c or "CMakeFiles/amulegui.dir/" in c
                        for c in command):
