@@ -11,6 +11,8 @@ on:
       - 'po/**'
       - 'config.h.cm'
       - 'scripts/check-unique-ids.py'
+      - 'scripts/collect-runtime-deps.sh'
+      - 'scripts/tests/test_collect_runtime_deps.py'
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
   pull_request:
@@ -23,6 +25,8 @@ on:
       - 'po/**'
       - 'config.h.cm'
       - 'scripts/check-unique-ids.py'
+      - 'scripts/collect-runtime-deps.sh'
+      - 'scripts/tests/test_collect_runtime_deps.py'
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
 
@@ -241,7 +245,12 @@ jobs:
       # run-all.sh discovers binaries through.
       - name: pack amuled + amuleapi for the curl smoke
         if: matrix.build_type == 'Release'
-        run: tar -cf curl-smoke-binaries.tar build/src/amuled build/src/webapi/amuleapi
+        run: |
+          python3 scripts/tests/test_collect_runtime_deps.py
+          bash scripts/collect-runtime-deps.sh \
+            build/src/amuled build/src/webapi/amuleapi > runtime-deps.txt
+          tar -cf curl-smoke-binaries.tar \
+            build/src/amuled build/src/webapi/amuleapi runtime-deps.txt
       - uses: actions/upload-artifact@v7
         if: matrix.build_type == 'Release'
         with:
@@ -388,14 +397,17 @@ jobs:
           name: curl-smoke-binaries
       - name: unpack amuled + amuleapi
         run: tar -xf curl-smoke-binaries.tar
-      # Nothing is compiled here, but the binaries still need their shared
-      # libraries. Installing the same -dev list is what keeps those matched
-      # to the build job; naming runtime sonames instead would drift the
-      # moment that list changes.
+      # The build job derives runtime package owners from these exact binaries,
+      # including their transitive libraries, so this list stays matched without
+      # installing compilers and development headers in the smoke job.
       - name: install runtime deps
+        timeout-minutes: 15
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }} jq
+          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          sudo apt-get "${apt_options[@]}" update
+          mapfile -t packages < runtime-deps.txt
+          test "${#packages[@]}" -gt 0
+          sudo apt-get "${apt_options[@]}" install -y --no-install-recommends "${packages[@]}" jq
       # Every peer-to-peer switch is off, so the daemon joins no ed2k server,
       # bootstraps no Kad and opens no UPnP mapping. It still makes the two
       # ordinary startup fetches over HTTPS -- the release check and the GeoIP
@@ -448,6 +460,7 @@ jobs:
             exit 1
           fi
       - name: run the amuleapi curl smoke
+        timeout-minutes: 15
         run: |
           set -uo pipefail
           LOG="$RUNNER_TEMP/curl-smoke.log"
