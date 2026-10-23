@@ -1081,7 +1081,6 @@ item3->SetName("dloadScope");
 
     wxWindow *item12 = new CColorFrameCtrl(item2,IDC_C0_2,20,14);
     wxASSERT( item12 );
-    item12->SetToolTip(_("Check a folder or press Space to share it. A mixed checkbox means subfolders are selected. Right-click to include all subfolders."));
     item11->Add( item12, wxSizerFlags().FixedMinSize().Center() );
     wxStaticText *item13 = new wxStaticText( item2, -1, _("Session average"), wxDefaultPosition, wxDefaultSize, 0 );
     item11->Add( item13, wxSizerFlags().Center().Border(wxLEFT, 5) );
@@ -1969,6 +1968,7 @@ wxSizer *PreferencesDirectoriesTab( wxWindow *parent, bool call_fit, bool set_si
 
     CDirectoryTreeCtrl *item12 = new CDirectoryTreeCtrl(item10, IDC_SHARESELECTOR, wxPoint(0,0), wxSize(100,100), wxSUNKEN_BORDER|wxTR_DEFAULT_STYLE|wxTR_HIDE_ROOT );
     wxASSERT( item12 );
+    item12->SetToolTip(_("Check a folder or press Space to share it. A mixed checkbox means subfolders are selected. Right-click to include all subfolders."));
     item9->Add( item12, wxSizerFlags(1).Expand().CenterVertical() );
     wxStaticText *accessHint = new wxStaticText(item10, wxID_ANY,
         _("Approve folders before sharing. Sharing access is read-only in Flatpak; download folders need write access."));
