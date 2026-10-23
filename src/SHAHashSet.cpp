@@ -525,7 +525,7 @@ CAICHHashSet::~CAICHHashSet(void)
 bool CAICHHashSet::CreatePartRecoveryData(uint64 nPartStartPos, CFileDataIO *fileDataOut, bool bDbgDontLoad)
 {
 	wxASSERT(m_pOwner);
-	if (m_pOwner == NULL) {
+	if (m_pOwner == nullptr) {
 		return false;
 	}
 	if (m_pOwner->IsPartFile() || m_eStatus != AICH_HASHSETCOMPLETE) {
