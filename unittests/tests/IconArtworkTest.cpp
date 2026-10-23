@@ -268,7 +268,7 @@ int main(int argc, char **argv)
 	Phase("wx startup");
 	// Cover startup without turning an optional headless skip into a failure.
 	const bool requireGui = std::getenv("AMULE_ICON_TEST_REQUIRE_GUI") != nullptr;
-	InstallGuiTestAssertHandler(requireGui);
+	InstallGuiTestDiagnostics(requireGui);
 	if (!wxEntryStart(argc, argv)) {
 		std::cerr << "GUI initialization failed: no native rendering checks ran\n";
 		return requireGui ? 1 : 77;

@@ -247,7 +247,7 @@ void TestLimitControl()
 
 int main(int argc, char **argv)
 {
-	InstallGuiTestAssertHandler();
+	InstallGuiTestDiagnostics();
 	if (!wxEntryStart(argc, argv)) {
 		std::cerr << "No GUI display available; skipping bandwidth limit tests\n";
 		return 77;

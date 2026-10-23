@@ -382,7 +382,7 @@ int main(int argc, char **argv)
 {
 	// GUI tests need a display (for example xvfb-run on Linux CI). Do not report
 	// success when the platform cannot initialize its GUI backend.
-	InstallGuiTestAssertHandler();
+	InstallGuiTestDiagnostics();
 	if (!wxEntryStart(argc, argv)) {
 		std::cerr << "No GUI display available; skipping dialog layout tests\n";
 		return 77;

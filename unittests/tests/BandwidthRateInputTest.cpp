@@ -141,7 +141,7 @@ void TestInput()
 
 int main(int argc, char **argv)
 {
-	InstallGuiTestAssertHandler();
+	InstallGuiTestDiagnostics();
 	if (!wxEntryStart(argc, argv)) {
 		return 77;
 	}
@@ -153,7 +153,12 @@ int main(int argc, char **argv)
 		const int language =
 			argc > 1 && wxString(argv[1]) == "it" ? wxLANGUAGE_ITALIAN : wxLANGUAGE_ENGLISH_US;
 		wxLocale locale;
-		if (!locale.Init(language, wxLOCALE_DONT_LOAD_DEFAULT)) {
+		bool initialized;
+		{
+			wxLogNull noLog;
+			initialized = locale.Init(language, wxLOCALE_DONT_LOAD_DEFAULT);
+		}
+		if (!initialized) {
 			std::cerr << "Requested locale unavailable; skipping\n";
 			result = 77;
 		} else {

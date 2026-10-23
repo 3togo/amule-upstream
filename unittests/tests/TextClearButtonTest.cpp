@@ -11,7 +11,6 @@
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
-#include <cstdlib>
 
 class ClearButtonTestApp : public wxApp
 {
@@ -180,7 +179,7 @@ void CheckRow(wxWindow *field, wxSizer *outer)
 
 int main(int argc, char **argv)
 {
-	InstallGuiTestAssertHandler();
+	InstallGuiTestDiagnostics();
 	if (!wxEntryStart(argc, argv)) {
 		std::cerr << "No GUI display: clear-button checks skipped\n";
 		return 77;

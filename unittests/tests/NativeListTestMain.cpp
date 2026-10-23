@@ -53,7 +53,7 @@ void Check(bool condition, const char *message)
 
 int main(int argc, char **argv)
 {
-	InstallGuiTestAssertHandler();
+	InstallGuiTestDiagnostics();
 	if (!wxEntryStart(argc, argv)) {
 		std::cerr << "No GUI display available; skipping native list tests\n";
 		return 77;

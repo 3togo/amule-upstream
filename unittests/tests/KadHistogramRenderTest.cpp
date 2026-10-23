@@ -274,7 +274,7 @@ static void VerifyRendering()
 int main(int argc, char **argv)
 {
 	wxInitAllImageHandlers();
-	InstallGuiTestAssertHandler();
+	InstallGuiTestDiagnostics();
 	if (!wxEntryStart(argc, argv)) {
 		return 77;
 	}

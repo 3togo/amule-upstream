@@ -128,7 +128,7 @@ static void VerifyClosedPendingView()
 
 int main(int argc, char **argv)
 {
-	InstallGuiTestAssertHandler();
+	InstallGuiTestDiagnostics();
 	if (!wxEntryStart(argc, argv)) {
 		return 77;
 	}
