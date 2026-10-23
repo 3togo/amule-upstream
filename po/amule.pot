@@ -9945,6 +9945,10 @@ msgid "EC password change rejected: could not generate ECPasswordVerifier. The a
 msgstr ""
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "ECPassword contains an invalid or empty-password digest. Run amuled --ec-config to set a new EC password."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Invalid or unsupported ECPasswordVerifier; refusing external connections."
 msgstr ""
 

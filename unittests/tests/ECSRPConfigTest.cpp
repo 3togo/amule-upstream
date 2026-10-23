@@ -127,7 +127,12 @@ int main()
 				wxString active, warning;
 				Check(!LoadCredential(cfg, active, warning),
 					"unusable legacy credential migrated");
-				Check(!warning.IsEmpty() && cfg.calls == 0 &&
+				Check(warning.Contains("ECPassword contains") &&
+						warning.Contains("--ec-config") &&
+						!warning.Contains("Could not generate"),
+					"invalid legacy digest did not name the setting and recovery "
+					"command");
+				Check(cfg.calls == 0 &&
 						cfg.Read("/ExternalConnect/ECPassword", wxString()) ==
 							legacy &&
 						cfg.HasEntry("/ExternalConnect/ECPasswordVerifier") ==

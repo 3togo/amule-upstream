@@ -115,6 +115,12 @@ bool LoadCredential(wxConfigBase &cfg, wxString &verifier, wxString &error)
 {
 	error.clear();
 	verifier.clear();
+	const wxString legacy = cfg.Read(LEGACY, wxString());
+	if (!legacy.IsEmpty() && !IsPasswordDigest(std::string(legacy.utf8_str()))) {
+		error = _("ECPassword contains an invalid or empty-password digest. Run amuled "
+			  "--ec-config to set a new EC password.");
+		return false;
+	}
 	if (cfg.HasEntry(KEY)) {
 		verifier = cfg.Read(KEY, wxString());
 		try {
@@ -126,7 +132,6 @@ bool LoadCredential(wxConfigBase &cfg, wxString &verifier, wxString &error)
 			return false;
 		}
 		if (cfg.HasEntry(LEGACY)) {
-			const wxString legacy = cfg.Read(LEGACY, wxString());
 			// A downgraded core recreates an empty key on any preferences save.
 			// Only a non-empty digest can carry a newer password.
 			bool matches = legacy.IsEmpty();
@@ -151,7 +156,6 @@ bool LoadCredential(wxConfigBase &cfg, wxString &verifier, wxString &error)
 		Cleanup(cfg, error);
 		return true;
 	}
-	const wxString legacy = cfg.Read(LEGACY, wxString());
 	return legacy.IsEmpty() || Migrate(cfg, legacy, verifier, error);
 }
 } // namespace ECSRP
