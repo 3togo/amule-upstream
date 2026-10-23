@@ -13,6 +13,7 @@ import tempfile
 import threading
 import zlib
 
+from ECWire import accept  # Preflight in the parent before starting fixtures.
 from AllSearchIntegrationTest import C, exact, free_ports, integer, string, tag
 from CompletedFileDeleteIntegrationTest import eventually, http
 
@@ -22,7 +23,6 @@ FILE_HASH = 'a448017aaf21d8525fc10ae87aa6729d'
 class LegacyCore(socketserver.BaseRequestHandler):
     def handle(self):
         try:
-            from ECWire import accept
             caps = [tag(0x002A)]
             if self.server.mode != 'legacy': caps.append(tag(C['EC_TAG_CAN_DELETE_COMPLETE']))
             self.request = accept(self.request, capabilities=caps)

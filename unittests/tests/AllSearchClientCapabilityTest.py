@@ -5,13 +5,13 @@
 import hashlib
 import json, os, socketserver, struct, subprocess, sys, tempfile, threading, time, urllib.request, zlib
 from pathlib import Path
+from ECWire import accept  # Preflight in the parent before starting fixtures.
 from AllSearchIntegrationTest import (C, PortCollision, exact, free_ports,
                                       integer, retry_port_collisions, string)
 requests = []
 class Handler(socketserver.BaseRequestHandler):
     def handle(self):
         try:
-            from ECWire import accept
             self.request = accept(self.request)
             while True:
                 flags, size = struct.unpack('!II', exact(self.request, 8))
