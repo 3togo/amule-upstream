@@ -603,7 +603,10 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.build_type }}-ccache-${{ github.run_id }}
       - name: ccache stats
         if: always()
-        run: ccache --show-stats
+        run: |
+          if command -v ccache >/dev/null 2>&1; then
+            ccache --show-stats
+          fi
       - name: run tests
         run: |
           ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' &&
@@ -707,7 +710,10 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.build_type }}-ccache-${{ github.run_id }}
       - name: ccache stats
         if: always() && steps.windows-deps.outcome == 'success'
-        run: ccache --show-stats
+        run: |
+          if command -v ccache >/dev/null 2>&1; then
+            ccache --show-stats
+          fi
       - name: run tests
         run: |
           # IconArtworkTest's watchdog writes a minidump here if the test hangs.
