@@ -11,8 +11,6 @@ on:
       - 'po/**'
       - 'config.h.cm'
       - 'scripts/check-unique-ids.py'
-      - 'scripts/collect-runtime-deps.sh'
-      - 'scripts/tests/test_collect_runtime_deps.py'
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
   pull_request:
@@ -25,8 +23,6 @@ on:
       - 'po/**'
       - 'config.h.cm'
       - 'scripts/check-unique-ids.py'
-      - 'scripts/collect-runtime-deps.sh'
-      - 'scripts/tests/test_collect_runtime_deps.py'
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
 
@@ -243,12 +239,20 @@ jobs:
       # drops the executable bit (packaging.yml chmods every mach-o back after
       # its download for the same reason) and because it pins the layout
       # run-all.sh discovers binaries through.
+      #
+      # runtime-deps.txt is the Depends field Debian packaging would give these
+      # binaries. dpkg-shlibdeps fails on a library that no package ships, and
+      # it needs a debian/control, but a stub one is enough.
       - name: pack amuled + amuleapi for the curl smoke
         if: matrix.build_type == 'Release'
         run: |
-          python3 scripts/tests/test_collect_runtime_deps.py
-          bash scripts/collect-runtime-deps.sh \
-            build/src/amuled build/src/webapi/amuleapi > runtime-deps.txt
+          shlibdeps="$RUNNER_TEMP/shlibdeps"
+          mkdir -p "$shlibdeps/debian"
+          printf 'Source: amule\n\nPackage: amule\nArchitecture: any\n' > "$shlibdeps/debian/control"
+          depends=$(cd "$shlibdeps" && dpkg-shlibdeps -O \
+            "$GITHUB_WORKSPACE/build/src/amuled" "$GITHUB_WORKSPACE/build/src/webapi/amuleapi")
+          printf '%s\n' "${depends#shlibs:Depends=}" > runtime-deps.txt
+          cat runtime-deps.txt
           tar -cf curl-smoke-binaries.tar \
             build/src/amuled build/src/webapi/amuleapi runtime-deps.txt
       - uses: actions/upload-artifact@v7
@@ -397,17 +401,15 @@ jobs:
           name: curl-smoke-binaries
       - name: unpack amuled + amuleapi
         run: tar -xf curl-smoke-binaries.tar
-      # The build job derives runtime package owners from these exact binaries,
-      # including their transitive libraries, so this list stays matched without
-      # installing compilers and development headers in the smoke job.
+      # The build job derived runtime-deps.txt from these exact binaries, so it
+      # stays matched without installing compilers and development headers here.
+      # apt-get satisfy takes it as a Depends field, versions included.
       - name: install runtime deps
-        timeout-minutes: 15
         run: |
           apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
           sudo apt-get "${apt_options[@]}" update
-          mapfile -t packages < runtime-deps.txt
-          test "${#packages[@]}" -gt 0
-          sudo apt-get "${apt_options[@]}" install -y --no-install-recommends "${packages[@]}" jq
+          test -s runtime-deps.txt
+          sudo apt-get "${apt_options[@]}" satisfy -y --no-install-recommends "$(cat runtime-deps.txt)" jq
       # Every peer-to-peer switch is off, so the daemon joins no ed2k server,
       # bootstraps no Kad and opens no UPnP mapping. It still makes the two
       # ordinary startup fetches over HTTPS -- the release check and the GeoIP
@@ -460,7 +462,6 @@ jobs:
             exit 1
           fi
       - name: run the amuleapi curl smoke
-        timeout-minutes: 15
         run: |
           set -uo pipefail
           LOG="$RUNNER_TEMP/curl-smoke.log"
