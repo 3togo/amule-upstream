@@ -14,6 +14,8 @@ on:
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
       - '.github/apt-ci.conf'
+      - '.github/scripts/install-ubuntu-deps.sh'
+      - 'scripts/tests/test_ci_ubuntu_deps.py'
   pull_request:
     branches: [ "**" ]
     paths:
@@ -27,6 +29,8 @@ on:
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
       - '.github/apt-ci.conf'
+      - '.github/scripts/install-ubuntu-deps.sh'
+      - 'scripts/tests/test_ci_ubuntu_deps.py'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/master' && github.sha || '' }}
@@ -54,6 +58,7 @@ env:
   # in MuleTrayIcon.cpp is #ifdef'd out and never compiled here -- only
   # packaging.yml built it, and that runs after merge, so a break in that
   # half landed on master before anything noticed.
+  # Asio is header-only; libboost-all-dev also pulls in MPI and Fortran.
   cmake_ubuntu_deps: |-
     binutils-dev \
     build-essential \
@@ -61,7 +66,7 @@ env:
     cmake \
     gettext \
     libayatana-appindicator3-dev \
-    libboost-all-dev \
+    libboost-dev \
     libcrypto++-dev \
     libgd-dev \
     libglib2.0-dev \
@@ -167,6 +172,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: check
         run: python3 scripts/check-unique-ids.py
+      - name: dependency installer regression tests
+        run: python3 -m unittest discover -s scripts/tests -p test_ci_ubuntu_deps.py -v
 
   build_cmake_ubuntu:
     name: Build CMake Ubuntu (${{ matrix.build_type }})
@@ -192,12 +199,10 @@ jobs:
           restore-keys: ${{ runner.os }}-${{ matrix.build_type }}-ccache-
       - name: install deps
         id: ubuntu-deps
-        # Bound package-manager stalls before compilation starts.
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: |
           sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
-          sudo apt-get update
-          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
+          sudo bash .github/scripts/install-ubuntu-deps.sh ${{ env.cmake_ubuntu_deps }}
           # Exercise grouped numbers and decimal commas in the calculator tests.
           sudo localedef -i en_US -f UTF-8 en_US.UTF-8
           sudo localedef -i it_IT -f UTF-8 it_IT.UTF-8
@@ -311,11 +316,10 @@ jobs:
           restore-keys: ${{ runner.os }}-experimental-${{ matrix.build_type }}-ccache-
       - name: install deps
         id: ubuntu-deps
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: |
           sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
-          sudo apt-get update
-          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
+          sudo bash .github/scripts/install-ubuntu-deps.sh ${{ env.cmake_ubuntu_deps }}
           # Exercise grouped numbers and decimal commas in the calculator tests.
           sudo localedef -i en_US -f UTF-8 en_US.UTF-8
           sudo localedef -i it_IT -f UTF-8 it_IT.UTF-8
@@ -365,11 +369,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: install deps
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: |
           sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
-          sudo apt-get update
-          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
+          sudo bash .github/scripts/install-ubuntu-deps.sh ${{ env.cmake_ubuntu_deps }}
       - uses: ./.github/actions/ngtcp2
       - name: fetch CMake ${{ env.CMAKE_MIN }}
         run: |
