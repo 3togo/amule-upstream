@@ -979,15 +979,6 @@ void CClientUDPSocket::ProcessPacket(uint8_t *packet, int16 size, int8 opcode, u
 	}
 	case OP_REASKACK: {
 		theStats::AddDownOverheadFileRequest(size);
-		// Queue rank (2 bytes) is mandatory, after any optional file status.
-		if (size < 2) {
-			AddDebugLogLineN(logClientUDP,
-				CFormat("Client UDP socket: rejected short OP_REASKACK (%u bytes) from "
-					"%s:%u") %
-					static_cast<unsigned>(size) % Uint32toStringIP(host) %
-					static_cast<unsigned>(port));
-			break;
-		}
 		CUpDownClient *sender = theApp->downloadqueue->GetDownloadClientByIP_UDP(host, port);
 		if (sender) {
 			CMemFile data_in(packet, size);
