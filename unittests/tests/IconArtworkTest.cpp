@@ -27,7 +27,6 @@
 #include "GuiTestDiagnostics.h"
 
 #include <wx/app.h>
-#include <wx/log.h>
 #include <wx/frame.h>
 #include <wx/mstream.h>
 #include <wx/image.h>
