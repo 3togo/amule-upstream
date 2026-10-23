@@ -416,7 +416,8 @@ void CUpDownClient::AddReqBlock(Requested_Block_Struct *reqblock, bool bSignalIO
 			}
 		}
 
-		m_BlockRequests_queue.push_back(reqblockOwner.release());
+		m_BlockRequests_queue.push_back(reqblockOwner.get());
+		reqblockOwner.release();
 	} // release lock before signalling to avoid contention
 
 	// Notify disk I/O thread that new block requests are available.
