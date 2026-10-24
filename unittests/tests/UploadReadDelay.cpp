@@ -201,8 +201,14 @@ void TrackMapping(void *address, int fd)
 	}
 }
 
-void CopyGate(const void *source)
+void CopyGate(const void *source, size_t length)
 {
+	// memcpy's nonnull contract lets optimized builds remove a source-null
+	// check. Zero-length packet copies must never look like the empty mapping
+	// sentinel, and unrelated fixture stages must not inspect copy ownership.
+	if (length == 0 || !Stage("copy") || !Armed()) {
+		return;
+	}
 	auto address = reinterpret_cast<std::uintptr_t>(source);
 	if (address != 0 && mappedRead.compare_exchange_strong(address, 0)) {
 		Gate(std::getenv("AMULE_TEST_READ_PATH"), 0);
@@ -229,14 +235,14 @@ extern "C" void *mmap64(void *address, size_t length, int protection, int flags,
 extern "C" void *memmove(void *destination, const void *source, size_t length)
 {
 	static const auto original = reinterpret_cast<decltype(&memmove)>(dlsym(RTLD_NEXT, "memmove"));
-	CopyGate(source);
+	CopyGate(source, length);
 	return original(destination, source, length);
 }
 
 extern "C" void *memcpy(void *destination, const void *source, size_t length)
 {
 	static const auto original = reinterpret_cast<decltype(&memcpy)>(dlsym(RTLD_NEXT, "memcpy"));
-	CopyGate(source);
+	CopyGate(source, length);
 	return original(destination, source, length);
 }
 
