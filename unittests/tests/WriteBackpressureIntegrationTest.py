@@ -17,6 +17,7 @@ import zlib
 
 from AllSearchIntegrationTest import C, connect_daemon, free_ports, retry_port_collisions, stop_daemon
 from DaemonConfig import write_amule_conf
+from CancelCompletedIntegrationTest import md4
 from DownloadDisplayRatesIntegrationTest import hello, local_ipv4
 from ED2KLinkIntegrationTest import add_link
 from UploadRefillIntegrationTest import packet, send
@@ -29,7 +30,8 @@ class Source:
     def __init__(self, index, compressed):
         self.address = local_ipv4()
         self.name = f'write-pressure-{index}.bin'.encode()
-        self.file_hash = hashlib.md5(self.name).digest()
+        self.hashes = b''.join(hashlib.md5(self.name + bytes([part])).digest() for part in range(7))
+        self.file_hash = md4(self.hashes)
         self.compressed = compressed
         self.identity = socket.socket()
         self.identity.bind((self.address, 0))
@@ -71,6 +73,8 @@ class Source:
                     elif opcode == 0x4f:
                         # Seven parts; the source has them all.
                         send(peer, 0x50, self.file_hash + bytes(2))
+                    elif opcode == 0x51:
+                        send(peer, 0x52, self.file_hash + struct.pack('<H', 7) + self.hashes)
                     elif opcode == 0x54:
                         send(peer, 0x55)
                     elif opcode == 0x56:
