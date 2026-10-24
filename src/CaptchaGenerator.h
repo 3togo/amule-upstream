@@ -26,11 +26,10 @@
 #ifndef CAPTCHAGENERATOR_H
 #define CAPTCHAGENERATOR_H
 
-#include <wx/image.h>
+#include <vector>
+#include <wx/string.h>
 #include <wx/mstream.h>
 #include "Types.h"
-
-class wxImage;
 
 class CCaptchaGenerator
 {
@@ -42,7 +41,7 @@ public:
 	bool WriteCaptchaImage(wxMemoryOutputStream &file);
 
 private:
-	wxImage m_pimgCaptcha;
+	std::vector<unsigned char> m_image;
 	wxString m_strCaptchaText;
 };
 
