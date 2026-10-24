@@ -16,7 +16,7 @@ from ED2KLinkIntegrationTest import add_link
 from WriteBackpressureIntegrationTest import Source, wait_for, LIMIT, BLOCK
 
 
-def run(binary, shim, compressed):
+def run(binary, shim, compressed, mode):
     if not Path('/dev/shm').is_dir() or os.stat('/tmp').st_dev == os.stat('/dev/shm').st_dev:
         print('SKIP: two writable filesystem devices are required')
         return 77
@@ -46,6 +46,8 @@ def run(binary, shim, compressed):
         env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8',
                    LD_PRELOAD=preload, AMULE_TEST_WRITE_GATE=str(gate),
                    AMULE_TEST_WRITE_PREFIX=str(bad_dir))
+        if mode == 'space':
+            env['AMULE_TEST_SPACE_PATH'] = str(root / 'Temp/001.part')
         proc = ec = None
         try:
             with (root / 'console.log').open('w') as log:
@@ -81,7 +83,7 @@ def run(binary, shim, compressed):
                            [tag(C['EC_TAG_PARTFILE'], healthy.file_hash, 9)])[0] == C['EC_OP_NOOP']
             gate.unlink()
             wait_for(lambda: bad.requested > stalled + 3 * BLOCK, 8, detail)
-            print(f'PASS compressed={compressed}: stalled volume bounded at {stalled}; '
+            print(f'PASS mode={mode} compressed={compressed}: stalled volume bounded at {stalled}; '
                   'cold healthy volume wrote data and cancelled independently; stalled volume resumed',
                   flush=True)
         finally:
@@ -99,8 +101,9 @@ def run(binary, shim, compressed):
 
 
 if __name__ == '__main__':
-    for compressed in (False, True):
-        result = retry_port_collisions(lambda: run(str(Path(sys.argv[1]).resolve()),
-                                                  str(Path(sys.argv[2]).resolve()), compressed))
-        if result:
-            sys.exit(result)
+    for mode in ('write', 'space'):
+        for compressed in (False, True):
+            result = retry_port_collisions(lambda: run(str(Path(sys.argv[1]).resolve()),
+                                                      str(Path(sys.argv[2]).resolve()), compressed, mode))
+            if result:
+                sys.exit(result)
