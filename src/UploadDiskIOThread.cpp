@@ -326,7 +326,11 @@ void CUploadDiskIOThread::SamplePipelinePressure()
 	input.lastReadMs = m_lastReadMs;
 	input.lastHandoffMs = m_lastHandoffMs;
 	input.lastCompletedMs = m_lastCompletedMs;
-	input.wireRate = theStats::GetDisplayUploadRate();
+	const auto traffic =
+		m_pipelinePressure.ObserveTraffic(theApp->uploadBandwidthThrottler->PipelineSentBytes(), now);
+	input.wireRate = traffic.rate;
+	input.wireWindowMs = traffic.windowMs;
+	input.wireValid = traffic.valid;
 	input.limit = uint64{ thePrefs::GetMaxUpload() } * 1024;
 	const auto &pressure = m_diagnostics.LastPressure();
 	input.storageDenied = pressure[UploadReadDiagnostics::Storage];
@@ -347,8 +351,9 @@ void CUploadDiskIOThread::SamplePipelinePressure()
 				client->GetSocket()->UploadPressureSnapshot());
 		}
 	}
-	// Timestamp after collection; no diagnostics lock overlaps upload/socket locks.
-	const auto snapshot = m_pipelinePressure.Observe(input, GetTickCount64());
+	// Timestamp the start of collection so a blocked sampler cannot appear fresh.
+	// No diagnostics lock overlaps upload/socket locks.
+	const auto snapshot = m_pipelinePressure.Observe(input, now);
 	{
 		std::lock_guard<std::mutex> lock(m_pipelineMutex);
 		m_pipelineSnapshot = snapshot;
@@ -361,14 +366,16 @@ void CUploadDiskIOThread::SamplePipelinePressure()
 		CFormat("Upload pipeline: sample_ms=%d active=%d requested=%d pending_clients=%d "
 			"pending_reads=%d oldest_read_ms=%d read_wait=%d transport_busy=%d ready=%d "
 			"admission_wait=%d deferred=%d drained=%d ready_bytes=%d charged_bytes=%d "
-			"wire_Bps=%d limit_Bps=%d underfilled=%d underfill_ms=%d sustained=%d persistent=%d "
+			"wire_Bps=%d wire_valid=%d wire_window_ms=%d limit_Bps=%d underfilled=%d "
+			"underfill_ms=%d sustained=%d persistent=%d "
 			"storage_denied=%d client_memory_denied=%d global_memory_denied=%d workers_full=%d "
 			"queued_jobs=%d running_jobs=%d finished_jobs=%d last_read_ms=%d last_handoff_ms=%d "
 			"last_completed_ms=%d") %
 			snapshot.sampledMs % input.active % input.requested % input.pendingClients %
 			input.pendingReads % input.oldestReadMs % input.readWait % input.transportBusy %
 			input.ready % input.admissionWait % input.deferred % input.drained %
-			input.readyBytes % input.chargedBytes % input.wireRate % input.limit %
+			input.readyBytes % input.chargedBytes % input.wireRate % input.wireValid %
+			input.wireWindowMs % input.limit %
 			snapshot.signals[UploadPipelinePressure::Underfilled] %
 			snapshot.ageMs[UploadPipelinePressure::Underfilled] % snapshot.sustainedUnderfill %
 			snapshot.persistentUnderfill % input.storageDenied % input.clientMemoryDenied %
