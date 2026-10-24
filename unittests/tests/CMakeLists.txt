@@ -3267,3 +3267,8 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Li
 			$<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
 	set_tests_properties (WriteBackpressureIntegrationTest PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
 endif ()
+
+add_executable (VolumeWritePoolTest VolumeWritePoolTest.cpp)
+add_test (NAME VolumeWritePoolTest COMMAND VolumeWritePoolTest)
+target_include_directories (VolumeWritePoolTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (VolumeWritePoolTest muleunit mulecommon Threads::Threads)
