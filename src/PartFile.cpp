@@ -378,6 +378,8 @@ CPartFile::~CPartFile()
 		// FlushBuffer drains buffered writes / harvests Phase 2's PB_WRITTEN items into
 		// m_aChangedPart. Phase 3 itself returns early due to m_inDestructor.
 		FlushBuffer();
+		WaitForWrites();
+		FlushBuffer();
 
 		// Sync-hash any parts still flagged dirty in m_aChangedPart.
 		//
@@ -2251,6 +2253,17 @@ bool CPartFile::GetNextRequestedBlock(CUpDownClient *sender,
 		*writeLimited = false;
 	}
 
+	// Discover before reserving network data: unknown-volume debt from a full
+	// stalled volume must not prevent a healthy new file getting its identity.
+	auto *writer = theApp->partFileWriteThread;
+	if (writer != nullptr && writer->IsRunning() && !writer->PrepareFile(this)) {
+		if (writeLimited != nullptr) {
+			*writeLimited = true;
+		}
+		count = 0;
+		return false;
+	}
+
 	// Returns a list of blocks (~180KB) to download. To avoid prematurely stopping the
 	// download, all blocks requested from the same source must lie within the same chunk
 	// (part, ~9MB).
@@ -2301,7 +2314,7 @@ bool CPartFile::GetNextRequestedBlock(CUpDownClient *sender,
 			Requested_Block_Struct *pBlock = new Requested_Block_Struct;
 			if (GetNextEmptyBlockInPart(sender->GetLastPartAsked(), pBlock) == true) {
 				auto credit = WriteBufferBudget::Get().Reserve(
-					GetFilePath().GetRaw().ToStdString(wxConvUTF8),
+					m_PartPath.GetRaw().ToStdString(wxConvUTF8),
 					pBlock->EndOffset - pBlock->StartOffset + 1);
 				if (!credit) {
 					if (writeLimited != nullptr) {
@@ -2742,6 +2755,8 @@ void CPartFile::Delete()
 	// SuspendUpload above dropped this file's uploaders under the uploading-list lock, so no
 	// new upload read can start.
 	WaitForUploadReads();
+
+	WaitForWrites();
 
 	// Same reasoning as PerformFileComplete: the upload reader holds
 	// m_hpartfileMutex around its Seek+Read, so the close takes it too.
@@ -3578,8 +3593,18 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 	return buffered;
 }
 
+void CPartFile::WaitForWrites()
+{
+	while (m_iWrites.load() != 0) {
+		wxMilliSleep(10);
+	}
+}
+
 void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 {
+	if (m_deleting) {
+		return;
+	}
 	m_nLastBufferFlushTime = GetTickCount64();
 
 	uint32 partCount = GetPartCount();
@@ -3614,11 +3639,14 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 			if (item->flushed == PB_READY) {
 				item->flushed = PB_PENDING;
 				++m_iWrites;
-				pThread->QueueWrite(this,
-					item,
-					GetFilePath(),
-					thePrefs::IsCheckDiskspaceEnabled(),
-					thePrefs::GetMinFreeDiskSpace());
+				if (!pThread->QueueWrite(this,
+					    item,
+					    GetFilePath(),
+					    thePrefs::IsCheckDiskspaceEnabled(),
+					    thePrefs::GetMinFreeDiskSpace())) {
+					--m_iWrites;
+					item->flushed = PB_READY;
+				}
 			}
 		}
 	}
@@ -3632,6 +3660,10 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 
 		switch (item->flushed) {
 		case PB_READY:
+			if (threaded) {
+				++it; // bounded queue full: retry without doing I/O on this thread
+				continue;
+			}
 			// Write thread not running -- fall back to synchronous write
 			{
 				wxASSERT((item->end - item->start) < 0xFFFFFFFF);
