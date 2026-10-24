@@ -57,6 +57,23 @@ static const size_t MAX_CACHED_OPEN_FILES = 32;
 // delete on Windows and an unmount everywhere.
 static const uint32 MAX_IDLE_OPEN_FILE_SECONDS = 60;
 
+// Use one spelling for admission, outstanding permits and cached handles.
+static std::string StoragePath(const CPath &path)
+{
+	wxString spelled = path.GetRaw();
+#ifdef __WINDOWS__
+	spelled.Replace("\\", "/");
+	spelled = spelled.Lower();
+#endif
+	return spelled.ToStdString(wxConvUTF8);
+}
+
+#ifdef __WINDOWS__
+static constexpr bool WINDOWS_STORAGE = true;
+#else
+static constexpr bool WINDOWS_STORAGE = false;
+#endif
+
 // eMule ref: CUploadDiskIOThread::CUploadDiskIOThread()
 CUploadDiskIOThread::CUploadDiskIOThread()
 : wxThread(wxTHREAD_JOINABLE)
@@ -142,6 +159,15 @@ void *CUploadDiskIOThread::Entry()
 				m_bNewBlocksPending = false;
 				m_bSocketNeedsPending = false;
 			}
+			const bool collect = theLogger.IsEnabled(logFileIO);
+			if (collect != m_collectDiagnostics) {
+				m_collectDiagnostics = collect;
+				m_diagnostics = {};
+				m_pipelinePressure = {};
+				m_pipelineSnapshot = {};
+				m_lastCompletedMs = m_lastReadMs = m_lastHandoffMs = m_lastPipelineLog = 0;
+				m_lastDiagnostics = GetTickCount64();
+			}
 			DrainCompletions(true);
 			const uint64 now = GetTickCount64();
 			if ((m_storageRefreshed == 0 || now - m_storageRefreshed >= 5000) &&
@@ -150,6 +176,7 @@ void *CUploadDiskIOThread::Entry()
 				// Keep discovery on a bounded worker and use the previous snapshot.
 				auto req = std::make_unique<ReadRequest_Struct>();
 				req->storageMap = std::make_unique<UploadStorageMap>();
+				req->timing.enabled = false;
 #ifdef __WINDOWS__
 				// Publish local identities before consulting any network provider.
 				req->discoverNetwork = m_storageMapReady;
@@ -196,18 +223,23 @@ void *CUploadDiskIOThread::Entry()
 				}
 				auto req = PrepareRead(clientId);
 				if (req) {
-					req->timing.submitted = GetTickCount64();
+					req->timing.enabled = m_collectDiagnostics;
+					req->timing.submitted = m_collectDiagnostics ? GetTickCount64() : 0;
 					m_pendingClients.emplace(clientId, req->timing.submitted);
 					if (m_pool->Submit(req->storage, req)) {
 						m_lastDispatch[clientId] = ++m_dispatchSequence;
 					} else {
 						m_pendingClients.erase(clientId);
-						m_diagnostics.Denied(UploadReadDiagnostics::Storage);
+						if (m_collectDiagnostics) {
+							m_diagnostics.Denied(UploadReadDiagnostics::Storage);
+						}
 					}
 				}
 			}
 			QueueIdleCloses();
-			m_diagnostics.EndSweep(GetTickCount64(), !m_pool->HasCapacity());
+			if (m_collectDiagnostics) {
+				m_diagnostics.EndSweep(GetTickCount64(), !m_pool->HasCapacity());
+			}
 			ReportDiagnostics();
 			SamplePipelinePressure();
 			wxMutexLocker lock(m_mutex);
@@ -247,37 +279,33 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 						0; // follow the local snapshot with mapped drives
 				}
 				m_storageKeys.clear();
-#ifdef __WINDOWS__
-				constexpr bool windows = true;
-#else
-				constexpr bool windows = false;
-#endif
 				m_pool->ReclassifyStorage([this](const ReadRequest_Struct &req,
 								  const std::string &previous) {
-					return req.storageMap
-						       ? previous
-						       : m_storageMap.Lookup(
-								 req.path.GetRaw().ToStdString(wxConvUTF8),
-								 windows);
+					return req.storageMap ? previous
+							      : m_storageMap.Lookup(StoragePath(req.path),
+									WINDOWS_STORAGE);
 				});
 				for (auto &file : m_listOpenFiles) {
-					file->storage = m_storageMap.Lookup(
-						file->path.GetRaw().ToStdString(wxConvUTF8), windows);
+					file->storage =
+						m_storageMap.Lookup(StoragePath(file->path), WINDOWS_STORAGE);
 				}
 			}
 			continue;
 		}
 		auto *req = completed.job.release();
-		if (!req->closeOnly) {
+		if (m_collectDiagnostics && req->timing.enabled && !req->closeOnly) {
 			m_lastCompletedMs = GetTickCount64();
 			m_lastReadMs = req->timing.finished - req->timing.started;
 			m_lastHandoffMs = m_lastCompletedMs - req->timing.finished;
 		}
-		m_diagnostics.Completed(req->timing,
-			GetTickCount64(),
-			req->closeOnly,
-			completed.error || req->result == READ_FAILED || req->result == READ_OPEN_FAILED,
-			req->result == READ_DEFERRED);
+		if (m_collectDiagnostics && req->timing.enabled) {
+			m_diagnostics.Completed(req->timing,
+				GetTickCount64(),
+				req->closeOnly,
+				completed.error || req->result == READ_FAILED ||
+					req->result == READ_OPEN_FAILED,
+				req->result == READ_DEFERRED);
+		}
 		m_pendingClients.erase(req->clientId);
 		if (deliver && req->result == READ_DEFERRED) {
 			// File completion may briefly park a request. Worker completion wakes must
@@ -313,7 +341,9 @@ void CUploadDiskIOThread::SamplePipelinePressure()
 	UploadPipelinePressure::Input input;
 	input.pendingReads = m_pendingClients.size();
 	for (const auto &pending : m_pendingClients) {
-		input.oldestReadMs = std::max(input.oldestReadMs, now - pending.second);
+		if (pending.second != 0) {
+			input.oldestReadMs = std::max(input.oldestReadMs, now - pending.second);
+		}
 	}
 	input.chargedBytes = m_bufferBudget.Used();
 	const auto jobs = m_pool->GetSnapshot();
@@ -376,11 +406,14 @@ void CUploadDiskIOThread::SamplePipelinePressure()
 			input.finishedJobs % input.lastReadMs % input.lastHandoffMs % input.lastCompletedMs);
 }
 
-// Debug-only FileIO output, at most once per 30 seconds plus a final summary.
+// Runtime-enabled FileIO output, at most once per 30 seconds plus a final summary.
 // Ages include admitted jobs still queued/running/finished, so a permanently
 // stalled read remains visible without waiting for its completion.
 void CUploadDiskIOThread::ReportDiagnostics(bool final)
 {
+	if (!theLogger.IsEnabled(logFileIO)) {
+		return;
+	}
 	const uint64 now = GetTickCount64();
 	if (!final && now - m_lastDiagnostics < 30000) {
 		return;
@@ -388,10 +421,11 @@ void CUploadDiskIOThread::ReportDiagnostics(bool final)
 	[[maybe_unused]] const uint64 interval = now - m_lastDiagnostics;
 	m_lastDiagnostics = now;
 	[[maybe_unused]] const auto stats = m_diagnostics.Take(now);
-#ifdef __DEBUG__
 	uint64 oldest = 0;
 	for (const auto &pending : m_pendingClients) {
-		oldest = std::max(oldest, now - pending.second);
+		if (pending.second != 0) {
+			oldest = std::max(oldest, now - pending.second);
+		}
 	}
 	AddDebugLogLineF(logFileIO,
 		CFormat("Upload storage: interval_ms=%d reads=%d failed=%d deferred=%d "
@@ -410,7 +444,6 @@ void CUploadDiskIOThread::ReportDiagnostics(bool final)
 			stats.pressureMs[UploadReadDiagnostics::ClientMemory] %
 			stats.pressureMs[UploadReadDiagnostics::GlobalMemory] %
 			stats.pressureMs[UploadReadDiagnostics::Workers]);
-#endif
 }
 
 void CUploadDiskIOThread::QueueIdleCloses()
@@ -426,7 +459,8 @@ void CUploadDiskIOThread::QueueIdleCloses()
 			req->pFileStruct = file;
 			req->path = file->path;
 			req->storage = file->storage;
-			req->timing.submitted = GetTickCount64();
+			req->timing.enabled = m_collectDiagnostics;
+			req->timing.submitted = m_collectDiagnostics ? GetTickCount64() : 0;
 			if (m_pool->Submit(req->storage, req)) {
 				it = m_listOpenFiles.erase(it);
 				m_needCacheSlot = false;
@@ -500,35 +534,27 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 			filePath = srcfile->GetFilePath().JoinPaths(srcfile->GetFileName());
 		}
 
-		wxString path = filePath.GetRaw();
-#ifdef __WINDOWS__
-		path.Replace("\\", "/");
-		path = path.Lower();
-#endif
+		const std::string path = StoragePath(filePath);
 		auto storage = m_storageKeys.find(path);
 		if (storage == m_storageKeys.end()) {
-#ifdef __WINDOWS__
-			storage = m_storageKeys
-					  .emplace(path,
-						  m_storageMap.Lookup(path.ToStdString(wxConvUTF8), true))
-					  .first;
-#else
 			storage =
-				m_storageKeys.emplace(path, m_storageMap.Lookup(path.ToStdString(wxConvUTF8)))
-					.first;
-#endif
+				m_storageKeys.emplace(path, m_storageMap.Lookup(path, WINDOWS_STORAGE)).first;
 		}
 		if (!m_pool->CanSubmit(storage->second)) {
-			m_diagnostics.Denied(UploadReadDiagnostics::Storage);
+			if (m_collectDiagnostics) {
+				m_diagnostics.Denied(UploadReadDiagnostics::Storage);
+			}
 			return nullptr;
 		}
 		UploadBufferBudget::Denial denial;
 		auto reservation = m_bufferBudget.Reserve(
 			pSock->UploadBufferAccount(), static_cast<uint32>(togo), &denial);
 		if (!reservation) {
-			m_diagnostics.Denied(denial == UploadBufferBudget::Denial::Global
-						     ? UploadReadDiagnostics::GlobalMemory
-						     : UploadReadDiagnostics::ClientMemory);
+			if (m_collectDiagnostics) {
+				m_diagnostics.Denied(denial == UploadBufferBudget::Denial::Global
+							     ? UploadReadDiagnostics::GlobalMemory
+							     : UploadReadDiagnostics::ClientMemory);
+			}
 			return nullptr;
 		}
 		auto req = std::make_unique<ReadRequest_Struct>();
@@ -601,7 +627,7 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 	if (req->closeOnly) {
 		return READ_OK;
 	}
-	CFileArea area;
+	CFileArea &area = req->area;
 	const uint32 togo = static_cast<uint32>(req->uEndOffset - req->uStartOffset);
 	ReadResult result = READ_OK;
 	try {
@@ -654,9 +680,14 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 			// An mmap read only maps the range: fault it in on the worker so filesystem
 			// reads and SIGBUS handling cannot stall the coordinator while it builds packets.
 			area.Prefault();
-			area.CheckError();
-			// Copy into owned memory so later packet construction cannot fault file pages.
-			req->data.assign(area.GetBuffer(), area.GetBuffer() + togo);
+			if (area.IsMapped()) {
+				// Heap reads already own their buffer. Only mapped reads need a copy so
+				// packet construction cannot fault file pages on the coordinator.
+				req->data.assign(area.GetBuffer(), area.GetBuffer() + togo);
+				// A page can fault again during the copy, after Prefault touched it.
+				area.CheckError();
+				area.Close();
+			}
 		}
 	} catch (const CIOFailureException &error) {
 		AddDebugLogLineC(logClient, "CUploadDiskIOThread: IO failure: " + error.what());
@@ -664,6 +695,11 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 	} catch (const CEOFException &) {
 		AddDebugLogLineN(logClient, "CUploadDiskIOThread: EOF reading block");
 		result = READ_FAILED;
+	}
+	if (result != READ_OK) {
+		// Failed mapped reads must also unmap on their worker, before handing the
+		// request back for validation/discard on the coordinator.
+		area.Close();
 	}
 	return result;
 }
@@ -783,8 +819,9 @@ bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 				}
 			}
 		} cleanup{ packetList };
+		const uint8_t *payload = req->data.empty() ? req->area.GetBuffer() : req->data.data();
 		if (useCompression) {
-			UploadPacketBuilder::Packed(req->data.data(),
+			UploadPacketBuilder::Packed(payload,
 				req->uStartOffset,
 				req->uEndOffset,
 				packetList,
@@ -792,7 +829,7 @@ bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 				dataRate,
 				&theStats::AddUpOverheadFileRequest);
 		} else {
-			UploadPacketBuilder::Standard(req->data.data(),
+			UploadPacketBuilder::Standard(payload,
 				req->uStartOffset,
 				req->uEndOffset,
 				packetList,

@@ -2729,6 +2729,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				)
 				set_tests_properties (UploadPipelinePressureIntegrationTest PROPERTIES TIMEOUT 90)
 			endif()
+			if (NOT MMAP_SUPPORTED)
+				set_tests_properties (UploadRefillIntegrationTest PROPERTIES
+					ENVIRONMENT "AMULE_TEST_SKIP_MMAP=1")
+			endif()
 			add_test (NAME UploadRefillCompressedIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/UploadRefillIntegrationTest.py

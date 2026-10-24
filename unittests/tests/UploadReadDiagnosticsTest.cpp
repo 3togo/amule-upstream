@@ -101,3 +101,22 @@ TEST(UploadReadDiagnostics, MemoryReasonsChangeWithoutLeakingOldPressure)
 	ASSERT_EQUALS(uint64_t{ 1 }, stats.denials[UploadReadDiagnostics::ClientMemory]);
 	ASSERT_EQUALS(uint64_t{ 1 }, stats.denials[UploadReadDiagnostics::GlobalMemory]);
 }
+
+TEST(UploadReadDiagnostics, DisabledTimingDoesNotReadClockOrPublishSamples)
+{
+	UploadReadTiming timing;
+	timing.enabled = false;
+	unsigned calls = 0;
+	bool worked = false;
+	timing.Run([&worked] { worked = true; }, [&calls] { return ++calls; });
+	ASSERT_TRUE(worked);
+	ASSERT_EQUALS(0u, calls);
+	UploadReadDiagnostics diagnostics;
+	diagnostics.Completed(timing, 100, false, true, true);
+	diagnostics.Completed(timing, 100, true, false, false);
+	const auto stats = diagnostics.Take(100);
+	ASSERT_EQUALS(uint64_t{ 0 }, stats.work.count);
+	ASSERT_EQUALS(uint64_t{ 0 }, stats.close.count);
+	ASSERT_EQUALS(uint64_t{ 0 }, stats.failed);
+	ASSERT_EQUALS(uint64_t{ 0 }, stats.deferred);
+}

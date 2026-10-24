@@ -178,7 +178,7 @@ def run(binary, fixture, case):
                 os.write(release_w, b'R')
                 busy.receive(ranges[11], content)
                 assert proc.poll() is None, 'daemon exited during storage delay test'
-                print(f'{case}: prompt delivery, eleven-read turn, other slot served; payloads verified')
+                print(f'{case}: prompt delivery, one read per client turn, other slot served; payloads verified')
             except BaseException:
                 print((root / 'console.log').read_text()[-5000:])
                 raise
