@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 // Pure observation policy: no scheduling, allocation or socket operations.
 // Busy means the transport reports a pending/blocked write, not proven network
@@ -41,7 +42,8 @@ public:
 		uint64_t readWait = 0, transportBusy = 0, ready = 0;
 		uint64_t admissionWait = 0, deferred = 0, drained = 0;
 		uint64_t readyBytes = 0, pendingReads = 0, oldestReadMs = 0;
-		uint64_t chargedBytes = 0, wireRate = 0, limit = 0;
+		uint64_t chargedBytes = 0, wireRate = 0, limit = 0, wireWindowMs = 0;
+		bool wireValid = false;
 		uint64_t queuedJobs = 0, runningJobs = 0, finishedJobs = 0;
 		uint64_t lastReadMs = 0, lastHandoffMs = 0, lastCompletedMs = 0;
 		bool storageDenied = false, clientMemoryDenied = false, globalMemoryDenied = false;
@@ -75,13 +77,42 @@ public:
 		bool persistentUnderfill = false;
 	};
 
+	struct Traffic
+	{
+		uint64_t rate = 0, windowMs = 0;
+		bool valid = false;
+	};
+	// Fixed-space rate over the latest two sampling intervals (normally one
+	// second). No dependency on UI timers or resettable session/display counters.
+	Traffic ObserveTraffic(uint64_t total, uint64_t now)
+	{
+		if (!m_havePrevious || now <= m_previous.time || now - m_previous.time > kMaxSampleGapMs ||
+			total < m_previous.bytes) {
+			m_previous = { total, now };
+			m_havePrevious = true;
+			m_haveOlder = false;
+			return {};
+		}
+		const auto start = m_haveOlder ? m_older : m_previous;
+		const uint64_t elapsed = now - start.time;
+		const long double rate = static_cast<long double>(total - start.bytes) * 1000 / elapsed;
+		const uint64_t boundedRate =
+			rate >= static_cast<long double>(std::numeric_limits<uint64_t>::max())
+				? std::numeric_limits<uint64_t>::max()
+				: static_cast<uint64_t>(rate);
+		m_older = m_previous;
+		m_previous = { total, now };
+		m_haveOlder = true;
+		return { boundedRate, elapsed, elapsed >= 1000 };
+	}
+
 	Snapshot Observe(const Input &input, uint64_t now)
 	{
 		// eMuleBB's material-gap idea, with the minimum margin bounded for
 		// low configured rates. Compare differences without overflowing.
 		const uint64_t margin = std::min(input.limit / 2,
 			std::max(uint64_t{ 1024 }, input.limit / 50 + (input.limit % 50 != 0)));
-		const bool underfilled = input.HasDemand() && input.limit != 0 &&
+		const bool underfilled = input.wireValid && input.HasDemand() && input.limit != 0 &&
 					 input.wireRate < input.limit &&
 					 input.limit - input.wireRate > margin;
 		const std::array<bool, SignalCount> signals{ underfilled,
@@ -114,6 +145,12 @@ public:
 	}
 
 private:
+	struct TrafficPoint
+	{
+		uint64_t bytes = 0, time = 0;
+	};
+	TrafficPoint m_previous, m_older;
+	bool m_havePrevious = false, m_haveOlder = false;
 	Snapshot m_snapshot;
 	std::array<uint64_t, SignalCount> m_since{};
 };

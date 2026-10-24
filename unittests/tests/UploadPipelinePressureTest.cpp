@@ -12,6 +12,7 @@ TEST(UploadPipelinePressure, ControlledReadWaitPersistsAndRecoveryClearsIt)
 {
 	Monitor monitor;
 	Monitor::Input input;
+	input.wireValid = true;
 	input.limit = 100000;
 	input.AddClient(true, true, false, {});
 	input.storageDenied = true;
@@ -34,6 +35,7 @@ TEST(UploadPipelinePressure, ControlledReceiverBackpressureIsDifferentFromReadWa
 {
 	Monitor monitor;
 	Monitor::Input input;
+	input.wireValid = true;
 	input.limit = 100000;
 	input.AddClient(true, false, false, { 184320, true });
 	auto result = monitor.Observe(input, 0);
@@ -44,6 +46,7 @@ TEST(UploadPipelinePressure, ControlledReceiverBackpressureIsDifferentFromReadWa
 	ASSERT_EQUALS(uint64_t{ 0 }, result.input.ready);
 	// A transport can still own an asynchronous write after payload leaves the queue.
 	Monitor::Input transportOnly;
+	transportOnly.wireValid = true;
 	transportOnly.limit = input.limit;
 	transportOnly.AddClient(false, false, false, { 0, true });
 	result = monitor.Observe(transportOnly, 500);
@@ -55,6 +58,7 @@ TEST(UploadPipelinePressure, ControlledMemoryAndWorkerLimitsKeepSeparateReasons)
 {
 	Monitor monitor;
 	Monitor::Input input;
+	input.wireValid = true;
 	input.limit = 100000;
 	input.AddClient(true, false, false, {});
 	input.clientMemoryDenied = true;
@@ -96,20 +100,25 @@ TEST(UploadPipelinePressure, IdleUnlimitedAndConfiguredCapDoNotImplyUnderfill)
 {
 	Monitor monitor;
 	Monitor::Input idle;
+	idle.wireValid = true;
 	idle.limit = 100000;
 	idle.AddClient(false, false, false, {});
 	ASSERT_FALSE(monitor.Observe(idle, 0).signals[Monitor::Underfilled]);
 	Monitor::Input input;
+	input.wireValid = true;
 	input.AddClient(true, false, false, { 1, false });
 	ASSERT_FALSE(monitor.Observe(input, 500).signals[Monitor::Underfilled]);
+	input.wireValid = true;
 	input.limit = 100000;
 	input.wireRate = 98000;
 	ASSERT_FALSE(monitor.Observe(input, 1000).signals[Monitor::Underfilled]);
 	input.wireRate = 97999;
 	ASSERT_TRUE(monitor.Observe(input, 1500).signals[Monitor::Underfilled]);
+	input.wireValid = true;
 	input.limit = 1024;
 	input.wireRate = 0;
 	ASSERT_TRUE(monitor.Observe(input, 2000).signals[Monitor::Underfilled]);
+	input.wireValid = true;
 	input.limit = std::numeric_limits<uint64_t>::max();
 	input.wireRate = input.limit;
 	ASSERT_FALSE(monitor.Observe(input, 2500).signals[Monitor::Underfilled]);
@@ -119,6 +128,7 @@ TEST(UploadPipelinePressure, MissingObservationsAndClockResetBreakPersistence)
 {
 	Monitor monitor;
 	Monitor::Input input;
+	input.wireValid = true;
 	input.limit = 100000;
 	input.AddClient(true, true, false, {});
 	monitor.Observe(input, 0);
@@ -144,4 +154,37 @@ TEST(UploadPipelinePressure, ControlledCompletionBacklogRemainsObservable)
 	ASSERT_EQUALS(uint64_t{ 0 }, held.input.runningJobs);
 	input.finishedJobs = 0;
 	ASSERT_FALSE(monitor.Observe(input, 2500).signals[Monitor::CompletionsReady]);
+}
+
+TEST(UploadPipelinePressure, WireRateExpiresWithoutDisplayOrSessionTimerUpdates)
+{
+	Monitor monitor;
+	ASSERT_FALSE(monitor.ObserveTraffic(1000, 0).valid);
+	ASSERT_FALSE(monitor.ObserveTraffic(3000, 500).valid);
+	auto rate = monitor.ObserveTraffic(5000, 1000);
+	ASSERT_TRUE(rate.valid);
+	ASSERT_EQUALS(uint64_t{ 4000 }, rate.rate);
+	ASSERT_EQUALS(uint64_t{ 1000 }, rate.windowMs);
+	rate = monitor.ObserveTraffic(5000, 1500);
+	ASSERT_EQUALS(uint64_t{ 2000 }, rate.rate);
+	rate = monitor.ObserveTraffic(5000, 2000);
+	ASSERT_TRUE(rate.valid);
+	ASSERT_EQUALS(uint64_t{ 0 }, rate.rate);
+	ASSERT_FALSE(monitor.ObserveTraffic(9000, 4000).valid);
+	ASSERT_FALSE(monitor.ObserveTraffic(0, 4500).valid); // replaced/reset producer
+	ASSERT_FALSE(monitor.ObserveTraffic(1, 4500).valid); // same timestamp
+}
+
+TEST(UploadPipelinePressure, UnderfillWaitsForValidTrafficAndRateArithmeticIsBounded)
+{
+	Monitor monitor;
+	Monitor::Input input;
+	input.limit = 100000;
+	input.AddClient(true, true, false, {});
+	ASSERT_FALSE(monitor.Observe(input, 0).signals[Monitor::Underfilled]);
+	ASSERT_TRUE(monitor.Observe(input, 0).signals[Monitor::ReadWait]);
+	monitor.ObserveTraffic(0, 0);
+	const auto rate = monitor.ObserveTraffic(std::numeric_limits<uint64_t>::max(), 1);
+	ASSERT_EQUALS(std::numeric_limits<uint64_t>::max(), rate.rate);
+	ASSERT_FALSE(rate.valid);
 }
