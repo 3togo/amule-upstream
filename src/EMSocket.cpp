@@ -420,6 +420,12 @@ uint64 CEMSocket::QueuedUploadPayload() const
 	return m_uploadRefill.Queued();
 }
 
+uint64 CEMSocket::QueuedUploadPayload() const
+{
+	std::lock_guard<std::mutex> lock(m_sendLocker);
+	return m_uploadRefill.Queued();
+}
+
 void CEMSocket::SetUploadBufferTarget(uint32 payload)
 {
 	std::lock_guard<std::mutex> lock(m_sendLocker);

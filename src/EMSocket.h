@@ -85,6 +85,7 @@ public:
 	uint64 GetSentBytesControlPacketSinceLastCallAndReset();
 	// Separate from accounting: a file/session switch can discard its old display bytes.
 	uint64 GetSentFileBytesForDisplayAndReset();
+	uint64 GetSentPayloadSinceLastCallAndReset();
 	void SetUploadBufferTarget(uint32 payload);
 	uint64 QueuedUploadPayload() const;
 	void TruncateQueues();
@@ -196,6 +197,7 @@ private:
 	uint64 lastFinishedStandard;
 
 	uint32 m_actualPayloadSize;
+	uint32 m_actualPayloadSizeSent;
 
 	// atomic: IsBusyQuickCheck() reads it on the disk I/O thread without m_sendLocker
 	std::atomic<bool> m_bBusy;
