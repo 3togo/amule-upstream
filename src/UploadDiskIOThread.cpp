@@ -42,7 +42,9 @@
 #include "Statistics.h"       // Needed for theStats
 #include "UploadPacketBuilder.h"
 
-#include <vector>
+#include <algorithm>
+#include <exception>
+#include <cstring>
 
 #define SLOT_COMPRESSIONCHECK_DATARATE (1024 * 150) // 150 KB/s -- above this we may disable compression
 #define BIGBUFFER_MINDATARATE (75 * 1024)           // eMule: BIGBUFFER_MINDATARATE
@@ -66,7 +68,11 @@ CUploadDiskIOThread::CUploadDiskIOThread()
 
 	wxMutexLocker lock(m_mutex);
 	if (Create() == wxTHREAD_NO_ERROR) {
-		Run();
+		m_bRun = true;
+		m_started = Run() == wxTHREAD_NO_ERROR;
+		if (!m_started) {
+			m_bRun = false;
+		}
 	}
 }
 
@@ -83,7 +89,10 @@ void CUploadDiskIOThread::EndThread()
 		m_bRun = false;
 		m_condition.Signal();
 	}
-	Wait(); // join -- replaces m_eventThreadEnded->Lock()
+	if (m_started) {
+		Wait();
+		m_started = false;
+	}
 }
 
 // Called by the main thread when new block requests are added for a client. Uses a sticky flag so
@@ -105,96 +114,147 @@ void CUploadDiskIOThread::SocketNeedsMoreData()
 }
 
 // eMule ref: CUploadDiskIOThread::RunInternal()
-void *CUploadDiskIOThread::Entry()
+ReadRequest_Struct::~ReadRequest_Struct()
 {
-	m_bRun = true;
-
-	while (m_bRun) // eMule ref: line 88
-	{
-		std::vector<uint32> clientIds;
-		{
-			wxMutexLocker uploadLock(theApp->uploadqueue->GetUploadingListLock());
-			const CClientRefList &uploadList = theApp->uploadqueue->GetUploadingList();
-
-			for (CClientRefList::const_iterator it = uploadList.begin(); it != uploadList.end();
-				++it) {
-				CUpDownClient *client = it->GetClient();
-				if (client != NULL && client->GetSocket() != NULL && client->IsConnected()) {
-					clientIds.push_back(client->ECID());
-				}
-			}
-		}
-		bool moreWork = false;
-		for (uint32 clientId : clientIds) {
-			moreWork = StartCreateNextBlockPackage(clientId) || moreWork;
-		}
-
-		// An idle handle would block a rename or delete on Windows and an unmount everywhere.
-		for (OpenFile_Struct *openFile : m_listOpenFiles) {
-			if (openFile->nInUse == 0 && openFile->file.IsOpened() &&
-				TheTime - openFile->lastRead >= MAX_IDLE_OPEN_FILE_SECONDS) {
-				openFile->file.Close();
-			}
-		}
-
-		// wxCondition::WaitTimeout(500ms) in place of eMule's WaitForMultipleObjects.
-		// Signal() is a pure pulse and is dropped if no thread is blocked in WaitTimeout(),
-		// so the callers set the sticky flags (m_bNewBlocksPending, m_bSocketNeedsPending)
-		// under m_mutex and we check them before sleeping.
-		{
-			wxMutexLocker lock(m_mutex);
-			if (m_bRun && !moreWork && !m_bNewBlocksPending && !m_bSocketNeedsPending) {
-				m_condition.WaitTimeout(500);
-			}
-			m_bNewBlocksPending = false;
-			m_bSocketNeedsPending = false;
-		}
-	}
-
-	// Cleanup. No overlapped I/O to cancel, so just clear the open files list.
-	for (std::list<OpenFile_Struct *>::iterator it = m_listOpenFiles.begin(); it != m_listOpenFiles.end();
-		++it) {
-		delete *it;
-	}
-	m_listOpenFiles.clear();
-
-	return NULL;
+	ReleasePartFile();
 }
 
-// eMule ref: CUploadDiskIOThread::StartCreateNextBlockPackage()
-//
-// The main thread takes the uploading-list lock to add or drop an upload slot, and
-// m_blockListLock for every block request a client sends, so neither is held across the disk
-// read. Each block is prepared under both locks, read with none, then committed under both
-// again, after checking the client and its request are still there.
-bool CUploadDiskIOThread::StartCreateNextBlockPackage(uint32 clientId)
+void ReadRequest_Struct::ReleasePartFile()
 {
-	// A sending socket can drain while we read. Bound every client's turn, including
-	// full and three-block requests, so a deep queue cannot monopolize the reader.
-	unsigned readsLeft = 11;
-	while (m_bRun && readsLeft != 0) {
-		ReadRequest_Struct *req = PrepareRead(clientId);
-		if (req == nullptr) {
-			break;
-		}
-		if (!CommitRead(req, ReadBlock(req))) {
-			break;
-		}
-		// Deliver this block and wake the throttler before another read can stall.
-		ReadCompletionRoutine(req);
-		--readsLeft;
+	if (pPartFile != nullptr) {
+		--pPartFile->m_pendingUploadReads;
+		pPartFile = nullptr;
 	}
-	// Visit the other clients, then continue without the idle wait if we used our turn.
-	return m_bRun && readsLeft == 0;
+}
+
+void *CUploadDiskIOThread::Entry()
+{
+	try {
+		m_pool = std::make_unique<StorageReadPool<ReadRequest_Struct>>(
+			[](ReadRequest_Struct &req) { req.result = ReadBlock(&req); },
+			[this] { NewBlockRequestsAvailable(); });
+		uint64 refreshed = 0;
+		while (m_bRun) {
+			{
+				wxMutexLocker lock(m_mutex);
+				m_bNewBlocksPending = false;
+				m_bSocketNeedsPending = false;
+			}
+			DrainCompletions(true);
+			const uint64 now = GetTickCount64();
+			if (refreshed == 0 || now - refreshed >= 5000) {
+				m_storageMap.Refresh();
+				refreshed = now;
+			}
+			std::vector<uint32> clients;
+			{
+				wxMutexLocker lock(theApp->uploadqueue->GetUploadingListLock());
+				for (const auto &ref : theApp->uploadqueue->GetUploadingList()) {
+					clients.push_back(ref.GetClient()->ECID());
+				}
+			}
+			for (auto it = m_retryAfter.begin(); it != m_retryAfter.end();) {
+				if (std::find(clients.begin(), clients.end(), it->first) == clients.end() ||
+					it->second <= now) {
+					it = m_retryAfter.erase(it);
+				} else {
+					++it;
+				}
+			}
+			const auto previous = std::find(clients.begin(), clients.end(), m_lastDispatched);
+			if (previous != clients.end()) {
+				std::rotate(clients.begin(), std::next(previous), clients.end());
+			}
+			for (uint32 clientId : clients) {
+				if (!m_bRun || !m_pool->HasCapacity()) {
+					break;
+				}
+				if (m_pendingClients.count(clientId) || m_retryAfter.count(clientId)) {
+					continue;
+				}
+				auto req = PrepareRead(clientId);
+				if (req) {
+					m_pendingClients.insert(clientId);
+					if (m_pool->Submit(req->storage, req)) {
+						m_lastDispatched = clientId;
+					} else {
+						m_pendingClients.erase(clientId);
+					}
+				}
+			}
+			QueueIdleCloses();
+			wxMutexLocker lock(m_mutex);
+			if (m_bRun && !m_bNewBlocksPending && !m_bSocketNeedsPending) {
+				m_condition.WaitTimeout(500);
+			}
+		}
+	} catch (const std::exception &error) {
+		AddDebugLogLineC(logClient, wxString("Upload read coordinator failed: ") + error.what());
+		m_bRun = false;
+	}
+	if (m_pool) {
+		m_pool->Stop();
+		DrainCompletions(false);
+		m_pool.reset();
+	}
+	// Shutdown only: no shared lock is held, and workers no longer access handles.
+	m_listOpenFiles.clear();
+	return nullptr;
+}
+
+void CUploadDiskIOThread::DrainCompletions(bool deliver)
+{
+	for (;;) {
+		auto completed = m_pool->TakeCompleted();
+		if (!completed.job) {
+			return;
+		}
+		auto *req = completed.job.release();
+		m_pendingClients.erase(req->clientId);
+		if (deliver && req->result == READ_DEFERRED) {
+			// File completion may briefly park a request. Worker completion wakes must
+			// not turn that condition into a tight resubmission loop.
+			m_retryAfter[req->clientId] = GetTickCount64() + 500;
+		}
+		if (completed.error) {
+			AddDebugLogLineC(logClient, "Upload read worker failed with an unexpected exception");
+		}
+		if (!deliver || req->closeOnly) {
+			DiscardRequest(req);
+		} else if (CommitRead(req, completed.error ? READ_FAILED : req->result)) {
+			ReadCompletionRoutine(req);
+		}
+	}
+}
+
+void CUploadDiskIOThread::QueueIdleCloses()
+{
+	const uint64 now = GetTickCount64();
+	for (auto it = m_listOpenFiles.end(); it != m_listOpenFiles.begin() && m_pool->HasCapacity();) {
+		--it;
+		const auto &file = *it;
+		if (file.use_count() == 1 &&
+			(m_needCacheSlot || now - file->lastRead >= 1000 * MAX_IDLE_OPEN_FILE_SECONDS)) {
+			auto req = std::make_unique<ReadRequest_Struct>();
+			req->closeOnly = true;
+			req->pFileStruct = file;
+			req->storage = file->storage;
+			if (m_pool->Submit(req->storage, req)) {
+				it = m_listOpenFiles.erase(it);
+				m_needCacheSlot = false;
+			}
+		}
+	}
 }
 
 // Returns the next block to read for this client, or nullptr if there is none or it is enough
 // blocks ahead already.
-ReadRequest_Struct *CUploadDiskIOThread::PrepareRead(uint32 clientId)
+std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clientId)
 {
 	wxMutexLocker uploadLock(theApp->uploadqueue->GetUploadingListLock());
 	CUpDownClient *client = theApp->uploadqueue->FindUploadingClient(clientId);
-	if (client == nullptr || client->GetSocket() == nullptr || !client->IsConnected()) {
+	if (client == nullptr || client->m_bIOError || client->GetSocket() == nullptr ||
+		!client->IsConnected()) {
 		return nullptr;
 	}
 	wxMutexLocker lockBlockLists(client->m_blockListLock);
@@ -243,7 +303,7 @@ ReadRequest_Struct *CUploadDiskIOThread::PrepareRead(uint32 clientId)
 		if (currentblock->EndOffset > srcfile->GetFileSize()) {
 			throw wxString(CFormat("Asked for data up to %d beyond end of file (%d)") %
 				       currentblock->EndOffset % srcfile->GetFileSize());
-		} else if (currentblock->StartOffset > currentblock->EndOffset) {
+		} else if (currentblock->StartOffset >= currentblock->EndOffset) {
 			throw wxString(CFormat("Asked for invalid block (start %d > end %d)") %
 				       currentblock->StartOffset % currentblock->EndOffset);
 		}
@@ -254,7 +314,8 @@ ReadRequest_Struct *CUploadDiskIOThread::PrepareRead(uint32 clientId)
 				       (EMBLOCKSIZE * 3));
 		}
 
-		ReadRequest_Struct *req = new ReadRequest_Struct;
+		auto req = std::make_unique<ReadRequest_Struct>();
+		req->session = client->m_uploadReadSession;
 		req->clientId = clientId;
 		md4cpy(req->ucMD4FileHash, currentblock->FileID);
 		req->uStartOffset = currentblock->StartOffset;
@@ -264,7 +325,6 @@ ReadRequest_Struct *CUploadDiskIOThread::PrepareRead(uint32 clientId)
 			CPartFile *srcPartFile = static_cast<CPartFile *>(srcfile);
 			if (!srcPartFile->IsComplete(
 				    currentblock->StartOffset, currentblock->EndOffset - 1)) {
-				delete req;
 				throw wxString(CFormat("Asked for incomplete block (%d - %d)") %
 					       currentblock->StartOffset % (currentblock->EndOffset - 1));
 			}
@@ -272,60 +332,44 @@ ReadRequest_Struct *CUploadDiskIOThread::PrepareRead(uint32 clientId)
 			// uploadLock to drop the file's uploaders before it waits for the pins.
 			++srcPartFile->m_pendingUploadReads;
 			req->pPartFile = srcPartFile;
+			req->path = srcPartFile->GetFullName();
 		} else {
 			req->path = srcfile->GetFilePath().JoinPaths(srcfile->GetFileName());
 		}
 
-		// Find or create the file's OpenFile_Struct here, before the read, so its cached
-		// handle exists when ReadBlock needs it.
-		// Applies to part-file requests too: ReadCompletionRoutine needs the hash and
-		// bCompress regardless; only complete files ever open the cached handle.
-		OpenFile_Struct *pFileStruct = nullptr;
-		for (std::list<OpenFile_Struct *>::iterator it = m_listOpenFiles.begin();
-			it != m_listOpenFiles.end();
-			++it) {
-			if (md4cmp((*it)->ucMD4FileHash, req->ucMD4FileHash) == 0) {
-				pFileStruct = *it;
-				// LRU touch: front is most recently used.
+		wxString path = req->path.GetRaw();
+#ifdef __WINDOWS__
+		path.Replace("\\", "/");
+		path = path.Lower();
+#endif
+#ifdef __WINDOWS__
+		req->storage = m_storageMap.Lookup(path.ToStdString(wxConvUTF8), true);
+#else
+		req->storage = m_storageMap.Lookup(path.ToStdString(wxConvUTF8));
+#endif
+		for (auto it = m_listOpenFiles.begin(); it != m_listOpenFiles.end(); ++it) {
+			if ((*it)->path.GetRaw() == req->path.GetRaw() && (*it)->storage == req->storage &&
+				md4cmp((*it)->ucMD4FileHash, req->ucMD4FileHash) == 0) {
+				req->pFileStruct = *it;
 				m_listOpenFiles.splice(m_listOpenFiles.begin(), m_listOpenFiles, it);
 				break;
 			}
 		}
-		if (pFileStruct == nullptr) {
-			pFileStruct = new OpenFile_Struct;
-			md4cpy(pFileStruct->ucMD4FileHash, req->ucMD4FileHash);
-			pFileStruct->nInUse = 0;
-			pFileStruct->bCompress = IsUploadCompressible(srcfile->GetFileName());
-			pFileStruct->uFileSize = (uint64)srcfile->GetFileSize();
-			m_listOpenFiles.push_front(pFileStruct);
-		}
-		// Moved or renamed since the handle was opened.
-		if (pFileStruct->file.IsOpened() && pFileStruct->file.GetFilePath() != req->path) {
-			pFileStruct->file.Close();
-		}
-		pFileStruct->nInUse++;
-		pFileStruct->lastRead = TheTime;
-		req->pFileStruct = pFileStruct;
-
-		// Enforce the handle-cache cap: evict the least recently used idle struct.
-		// Deleting the struct closes its cached handle. If every struct is in use, the
-		// cap is exceeded temporarily until some read completes.
-		while (m_listOpenFiles.size() > MAX_CACHED_OPEN_FILES) {
-			bool evicted = false;
-			for (std::list<OpenFile_Struct *>::iterator it = m_listOpenFiles.end();
-				it != m_listOpenFiles.begin();) {
-				--it;
-				if ((*it)->nInUse == 0) {
-					delete *it;
-					m_listOpenFiles.erase(it);
-					evicted = true;
-					break;
-				}
-			}
-			if (!evicted) {
-				break;
+		if (!req->pFileStruct) {
+			req->pFileStruct = std::make_shared<OpenFile_Struct>();
+			auto &file = *req->pFileStruct;
+			md4cpy(file.ucMD4FileHash, req->ucMD4FileHash);
+			file.path = req->path;
+			file.storage = req->storage;
+			file.bCompress = IsUploadCompressible(srcfile->GetFileName());
+			if (!req->pPartFile && m_listOpenFiles.size() < MAX_CACHED_OPEN_FILES) {
+				file.cached = true;
+				m_listOpenFiles.push_front(req->pFileStruct);
+			} else if (!req->pPartFile) {
+				m_needCacheSlot = true;
 			}
 		}
+		req->pFileStruct->lastRead = GetTickCount64();
 		return req;
 	} catch (const wxString &DEBUG_ONLY(error)) {
 		AddDebugLogLineN(logClient,
@@ -340,12 +384,29 @@ ReadRequest_Struct *CUploadDiskIOThread::PrepareRead(uint32 clientId)
 // pinned part file's ReadData and GetStatus.
 CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struct *req)
 {
-	uint32 togo = (uint32)(req->uEndOffset - req->uStartOffset);
+	// Pins and uncached handles are released on this worker even when allocation,
+	// opening or reading throws; the coordinator never waits for that filesystem.
+	struct Cleanup
+	{
+		ReadRequest_Struct *req;
+		~Cleanup()
+		{
+			req->ReleasePartFile();
+			if (!req->pFileStruct->cached || req->closeOnly) {
+				req->pFileStruct->file.Close();
+			}
+		}
+	} cleanup{ req };
+	if (req->closeOnly) {
+		return READ_OK;
+	}
+	CFileArea area;
+	const uint32 togo = static_cast<uint32>(req->uEndOffset - req->uStartOffset);
 	ReadResult result = READ_OK;
 	try {
 		if (req->pPartFile != nullptr) {
 			bool handleClosed = false;
-			if (!req->pPartFile->ReadData(req->area, req->uStartOffset, togo, &handleClosed)) {
+			if (!req->pPartFile->ReadData(area, req->uStartOffset, togo, &handleClosed)) {
 				// A closed handle means PerformFileComplete got there first: the download
 				// finished and the file is on its way to Incoming. That is not this
 				// client's fault, and an error would set m_bIOError and have
@@ -377,7 +438,7 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 					if (!file.IsOpened() && !file.Open(req->path, CFile::read, true)) {
 						result = READ_OPEN_FAILED;
 					} else {
-						req->area.ReadAt(file, req->uStartOffset, togo);
+						area.ReadAt(file, req->uStartOffset, togo);
 					}
 					break;
 				} catch (const CIOFailureException &) {
@@ -389,10 +450,12 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 			}
 		}
 		if (result == READ_OK) {
-			// An mmap read only maps the range: fault it in now, so the disk reads and any
-			// SIGBUS error happen here, where CheckError sees them, not while packing.
-			req->area.Prefault();
-			req->area.CheckError();
+			// An mmap read only maps the range: fault it in on the worker so filesystem
+			// reads and SIGBUS handling cannot stall the coordinator while it builds packets.
+			area.Prefault();
+			area.CheckError();
+			// Copy into owned memory so later packet construction cannot fault file pages.
+			req->data.assign(area.GetBuffer(), area.GetBuffer() + togo);
 		}
 	} catch (const CIOFailureException &error) {
 		AddDebugLogLineC(logClient, "CUploadDiskIOThread: IO failure: " + error.what());
@@ -400,10 +463,6 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 	} catch (const CEOFException &) {
 		AddDebugLogLineN(logClient, "CUploadDiskIOThread: EOF reading block");
 		result = READ_FAILED;
-	}
-	if (req->pPartFile != nullptr) {
-		--req->pPartFile->m_pendingUploadReads;
-		req->pPartFile = nullptr;
 	}
 	return result;
 }
@@ -421,11 +480,6 @@ bool CUploadDiskIOThread::CommitRead(ReadRequest_Struct *req, ReadResult result)
 	wxMutexLocker lockBlockLists(client->m_blockListLock);
 
 	CKnownFile *srcfile = theApp->sharedfiles->GetFileByID(CMD4Hash(req->ucMD4FileHash));
-	if (result == READ_OPEN_FAILED && srcfile != nullptr) {
-		AddLogLineN(CFormat(_("Failed to open file (%s), removing from list of shared files.")) %
-			    srcfile->GetFileName());
-		theApp->sharedfiles->RemoveFile(srcfile);
-	}
 
 	// The lists are cleared only after the client leaves the upload list, so a client
 	// that has left and come back while the read ran may have a different block in front.
@@ -433,12 +487,19 @@ bool CUploadDiskIOThread::CommitRead(ReadRequest_Struct *req, ReadResult result)
 	// Checked before the error below: a stale read must not fail the client's new session.
 	Requested_Block_Struct *currentblock =
 		client->m_BlockRequests_queue.empty() ? nullptr : client->m_BlockRequests_queue.front();
-	if (currentblock == nullptr || md4cmp(currentblock->FileID, req->ucMD4FileHash) != 0 ||
+	if (client->m_uploadReadSession != req->session || currentblock == nullptr ||
+		md4cmp(currentblock->FileID, req->ucMD4FileHash) != 0 ||
 		md4cmp(currentblock->FileID, client->GetUploadFileID().GetHash()) != 0 ||
 		currentblock->StartOffset != req->uStartOffset ||
 		currentblock->EndOffset != req->uEndOffset) {
 		DiscardRequest(req);
 		return false;
+	}
+
+	if (result == READ_OPEN_FAILED && srcfile != nullptr) {
+		AddLogLineN(CFormat(_("Failed to open file (%s), removing from list of shared files.")) %
+			    srcfile->GetFileName());
+		theApp->sharedfiles->RemoveFile(srcfile);
 	}
 
 	if (result != READ_OK || srcfile == nullptr) {
@@ -477,7 +538,6 @@ void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 	bool useCompression = false;
 	uint32 dataRate = 0;
 	const CClientTCPSocket *packedFor = nullptr;
-	uint64 sessionStart = 0;
 	{
 		wxMutexLocker uploadLock(theApp->uploadqueue->GetUploadingListLock());
 		CUpDownClient *client = theApp->uploadqueue->FindUploadingClient(req->clientId);
@@ -505,7 +565,6 @@ void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 			}
 			dataRate = client->GetUploadDatarate();
 			packedFor = pSocket;
-			sessionStart = client->GetUpStartTime();
 		}
 	}
 
@@ -513,7 +572,7 @@ void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 		// CommitRead set the file ID.
 		CPacketList packetList;
 		if (useCompression) {
-			UploadPacketBuilder::Packed(req->area.GetBuffer(),
+			UploadPacketBuilder::Packed(req->data.data(),
 				req->uStartOffset,
 				req->uEndOffset,
 				packetList,
@@ -521,7 +580,7 @@ void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 				dataRate,
 				&theStats::AddUpOverheadFileRequest);
 		} else {
-			UploadPacketBuilder::Standard(req->area.GetBuffer(),
+			UploadPacketBuilder::Standard(req->data.data(),
 				req->uStartOffset,
 				req->uEndOffset,
 				packetList,
@@ -536,14 +595,18 @@ void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 			wxMutexLocker uploadLock(theApp->uploadqueue->GetUploadingListLock());
 			CUpDownClient *client = theApp->uploadqueue->FindUploadingClient(req->clientId);
 			CClientTCPSocket *pSocket = client ? client->GetSocket() : nullptr;
-			if (client != nullptr && pSocket == packedFor && client->IsConnected() &&
-				client->GetUpStartTime() == sessionStart) {
-				for (const auto &packet : packetList) {
-					theStats::AddUploadToSoft(client->GetClientSoft(), packet.second);
-					pSocket->SendPacket(packet.first, true, false, packet.second);
+			if (client != nullptr && pSocket == packedFor && client->IsConnected()) {
+				// A slot can be reused while packets are built. Keep the read session
+				// stable from this final check until every packet reaches the socket.
+				wxMutexLocker lockBlockLists(client->m_blockListLock);
+				if (client->m_uploadReadSession == req->session) {
+					for (const auto &packet : packetList) {
+						theStats::AddUploadToSoft(client->GetClientSoft(), packet.second);
+						pSocket->SendPacket(packet.first, true, false, packet.second);
+					}
+					packetList.clear();
+					signalThrottler = true;
 				}
-				packetList.clear();
-				signalThrottler = true;
 			} else {
 				AddDebugLogLineN(logClient,
 					"CUploadDiskIOThread::ReadCompletionRoutine: Client left or "
@@ -558,34 +621,13 @@ void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 	if (signalThrottler && theApp->uploadBandwidthThrottler != nullptr) {
 		theApp->uploadBandwidthThrottler->NewUploadDataAvailable();
 	}
-	ReleaseOpenFile(req->pFileStruct);
 	delete req;
 }
 
-// Frees an uncommitted request, releasing the OpenFile_Struct that PrepareRead pinned for it.
+// The request owns its snapshot, buffer and file pin until completion/discard.
 void CUploadDiskIOThread::DiscardRequest(ReadRequest_Struct *req)
 {
-	if (req->pFileStruct != nullptr) {
-		ReleaseOpenFile(req->pFileStruct);
-	}
 	delete req;
-}
-
-// eMule ref: CUploadDiskIOThread::ReleaseOvOpenFile()
-//
-// Decrement nInUse only: structs are not erased at nInUse == 0, are kept for the handle cache.
-// They are freed by LRU eviction in PrepareRead, or by the shutdown loop in Entry();
-// Deleting a struct closes its cached handle.
-bool CUploadDiskIOThread::ReleaseOpenFile(OpenFile_Struct *pFileStruct)
-{
-	for (OpenFile_Struct *openFile : m_listOpenFiles) {
-		if (openFile == pFileStruct) {
-			pFileStruct->nInUse--;
-			return true;
-		}
-	}
-	wxASSERT(false);
-	return false;
 }
 
 // File_checked_for_headers

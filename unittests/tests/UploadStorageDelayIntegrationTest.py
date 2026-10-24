@@ -123,7 +123,7 @@ def run(binary, fixture, case):
         release_r, release_w = os.pipe()
         arm = root / 'armed'
         env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8',
-                   LD_PRELOAD=fixture, AMULE_TEST_READ_PATH=str(delayed_path),
+                   LD_PRELOAD=os.pathsep.join(filter(None, (os.getenv('AMULE_TEST_PRELOAD_RUNTIME'), fixture))), AMULE_TEST_READ_PATH=str(delayed_path),
                    AMULE_TEST_READ_ARM=str(arm), AMULE_TEST_READ_NOTIFY_FD=str(notify_w),
                    AMULE_TEST_READ_RELEASE_FD=str(release_r))
         peers = []
