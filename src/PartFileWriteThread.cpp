@@ -81,7 +81,7 @@ std::string IdentifyWriteVolume(ToWrite &write)
 #else
 	wxStructStat info{};
 	if (wxStat(path.GetRaw(), &info) == 0) {
-		volume = "device:" + std::to_string(info.st_dev);
+		volume = "device:" + std::to_string(static_cast<uint64_t>(info.st_dev));
 	}
 #endif
 	write.session->volume = volume;
@@ -175,6 +175,21 @@ bool CPartFileWriteThread::PrepareFile(CPartFile *file)
 	auto &session = file->m_writeSession;
 	if (session->ready) {
 		return true;
+	}
+	// POSIX open/create already sampled fstat for the known file size. Reuse
+	// its descriptor identity without issuing another provider call. In
+	// particular, four cold files on a hung mount cannot consume all workers
+	// merely to rediscover a device that was known when they opened.
+	if (!session->preparing) {
+		const auto identity = file->m_hpartfile.GetKnownStorageIdentity();
+		if (!identity.empty()) {
+			session->volume = identity;
+			session->spacePath = file->m_PartPath;
+			WriteBufferBudget::Get().Identify(
+				file->m_PartPath.GetRaw().ToStdString(wxConvUTF8), identity);
+			session->ready = true;
+			return true;
+		}
 	}
 	if (!session->preparing.exchange(true)) {
 		m_sessions[file] = session;
