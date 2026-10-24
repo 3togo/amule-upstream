@@ -133,6 +133,7 @@ void CEMSocket::ClearQueues()
 	}
 
 	m_uploadRefill.Clear();
+	m_readLatency.Reset();
 
 	// Download rate control: see header.
 	pendingOnReceive = false;
@@ -452,14 +453,22 @@ uint32 CEMSocket::UpdateUploadBufferTarget(uint32 wireRate)
 	std::lock_guard<std::mutex> lock(m_sendLocker);
 	// Compressed data consumes source payload faster than its wire rate. Sample
 	// original payload completions; the client rate supplies conservative warmup.
-	const uint32 payload = UploadBufferTarget(
-		std::max(wireRate, m_uploadRefill.PayloadRate(GetTickCount64())), EMBLOCKSIZE);
+	const uint32 payload =
+		UploadBufferTarget(std::max(wireRate, m_uploadRefill.PayloadRate(GetTickCount64())),
+			EMBLOCKSIZE,
+			m_readLatency.Milliseconds());
 	if (m_uploadRefill.SetTarget(payload) && theApp->uploadDiskIOThread) {
 		// A growing target may need a fresh pass without another crossing of the
 		// previous threshold.
 		theApp->uploadDiskIOThread->SocketNeedsMoreData();
 	}
 	return payload;
+}
+
+void CEMSocket::ObserveUploadReadLatency(uint64 milliseconds)
+{
+	std::lock_guard<std::mutex> lock(m_sendLocker);
+	m_readLatency.Observe(milliseconds);
 }
 
 uint64 CEMSocket::UploadRefillDeadline(uint32 wireRate)

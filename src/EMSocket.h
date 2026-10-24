@@ -92,6 +92,7 @@ public:
 	uint64 PeekSentPayload(); // Non-resetting peek -- for disk I/O thread buffer check
 	uint32 UpdateUploadBufferTarget(uint32 wireRate);
 	uint64 UploadRefillDeadline(uint32 wireRate);
+	void ObserveUploadReadLatency(uint64 milliseconds);
 	uint64 QueuedUploadPayload() const;
 	UploadPipelinePressure::Socket UploadPressureSnapshot() const;
 	const std::shared_ptr<UploadBufferBudget::Account> &UploadBufferAccount() const
@@ -200,6 +201,7 @@ private:
 
 	mutable std::mutex m_sendLocker;
 	UploadRefill m_uploadRefill;
+	UploadReadLatency m_readLatency;
 	const std::shared_ptr<UploadBufferBudget::Account> m_uploadBufferAccount =
 		std::make_shared<UploadBufferBudget::Account>();
 	UploadBufferBudget::Lease m_uploadBufferReservation;

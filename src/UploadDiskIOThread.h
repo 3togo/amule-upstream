@@ -91,6 +91,7 @@ struct ReadRequest_Struct
 	bool discoverNetwork = true;
 	UploadReadTiming timing;
 	uint64 refillDeadline = 0;
+	uint64 admittedMs = 0;
 	bool identityChanged = false;
 };
 
@@ -120,7 +121,7 @@ private:
 	void DrainCompletions(bool deliver);
 	void QueueIdleCloses();
 	void ReportDiagnostics(bool final = false);
-	std::unique_ptr<ReadRequest_Struct> PrepareRead(uint32 clientId);
+	std::unique_ptr<ReadRequest_Struct> PrepareRead(uint32 clientId, uint64 sweepNow);
 	static ReadResult ReadBlock(ReadRequest_Struct *req);
 	bool CommitRead(ReadRequest_Struct *req, ReadResult result);
 	bool ReadCompletionRoutine(ReadRequest_Struct *req); // true if payload was queued

@@ -340,7 +340,7 @@ successful build or ordinary two-volume transfer as an isolation test.
 
 Time-based upload buffering
 ---------------------------
-UploadBufferingTest exercises the two-second read-ahead target (at least one
+UploadBufferingTest exercises the latency-adaptive read-ahead target (at least one
 block plus a byte, at most 4 MiB), overflow-safe rate arithmetic, per-socket and
 global admission, tiny-request overhead, concurrent release, and ownership after
 the coordinator disappears. Existing upload integration cases cover normal and
@@ -363,8 +363,15 @@ These are conservative application-buffer charges, not a process-RSS limit.
 Allocator bookkeeping, short rate history, fixed compressor workspaces, file-handle caches,
 transport buffers and kernel TCP buffers are outside these counters. A request
 may overshoot the time target, but admission still requires room under both
-charge limits. Two seconds is bounded read-ahead, not a promise to hide longer
-storage stalls or compensate for a peer's small protocol request window.
+charge limits. The target is payload consumption rate times observed admission-to-
+packet-handoff latency, plus 50% (at least 100 ms) and one block. It starts from a
+250 ms estimate, rises immediately on slow completions and decays gradually on
+faster ones. Successful current-session deliveries supply one completion-sweep
+timestamp; failures, deferred reads and stale sessions do not train the estimate.
+This functional measurement remains active with diagnostics disabled; it does
+not enable optional per-read diagnostic clocks. Samples are bounded to ten seconds
+and the target retains its 4 MiB cap. Bounded read-ahead cannot hide every storage
+stall or compensate for a peer's small protocol request window.
 
 Upload storage diagnostics (debug builds)
 ----------------------------------------
