@@ -3582,8 +3582,12 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 		// map node. Preserve its successor before modifying the gap list.
 		++gap;
 		if (assembly == nullptr) {
+			// Requested_Block_Struct is packed; do not forward references to
+			// its possibly unaligned offset fields through make_unique.
+			const uint64 requestedStart = block->StartOffset;
+			const uint64 requestedEnd = block->EndOffset;
 			auto item = std::make_unique<PartFileBufferedData>(
-				block->StartOffset, block->EndOffset, credit->second);
+				requestedStart, requestedEnd, credit->second);
 			InsertPartFileBufferedWrite(m_BufferedData_list, item.get());
 			assembly = item.release();
 		}
