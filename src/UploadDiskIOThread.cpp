@@ -675,7 +675,8 @@ bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 				wxMutexLocker lockBlockLists(client->m_blockListLock);
 				if (client->m_uploadReadSession == req->session) {
 					for (const auto &packet : packetList) {
-						theStats::AddUploadToSoft(client->GetClientSoft(), packet.second);
+						theStats::AddUploadToSoft(
+							client->GetClientSoft(), packet.second);
 						pSocket->SendPacket(packet.first, true, false, packet.second);
 					}
 					packetList.clear();

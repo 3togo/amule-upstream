@@ -412,7 +412,7 @@ int CamuleApp::OnExit()
 	if (uploadDiskIOThread) {
 		uploadDiskIOThread->EndThread();
 		delete uploadDiskIOThread;
-		uploadDiskIOThread = NULL;
+		uploadDiskIOThread = nullptr;
 	}
 
 	delete serverlist;

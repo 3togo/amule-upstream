@@ -12,15 +12,17 @@ import argparse
 import os
 from pathlib import Path
 import select
+import struct
 import subprocess
 import tempfile
 import time
+import zlib
 
 from AllSearchIntegrationTest import connect_daemon, free_ports, retry_port_collisions, stop_daemon
 from DaemonConfig import write_amule_conf
 from ShareWatcherMoveIntegrationTest import shared
 from UploadStorageDelayIntegrationTest import BLOCK, Peer, wait_read
-from UploadRefillIntegrationTest import send
+from UploadRefillIntegrationTest import packet, send
 
 
 def run(binary, fixture, stage):
@@ -30,8 +32,11 @@ def run(binary, fixture, stage):
         for path in (incoming, slow, alias, root / 'Temp'):
             path.mkdir()
         bad_data = [os.urandom((6 if stage == 'fairness' else 1) * BLOCK) for _ in range(4)]
+        if stage == 'packet-session':
+            bad_data[0] = os.urandom(4096) * (2 * BLOCK // 4096)
+        slow_name = 'bad-0.txt' if stage == 'packet-session' else 'bad-0.bin'
         for index, data in enumerate(bad_data):
-            ((slow if index < 2 else alias) / f'bad-{index}.bin').write_bytes(data)
+            ((slow if index < 2 else alias) / (slow_name if index == 0 else f'bad-{index}.bin')).write_bytes(data)
         healthy_data = os.urandom((7 if stage == 'fairness' else 3) * BLOCK)
         (incoming / 'healthy.bin').write_bytes(healthy_data)
         (root / 'shareddir.dat').write_text(f'{slow}\n{alias}\n')
@@ -58,6 +63,9 @@ def run(binary, fixture, stage):
         if stage == 'discovery':
             env['AMULE_TEST_READ_STAGE'] = 'discovery'
             env['AMULE_TEST_READ_PATH'] = '/proc/self/mountinfo'
+        if stage == 'packet-session':
+            env['AMULE_TEST_READ_STAGE'] = 'pack'
+            env['AMULE_TEST_READ_PATH'] = 'upload-packet-build'
         peers = []
         ec = proc = None
         with (root / 'console.log').open('w') as log:
@@ -76,9 +84,11 @@ def run(binary, fixture, stage):
                         break
                     assert time.monotonic() < deadline, f'shares missing: {files}'
                     time.sleep(0.05)
-                bad_count = 1 if stage in ('session', 'shutdown', 'discovery') else (2 if stage == 'fairness' else 4)
+                bad_count = 1 if stage in ('session', 'packet-session', 'shutdown', 'discovery') else (2 if stage == 'fairness' else 4)
                 for index in range(bad_count):
-                    peers.append(Peer(peer_port, index, files[f'bad-{index}.bin']))
+                    peers.append(Peer(peer_port, index,
+                                      files[slow_name if index == 0 else f'bad-{index}.bin'],
+                                      compress=stage == 'packet-session'))
                 peers.append(Peer(peer_port, bad_count, files['healthy.bin']))
                 healthy = peers[bad_count]
                 probe = (6 * BLOCK, 7 * BLOCK) if stage == 'fairness' else (BLOCK, 2 * BLOCK)
@@ -95,6 +105,36 @@ def run(binary, fixture, stage):
                     peers[0].receive((0, BLOCK), bad_data[0])
                     os.write(release_w, b'R')
                     print('discovery: uploads continued while storage discovery was held')
+                    return
+                if stage == 'packet-session':
+                    busy = peers[0]
+                    busy.request([(0, BLOCK)])
+                    wait_read(notify_r, BLOCK)  # first block is being compressed
+                    # The main thread must be able to reuse the same client/socket
+                    # while the coordinator builds the old session's packets.
+                    send(busy.sock, 0x56, b'')
+                    busy.barrier()
+                    send(busy.sock, 0x54, busy.file_hash)
+                    busy.until(0x55)
+                    busy.request([(BLOCK, 2 * BLOCK)])
+                    busy.barrier()
+                    os.write(release_w, b'R')
+                    wait_read(notify_r, BLOCK)  # new session's block is now being packed
+                    os.write(release_w, b'R')
+                    proto, opcode, data = packet(busy.sock)
+                    assert (proto, opcode) == (0xc5, 0x40), 'expected a compressed upload block'
+                    assert data[:16] == busy.file_hash, 'wrong upload file'
+                    start, packed_size = struct.unpack_from('<II', data, 16)
+                    assert start == BLOCK, 'old session block sent after packet construction'
+                    packed = data[24:]
+                    while len(packed) < packed_size:
+                        proto, opcode, data = packet(busy.sock)
+                        assert (proto, opcode) == (0xc5, 0x40), 'expected compressed continuation'
+                        assert data[:24] == busy.file_hash + struct.pack('<II', start, packed_size)
+                        packed += data[24:]
+                    assert len(packed) == packed_size, 'compressed length differs'
+                    assert zlib.decompress(packed) == bad_data[0][BLOCK:2 * BLOCK], 'upload data differs'
+                    print('packet-session: slot reused while packing; old packets discarded, new payload verified')
                     return
                 expected = (1 << 64) - 1 if stage == 'open' else 0
                 peers[0].request([(0, BLOCK)])
@@ -194,7 +234,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('binary')
     parser.add_argument('fixture')
-    parser.add_argument('--stage', choices=('read', 'open', 'session', 'shutdown', 'fairness', 'discovery'))
+    parser.add_argument('--stage', choices=('read', 'open', 'session', 'packet-session', 'shutdown', 'fairness', 'discovery'))
     args = parser.parse_args()
-    for stage in ([args.stage] if args.stage else ('read', 'open', 'session', 'shutdown', 'fairness', 'discovery')):
+    for stage in ([args.stage] if args.stage else ('read', 'open', 'session', 'packet-session', 'shutdown', 'fairness', 'discovery')):
         retry_port_collisions(run, str(Path(args.binary).resolve()), str(Path(args.fixture).resolve()), stage)

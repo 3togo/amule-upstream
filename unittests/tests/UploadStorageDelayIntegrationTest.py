@@ -25,7 +25,7 @@ from UploadRefillIntegrationTest import BLOCK, packet, send
 
 
 class Peer:
-    def __init__(self, port, index, file_hash):
+    def __init__(self, port, index, file_hash, compress=False):
         self.file_hash = file_hash
         self.sock = socket.socket()
         try:
@@ -35,8 +35,11 @@ class Peer:
             self.sock.connect(('127.0.0.1', port))
             name = f'storage-delay-{index}'.encode()
             tag = b'\x02\x01\x00\x01' + struct.pack('<H', len(name)) + name
+            if compress:
+                tag += (b'\x03\x01\x00\xfa' + struct.pack('<I', 1 << 20)
+                        + b'\x03\x01\x00\xfb' + struct.pack('<I', 50 << 10))
             hello = (b'\x10' + hashlib.md5(name).digest() + socket.inet_aton(address)
-                     + struct.pack('<HI', self.sock.getsockname()[1], 1) + tag + bytes(6))
+                     + struct.pack('<HI', self.sock.getsockname()[1], 3 if compress else 1) + tag + bytes(6))
             send(self.sock, 0x01, hello)
             self.until(0x4c)
             send(self.sock, 0x4f, file_hash)
