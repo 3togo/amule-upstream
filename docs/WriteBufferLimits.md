@@ -23,8 +23,9 @@ share conservative capacity until discovery succeeds. Identity and free-space
 paths are retained for the file session; replacing/remounting an open backing
 file is not dynamically reclassified.
 
-Four workers run at most one batch per resolved volume. A batch contains up to
-64 buffers. Admission allows 4,096 data jobs globally and 1,024 per volume, plus
+Four workers run at most one batch per resolved volume. A service turn contains
+up to 16 jobs and 1 MiB, with a single larger existing job remaining indivisible.
+Admission allows 4,096 data jobs globally and 1,024 per volume, plus
 64 separate discovery jobs; at most two workers perform discovery concurrently.
 These independent discovery allowances and oldest-eligible scheduling let a
 cold healthy file identify its volume even while resolved volumes replenish
@@ -46,9 +47,9 @@ requested responses remain admissible. Empty pipelines retry on download ticks
 after writes drain; disk pressure does not trigger the no-needed-parts takeover.
 
 These limits bound admitted payload, including network responses still owed.
-They do not bound total process RSS, packet/decompression scratch space, buffer
-metadata, mapped pages, or the operating system's page cache. This stage adds
-write-worker isolation; it does not add write coalescing or a read cache.
+The request and snapshot limits described below also bound cache-owned metadata.
+They do not bound total process RSS, packet/decompression scratch space, mapped
+pages, or the operating system's page cache.
 
 
 Adjacent heap-backed fragments from the same file are flushed with one bounded
