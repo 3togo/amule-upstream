@@ -98,12 +98,12 @@ private:
 		READ_OPEN_FAILED
 	};
 
-	// Prepare, read, commit and deliver each block before starting another read.
-	bool StartCreateNextBlockPackage(uint32 clientId); // eMule ref: line 185
+	// Prepare/read/commit a client turn, then deliver its batch before the next client.
+	bool StartCreateNextBlockPackage(uint32 clientId, bool &dataQueued); // eMule ref: line 185
 	ReadRequest_Struct *PrepareRead(uint32 clientId);
 	static ReadResult ReadBlock(ReadRequest_Struct *req);
 	bool CommitRead(ReadRequest_Struct *req, ReadResult result);
-	void ReadCompletionRoutine(ReadRequest_Struct *req); // eMule ref: line 369
+	bool ReadCompletionRoutine(ReadRequest_Struct *req); // eMule ref: line 369
 	void DiscardRequest(ReadRequest_Struct *req);        // frees a req never committed
 	bool ReleaseOpenFile(OpenFile_Struct *pFileStruct);  // eMule ref: line 498, decrement-only
 
@@ -120,7 +120,7 @@ private:
 	// LRU handle cache: front is most recently used, idle structs (nInUse == 0) are evicted
 	// from the back once the list exceeds MAX_CACHED_OPEN_FILES. eMule ref: line 83.
 	std::list<OpenFile_Struct *> m_listOpenFiles;
-	// Reads are synchronous and delivered immediately; no pending or finished read lists.
+	// Completed reads are batched per client turn; no global finished-read list.
 };
 
 #endif

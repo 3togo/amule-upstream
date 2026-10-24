@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 aMule Team
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Gate actual upload reads and verify prompt delivery and fair client turns.
+"""Gate actual upload reads and verify delivery between client turns.
 
 Linux only. The preload fixture blocks each read of one shared file until the
 parent releases it. Assertions run while the following read is held, so success
@@ -110,8 +110,8 @@ def run(binary, fixture, case):
         incoming = root / 'Incoming'
         incoming.mkdir()
         (root / 'Temp').mkdir()
-        content = os.urandom(offset)
-        healthy = os.urandom(2 * BLOCK)
+        content = os.urandom(4 * BLOCK)
+        healthy = os.urandom(offset)
         delayed_path = incoming / 'delayed.bin'
         delayed_path.write_bytes(content)
         (incoming / 'healthy.bin').write_bytes(healthy)
@@ -145,35 +145,36 @@ def run(binary, fixture, case):
                         break
                     assert time.monotonic() < deadline, 'shared files were not hashed'
                     time.sleep(0.05)
-                # Both slots must exist before the first read snapshots the upload list.
-                peers.append(Peer(peer_port, 0, files['delayed.bin']))
-                peers.append(Peer(peer_port, 1, files['healthy.bin']))
-                busy, other = peers
-                # A completed probe proves the disk worker has already observed both
-                # slots; an older snapshot containing only the busy slot cannot remain.
-                other.request([(BLOCK, 2 * BLOCK)])
-                other.receive((BLOCK, 2 * BLOCK), healthy)
+                # The healthy client precedes the gated client in every snapshot
+                # containing both slots. Use a cancelled, different block to stage
+                # the next sweep without old socket payload delaying admission.
+                peers.append(Peer(peer_port, 0, files['healthy.bin']))
+                peers.append(Peer(peer_port, 1, files['delayed.bin']))
+                other, busy = peers
                 arm.touch()
-                busy.request(ranges[:1])
+                busy.request([(0, BLOCK)])
                 wait_read(notify_r, 0)
-                # Populate both queues while the first read holds no upload-list lock.
-                busy.request(ranges[1:])
-                other.request([(0, BLOCK)])
+                send(busy.sock, 0x56)  # cancel the old upload slot
+                busy.barrier()
+                send(busy.sock, 0x54, busy.file_hash)
+                busy.until(0x55)
+                busy.request([(BLOCK, 2 * BLOCK)])
+                other.request(ranges)
                 busy.barrier()
                 other.barrier()
-                for index in range(11):
-                    os.write(release_w, b'R')
-                    wait_read(notify_r, ranges[index + 1][0])
-                    # The preceding block must arrive with the next disk read still held.
-                    # Draining it also keeps this client's queue below its refill target.
-                    busy.receive(ranges[index], content)
-                # The busy client's twelfth read is now held. The other slot must have
-                # been served in the first sweep, regardless of any request's size.
-                other.receive((0, BLOCK), healthy)
+                # The old read is rejected because its range is no longer in front.
+                # The next sweep must deliver the preceding healthy client's batch
+                # before entering the replacement read held at BLOCK.
                 os.write(release_w, b'R')
-                busy.receive(ranges[11], content)
+                wait_read(notify_r, BLOCK)
+                other.receive(ranges[0], healthy)
+                os.close(release_w)
+                release_w = None
+                for span in ranges[1:]:
+                    other.receive(span, healthy)
+                busy.receive((BLOCK, 2 * BLOCK), content)
                 assert proc.poll() is None, 'daemon exited during storage delay test'
-                print(f'{case}: prompt delivery, eleven-read turn, other slot served; payloads verified')
+                print(f'{case}: preceding client batch delivered while next client read was held; payloads verified')
             except BaseException:
                 print((root / 'console.log').read_text()[-5000:])
                 raise

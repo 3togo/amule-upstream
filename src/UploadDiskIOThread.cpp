@@ -125,8 +125,12 @@ void *CUploadDiskIOThread::Entry()
 			}
 		}
 		bool moreWork = false;
+		bool dataQueued = false;
 		for (uint32 clientId : clientIds) {
-			moreWork = StartCreateNextBlockPackage(clientId) || moreWork;
+			moreWork = StartCreateNextBlockPackage(clientId, dataQueued) || moreWork;
+		}
+		if (dataQueued && theApp->uploadBandwidthThrottler != nullptr) {
+			theApp->uploadBandwidthThrottler->NewUploadDataAvailable();
 		}
 
 		// An idle handle would block a rename or delete on Windows and an unmount everywhere.
@@ -167,25 +171,36 @@ void *CUploadDiskIOThread::Entry()
 // m_blockListLock for every block request a client sends, so neither is held across the disk
 // read. Each block is prepared under both locks, read with none, then committed under both
 // again, after checking the client and its request are still there.
-bool CUploadDiskIOThread::StartCreateNextBlockPackage(uint32 clientId)
+bool CUploadDiskIOThread::StartCreateNextBlockPackage(uint32 clientId, bool &dataQueued)
 {
-	// A sending socket can drain while we read. Bound every client's turn, including
-	// full and three-block requests, so a deep queue cannot monopolize the reader.
-	unsigned readsLeft = 11;
-	while (m_bRun && readsLeft != 0) {
+	// Retain the size-dependent sweep budget. Completed reads stay local until this
+	// client's turn ends, so their committed payload fills its send-ahead target
+	// instead of being drained concurrently and extending the turn.
+	std::vector<ReadRequest_Struct *> completed;
+	unsigned smallReadsLeft = 11;
+	while (m_bRun && smallReadsLeft != 0) {
 		ReadRequest_Struct *req = PrepareRead(clientId);
 		if (req == nullptr) {
 			break;
 		}
+		const uint64 bytes = req->uEndOffset - req->uStartOffset;
 		if (!CommitRead(req, ReadBlock(req))) {
 			break;
 		}
-		// Deliver this block and wake the throttler before another read can stall.
-		ReadCompletionRoutine(req);
-		--readsLeft;
+		if (completed.empty()) {
+			completed.reserve(11);
+		}
+		completed.push_back(req);
+		if (bytes < EMBLOCKSIZE) {
+			--smallReadsLeft;
+		}
 	}
-	// Visit the other clients, then continue without the idle wait if we used our turn.
-	return m_bRun && readsLeft == 0;
+	// Make this batch visible now; coalesce the explicit wake at sweep end.
+	// The throttler's timed loop can consume it while a later read is blocked.
+	for (ReadRequest_Struct *req : completed) {
+		dataQueued = ReadCompletionRoutine(req) || dataQueued;
+	}
+	return m_bRun && smallReadsLeft == 0;
 }
 
 // Returns the next block to read for this client, or nullptr if there is none or it is enough
@@ -461,11 +476,11 @@ bool CUploadDiskIOThread::CommitRead(ReadRequest_Struct *req, ReadResult result)
 }
 
 // eMule ref: CUploadDiskIOThread::ReadCompletetionRoutine()
-void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
+bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 {
-	if (req == NULL) {
+	if (req == nullptr) {
 		wxASSERT(false);
-		return;
+		return false;
 	}
 
 	bool signalThrottler = false;
@@ -555,11 +570,9 @@ void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 		}
 	}
 
-	if (signalThrottler && theApp->uploadBandwidthThrottler != nullptr) {
-		theApp->uploadBandwidthThrottler->NewUploadDataAvailable();
-	}
 	ReleaseOpenFile(req->pFileStruct);
 	delete req;
+	return signalThrottler;
 }
 
 // Frees an uncommitted request, releasing the OpenFile_Struct that PrepareRead pinned for it.
