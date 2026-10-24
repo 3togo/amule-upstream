@@ -22,6 +22,7 @@
 #ifndef FILEAREA_H
 #define FILEAREA_H
 
+#include <memory>
 #include "Types.h" // Needed for uint8_t
 
 class CFileAreaSigHandler;
@@ -60,6 +61,9 @@ public:
 	 * Starts a new write.
 	 */
 	void StartWriteAt(CFileAutoClose &file, uint64 offset, size_t count);
+	// Shared heap storage for immutable write snapshots. Close drops this
+	// reference; other snapshots and the request retain their ownership.
+	void ShareWriteBuffer(std::shared_ptr<uint8_t[]> buffer);
 
 	/**
 	 * Flushes data not yet written. Throws CIOFailureException on failure, retaining the
@@ -119,6 +123,7 @@ private:
 	 * at an allocated buffer to be freed.
 	 */
 	uint8_t *m_buffer;
+	std::shared_ptr<uint8_t[]> m_sharedBuffer;
 	/**
 	 * Memory mapped area, or NULL if not mapped.
 	 */

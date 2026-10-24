@@ -114,6 +114,10 @@ public:
 	// begin/end iterators for looping
 	const_iterator begin() const { return const_iterator(m_gaplist.begin()); }
 	const_iterator end() const { return const_iterator(m_gaplist.end()); }
+	const_iterator lower_bound(uint64 offset) const
+	{
+		return const_iterator(m_gaplist.lower_bound(offset));
+	}
 };
 
 #endif // GAPLIST_H

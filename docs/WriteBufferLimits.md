@@ -81,3 +81,35 @@ cached device identities match the corresponding upload discovery keys. A cold
 read which discovers a different descriptor identity defers and reacquires its
 permit before reading bytes. Native Windows/macOS behavior and HDD performance
 still require their own validation.
+
+
+A peer can send a normal 180 KiB request as thousands of tiny packets. Keeping a
+separate allocation for each packet allowed metadata to grow even when payload
+credits stayed under their limit. Reception now fills one payload allocation per
+request. Two byte-validity maps describe the worker's immutable snapshot and the
+bytes still arriving; they share that allocation and never overwrite bytes owned
+by the other snapshot. A request may have at most one snapshot queued or running
+and one mutable snapshot. Valid responses therefore retain space reserved before
+the request was sent.
+
+Admission also limits live requests to 4,096 globally and 1,024 per volume. This
+bounds allocated write snapshots to 8,192 and 2,048 respectively, independently
+of packet size. The two validity maps use at most one quarter of admitted payload
+size (16 MiB globally); partial flushes use at most 1 MiB of temporary storage per
+writer. The original 64 MiB/16 MiB payload limits are unchanged. These are bounds
+on cache-owned payload and metadata structures, not a process-RSS limit; existing
+file gap/corruption records, allocator overhead and kernel caches are separate.
+
+A partial snapshot preserves unreceived bytes with one bounded read-modify-write
+under the file mutex. It overlays only its valid bytes, and does not mark its
+holes as received. Download assemblies use heap storage so unreceived holes
+cannot be dirtied through mappings. Dense snapshots still use adjacent scatter
+writes. Failed writes retain payload, validity maps and credits. Completed and
+deferred snapshots are reaped/retried promptly; hashing waits for READY snapshots
+as well as active writes.
+
+Per-volume byte/request totals and their largest-known values update on ownership
+changes. Admission no longer scans all historical file paths. File accounts and
+empty volume indexes disappear when their last request/snapshot releases its
+credit; the live file session supplies the identity for later requests. Requests
+share a file account rather than copying its path into every lease.

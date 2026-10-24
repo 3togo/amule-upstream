@@ -33,6 +33,7 @@ class Source:
         self.hashes = b''.join(hashlib.md5(self.name + bytes([part])).digest() for part in range(7))
         self.file_hash = md4(self.hashes)
         self.compressed = compressed
+        self.size = 67108864
         self.identity = socket.socket()
         self.identity.bind((self.address, 0))
         self.peer = None
@@ -44,7 +45,7 @@ class Source:
         self.errors = []
 
     def link(self):
-        return (f'ed2k://|file|{self.name.decode()}|67108864|{self.file_hash.hex()}|'
+        return (f'ed2k://|file|{self.name.decode()}|{self.size}|{self.file_hash.hex()}|'
                 f'sources,{self.address}:{self.identity.getsockname()[1]}|/')
 
     def start(self, port):
@@ -78,7 +79,7 @@ class Source:
                         # Seven parts; the source has them all.
                         send(peer, 0x50, self.file_hash + bytes(2))
                     elif opcode == 0x51:
-                        send(peer, 0x52, self.file_hash + struct.pack('<H', 7) + self.hashes)
+                        send(peer, 0x52, self.file_hash + struct.pack('<H', len(self.hashes) // 16) + self.hashes)
                     elif opcode == 0x54:
                         send(peer, 0x55)
                     elif opcode == 0x56:
@@ -91,22 +92,25 @@ class Source:
                             self.requested += end - start
                             if self.first_start is None:
                                 self.first_start = start
-                            if self.compressed:
-                                packed = zlib.compress(b'x' * (end - start))
-                                payload = self.file_hash + struct.pack('<II', start, len(packed)) + packed
-                                peer.sendall(struct.pack('<BIB', 0xc5, len(payload) + 1, 0x40) + payload)
-                            else:
-                                # An overlapping duplicate must not allocate its bytes twice.
-                                first = min(end, start + 4096)
-                                send(peer, 0x46, self.file_hash + struct.pack('<II', start, first)
-                                     + b'x' * (first - start))
-                                for offset in range(start, end, 16384):
-                                    last = min(end, offset + 16384)
-                                    send(peer, 0x46, self.file_hash + struct.pack('<II', offset, last)
-                                         + b'x' * (last - offset))
+                            self.send_block(peer, start, end)
         except (EOFError, OSError) as error:
             if not self.stopped.is_set():
                 self.errors.append(repr(error))
+
+    def send_block(self, peer, start, end):
+        if self.compressed:
+            packed = zlib.compress(b'x' * (end - start))
+            payload = self.file_hash + struct.pack('<II', start, len(packed)) + packed
+            peer.sendall(struct.pack('<BIB', 0xc5, len(payload) + 1, 0x40) + payload)
+        else:
+            # An overlapping duplicate must not allocate its bytes twice.
+            first = min(end, start + 4096)
+            send(peer, 0x46, self.file_hash + struct.pack('<II', start, first)
+                 + b'x' * (first - start))
+            for offset in range(start, end, 16384):
+                last = min(end, offset + 16384)
+                send(peer, 0x46, self.file_hash + struct.pack('<II', offset, last)
+                     + b'x' * (last - offset))
 
 
 def wait_for(condition, timeout, detail):
@@ -192,7 +196,7 @@ def run(binary, shim, compressed):
             assert grouped, ('no adjacent fragments coalesced', writes[:30])
             assert all(count <= 16 and size <= 1024 * 1024 for count, size in grouped), grouped
             print(f'Observed {len(grouped)} vectored writes for '
-                  f'{sum(count for count, _ in grouped)} original fragments', flush=True)
+                  f'{sum(count for count, _ in grouped)} buffered ranges', flush=True)
             print(f'PASS compressed={compressed}: {settled} reserved bytes plateau under stalled '
                   'writes, no source cancellation, automatic resume after drain', flush=True)
         finally:

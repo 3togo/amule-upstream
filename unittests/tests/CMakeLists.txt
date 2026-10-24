@@ -1360,7 +1360,7 @@ target_include_directories (FileAreaTest PRIVATE
 target_link_libraries (FileAreaTest muleunit)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	set_property (TARGET FileAreaTest APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--wrap=msync -Wl,--wrap=writev")
+	set_property (TARGET FileAreaTest APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--wrap=msync -Wl,--wrap=writev -Wl,--wrap=write")
 	target_compile_definitions (FileAreaTest PRIVATE AMULE_TEST_WRAP_MSYNC=1)
 endif ()
 
@@ -3329,4 +3329,11 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND Python3_Interpreter_FOUND AND 
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/ReadWriteServiceIntegrationTest.py
 		$<TARGET_FILE:amuled> $<TARGET_FILE:UploadReadDelay> $<TARGET_FILE:WriteBufferStall>)
 	set_tests_properties (ReadWriteServiceIntegrationTest PROPERTIES TIMEOUT 90 LABELS "integration")
+endif ()
+
+if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND Python3_Interpreter_FOUND AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	add_test (NAME TinyFragmentWriteIntegrationTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/TinyFragmentWriteIntegrationTest.py
+		$<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
+	set_tests_properties (TinyFragmentWriteIntegrationTest PROPERTIES TIMEOUT 90 LABELS "integration" RUN_SERIAL TRUE)
 endif ()

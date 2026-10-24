@@ -278,11 +278,12 @@ void CPartFileWriteThread::WriteBatch(std::vector<ToWrite> &batch)
 		std::array<CFileArea::WriteRange, CFile::kMaxWriteSegments> ranges{};
 		size_t count = 0, bytes = 0;
 		uint64 next = write.pBuffer->start;
-		while (first + count < batch.size() && count < ranges.size()) {
+		while (write.pBuffer->IsDense() && first + count < batch.size() && count < ranges.size()) {
 			auto &item = batch[first + count];
 			const size_t size = item.pBuffer->end - item.pBuffer->start + 1;
-			if (item.pFile != write.pFile || item.session != write.session ||
-				item.pBuffer->start != next || size > CFile::kMaxWriteBytes - bytes ||
+			if (!item.pBuffer->IsDense() || item.pFile != write.pFile ||
+				item.session != write.session || item.pBuffer->start != next ||
+				size > CFile::kMaxWriteBytes - bytes ||
 				(count > 0 &&
 					(write.pBuffer->area.IsMapped() || item.pBuffer->area.IsMapped()))) {
 				break;
@@ -299,9 +300,7 @@ void CPartFileWriteThread::WriteBatch(std::vector<ToWrite> &batch)
 		try {
 			std::lock_guard<std::mutex> lock(write.pFile->m_hpartfileMutex);
 			if (scalar) {
-				write.pBuffer->area.FlushAt(write.pFile->m_hpartfile,
-					write.pBuffer->start,
-					write.pBuffer->end - write.pBuffer->start + 1);
+				write.pBuffer->Flush(write.pFile->m_hpartfile);
 			} else {
 				CFileArea::FlushAdjacentAt(write.pFile->m_hpartfile, ranges.data(), count);
 			}
