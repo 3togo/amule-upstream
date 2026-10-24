@@ -112,11 +112,11 @@ TEST(WriteBufferBudget, PressureFlushesSmallFilesAndClearsAfterDrain)
 	budget.Identify("b", "disk1");
 	auto first = budget.Reserve("a", 7);
 	auto second = budget.Reserve("b", 8);
-	ASSERT_TRUE(budget.IsPressured());
+	ASSERT_TRUE(budget.IsPressured("a"));
 	first.reset();
-	ASSERT_FALSE(budget.IsPressured());
+	ASSERT_FALSE(budget.IsPressured("a"));
 	second.reset();
-	ASSERT_FALSE(budget.IsPressured());
+	ASSERT_FALSE(budget.IsPressured("a"));
 }
 
 TEST(WriteBufferBudget, LocalPressureDoesNotFlushIndependentVolumes)
