@@ -99,6 +99,23 @@ there client on the eMule forum..
 using namespace Kademlia;
 ////////////////////////////////////////
 
+namespace
+{
+// The minimum-size check alone cannot detect a truncated variable-length tag in
+// a later record. Parse all records before the caller applies any of them.
+void CheckTagRecords(CMemFile &bio, uint16_t count)
+{
+	CHECK_PACKET_SANE_COUNT(count, 17);
+	const uint64 start = bio.GetPosition();
+	for (uint16_t i = 0; i < count; ++i) {
+		bio.ReadUInt128();
+		CScopedContainer<TagPtrList> tags;
+		bio.ReadTagPtrList(tags.get(), true /*bOptUTF8*/);
+	}
+	bio.Seek(static_cast<sint64>(start), wxFromStart);
+}
+} // namespace
+
 CKademliaUDPListener::~CKademliaUDPListener()
 {
 	// report timeout to all pending FetchNodeIDRequests
@@ -553,6 +570,9 @@ void CKademliaUDPListener::Process2BootstrapResponse(const uint8_t *packetData,
 	CUInt128 contactID = bio.ReadUInt128();
 	uint16_t tport = bio.ReadUInt16();
 	uint8_t version = bio.ReadUInt8();
+	uint16_t numContacts = bio.ReadUInt16();
+	// Validate the whole contact list before adding even the responding peer.
+	CHECK_PACKET_SANE_COUNT(numContacts, 25);
 	// If we know no contacts yet and try to bootstrap, assume every contact is verified to
 	// speed the connect up. The attack vectors for exploiting this are very small with no major
 	// effects, so it is a good trade.
@@ -563,9 +583,6 @@ void CKademliaUDPListener::Process2BootstrapResponse(const uint8_t *packetData,
 			contactID, ip, port, tport, version, senderKey, validReceiverKey, true, false);
 	}
 
-	uint16_t numContacts = bio.ReadUInt16();
-	// Each contact is a fixed 25 bytes (ID + IP + UDP port + TCP port + version).
-	CHECK_PACKET_SANE_COUNT(numContacts, 25);
 	while (numContacts) {
 		contactID = bio.ReadUInt128();
 		ip = bio.ReadUInt32();
@@ -1125,7 +1142,7 @@ void CKademliaUDPListener::ProcessSearchResponse(CMemFile &bio, uint32_t fromIP,
 
 	uint16_t count = bio.ReadUInt16();
 	// Each result carries at least a 16-byte answer ID plus a tag-count byte.
-	CHECK_PACKET_SANE_COUNT(count, 17);
+	CheckTagRecords(bio, count);
 	while (count > 0) {
 		CUInt128 answer = bio.ReadUInt128();
 
@@ -1200,7 +1217,7 @@ void CKademliaUDPListener::Process2PublishKeyRequest(const uint8_t *packetData,
 	DEBUG_ONLY(wxString strInfo;)
 	uint16_t count = bio.ReadUInt16();
 	// Each entry carries at least a 16-byte source ID plus a tag-count byte.
-	CHECK_PACKET_SANE_COUNT(count, 17);
+	CheckTagRecords(bio, count);
 	uint8_t load = 0;
 	while (count > 0) {
 		DEBUG_ONLY(strInfo.Clear();)
