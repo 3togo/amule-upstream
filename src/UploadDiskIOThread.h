@@ -34,6 +34,7 @@
 #include <vector>
 #include "StorageReadPool.h"
 #include "UploadStorageMap.h"
+#include "UploadBuffering.h"
 
 #include <wx/thread.h>
 
@@ -82,6 +83,7 @@ struct ReadRequest_Struct
 	std::string storage;
 	CFileArea area;
 	std::vector<uint8> data; // owned copy only when area was mapped
+	UploadBufferBudget::Lease bufferReservation;
 	UploadReadResult result = READ_FAILED;
 	bool closeOnly = false;
 	std::unique_ptr<UploadStorageMap> storageMap; // discovery job, without a file/client
@@ -139,6 +141,7 @@ private:
 	bool m_storageMapReady = false;
 	// Resolve each spelled path once per mount-table snapshot, including busy volumes.
 	std::map<std::string, std::string> m_storageKeys;
+	UploadBufferBudget m_bufferBudget;
 	bool m_needCacheSlot = false;
 	std::list<std::shared_ptr<OpenFile_Struct>> m_listOpenFiles;
 };

@@ -47,7 +47,6 @@
 #include <cstring>
 
 #define SLOT_COMPRESSIONCHECK_DATARATE (1024 * 150) // 150 KB/s -- above this we may disable compression
-#define BIGBUFFER_MINDATARATE (75 * 1024)           // eMule: BIGBUFFER_MINDATARATE
 
 // Max cached complete-file read handles (OpenFile_Struct::file). Past the cap the least
 // recently used idle struct is evicted as a new one is created.
@@ -324,29 +323,13 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 	}
 	wxMutexLocker lockBlockLists(client->m_blockListLock);
 
-	// GetQueueSessionPayloadUp() is probably outdated, so also add what the socket reports as
-	// sent since the last timer tick. PeekSentPayload() is non-resetting (it does not consume
-	// the counter SendBlockData() uses) and is protected by m_sendLocker. Calling it from the
-	// disk thread is safe: we hold uploadLock, and disconnect/cleanup needs that lock.
-	sint64 nCurQueueSessionPayloadUp = client->m_nCurQueueSessionPayloadUp;
 	CClientTCPSocket *pSock = client->GetSocket();
-	if (pSock != nullptr)
-		nCurQueueSessionPayloadUp += (sint64)pSock->PeekSentPayload();
-	sint64 addedPayloadQueueSession = client->m_addedPayloadQueueSession;
-
-	bool bFastUpload = client->GetUploadDatarate() > BIGBUFFER_MINDATARATE;
-	// Send-ahead depth: how many blocks this thread primes into a fast slot's async send queue
-	// (1 otherwise). This is the upload-side in-flight depth -- the mirror of the leecher's
-	// request cap -- so it is bandwidth-delay-product limited: on a high-RTT link a shallow
-	// buffer drains before the next refill and caps throughput. eMule's 5 is a low-BDP default;
-	// 10 keeps a fast slot fed across moderate WAN RTTs. The cost is a transient ~1.8 MB of
-	// send-queue data per active fast slot, self-bounded by the OS TCP send buffer.
-	const uint32 nBufferLimit = bFastUpload ? ((10 * EMBLOCKSIZE) + 1) : (EMBLOCKSIZE + 1);
+	const uint32 nBufferLimit = UploadBufferTarget(client->GetUploadDatarate(), EMBLOCKSIZE);
 	pSock->SetUploadBufferTarget(nBufferLimit);
 
-	if (client->m_BlockRequests_queue.empty() ||
-		(addedPayloadQueueSession > nCurQueueSessionPayloadUp &&
-			(uint32)(addedPayloadQueueSession - nCurQueueSessionPayloadUp) >= nBufferLimit)) {
+	// Socket-owned accounting includes the current packet and survives statistics
+	// resets and upload-session switches. Pending reads are charged separately below.
+	if (client->m_BlockRequests_queue.empty() || pSock->QueuedUploadPayload() >= nBufferLimit) {
 		return nullptr;
 	}
 
@@ -403,7 +386,13 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 		if (!m_pool->CanSubmit(storage->second)) {
 			return nullptr;
 		}
+		auto reservation =
+			m_bufferBudget.Reserve(pSock->UploadBufferAccount(), static_cast<uint32>(togo));
+		if (!reservation) {
+			return nullptr;
+		}
 		auto req = std::make_unique<ReadRequest_Struct>();
+		req->bufferReservation = std::move(reservation);
 		req->session = client->m_uploadReadSession;
 		req->clientId = clientId;
 		md4cpy(req->ucMD4FileHash, currentblock->FileID);
@@ -606,6 +595,7 @@ bool CUploadDiskIOThread::CommitRead(ReadRequest_Struct *req, ReadResult result)
 // eMule ref: CUploadDiskIOThread::ReadCompletetionRoutine()
 bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 {
+	std::unique_ptr<ReadRequest_Struct> owner(req);
 	if (req == nullptr) {
 		wxASSERT(false);
 		return false;
@@ -653,6 +643,16 @@ bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 	if (packedFor != nullptr) {
 		// CommitRead set the file ID.
 		CPacketList packetList;
+		struct CleanupPackets
+		{
+			CPacketList &packets;
+			~CleanupPackets()
+			{
+				for (const auto &entry : packets) {
+					delete entry.first;
+				}
+			}
+		} cleanup{ packetList };
 		const uint8_t *payload = req->data.empty() ? req->area.GetBuffer() : req->data.data();
 		if (useCompression) {
 			UploadPacketBuilder::Packed(payload,
@@ -683,12 +683,14 @@ bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 				// stable from this final check until every packet reaches the socket.
 				wxMutexLocker lockBlockLists(client->m_blockListLock);
 				if (client->m_uploadReadSession == req->session) {
-					for (const auto &packet : packetList) {
+					while (!packetList.empty()) {
+						const auto entry = packetList.front();
+						packetList.pop_front();
 						theStats::AddUploadToSoft(
-							client->GetClientSoft(), packet.second);
-						pSocket->SendPacket(packet.first, true, false, packet.second);
+							client->GetClientSoft(), entry.second);
+						pSocket->SendUploadPacket(
+							entry.first, entry.second, req->bufferReservation);
 					}
-					packetList.clear();
 					dataQueued = true;
 				}
 			} else {
@@ -697,12 +699,8 @@ bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 					"reconnected while its block was packed, discarding it");
 			}
 		}
-		for (const auto &packet : packetList) {
-			delete packet.first;
-		}
 	}
 
-	delete req;
 	return dataQueued;
 }
 

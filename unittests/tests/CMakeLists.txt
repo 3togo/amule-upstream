@@ -211,6 +211,11 @@ target_include_directories (UploadStorageMapTest PRIVATE ${CMAKE_SOURCE_DIR}/src
 target_link_libraries (UploadStorageMapTest muleunit mulecommon)
 
 # Per-socket refill thresholds use original payload, independent of statistics resets.
+add_executable (UploadBufferingTest UploadBufferingTest.cpp)
+add_test (NAME UploadBufferingTest COMMAND UploadBufferingTest)
+target_include_directories (UploadBufferingTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (UploadBufferingTest muleunit mulecommon)
+
 add_executable (UploadRefillTest UploadRefillTest.cpp)
 add_test (NAME UploadRefillTest COMMAND UploadRefillTest)
 target_include_directories (UploadRefillTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
