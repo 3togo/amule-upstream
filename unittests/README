@@ -401,11 +401,13 @@ completed latency and same-storage admission denials. This adds about 30 seconds
 
 Unified upload pipeline pressure monitor
 ---------------------------------------
-The upload read coordinator publishes PipelinePressureSnapshot() in all builds,
-independently of logging. It samples at most once per 500 ms; callers must check
-valid and sampledMs (the start of collection) because blocked sampling/shutdown can leave a stale
-snapshot. A mutex protects the published copy. Collection uses short upload-list,
-block-list and socket locks in that order; no filesystem work is added there.
+The upload read coordinator samples only while FileIO logging is enabled,
+at most once per 500 ms. With logging disabled it returns before collecting
+observations or taking upload-list, block-list or socket locks. Sampling state
+is private to the coordinator; there is no public snapshot accessor. sampledMs
+records the start of collection so a blocked sampler cannot appear fresh.
+Collection uses short upload-list, block-list and socket locks in that order;
+no filesystem work is added there.
 The snapshot combines connected, non-error uploading clients' queued demand,
 pending reads, ready original payload (including the current packet), transport
 busy state, deferred file-completion retries, read admission denials, buffer
@@ -436,7 +438,7 @@ not proof of network congestion. Pending work is not proof of physical disk
 saturation, and a delayed coordinator can reflect scheduling or CPU contention.
 
 The monitor changes no budgets, buffer targets, thread counts, peer admission or
-bandwidth limits. Its getters do not reset transfer accounting or refill targets.
+bandwidth limits. Sampling does not reset transfer accounting or refill targets.
 Debug FileIO output adds an anonymous "Upload pipeline:" snapshot at most once
 per five seconds with the same VerboseDebug/Cat_FileIO settings described above.
 No paths, file hashes, client IDs or storage keys are emitted.

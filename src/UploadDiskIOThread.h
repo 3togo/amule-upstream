@@ -36,7 +36,6 @@
 #include "UploadBuffering.h"
 #include "UploadReadDiagnostics.h"
 #include "UploadPipelinePressure.h"
-#include <mutex>
 
 #include <wx/thread.h>
 
@@ -110,10 +109,6 @@ public:
 	void NewBlockRequestsAvailable(); // eMule ref: UploadDiskIOThread.h:55
 	void SocketNeedsMoreData();       // eMule ref: UploadDiskIOThread.h:56
 
-	// Copy of the latest observation, independent of debug logging. Consumers must
-	// check valid/sample age; the application owns this thread's lifetime.
-	UploadPipelinePressure::Snapshot PipelinePressureSnapshot() const;
-
 private:
 	void SamplePipelinePressure();
 	void *Entry() override; // replaces RunProc/RunInternal
@@ -153,7 +148,7 @@ private:
 	UploadReadDiagnostics m_diagnostics;
 	uint64 m_lastDiagnostics = 0;
 	UploadPipelinePressure m_pipelinePressure;
-	mutable std::mutex m_pipelineMutex;
+	// Sampling state is private to the coordinator and only used with FileIO enabled.
 	UploadPipelinePressure::Snapshot m_pipelineSnapshot;
 	uint64 m_lastPipelineLog = 0;
 	uint64 m_lastReadMs = 0, m_lastHandoffMs = 0, m_lastCompletedMs = 0;

@@ -300,16 +300,13 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 	}
 }
 
-UploadPipelinePressure::Snapshot CUploadDiskIOThread::PipelinePressureSnapshot() const
-{
-	std::lock_guard<std::mutex> lock(m_pipelineMutex);
-	return m_pipelineSnapshot;
-}
-
 void CUploadDiskIOThread::SamplePipelinePressure()
 {
+	if (!theLogger.IsEnabled(logFileIO)) {
+		return;
+	}
 	const uint64 now = GetTickCount64();
-	const auto previous = PipelinePressureSnapshot();
+	const auto &previous = m_pipelineSnapshot;
 	if (previous.valid && now - previous.sampledMs < UploadPipelinePressure::kSampleMs) {
 		return;
 	}
@@ -352,12 +349,8 @@ void CUploadDiskIOThread::SamplePipelinePressure()
 		}
 	}
 	// Timestamp the start of collection so a blocked sampler cannot appear fresh.
-	// No diagnostics lock overlaps upload/socket locks.
 	const auto snapshot = m_pipelinePressure.Observe(input, now);
-	{
-		std::lock_guard<std::mutex> lock(m_pipelineMutex);
-		m_pipelineSnapshot = snapshot;
-	}
+	m_pipelineSnapshot = snapshot;
 	if (snapshot.sampledMs - m_lastPipelineLog < 5000) {
 		return;
 	}
