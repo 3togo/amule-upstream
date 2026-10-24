@@ -25,6 +25,8 @@ class WriteBufferBudget
 		std::mutex mutex;
 		std::map<std::string, Account> paths;
 		uint64_t used = 0;
+		bool globalPressured = false;
+		std::map<std::string, bool> volumePressured;
 	};
 
 public:
@@ -122,27 +124,45 @@ public:
 		std::lock_guard<std::mutex> lock(m_state->mutex);
 		return m_state->used;
 	}
-	bool IsPressured() const
+	// Global pressure flushes every volume; local pressure flushes only paths
+	// that can share the constrained volume, including unresolved identities.
+	bool IsPressured(const std::string &path) const
 	{
 		std::lock_guard<std::mutex> lock(m_state->mutex);
-		if (m_state->used >= m_global - m_global / 4) {
-			return true;
-		}
+		const bool global = UpdatePressure(m_state->used, m_global, m_state->globalPressured);
 		std::map<std::string, uint64_t> volumes;
 		for (const auto &entry : m_state->paths) {
 			volumes[entry.second.volume] += entry.second.bytes;
 		}
-		const uint64_t unknown = volumes[""];
-		uint64_t largest = 0;
-		for (const auto &entry : volumes) {
-			if (!entry.first.empty()) {
-				largest = std::max(largest, entry.second);
+		const auto found = m_state->paths.find(path);
+		const std::string volume = found == m_state->paths.end() ? "" : found->second.volume;
+		uint64_t known = 0;
+		if (volume.empty()) {
+			for (const auto &entry : volumes) {
+				if (!entry.first.empty()) {
+					known = std::max(known, entry.second);
+				}
 			}
+		} else {
+			known = volumes[volume];
 		}
-		return unknown + largest >= m_volume - m_volume / 4;
+		const bool local =
+			UpdatePressure(volumes[""] + known, m_volume, m_state->volumePressured[volume]);
+		return global || local;
 	}
 
 private:
+	// Start early flushing at 75%, and keep it active until half the allowance
+	// is free. Admission limits are independent of this batching hysteresis.
+	static bool UpdatePressure(uint64_t used, uint64_t limit, bool &pressured)
+	{
+		if (used >= limit - limit / 4) {
+			pressured = true;
+		} else if (used <= limit / 2) {
+			pressured = false;
+		}
+		return pressured;
+	}
 	uint64_t m_global;
 	uint64_t m_volume;
 	std::shared_ptr<State> m_state = std::make_shared<State>();

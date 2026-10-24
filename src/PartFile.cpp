@@ -26,6 +26,7 @@
 #include <wx/wx.h>
 
 #include "PartFile.h"            // Interface declarations.
+#include "PartFileBuffering.h"   // Needed for ordered buffered writes
 #include "BlockReservation.h"    // Needed for selecting unreserved block intervals
 #include "PartFileWriteThread.h" // Needed for PB_READY etc.
 #include "PartMetWriter.h"       // Needed for CPartMetWriter
@@ -1654,7 +1655,8 @@ uint32 CPartFile::Process(uint8 m_icounter)
 	// file is idle.
 	if ((m_nTotalBufferData > thePrefs::GetFileBufferSize()) ||
 		(dwCurTick > (m_nLastBufferFlushTime + BUFFER_TIME_LIMIT)) || HasPendingHashWork() ||
-		(m_nTotalBufferData != 0 && WriteBufferBudget::Get().IsPressured())) {
+		(m_nTotalBufferData != 0 && WriteBufferBudget::Get().IsPressured(
+						    GetFilePath().GetRaw().ToStdString(wxConvUTF8)))) {
 		FlushBuffer();
 	}
 
@@ -3573,12 +3575,7 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 			fragment.end,
 			block,
 			credit->second);
-		// Keep fragments ordered by file offset.
-		auto position = m_BufferedData_list.begin();
-		while (position != m_BufferedData_list.end() && (*position)->end <= item->end) {
-			++position;
-		}
-		m_BufferedData_list.insert(position, item);
+		InsertPartFileBufferedWrite(m_BufferedData_list, item);
 		const uint32 bytes = static_cast<uint32>(fragment.end - fragment.start + 1);
 		m_nTotalBufferData += bytes;
 		buffered += bytes;
