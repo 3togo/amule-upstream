@@ -8,6 +8,7 @@
 #include <cstring>
 #include <string>
 #include <cerrno>
+#include <fcntl.h>
 
 extern "C" ssize_t write(int fd, const void *data, size_t size)
 {
@@ -26,6 +27,11 @@ extern "C" ssize_t write(int fd, const void *data, size_t size)
 			}
 			const char *failure = std::getenv("AMULE_TEST_WRITE_ERROR");
 			if (failure != nullptr && access(failure, F_OK) == 0) {
+				const std::string observed = std::string(failure) + ".observed";
+				const int marker = open(observed.c_str(), O_WRONLY | O_CREAT, 0600);
+				if (marker >= 0) {
+					close(marker);
+				}
 				errno = EIO;
 				return -1;
 			}

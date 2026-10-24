@@ -153,7 +153,8 @@ def run(binary, shim, compressed):
             # Errors must retain the same dirty payload and prevent new requests.
             failure.touch()
             gate.unlink()
-            time.sleep(1)
+            wait_for(lambda: Path(str(failure) + '.observed').exists(), 3, detail)
+            time.sleep(0.5)
             assert total() == settled, ('write errors released capacity', detail())
             failure.unlink()
             wait_for(lambda: total() > settled + 6 * BLOCK, 10, detail)
