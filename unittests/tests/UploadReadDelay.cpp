@@ -1,6 +1,6 @@
 // Copyright (c) 2026 aMule Team
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Linux-only fault injection. No delay or storage-identity hooks enter production.
+// Linux-only fault injection and optional read accounting. No hooks enter production.
 // Define both libc symbol spellings even when the daemon uses large-file aliases.
 #undef _FILE_OFFSET_BITS
 #define _LARGEFILE64_SOURCE 1
@@ -121,7 +121,28 @@ extern "C" ssize_t read(int fd, void *buffer, size_t count)
 	if (Stage("heap") && Armed() && count == 184320 && MatchesDescriptor(fd)) {
 		heapRead = reinterpret_cast<std::uintptr_t>(buffer);
 	}
-	return syscall(SYS_read, fd, buffer, count);
+	const char *trace = std::getenv("AMULE_TEST_READ_TRACE");
+	const bool measure = trace != nullptr && Armed() && MatchesDescriptor(fd);
+	const auto offset = measure ? lseek(fd, 0, SEEK_CUR) : 0;
+	const auto result = syscall(SYS_read, fd, buffer, count);
+	if (measure && offset >= 0 && result > 0) {
+		const int log = static_cast<int>(
+			syscall(SYS_openat, AT_FDCWD, trace, O_WRONLY | O_CREAT | O_APPEND, 0600));
+		if (log < 0) {
+			_exit(96);
+		}
+		char line[96];
+		const int length = std::snprintf(line,
+			sizeof(line),
+			"%llu %lld\n",
+			static_cast<unsigned long long>(offset),
+			static_cast<long long>(result));
+		if (syscall(SYS_write, log, line, length) != length) {
+			_exit(96);
+		}
+		syscall(SYS_close, log);
+	}
+	return result;
 }
 
 extern "C" int open(const char *path, int flags, ...)

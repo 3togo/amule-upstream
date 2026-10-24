@@ -3337,3 +3337,8 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND Python3_Interpreter_FOUND AND 
 		$<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
 	set_tests_properties (TinyFragmentWriteIntegrationTest PROPERTIES TIMEOUT 90 LABELS "integration" RUN_SERIAL TRUE)
 endif ()
+
+add_executable (UploadReadReuseTest UploadReadReuseTest.cpp)
+add_test (NAME UploadReadReuseTest COMMAND UploadReadReuseTest)
+target_include_directories (UploadReadReuseTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (UploadReadReuseTest muleunit mulecommon)

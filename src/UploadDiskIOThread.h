@@ -35,6 +35,7 @@
 #include "UploadStorageMap.h"
 #include "UploadBuffering.h"
 #include "UploadReadDiagnostics.h"
+#include "UploadReadReuse.h"
 #include "UploadPipelinePressure.h"
 
 #include <wx/thread.h>
@@ -150,6 +151,7 @@ private:
 	std::map<std::string, std::string> m_storageKeys;
 	UploadBufferBudget m_bufferBudget;
 	UploadReadDiagnostics m_diagnostics;
+	UploadReadReuse m_readReuse;
 	bool m_collectDiagnostics = false;
 	uint64 m_lastDiagnostics = 0;
 	UploadPipelinePressure m_pipelinePressure;
