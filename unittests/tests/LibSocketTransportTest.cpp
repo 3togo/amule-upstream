@@ -65,6 +65,7 @@ DECLARE_SIMPLE(LibSocketTransport)
 namespace
 {
 std::atomic<int> s_queuedNotifications{ 0 };
+std::atomic<bool> s_deliverDirectly{ false };
 std::mutex s_notificationMutex;
 bool s_captureNotifications = false;
 std::vector<std::unique_ptr<MuleNotify::CMuleNotiferBase>> s_notifications;
@@ -77,6 +78,10 @@ void HandleNotificationAlways(const CMuleNotiferBase &);
 void HandleNotificationAlways(const CMuleNotiferBase &notification)
 {
 	++s_queuedNotifications;
+	if (s_deliverDirectly.load()) {
+		notification.Notify();
+		return;
+	}
 	std::lock_guard<std::mutex> lock(s_notificationMutex);
 	if (s_captureNotifications) {
 		s_notifications.emplace_back(notification.Clone());
@@ -270,6 +275,103 @@ TEST(LibSocketTransport, ContextPoolReleasesCrossContextAcceptsBeforeDestroyingS
 		listener->async_accept(*peer, [listener, peer](const boost::system::error_code &) {});
 	}
 	ASSERT_TRUE(pending.expired());
+}
+
+TEST(LibSocketTransport, ListenerSpreadsBurstAndIdleAcceptsAcrossAllWorkers)
+{
+	struct CDirectNotifications
+	{
+		CDirectNotifications() { s_deliverDirectly.store(true); }
+		~CDirectNotifications() { s_deliverDirectly.store(false); }
+	} directNotifications;
+	class CReadProbe : public CLibSocket
+	{
+	public:
+		void OnReceive(int error) override
+		{
+			if (!announced.exchange(true)) {
+				char byte = 0;
+				const bool valid = !error && Read(&byte, 1) == 1 && byte == 'x';
+				completed.set_value({ valid, std::this_thread::get_id() });
+			}
+		}
+		std::atomic<bool> announced{ false };
+		std::promise<std::pair<bool, std::thread::id>> completed;
+	};
+	for (bool burst : { false, true }) {
+		amuleIPV4Address address;
+		address.Hostname(wxString("127.0.0.1"));
+		address.Service(0);
+		auto listener = std::make_shared<CAsioSocketServerImpl>(address, nullptr);
+		listener->Init();
+		ASSERT_TRUE(listener->IsOk());
+		boost::asio::io_context clientsContext;
+		std::vector<std::unique_ptr<boost::asio::ip::tcp::socket>> clients;
+		std::vector<std::unique_ptr<CReadProbe>> peers;
+		std::vector<std::future<std::pair<bool, std::thread::id>>> results;
+		const auto connect = [&]() {
+			auto client = std::make_unique<boost::asio::ip::tcp::socket>(clientsContext);
+			client->connect(listener->local_endpoint());
+			clients.push_back(std::move(client));
+		};
+		if (burst) {
+			for (int i = 0; i < 2 * s_numberOfAsioThreads; ++i) {
+				connect();
+			}
+		}
+		for (int i = 0; i < 2 * s_numberOfAsioThreads; ++i) {
+			if (!burst) {
+				connect();
+			}
+			const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+			do {
+				DrainSocketContexts();
+				if (listener->SocketAvailable()) {
+					break;
+				}
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			} while (std::chrono::steady_clock::now() < deadline);
+			ASSERT_TRUE(listener->SocketAvailable());
+			// Its constructor creates the temporary impl that used to skip a worker.
+			auto peer = std::make_unique<CReadProbe>();
+			results.push_back(peer->completed.get_future());
+			ASSERT_TRUE(listener->AcceptWith(*peer));
+			peers.push_back(std::move(peer));
+			DrainSocketContexts();
+		}
+		CAsioService service;
+		for (const auto &client : clients) {
+			boost::asio::write(*client, boost::asio::buffer("x", 1));
+		}
+		std::vector<std::pair<bool, std::thread::id>> received;
+		for (auto &result : results) {
+			if (result.wait_for(std::chrono::seconds(2)) == std::future_status::ready) {
+				received.push_back(result.get());
+			}
+		}
+		service.Stop();
+		for (const auto &peer : peers) {
+			peer->Close();
+		}
+		listener->Close();
+		DrainSocketContexts();
+		ASSERT_EQUALS(peers.size(), received.size());
+		std::vector<std::thread::id> workers;
+		for (const auto &result : received) {
+			ASSERT_TRUE(result.first);
+			ASSERT_TRUE(result.second != std::this_thread::get_id());
+			if (std::find(workers.begin(), workers.end(), result.second) == workers.end()) {
+				workers.push_back(result.second);
+			}
+		}
+		ASSERT_EQUALS(static_cast<size_t>(s_numberOfAsioThreads), workers.size());
+		for (const auto &worker : workers) {
+			ASSERT_EQUALS(
+				2, std::count_if(received.begin(), received.end(), [&](const auto &result) {
+					return result.second == worker;
+				}));
+		}
+	}
 }
 
 TEST(LibSocketTransport, AcceptedPeerReadsOnItsOwnContext)

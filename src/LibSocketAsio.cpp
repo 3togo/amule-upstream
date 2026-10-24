@@ -482,8 +482,8 @@ class CAsioSocketImpl : public std::enable_shared_from_this<CAsioSocketImpl>
 
 public:
 	// cppcheck-suppress uninitMemberVar m_readBufferPtr
-	CAsioSocketImpl(CLibSocket *libSocket)
-	: m_ioc(NextTcpContext())
+	CAsioSocketImpl(CLibSocket *libSocket, io_context &context = NextTcpContext())
+	: m_ioc(context)
 	, m_libSocket(libSocket)
 	, m_strand(m_ioc)
 	{
@@ -1746,7 +1746,7 @@ public:
 		socket.LinkSocketImpl(std::move(m_currentSocket));
 
 		// check if we have another socket ready for reception
-		m_currentSocket = std::make_shared<CAsioSocketImpl>(nullptr);
+		m_currentSocket = NewAcceptSocket();
 		error_code ec;
 		// async_accept does not work if server is non-blocking
 		// temporarily switch it to non-blocking
@@ -1756,7 +1756,11 @@ public:
 		// back to blocking
 		non_blocking(false);
 		if (ec || !m_currentSocket->UpdateIP()) {
-			// nothing there
+			// Keep an unopened probe for the next async accept. Discarding it would
+			// consume another context without accepting a connection.
+			if (m_currentSocket->GetAsioSocket().is_open()) {
+				m_currentSocket.reset();
+			}
 			m_socketAvailable = false;
 			// start getting another one
 			auto self = shared_from_this();
@@ -1780,6 +1784,15 @@ public:
 	bool SocketAvailable() const { return m_socketAvailable; }
 
 private:
+	std::shared_ptr<CAsioSocketImpl> NewAcceptSocket()
+	{
+		// Accepting into a CLibSocket replaces its temporary, unconnected impl.
+		// Give this listener its own rotation so those wrappers cannot skip workers.
+		const size_t index =
+			m_nextAcceptContext.fetch_add(1, std::memory_order_relaxed) % s_ioContexts.size();
+		return std::make_shared<CAsioSocketImpl>(nullptr, s_ioContexts[index]);
+	}
+
 	// Throws system_error and leaves the acceptor open on failure. isV6 selects the
 	// bind-to-interface option and is independent of the protocol for the IPv4 path, which has
 	// always passed false.
@@ -1849,7 +1862,9 @@ private:
 		if (m_acceptStopped.load(std::memory_order_acquire)) {
 			return;
 		}
-		m_currentSocket = std::make_shared<CAsioSocketImpl>(nullptr);
+		if (!m_currentSocket) {
+			m_currentSocket = NewAcceptSocket();
+		}
 		auto self = shared_from_this();
 		async_accept(m_currentSocket->GetAsioSocket(),
 			bind_executor(m_strand, [self](const error_code &ec) { self->HandleAccept(ec); }));
@@ -1880,7 +1895,8 @@ private:
 				AddDebugLogLineN(logAsio, "Error in HandleAccept: invalid socket");
 			}
 		}
-		// We were not successful. Try again.
+		// We were not successful. Try again with a fresh socket.
+		m_currentSocket.reset();
 		// Post the request to the event queue to make sure it doesn't get called immediately.
 		auto self = shared_from_this();
 		post(m_strand, [self]() { self->StartAccept(); });
@@ -1898,6 +1914,7 @@ private:
 	std::optional<ip::tcp::endpoint> m_boundEndpoint;
 	// The last socket that connected to us
 	std::shared_ptr<CAsioSocketImpl> m_currentSocket;
+	std::atomic<size_t> m_nextAcceptContext{ 0 };
 	// Is there a socket available?
 	bool m_socketAvailable;
 	io_context::strand m_strand; // handle synchronisation in io_service thread pool
