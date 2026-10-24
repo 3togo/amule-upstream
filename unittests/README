@@ -266,7 +266,9 @@ reads or opens behind pipe gates. Four clients request files from one storage
 ID through two directory aliases; another storage ID must continue uploading
 before any gate is released. The test checks the per-storage limit, recovery,
 a disconnect while blocked, same-client/same-block upload-session reuse, and
-shutdown while a worker still owns a read. It also checks that two slow-volume
+shutdown while a worker still owns a read. A compression gate also reuses a
+client/socket while its old session builds packets outside the upload-list lock;
+only the new session may receive data. It also checks that two slow-volume
 peers alternate while a fast-volume peer completes a read between every release,
 and that uploads continue while storage discovery is blocked. No system mounts
 are changed.

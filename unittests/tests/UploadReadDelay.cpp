@@ -17,6 +17,7 @@
 #include <poll.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <zlib.h>
 
 namespace
 {
@@ -142,4 +143,14 @@ extern "C" FILE *fopen64(const char *path, const char *mode)
 	static const auto original =
 		reinterpret_cast<FILE *(*)(const char *, const char *)>(dlsym(RTLD_NEXT, "fopen64"));
 	return original(MountTable(path), mode);
+}
+
+// Hold packet construction after its upload-list snapshot, without production hooks.
+extern "C" int compress2(Bytef *dest, uLongf *destLen, const Bytef *source, uLong sourceLen, int level)
+{
+	if (Stage("pack") && sourceLen == 184320) {
+		Gate("upload-packet-build", sourceLen);
+	}
+	static const auto original = reinterpret_cast<decltype(&compress2)>(dlsym(RTLD_NEXT, "compress2"));
+	return original(dest, destLen, source, sourceLen, level);
 }
