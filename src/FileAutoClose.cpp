@@ -122,6 +122,20 @@ void CFileAutoClose::WriteAt(const void *buffer, uint64 offset, size_t count)
 	}
 }
 
+void CFileAutoClose::WriteSegmentsAt(const CFile::WriteSegment *segments, size_t count, uint64 offset)
+{
+	CInUse inUse(*this);
+	m_file.Seek(offset);
+	m_file.WriteSegments(segments, count);
+	uint64 end = offset;
+	for (size_t i = 0; i < count; ++i) {
+		end += segments[i].size;
+	}
+	uint64 known = m_knownSize.load(std::memory_order_relaxed);
+	while (end > known && !m_knownSize.compare_exchange_weak(known, end, std::memory_order_relaxed)) {
+	}
+}
+
 bool CFileAutoClose::Eof()
 {
 	CInUse inUse(*this);

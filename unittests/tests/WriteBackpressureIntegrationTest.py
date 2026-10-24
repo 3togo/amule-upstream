@@ -142,13 +142,15 @@ def run(binary, shim, compressed):
         gate = root / 'stall-writes'
         gate.touch()
         failure = root / 'fail-writes'
+        trace = root / 'write-trace'
         sources = [Source(index, compressed) for index in range(2)]
         ports = free_ports(2, peer_index=1)
         write_amule_conf(root, ports[0], Address=sources[0].address, Port=ports[1], UDPEnable=0,
                          FilterLanIPs=0, MaxDownload=0, MaxUpload=0)
         preload = ':'.join(filter(None, [os.environ.get('AMULE_TEST_PRELOAD_RUNTIME'), shim]))
         env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8',
-                   LD_PRELOAD=preload, AMULE_TEST_WRITE_GATE=str(gate), AMULE_TEST_WRITE_ERROR=str(failure))
+                   LD_PRELOAD=preload, AMULE_TEST_WRITE_GATE=str(gate), AMULE_TEST_WRITE_ERROR=str(failure),
+                   AMULE_TEST_WRITE_TRACE=str(trace))
         proc = ec = None
         try:
             with (root / 'console.log').open('w') as log:
@@ -185,6 +187,12 @@ def run(binary, shim, compressed):
                                     return True
                 return False
             assert has_written_data(), 'drain resumed requests without writing payload'
+            writes = [tuple(map(int, row.split())) for row in trace.read_text().splitlines()]
+            grouped = [(count, size) for count, size in writes if count > 1]
+            assert grouped, ('no adjacent fragments coalesced', writes[:30])
+            assert all(count <= 16 and size <= 1024 * 1024 for count, size in grouped), grouped
+            print(f'Observed {len(grouped)} vectored writes for '
+                  f'{sum(count for count, _ in grouped)} original fragments', flush=True)
             print(f'PASS compressed={compressed}: {settled} reserved bytes plateau under stalled '
                   'writes, no source cancellation, automatic resume after drain', flush=True)
         finally:
