@@ -4,7 +4,10 @@ Download block selection reserves the full uncompressed range before a block
 can enter a request packet. The fixed safety limits are 64 MiB globally and
 16 MiB per filesystem volume, shared across files and sources. The existing
 file-buffer preference still controls normal flush batching. At 75% pressure,
-small buffers flush early so credits cannot remain stranded until the timer.
+small buffers on the affected volume flush early; global pressure flushes all
+volumes. Unknown identities conservatively count against possible aliases.
+Early flushing remains active until usage falls to 50%, avoiding threshold
+oscillation while leaving admission caps unchanged.
 
 The request and its buffered fragments share ownership of one reservation.
 Disconnecting or cancelling releases unsatisfied requests; queued data keeps its
