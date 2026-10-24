@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <muleunit/test.h>
 #include "WriteBufferBudget.h"
+#include <atomic>
 #include <cstdlib>
 #include <limits>
 #include <thread>
@@ -85,13 +86,14 @@ TEST(WriteBufferBudget, RejectInvalidSizesAndLiveRemount)
 TEST(WriteBufferBudget, ConcurrentAdmissionsAndWorkerReleasesStayBounded)
 {
 	WriteBufferBudget budget(100, 20);
+	std::atomic<bool> exceeded{ false };
 	std::vector<std::thread> workers;
 	for (unsigned i = 0; i < 8; ++i) {
-		workers.emplace_back([&budget] {
+		workers.emplace_back([&budget, &exceeded] {
 			for (unsigned round = 0; round < 1000; ++round) {
 				auto lease = budget.Reserve("path", 7);
 				if (budget.Used() > 20) {
-					std::abort();
+					exceeded.store(true);
 				}
 			}
 		});
@@ -99,6 +101,7 @@ TEST(WriteBufferBudget, ConcurrentAdmissionsAndWorkerReleasesStayBounded)
 	for (auto &worker : workers) {
 		worker.join();
 	}
+	ASSERT_FALSE(exceeded.load());
 	ASSERT_EQUALS(uint64_t{ 0 }, budget.Used());
 }
 
