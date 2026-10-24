@@ -40,6 +40,7 @@
 #include "FileAutoClose.h" // Needed for CFileAutoClose
 
 #include <atomic> // std::atomic<bool> for the cross-thread MMapEnabled toggle
+#include <memory>
 
 // MMAP_SUPPORTED is set by cmake only when the whole mmap file-I/O path is available on this
 // platform (mmap / munmap / sysconf / _SC_PAGESIZE / sigaction). It gates the code below, the
@@ -327,9 +328,16 @@ void CFileArea::FlushAt(CFileAutoClose &file, uint64 offset, size_t count)
 #ifdef MMAP_SUPPORTED
 	if (m_mmap_buffer != nullptr) {
 		if (msync(m_mmap_buffer, m_length, MS_SYNC) != 0) {
-			// Keep the mapping and its data so the caller can retry the failed write.
-			throw CIOFailureException(
+			const CIOFailureException failure(
 				wxString("Failed to flush mapped file: ") + wxSysErrorMsg());
+			// Failed writeback can leave clean pages, so another msync may succeed
+			// without writing anything. Preserve just the requested bytes before
+			// unmapping; the caller's retry must write them again through WriteAt.
+			auto buffer = std::make_unique<uint8_t[]>(count);
+			memcpy(buffer.get(), m_buffer, count);
+			Close();
+			m_buffer = buffer.release();
+			throw failure;
 		}
 		Close();
 		return;

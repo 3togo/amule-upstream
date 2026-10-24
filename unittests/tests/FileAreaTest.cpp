@@ -24,6 +24,11 @@ extern "C" int __wrap_msync(void *address, size_t length, int flags)
 {
 	++syncCalls;
 	if (failSync) {
+		// Model writeback that cleaned the pages before reporting an error. A
+		// later msync alone must not be enough to complete the pending write.
+		if (__real_msync(address, length, flags) != 0) {
+			return -1;
+		}
 		errno = EIO;
 		return -1;
 	}
@@ -93,25 +98,78 @@ TEST(FileArea, UninitializedAreaCannotReportACompletedWrite)
 }
 
 #if defined(AMULE_TEST_WRAP_MSYNC) && defined(MMAP_SUPPORTED)
-TEST(FileArea, MappedSyncFailureThrowsAndCanBeRetried)
+TEST(FileArea, MappedWriteRoundTrip)
 {
 	CFileArea::SetMMapEnabled(true);
 	CFileAutoClose file(TestFile(), CFile::read_write);
 	CFileArea area;
-	area.StartWriteAt(file, 0, 4096);
-	std::memset(area.GetBuffer(), 0x5A, 4096);
+	area.StartWriteAt(file, 17, 5000);
+	std::memset(area.GetBuffer(), 0x5A, 5000);
+	const auto previousCalls = syncCalls;
+	area.FlushAt(file, 17, 5000);
+	ASSERT_EQUALS(previousCalls + 1, syncCalls);
+	ASSERT_TRUE(area.GetBuffer() == nullptr);
+	ASSERT_TRUE(file.Release(true));
+	std::array<unsigned char, 8192> data{};
+	file.ReadAt(data.data(), 0, data.size());
+	for (size_t i = 0; i < data.size(); ++i) {
+		ASSERT_EQUALS(i >= 17 && i < 5017 ? 0x5A : 0, static_cast<int>(data[i]));
+	}
+}
+
+TEST(FileArea, MappedSyncFailureRewritesData)
+{
+	CFileArea::SetMMapEnabled(true);
+	CFileAutoClose file(TestFile(), CFile::read_write);
+	CFileArea area;
+	area.StartWriteAt(file, 17, 5000);
+	std::memset(area.GetBuffer(), 0x5A, 5000);
 	const auto previousCalls = syncCalls;
 	failSync = true;
-	ASSERT_RAISES(CIOFailureException, area.FlushAt(file, 0, 4096));
+	ASSERT_RAISES(CIOFailureException, area.FlushAt(file, 17, 5000));
 	ASSERT_EQUALS(previousCalls + 1, syncCalls);
 	ASSERT_TRUE(area.GetBuffer() != nullptr);
-	ASSERT_EQUALS(0x5A, static_cast<int>(area.GetBuffer()[0]));
-	failSync = false;
-	area.FlushAt(file, 0, 4096);
-	ASSERT_EQUALS(previousCalls + 2, syncCalls);
+	ASSERT_TRUE(std::all_of(area.GetBuffer(), area.GetBuffer() + 5000, [](unsigned char value) {
+		return value == 0x5A;
+	}));
+	ASSERT_TRUE(file.Release(true));
+
+	// Replace the file contents after the failure. A retained mapping or a
+	// successful no-op sync would now lose the original pending bytes.
+	std::array<unsigned char, 8192> data{};
+	file.WriteAt(data.data(), 0, data.size());
+	area.FlushAt(file, 17, 5000);
+	ASSERT_EQUALS(previousCalls + 1, syncCalls);
 	ASSERT_TRUE(area.GetBuffer() == nullptr);
-	std::array<unsigned char, 4096> data{};
 	file.ReadAt(data.data(), 0, data.size());
+	for (size_t i = 0; i < data.size(); ++i) {
+		ASSERT_EQUALS(i >= 17 && i < 5017 ? 0x5A : 0, static_cast<int>(data[i]));
+	}
+}
+
+TEST(FileArea, MappedSyncFailureRetainsDataAcrossFailedBufferedRetry)
+{
+	CFileArea::SetMMapEnabled(true);
+	CFileAutoClose file(TestFile(), CFile::read_write);
+	CFileArea area;
+	area.StartWriteAt(file, 17, 5000);
+	std::memset(area.GetBuffer(), 0x5A, 5000);
+	const auto previousCalls = syncCalls;
+	failSync = true;
+	ASSERT_RAISES(CIOFailureException, area.FlushAt(file, 17, 5000));
+	ASSERT_EQUALS(previousCalls + 1, syncCalls);
+	CFileAutoClose readOnlyFile(TestFile(), CFile::read);
+	ASSERT_RAISES(CIOFailureException, area.FlushAt(readOnlyFile, 17, 5000));
+	ASSERT_EQUALS(previousCalls + 1, syncCalls);
+	ASSERT_TRUE(area.GetBuffer() != nullptr);
+	ASSERT_TRUE(std::all_of(area.GetBuffer(), area.GetBuffer() + 5000, [](unsigned char value) {
+		return value == 0x5A;
+	}));
+	area.FlushAt(file, 17, 5000);
+	ASSERT_EQUALS(previousCalls + 1, syncCalls);
+	ASSERT_TRUE(area.GetBuffer() == nullptr);
+	std::array<unsigned char, 5000> data{};
+	file.ReadAt(data.data(), 17, data.size());
 	ASSERT_TRUE(std::all_of(data.begin(), data.end(), [](unsigned char value) { return value == 0x5A; }));
 }
 #endif

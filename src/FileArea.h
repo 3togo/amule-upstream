@@ -63,7 +63,8 @@ public:
 
 	/**
 	 * Flushes data not yet written. Throws CIOFailureException on failure, retaining the
-	 * buffer so the caller can retry.
+	 * buffer so the caller can retry. A failed mapped flush falls back to an allocated
+	 * buffer, so a retry writes the data again rather than only synchronizing clean pages.
 	 */
 	void FlushAt(CFileAutoClose &file, uint64 offset, size_t count);
 
