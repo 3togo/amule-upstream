@@ -2671,7 +2671,7 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 		)
 		if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 			add_library (UploadReadDelay MODULE UploadReadDelay.cpp)
-			target_link_libraries (UploadReadDelay ${CMAKE_DL_LIBS})
+			target_link_libraries (UploadReadDelay ${CMAKE_DL_LIBS} ZLIB::ZLIB)
 			add_test (NAME DisplayRatesIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/DisplayRatesIntegrationTest.py $<TARGET_FILE:amuled>
