@@ -33,8 +33,6 @@
 
 #include <common/Path.h> // Needed for CPath
 
-#include <wx/thread.h>
-
 class CPartFile;
 class CKnownFile;
 class PartFileBufferedData;
@@ -54,7 +52,7 @@ struct ToWrite
 	CPartFile *pFile;
 	PartFileBufferedData *pBuffer;
 	//! For the free-space check, taken on the main thread when queued: the part file's
-	//! directory and the user's limit, if it is on.
+	//! actual data path and the user's limit, if it is on.
 	CPath partPath;
 	bool checkSpace;
 	uint64 minFree;

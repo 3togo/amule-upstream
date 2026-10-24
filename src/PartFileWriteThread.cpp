@@ -196,7 +196,10 @@ bool CPartFileWriteThread::QueueWrite(
 	}
 	m_sessions[file] = file->m_writeSession;
 	return m_pool->Submit(std::to_string(file->m_writeSession->id),
-		ToWrite{ file, buffer, file->m_PartPath, checkSpace, minFree, file->m_writeSession });
+		ToWrite{ file, buffer, file->m_PartPath, checkSpace, minFree, file->m_writeSession },
+		file->m_writeSession->ready
+			? (file->m_writeSession->volume.empty() ? "unknown" : file->m_writeSession->volume)
+			: "");
 }
 
 void CPartFileWriteThread::Finish(ToWrite &write, uint8 status)

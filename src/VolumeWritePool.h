@@ -8,7 +8,6 @@
 #include <exception>
 #include <functional>
 #include <list>
-#include <map>
 #include <mutex>
 #include <set>
 #include <string>
@@ -53,17 +52,13 @@ public:
 	VolumeWritePool(const VolumeWritePool &) = delete;
 	VolumeWritePool &operator=(const VolumeWritePool &) = delete;
 
-	bool Submit(const std::string &path, Job job)
+	bool Submit(const std::string &path, Job job, std::string volume = {})
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
 		if (m_stopping || m_owned == kMaxJobs) {
 			return false;
 		}
-		const auto found = m_volumes.find(path);
-		m_queue.push_back({ path,
-			found == m_volumes.end() ? "" : found->second,
-			std::move(job),
-			++m_sequence });
+		m_queue.push_back({ path, std::move(volume), std::move(job), ++m_sequence });
 		++m_owned;
 		m_ready.notify_one();
 		return true;
@@ -139,7 +134,7 @@ private:
 			std::list<Item> probe;
 			{
 				std::unique_lock<std::mutex> lock(m_mutex);
-				Iterator next;
+				auto next = m_queue.end();
 				m_ready.wait(lock, [&] {
 					next = Next();
 					return next != m_queue.end() || (m_stopping && m_owned == 0);
@@ -181,7 +176,6 @@ private:
 					std::lock_guard<std::mutex> lock(m_mutex);
 					m_resolving.erase(item.path);
 					if (!error) {
-						m_volumes[item.path] = volume;
 						for (auto &queued : m_queue) {
 							if (queued.path == item.path) {
 								queued.volume = volume;
@@ -224,7 +218,6 @@ private:
 	std::mutex m_mutex;
 	std::condition_variable m_ready;
 	std::list<Item> m_queue;
-	std::map<std::string, std::string> m_volumes;
 	std::set<std::string> m_active, m_resolving;
 	std::array<std::thread, kWorkers> m_workers;
 	size_t m_owned = 0, m_sequence = 0;
