@@ -161,10 +161,11 @@ struct Engine : IQuicNgtcp2Engine
 	}
 	uint64_t GetAdvertisedReadWindow(Handle handle) const override { return handle != nullptr ? 1u : 0u; }
 	bool hasOpenStream = false;
+	bool canOpenStream = true;
 	bool HasOpenStream(Handle handle) const override { return handle != nullptr && hasOpenStream; }
 	bool OpenLocalBidiStream(Handle handle) override
 	{
-		if (handle == nullptr || hasOpenStream) {
+		if (handle == nullptr || hasOpenStream || !canOpenStream) {
 			return false;
 		}
 		hasOpenStream = true;
@@ -305,13 +306,13 @@ TEST(QuicNgtcp2Adapter, MissingDependenciesFailClosed)
 	CQuicTlsPolicy noCredentials = policy;
 	noCredentials.credentials = nullptr;
 	ASSERT_TRUE(!CQuicNgtcp2Factory(noCredentials, sink, engine, kTestIdentity)
-			.CreateInbound(p.data(), p.size(), kPeer, 2, kDcid, 0));
+			     .CreateInbound(p.data(), p.size(), kPeer, 2, kDcid, 0));
 	ASSERT_EQUALS(0u, engine->created);
 
 	ASSERT_TRUE(!CQuicNgtcp2Factory(policy, nullptr, engine, kTestIdentity)
-			.CreateInbound(p.data(), p.size(), kPeer, 2, kDcid, 0));
+			     .CreateInbound(p.data(), p.size(), kPeer, 2, kDcid, 0));
 	ASSERT_TRUE(!CQuicNgtcp2Factory(policy, sink, nullptr, kTestIdentity)
-			.CreateInbound(p.data(), p.size(), kPeer, 2, kDcid, 0));
+			     .CreateInbound(p.data(), p.size(), kPeer, 2, kDcid, 0));
 	ASSERT_EQUALS(0u, engine->created);
 }
 
@@ -792,4 +793,49 @@ TEST(QuicNgtcp2Adapter, ZeroByteProofWriteIsRetriedNotClosed)
 	// m_operations (this connection) to send a graceful FIN, which would otherwise run on a
 	// dangling reference once connection's own destructor has already run.
 	acceptor.accepted.reset();
+}
+
+TEST(QuicNgtcp2Adapter, PendingOutboundBelongsToDialerAndWaitsForStreamCredit)
+{
+	Session s;
+	Credentials c;
+	Verifier v;
+	auto sink = std::make_shared<Sink>();
+	auto engine = std::make_shared<Engine>();
+	engine->canOpenStream = false;
+	CQuicNgtcp2Factory factory(Policy(s, c, v), sink, engine, kTestIdentity);
+	StubAcceptor acceptor;
+	factory.SetAcceptor(&acceptor);
+	auto connection = factory.CreateOutbound(kPeer, 4672, kTestPeerIdentity, 0);
+	ASSERT_TRUE(connection != nullptr);
+	auto transport = connection->TakeOutboundTransport();
+	ASSERT_TRUE(transport != nullptr);
+	ASSERT_FALSE(transport->IsInbound());
+	ASSERT_FALSE(transport->IsConnected());
+	connection->Tick(1);
+	ASSERT_EQUALS(0u, engine->writeStreamDataCalls);
+	engine->canOpenStream = true;
+	const auto proof = QuicNatt::BuildEaqn1Proof(kTestPeerIdentity, &kTestIdentity);
+	engine->streamData.assign(proof.begin(), proof.end());
+	connection->Tick(2);
+	ASSERT_TRUE(transport->IsConnected());
+	ASSERT_TRUE(acceptor.accepted == nullptr);
+	ASSERT_TRUE(engine->attachedTransport == transport.get());
+	connection->Close();
+	ASSERT_FALSE(transport->IsOk());
+}
+
+TEST(QuicNgtcp2Adapter, DestroyingPendingDialCancelsConnection)
+{
+	Session s;
+	Credentials c;
+	Verifier v;
+	auto sink = std::make_shared<Sink>();
+	auto engine = std::make_shared<Engine>();
+	CQuicNgtcp2Factory factory(Policy(s, c, v), sink, engine, kTestIdentity);
+	auto connection = factory.CreateOutbound(kPeer, 4672, kTestPeerIdentity, 0);
+	ASSERT_TRUE(connection != nullptr);
+	auto transport = connection->TakeOutboundTransport();
+	transport.reset();
+	ASSERT_TRUE(connection->IsClosed());
 }

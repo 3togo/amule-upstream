@@ -26,6 +26,7 @@
 
 #include "NatRendezvousPolicy.h"
 #include "NetworkAddress.h"
+#include "StreamTransport.h"
 
 #include <array>
 #include <cstddef>
@@ -44,6 +45,8 @@ public:
 	//! received -- the only clock reading taken for this datagram.
 	virtual bool ProcessDatagram(const uint8_t *, size_t, uint64_t nowMs) = 0;
 	virtual bool IsClosed() const = 0;
+	//! Transfers the pending outbound stream to the initiating socket before its handshake.
+	virtual std::unique_ptr<IStreamTransport> TakeOutboundTransport() { return nullptr; }
 	virtual void Close() = 0;
 	//! True for a connection ID this server issued and has not retired. After the server's
 	//! first Initial the client switches its DCID to one of these (RFC 9000 section 7.2).
@@ -115,7 +118,8 @@ public:
 	bool Dial(const CNetworkAddress &address,
 		uint16_t port,
 		const std::array<uint8_t, 16> &expectedPeerIdentity,
-		uint64_t nowMs);
+		uint64_t nowMs,
+		std::unique_ptr<IStreamTransport> *transport = nullptr);
 	//! Services every live connection's timers. Must be called periodically regardless of
 	//! whether any datagram has arrived -- this is what lets a connection recover from loss
 	//! instead of hanging forever once nothing more is received from the peer.

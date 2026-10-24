@@ -96,19 +96,22 @@ bool CClientUDPSocket::SendQuicCapsRequest(const std::array<uint8_t, 16> &peer,
 	const auto zero = std::array<uint8_t, 16>{};
 	if (peer == zero || ipv4 == 0 || udpPort == 0 || !Ok())
 		return false;
+	if (!m_capsRequestLedger.Add(peer, ipv4, udpPort, fileHash, ::GetTickCount64())) {
+		return false;
+	}
 	const auto frame = QuicNatt::EncodeEaqcFrame(0, QuicLocalIdentityFromUserHash(), peer, fileHash);
 	auto packet = std::make_unique<CPacket>(
 		OP_NATT_FRAME_CAPS, static_cast<uint32>(frame.size()), OP_UDPRESERVEDPROT2);
 	packet->CopyToDataBuffer(0, frame.data(), static_cast<unsigned int>(frame.size()));
 	SendPacket(packet.release(), ipv4, udpPort, false, nullptr, false, 0);
-	m_capsRequestLedger.Add(peer, ipv4, udpPort, fileHash, ::GetTickCount64());
 	return true;
 }
 
 bool CClientUDPSocket::TryQuicDial(const std::array<uint8_t, 16> &peer,
 	uint32_t ipv4,
 	uint16_t udpPort,
-	const std::array<uint8_t, 16> &fileHash)
+	const std::array<uint8_t, 16> &fileHash,
+	std::unique_ptr<IStreamTransport> &transport)
 {
 	const uint64_t now = ::GetTickCount64();
 	const auto result = m_capabilityCache.Lookup(peer, now);
@@ -118,7 +121,7 @@ bool CClientUDPSocket::TryQuicDial(const std::array<uint8_t, 16> &peer,
 	}
 	if (result.state != QuicCapabilityState::Compatible || ipv4 == 0 || udpPort == 0 || !Ok())
 		return false;
-	if (m_quic.Dial(CNetworkAddress::FromIPv4NetworkOrder(ipv4), udpPort, peer, now))
+	if (m_quic.Dial(CNetworkAddress::FromIPv4NetworkOrder(ipv4), udpPort, peer, now, &transport))
 		return true;
 	m_capabilityCache.RememberFailure(peer, now, 30000);
 	return false;

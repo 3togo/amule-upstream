@@ -164,9 +164,19 @@ bool CQuicContext::AdmitNewConnection(const CNetworkAddress &address, uint64_t n
 bool CQuicContext::Dial(const CNetworkAddress &address,
 	uint16_t port,
 	const std::array<uint8_t, 16> &expectedPeerIdentity,
-	uint64_t nowMs)
+	uint64_t nowMs,
+	std::unique_ptr<IStreamTransport> *transport)
 {
-	if (port == 0 || m_factory == nullptr) {
+	if (port == 0 || m_factory == nullptr || !address.IsIPv4() || address.IsUnspecified() ||
+		expectedPeerIdentity == std::array<uint8_t, 16>{} ||
+		(transport != nullptr && *transport != nullptr)) {
+		return false;
+	}
+	EraseClosedConnections();
+	const auto existing = m_connections.lower_bound(SConnectionKey{ address, port, std::string() });
+	if ((existing != m_connections.end() && existing->first.address == address &&
+		    existing->first.port == port) ||
+		!AdmitNewConnection(address, nowMs)) {
 		return false;
 	}
 	std::unique_ptr<IQuicConnection> connection =
@@ -174,9 +184,20 @@ bool CQuicContext::Dial(const CNetworkAddress &address,
 	if (!connection || connection->IsClosed()) {
 		return false;
 	}
+	std::unique_ptr<IStreamTransport> pending;
+	if (transport != nullptr) {
+		pending = connection->TakeOutboundTransport();
+		if (pending == nullptr) {
+			connection->Close();
+			return false;
+		}
+	}
 	const std::string cid = connection->GetIssuedConnectionId();
 	const auto inserted =
 		m_connections.emplace(SConnectionKey{ address, port, cid }, std::move(connection));
+	if (inserted.second && transport != nullptr) {
+		*transport = std::move(pending);
+	}
 	return inserted.second;
 }
 

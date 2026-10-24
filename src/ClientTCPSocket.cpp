@@ -238,8 +238,8 @@ bool CClientTCPSocket::CheckTimeOut()
 	uint64 now = ::GetTickCount64();
 	if (now - timeout_timer > uTimeout) {
 		timeout_timer = now;
-#ifdef AMULE_UTP_TRANSPORT
-		if (TryUtpTcpFallback()) {
+#if defined(AMULE_UTP_TRANSPORT) || defined(AMULE_QUIC_TRANSPORT)
+		if (TryTransportTcpFallback()) {
 			return true;
 		}
 #endif
@@ -258,8 +258,8 @@ void CClientTCPSocket::SetClient(CUpDownClient *pClient)
 	}
 }
 
-#ifdef AMULE_UTP_TRANSPORT
-bool CClientTCPSocket::TryUtpTcpFallback()
+#if defined(AMULE_UTP_TRANSPORT) || defined(AMULE_QUIC_TRANSPORT)
+bool CClientTCPSocket::TryTransportTcpFallback()
 {
 	if (m_client == nullptr || !HasTransport()) {
 		return false;
@@ -274,7 +274,7 @@ bool CClientTCPSocket::TryUtpTcpFallback()
 	if (m_client->HasLowID() || !m_client->IsRedialAllowed()) {
 		return false;
 	}
-#ifdef ENABLE_NATT_SERVER_COORDINATION
+#if defined(ENABLE_NATT_SERVER_COORDINATION) && defined(AMULE_UTP_TRANSPORT)
 	if (m_client->IsLugdunumCallbackDial()) {
 		return false;
 	}
@@ -288,18 +288,18 @@ bool CClientTCPSocket::TryUtpTcpFallback()
 	if (StreamCryptInProgress()) {
 		return false;
 	}
-	if (m_utpFallbackAttempted) {
+	if (m_transportFallbackAttempted) {
 		return false;
 	}
-	m_utpFallbackAttempted = true;
+	m_transportFallbackAttempted = true;
 	// Before the transport goes: this waits out a send running on the throttler
 	// thread, which would otherwise be inside the stream we are about to free,
 	// and clears what the dead stream left half-written.
 	QuiesceForRedial();
-	// Destroy only the failed uTP stream; keep the client and socket wrapper so
+	// Destroy only the failed transport stream; keep the client and socket wrapper so
 	// the normal TCP Connect() path can reuse its identity.
 	DetachTransport().reset();
-	// The uTP window is spent. Give the TCP connect its own, rather than whatever
+	// The transport timeout is spent. Give the TCP connect its own, rather than whatever
 	// remained of it -- the OnClose() route arrives here without CheckTimeOut()'s
 	// reset, so it would otherwise inherit an already-elapsed timer.
 	ResetTimeOutTimer();
@@ -311,8 +311,8 @@ void CClientTCPSocket::OnClose(int nErrorCode)
 {
 	wxASSERT(theApp->listensocket->IsValidSocket(this));
 	CEMSocket::OnClose(nErrorCode);
-#ifdef AMULE_UTP_TRANSPORT
-	if (TryUtpTcpFallback()) {
+#if defined(AMULE_UTP_TRANSPORT) || defined(AMULE_QUIC_TRANSPORT)
+	if (TryTransportTcpFallback()) {
 		return;
 	}
 #endif

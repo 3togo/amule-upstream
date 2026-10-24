@@ -979,3 +979,76 @@ TEST(QuicNgtcp2Handshake, FlushesAtOneTimestampSendABurstNotOnePacket)
 	// The initial congestion window alone admits about ten full packets.
 	ASSERT_TRUE(sink->sent.size() >= 5);
 }
+
+TEST(QuicNgtcp2Handshake, ProductionDialerReachesItsOwnTransportAndExchangesPayload)
+{
+	CQuicEphemeralCredentials credentials;
+	CQuicTlsPolicy policy{ &credentials };
+	auto clientSink = std::make_shared<CollectingSink>();
+	auto serverSink = std::make_shared<CollectingSink>();
+	auto clientEngine = CreateProductionQuicNgtcp2Engine();
+	auto serverEngine = CreateProductionQuicNgtcp2Engine();
+	uint64_t now = 0;
+	CQuicNgtcp2Factory clientFactory(
+		policy, clientSink, clientEngine, kTestClientIdentity, [&now] { return now; });
+	CQuicNgtcp2Factory serverFactory(
+		policy, serverSink, serverEngine, kTestServerIdentity, [&now] { return now; });
+	AcceptingAcceptor serverAcceptor;
+	serverFactory.SetAcceptor(&serverAcceptor);
+	auto client = clientFactory.CreateOutbound(kPeer, 4672, kTestServerIdentity, now);
+	ASSERT_TRUE(client != nullptr);
+	auto transport = client->TakeOutboundTransport();
+	ASSERT_TRUE(transport != nullptr);
+	std::unique_ptr<IQuicConnection> server;
+	const auto pump = [&] {
+		auto outgoing = std::move(clientSink->sent);
+		clientSink->sent.clear();
+		for (const auto &packet : outgoing) {
+			if (!server) {
+				server = serverFactory.CreateInbound(packet.data(),
+					packet.size(),
+					kPeer,
+					4672,
+					ExtractInitialDcid(packet),
+					now);
+				ASSERT_TRUE(server != nullptr);
+			}
+			ASSERT_TRUE(server->ProcessDatagram(packet.data(), packet.size(), now));
+		}
+		outgoing = std::move(serverSink->sent);
+		serverSink->sent.clear();
+		for (const auto &packet : outgoing) {
+			ASSERT_TRUE(client->ProcessDatagram(packet.data(), packet.size(), now));
+		}
+		client->Tick(now);
+		if (server) {
+			server->Tick(now);
+		}
+	};
+	for (unsigned i = 0; i < 100 && !transport->IsConnected(); ++i, now += 10) {
+		pump();
+	}
+	ASSERT_TRUE(transport->IsConnected());
+	ASSERT_TRUE(serverAcceptor.accepted != nullptr);
+	ASSERT_FALSE(transport->IsInbound());
+	const std::array<uint8_t, 3> payload{ 1, 2, 3 };
+	ASSERT_EQUALS(payload.size(), transport->Write(payload.data(), payload.size()));
+	transport->Flush();
+	for (unsigned i = 0; i < 20; ++i, now += 10) {
+		pump();
+	}
+	std::array<uint8_t, 3> received{};
+	ASSERT_EQUALS(received.size(), serverAcceptor.accepted->Read(received.data(), received.size()));
+	ASSERT_TRUE(received == payload);
+	ASSERT_EQUALS(payload.size(), serverAcceptor.accepted->Write(payload.data(), payload.size()));
+	serverAcceptor.accepted->Flush();
+	for (unsigned i = 0; i < 20; ++i, now += 10) {
+		pump();
+	}
+	received.fill(0);
+	ASSERT_EQUALS(received.size(), transport->Read(received.data(), received.size()));
+	ASSERT_TRUE(received == payload);
+	// Transports detach while their owning connections still exist.
+	transport.reset();
+	serverAcceptor.accepted.reset();
+}

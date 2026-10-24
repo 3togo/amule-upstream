@@ -252,6 +252,17 @@ public:
 
 	bool IsClosed() const override { return m_closed; }
 
+	std::unique_ptr<IStreamTransport> TakeOutboundTransport() override
+	{
+		if (!m_hasExpectedPeerIdentity || m_outboundTransport != nullptr || m_closed) {
+			return nullptr;
+		}
+		auto transport = std::make_unique<CQuicSocketTransport>(
+			*this, m_handle, m_address, m_port, nullptr, false, m_transportClock);
+		m_outboundTransport = transport.get();
+		return transport;
+	}
+
 	bool OwnsConnectionId(const std::string &cid) const override
 	{
 		return !m_closed && m_engine->OwnsConnectionId(m_handle, cid);
@@ -315,6 +326,11 @@ public:
 			// down, so a byte that arrives in the gap is buffered (DrainStreamData()) rather than
 			// delivered to a transport that just asked to stop hearing from this connection.
 			m_engine->AttachTransport(m_handle, nullptr);
+			m_outboundTransport = nullptr;
+			if (m_hasExpectedPeerIdentity && !m_proofExchanged) {
+				Close();
+				return;
+			}
 			// Graceful, not ShutdownStream()'s reset: a transport-initiated close is always a
 			// voluntary one (CQuicSocketTransport::Close(), itself already having had its own
 			// chance to flush anything queued) -- there is nothing here that justifies discarding
@@ -330,6 +346,7 @@ public:
 			// can be trusted enough to try preserving, so this resets it instead of asking for a
 			// graceful FIN.
 			m_engine->AttachTransport(m_handle, nullptr);
+			m_outboundTransport = nullptr;
 			m_engine->ShutdownStream(m_handle);
 		}
 	}
@@ -344,6 +361,10 @@ public:
 		if (m_closed)
 			return;
 		m_closed = true;
+		if (m_outboundTransport != nullptr) {
+			m_outboundTransport->OnEnded();
+			m_outboundTransport = nullptr;
+		}
 		m_engine->Destroy(m_handle);
 		m_handle = nullptr;
 	}
@@ -354,13 +375,27 @@ private:
 	// ProcessDatagram(), since that is the only place a stream can newly open.
 	void OfferStreamIfJustOpened()
 	{
-		if (m_streamOffered || m_acceptor == nullptr || !m_engine->HasOpenStream(m_handle)) {
+		if (m_hasExpectedPeerIdentity && !m_engine->HasOpenStream(m_handle)) {
+			m_engine->OpenLocalBidiStream(m_handle);
+		}
+		if (m_streamOffered || (m_acceptor == nullptr && m_outboundTransport == nullptr) ||
+			!m_engine->HasOpenStream(m_handle)) {
 			return;
 		}
 		if (!m_proofExchanged && !TryExchangeEaqn1Proof()) {
 			return;
 		}
 		m_streamOffered = true;
+		if (m_outboundTransport != nullptr) {
+			CQuicSocketTransport *raw = m_outboundTransport;
+			if (!m_proofBuffer.empty()) {
+				raw->OnPayload(m_proofBuffer.data(), m_proofBuffer.size());
+				m_proofBuffer.clear();
+			}
+			m_engine->AttachTransport(m_handle, raw);
+			raw->MarkConnected();
+			return;
+		}
 		auto owned = std::make_unique<CQuicSocketTransport>(
 			*this, m_handle, m_address, m_port, nullptr, true, m_transportClock);
 		CQuicSocketTransport *raw = owned.get();
@@ -525,6 +560,7 @@ private:
 	// Distinguishes an already-drained outbound proof from one that has not been queued yet;
 	// the former must not be rebuilt while waiting for the peer proof.
 	bool m_outboundProofInitiated = false;
+	CQuicSocketTransport *m_outboundTransport = nullptr;
 	bool m_proofExchanged = false;
 	uint64_t m_lastNowMs = 0;
 	bool m_streamOffered = false;
@@ -780,10 +816,7 @@ public:
 		return handle;
 	}
 
-	// This endpoint is always the one that dials out; the peer (CreateServer()'s side of this
-	// same handshake) is the one that opens the connection's one application stream and sends
-	// its EAQN1 proof first -- OnStreamOpen()/OnRecvStreamData() above already handle that
-	// generically, keyed only by ngtcp2_conn*, with no client/server distinction of their own.
+	// The dialer opens the application stream after TLS completes, then sends its proof first.
 	Handle CreateClient(const CQuicTlsPolicy &,
 		const CNetworkAddress &,
 		uint16_t,
@@ -997,7 +1030,8 @@ public:
 	bool OpenLocalBidiStream(Handle handle) override
 	{
 		auto it = m_connections.find(handle);
-		if (it == m_connections.end() || it->second.streamId >= 0) {
+		if (it == m_connections.end() || it->second.streamId >= 0 ||
+			!ngtcp2_conn_get_handshake_completed(it->second.conn)) {
 			return false;
 		}
 		int64_t streamId = -1;
@@ -1454,7 +1488,8 @@ std::unique_ptr<IQuicConnection> CQuicNgtcp2Factory::CreateOutbound(const CNetwo
 		m_engine->CreateClient(m_policy, address, port, expectedPeerIdentity, nowMs);
 	if (handle == nullptr)
 		return nullptr;
-	if (!m_engine->OpenLocalBidiStream(handle)) {
+	// Start the TLS handshake; stream credit arrives with the server transport parameters.
+	if (!m_engine->Flush(handle, *m_sink, address, port, nowMs)) {
 		m_engine->Destroy(handle);
 		return nullptr;
 	}

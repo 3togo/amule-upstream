@@ -535,3 +535,45 @@ TEST(QuicContext, IssuedDcidFromAnotherEndpointIsNotRouted)
 	ASSERT_EQUALS(2u, factory.calls);
 	ASSERT_EQUALS(1u, factory.created[0]->calls);
 }
+
+TEST(QuicContext, OutboundInvalidTargetsNeverReachFactory)
+{
+	FakeFactory factory;
+	CQuicContext context(&factory);
+	ASSERT_FALSE(context.Dial(CNetworkAddress::Absent(), 4672, kPeerIdentity, 0));
+	ASSERT_FALSE(context.Dial(kPeer, 0, kPeerIdentity, 0));
+	ASSERT_FALSE(context.Dial(kPeer, 4672, {}, 0));
+	ASSERT_EQUALS(0u, factory.outboundCalls);
+}
+
+TEST(QuicContext, OutboundDuplicateAndScopeLimitsApplyBeforeCreation)
+{
+	FakeFactory factory;
+	CQuicContext context(&factory);
+	for (size_t i = 0; i < CQuicContext::kMaxConnectionsPerScope; ++i) {
+		factory.next = std::make_unique<FakeConnection>();
+		ASSERT_TRUE(context.Dial(kPeer,
+			static_cast<uint16_t>(4672 + i),
+			kPeerIdentity,
+			i * NatRendezvous::kRequestThrottleMs));
+	}
+	factory.next = std::make_unique<FakeConnection>();
+	ASSERT_FALSE(context.Dial(kPeer, 4672, kPeerIdentity, 1000000));
+	ASSERT_FALSE(context.Dial(kPeer, 5000, kPeerIdentity, 1000000));
+	ASSERT_EQUALS(CQuicContext::kMaxConnectionsPerScope, context.ConnectionCount());
+	ASSERT_EQUALS(CQuicContext::kMaxConnectionsPerScope, factory.outboundCalls);
+}
+
+TEST(QuicContext, OutboundAndInboundShareGlobalAdmissionLimit)
+{
+	FakeFactory factory;
+	CQuicContext context(&factory);
+	for (size_t i = 0; i < CQuicContext::kMaxConnections; ++i) {
+		factory.next = std::make_unique<FakeConnection>();
+		ASSERT_TRUE(context.Dial(
+			PeerNumber(i), 4672, kPeerIdentity, i * NatRendezvous::kRequestThrottleMs));
+	}
+	factory.next = std::make_unique<FakeConnection>();
+	ASSERT_FALSE(context.Dial(kPeer, 4672, kPeerIdentity, 10000000));
+	ASSERT_EQUALS(CQuicContext::kMaxConnections, factory.outboundCalls);
+}

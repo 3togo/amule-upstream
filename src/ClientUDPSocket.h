@@ -93,7 +93,8 @@ public:
 	bool TryQuicDial(const std::array<uint8_t, 16> &peer,
 		uint32_t ipv4,
 		uint16_t udpPort,
-		const std::array<uint8_t, 16> &fileHash);
+		const std::array<uint8_t, 16> &fileHash,
+		std::unique_ptr<IStreamTransport> &transport);
 #endif
 
 protected:

@@ -115,9 +115,11 @@ protected:
 
 private:
 	CUpDownClient *m_client;
+#if defined(AMULE_UTP_TRANSPORT) || defined(AMULE_QUIC_TRANSPORT)
+	bool TryTransportTcpFallback();
+	bool m_transportFallbackAttempted = false;
+#endif
 #ifdef AMULE_UTP_TRANSPORT
-	bool TryUtpTcpFallback();
-	bool m_utpFallbackAttempted = false;
 	SUtpIncomingSynWinner m_utpIncomingSynWinner;
 #endif
 
