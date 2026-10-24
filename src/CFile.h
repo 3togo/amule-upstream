@@ -150,6 +150,17 @@ public:
 	 */
 	int fd() const;
 
+	struct WriteSegment
+	{
+		const void *data;
+		size_t size;
+	};
+	static constexpr size_t kMaxWriteSegments = 16;
+	static constexpr size_t kMaxWriteBytes = 1024 * 1024;
+	// Immediately writes a bounded scatter list at the current position. Throws
+	// on a short write as well as an error; the caller owns all retry buffers.
+	void WriteSegments(const WriteSegment *segments, size_t count);
+
 	/** Flushes data not yet written. Calling it on a closed file is illegal. */
 	bool Flush();
 

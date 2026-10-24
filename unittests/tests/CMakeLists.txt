@@ -1360,7 +1360,7 @@ target_include_directories (FileAreaTest PRIVATE
 target_link_libraries (FileAreaTest muleunit)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	set_property (TARGET FileAreaTest APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--wrap=msync")
+	set_property (TARGET FileAreaTest APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--wrap=msync -Wl,--wrap=writev")
 	target_compile_definitions (FileAreaTest PRIVATE AMULE_TEST_WRAP_MSYNC=1)
 endif ()
 
