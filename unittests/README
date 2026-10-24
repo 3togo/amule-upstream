@@ -334,3 +334,27 @@ application must wait for that read, then exit cleanly when it is released.
 Keep opens, reads and closes off the coordinator in each native run. Record
 unavailable alias/UNC/fault-injection cases as untested, rather than treating a
 successful build or ordinary two-volume transfer as an isolation test.
+
+Time-based upload buffering
+---------------------------
+UploadBufferingTest exercises the two-second read-ahead target (at least one
+block plus a byte, at most 4 MiB), overflow-safe rate arithmetic, per-socket and
+global admission, tiny-request overhead, concurrent release, and ownership after
+the coordinator disappears. Existing upload integration cases cover normal and
+compressed packets, disconnects, session reuse, and controlled storage delays.
+
+Read admission charges four times the original payload plus 4 KiB per request,
+with a 16 MiB per-socket and 128 MiB aggregate charge limit. This reserves room
+for read/copy/compression buffers and packet overhead, even for tiny requests.
+Pending reads and finished results retain their charge; all packets of a block
+share its reservation until the last packet is sent or discarded. Truncation
+keeps the current packet's reservation, and session/statistics resets do not
+reset the socket's budget or queued-payload count. Releasing a queued block
+wakes the coordinator so another client can use the freed capacity.
+
+These are conservative application-buffer charges, not a process-RSS limit.
+Allocator bookkeeping, fixed library/compressor workspaces, file-handle caches,
+transport buffers and kernel TCP buffers are outside these counters. A request
+may overshoot the time target, but admission still requires room under both
+charge limits. Two seconds is bounded read-ahead, not a promise to hide longer
+storage stalls or compensate for a peer's small protocol request window.
