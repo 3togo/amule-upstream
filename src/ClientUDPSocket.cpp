@@ -845,8 +845,8 @@ void CClientUDPSocket::ProcessPacket(uint8_t *packet, int16 size, int8 opcode, u
 		AddDebugLogLineN(logClientUDP, "Client UDP socket: OP_REASKFILEPING");
 		theStats::AddDownOverheadFileRequest(size);
 
-		// A reask always carries the 16-byte file hash. Shorter datagrams are
-		// malformed: reject them before the parser reads past the buffer.
+		// A reask always carries the 16-byte file hash. Log a shorter datagram here
+		// rather than through the reader's end-of-buffer exception.
 		if (size < 16) {
 			AddDebugLogLineN(logClientUDP,
 				CFormat("Client UDP socket: rejected short OP_REASKFILEPING (%u bytes) from "

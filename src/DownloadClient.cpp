@@ -827,11 +827,10 @@ void CUpDownClient::ProcessBlockPacket(const uint8_t *packet, uint32 size, bool 
 		return;
 	}
 
-	// A block packet must at least carry its fixed header: file hash (16),
-	// start position (4, or 8 with largeblocks) and either the compressed
-	// block size (4) or the end position (4, or 8 with largeblocks). Shorter
-	// datagrams are malformed; reject them before parsing instead of failing
-	// halfway through with a generic read error.
+	// Fixed header: file hash (16), start position (4, or 8 with largeblocks), then
+	// the compressed block size (4) or the end position (4, or 8 with largeblocks).
+	// Log a shorter packet here rather than through the reader's end-of-buffer
+	// exception.
 	const uint32 offsetFieldSize = largeblocks ? 8 : 4;
 	const uint32 minBlockHeaderSize = 16 + offsetFieldSize + (packed ? 4 : offsetFieldSize);
 	if (size < minBlockHeaderSize) {
