@@ -14,10 +14,13 @@
 std::atomic<uint32> TheTime{ 0 };
 
 #if defined(AMULE_TEST_WRAP_MSYNC) && defined(MMAP_SUPPORTED)
+#include <unistd.h>
+
 namespace
 {
 bool failSync = false;
 unsigned syncCalls = 0;
+int truncateOnFailure = -1;
 } // namespace
 extern "C" int __real_msync(void *address, size_t length, int flags);
 extern "C" int __wrap_msync(void *address, size_t length, int flags)
@@ -27,6 +30,10 @@ extern "C" int __wrap_msync(void *address, size_t length, int flags)
 		// Model writeback that cleaned the pages before reporting an error. A
 		// later msync alone must not be enough to complete the pending write.
 		if (__real_msync(address, length, flags) != 0) {
+			return -1;
+		}
+		// Model a device whose pages are gone: reading the mapping now raises SIGBUS.
+		if (truncateOnFailure >= 0 && ftruncate(truncateOnFailure, 0) != 0) {
 			return -1;
 		}
 		errno = EIO;
@@ -58,6 +65,7 @@ void tearDown()
 {
 #if defined(AMULE_TEST_WRAP_MSYNC) && defined(MMAP_SUPPORTED)
 	failSync = false;
+	truncateOnFailure = -1;
 #endif
 	CFileArea::SetMMapEnabled(false);
 	CPath::RemoveFile(TestFile());
@@ -171,5 +179,22 @@ TEST(FileArea, MappedSyncFailureRetainsDataAcrossFailedBufferedRetry)
 	std::array<unsigned char, 5000> data{};
 	file.ReadAt(data.data(), 17, data.size());
 	ASSERT_TRUE(std::all_of(data.begin(), data.end(), [](unsigned char value) { return value == 0x5A; }));
+}
+
+TEST(FileArea, MappedSyncFailureSurvivesLostPages)
+{
+	CFileArea::SetMMapEnabled(true);
+	CFileAutoClose file(TestFile(), CFile::read_write);
+	{
+		CFileArea area;
+		area.StartWriteAt(file, 17, 5000);
+		std::memset(area.GetBuffer(), 0x5A, 5000);
+		failSync = true;
+		truncateOnFailure = file.fd();
+		ASSERT_RAISES(CIOFailureException, area.FlushAt(file, 17, 5000));
+		truncateOnFailure = -1;
+		ASSERT_TRUE(area.GetBuffer() != nullptr);
+		ASSERT_EQUALS(0, static_cast<int>(area.GetBuffer()[0]));
+	} // ~CFileArea must not rethrow the SIGBUS from the copy
 }
 #endif

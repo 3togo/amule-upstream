@@ -335,6 +335,10 @@ void CFileArea::FlushAt(CFileAutoClose &file, uint64 offset, size_t count)
 			// unmapping; the caller's retry must write them again through WriteAt.
 			auto buffer = std::make_unique<uint8_t[]>(count);
 			memcpy(buffer.get(), m_buffer, count);
+			// A page that can no longer be read raises SIGBUS during the copy: the
+			// handler maps zeros and sets m_error. Clear it, or ~CFileArea would throw
+			// and terminate. The zeroed range then fails the part's hash check.
+			m_error = false;
 			Close();
 			m_buffer = buffer.release();
 			throw failure;
