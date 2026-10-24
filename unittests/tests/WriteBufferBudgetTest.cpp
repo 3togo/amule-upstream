@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <muleunit/test.h>
 #include "WriteBufferBudget.h"
+#include <cstdlib>
 #include <limits>
 #include <thread>
 #include <vector>
