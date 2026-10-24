@@ -1310,7 +1310,7 @@ endif ()
 add_executable (PartFileBufferingTest PartFileBufferingTest.cpp)
 add_test (NAME PartFileBufferingTest COMMAND PartFileBufferingTest)
 target_include_directories (PartFileBufferingTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries (PartFileBufferingTest muleunit)
+target_link_libraries (PartFileBufferingTest muleunit mulecommon)
 
 add_executable (FileDataIOTest
 	FileDataIOTest.cpp
