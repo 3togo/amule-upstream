@@ -51,7 +51,8 @@ public:
 	void Requested(const Hash &hash, uint64_t now)
 	{
 		m_requested[hash] = now;
-		m_pending.erase(hash);
+		// A file queued after this pass began may have missed earlier servers.
+		// Preserve that follow-up even if later servers see it in this pass.
 	}
 	void Interrupted(const std::set<Hash> &targets)
 	{

@@ -40,15 +40,16 @@ TEST(UDPSourceRequestQueue, RepeatedResumesAndDeleteReaddsCannotEvadeCooldown)
 	ASSERT_TRUE(targets.count(1) == 1);
 }
 
-TEST(UDPSourceRequestQueue, FullPassQueriesSuppressRedundantPendingResumes)
+TEST(UDPSourceRequestQueue, QueriesSuppressLaterResumesButPreserveFilesQueuedMidPass)
 {
 	UDPSourceRequestQueue<int> queue;
 	std::set<int> targets;
 	ASSERT_TRUE(queue.Begin(100, true, targets));
-	queue.Queue(1, 101);
-	queue.Requested(1, 102);
+	queue.Requested(1, 101);
+	queue.Queue(1, 102);
 	ASSERT_FALSE(queue.Ready(60100));
 	queue.Queue(2, 103);
+	queue.Requested(2, 104); // Earlier servers in the pass missed this new file.
 	ASSERT_TRUE(queue.Begin(60100, false, targets));
 	ASSERT_TRUE(targets.count(1) == 0);
 	ASSERT_TRUE(targets.count(2) == 1);
