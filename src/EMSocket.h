@@ -89,7 +89,7 @@ public:
 	uint64 GetSentFileBytesForDisplayAndReset();
 	uint64 GetSentPayloadSinceLastCallAndReset();
 	uint64 PeekSentPayload(); // Non-resetting peek -- for disk I/O thread buffer check
-	void SetUploadBufferTarget(uint32 payload);
+	uint32 UpdateUploadBufferTarget(uint32 wireRate);
 	uint64 QueuedUploadPayload() const;
 	const std::shared_ptr<UploadBufferBudget::Account> &UploadBufferAccount() const
 	{
