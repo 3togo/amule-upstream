@@ -3530,20 +3530,14 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 		}
 	}
 
-	// log transferinformation in our "blackbox"
-	m_CorruptionBlackBox->TransferredData(start, end, client->GetIP());
-
-	// Stamp for FlushBuffer's Phase 3 quiescent guard, and for the download-list "Last
-	// Reception" column. The latter must stamp on real data arrival, not on every periodic
-	// FlushBuffer call, or idle/paused/stalled files all read "now" and the column stops
-	// being useful.
-	m_nLastBlockReceivedTick = GetTickCount64();
-	m_lastDateChanged = wxDateTime::GetTimeNow();
-
 	const auto credit = m_writeCredits.find(block);
 	if (credit == m_writeCredits.end()) {
 		return 0; // cancelled or invalidated request: no owned write capacity
 	}
+	// Stamp real accepted reception, rather than periodic flushing.
+	m_nLastBlockReceivedTick = GetTickCount64();
+	m_lastDateChanged = wxDateTime::GetTimeNow();
+
 	struct Fragment
 	{
 		uint64 start;
@@ -3570,6 +3564,8 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 		const uint32 bytes = static_cast<uint32>(fragment.end - fragment.start + 1);
 		m_nTotalBufferData += bytes;
 		buffered += bytes;
+		// Attribute only the bytes actually retained, not overlapping duplicates.
+		m_CorruptionBlackBox->TransferredData(fragment.start, fragment.end, client->GetIP());
 		FillGap(fragment.start, fragment.end);
 	}
 	block->transferred += buffered;
