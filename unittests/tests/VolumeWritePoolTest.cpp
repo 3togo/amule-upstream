@@ -306,3 +306,74 @@ TEST(VolumeWritePool, BlockedDiscoveryLeavesWorkersForKnownHealthyVolumes)
 	pool.Stop();
 	ASSERT_EQUALS(size_t{ 4 }, control.done.size());
 }
+
+TEST(VolumeWritePool, ContinuousResolvedWritesCannotStarveColdDiscovery)
+{
+	std::mutex mutex;
+	std::condition_variable changed;
+	unsigned initial = 0, processed = 0, parked = 0;
+	bool begin = false, finish = false, discovered = false, submissionFailed = false;
+	Pool *owner = nullptr;
+	Pool pool(
+		[&](Job &) {
+			std::lock_guard<std::mutex> lock(mutex);
+			discovered = true;
+			changed.notify_all();
+			return std::string("new-volume");
+		},
+		[&](Pool::Batch &batch) {
+			for (auto &job : batch) {
+				{
+					std::unique_lock<std::mutex> lock(mutex);
+					if (!begin) {
+						++initial;
+						changed.notify_all();
+						changed.wait_for(
+							lock, std::chrono::seconds(5), [&] { return begin; });
+					}
+					if (finish || discovered) {
+						continue;
+					}
+				}
+				const bool accepted = owner->Submit(job.volume, job, job.volume);
+				std::unique_lock<std::mutex> lock(mutex);
+				submissionFailed |= !accepted;
+				++processed;
+				if (processed >= 100) {
+					++parked;
+					changed.notify_all();
+					changed.wait_for(
+						lock, std::chrono::seconds(5), [&] { return finish; });
+				}
+			}
+		},
+		[](Pool::Batch &, const std::exception_ptr &) {},
+		[](Job &job) { return job.id == -1; });
+	owner = &pool;
+	for (const auto *key : { "A", "B", "C", "D" }) {
+		pool.Submit(key, { 0, key }, key);
+	}
+	bool allWorkersStarted;
+	{
+		std::unique_lock<std::mutex> lock(mutex);
+		allWorkersStarted =
+			changed.wait_for(lock, std::chrono::seconds(5), [&] { return initial == 4; });
+	}
+	const bool admitted = pool.Submit("cold", { -1, "new-volume" }, "", true);
+	bool discoveredDuringLoad;
+	{
+		std::unique_lock<std::mutex> lock(mutex);
+		begin = true;
+		changed.notify_all();
+		changed.wait_for(lock, std::chrono::seconds(5), [&] { return discovered || parked == 4; });
+		discoveredDuringLoad = discovered;
+		finish = true;
+		changed.notify_all();
+	}
+	pool.Stop();
+	ASSERT_TRUE(allWorkersStarted);
+	ASSERT_TRUE(admitted);
+	ASSERT_FALSE(submissionFailed);
+	ASSERT_TRUE(discoveredDuringLoad);
+	ASSERT_TRUE(discovered);
+}

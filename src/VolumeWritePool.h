@@ -172,21 +172,21 @@ private:
 	using Iterator = typename std::list<Item>::iterator;
 	Iterator Next()
 	{
+		// Oldest eligible work wins across both admission classes. Separate
+		// discovery capacity must also receive service while resolved volumes
+		// continuously replenish their queues. Busy lanes never hold a worker.
 		for (auto it = m_queue.begin(); it != m_queue.end(); ++it) {
-			if (!it->volume.empty() && m_active.count(it->volume) == 0) {
-				return it;
-			}
-		}
-		if (m_probing == kResolvers) {
-			return m_queue.end();
-		}
-		for (auto it = m_queue.begin(); it != m_queue.end(); ++it) {
-			if (it->volume.empty() && m_resolving.count(it->path) == 0) {
+			if (!it->volume.empty()) {
+				if (m_active.count(it->volume) == 0) {
+					return it;
+				}
+			} else if (m_probing < kResolvers && m_resolving.count(it->path) == 0) {
 				return it;
 			}
 		}
 		return m_queue.end();
 	}
+
 	void Run()
 	{
 		for (;;) {

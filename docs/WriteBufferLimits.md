@@ -26,8 +26,9 @@ file is not dynamically reclassified.
 Four workers run at most one batch per resolved volume. A batch contains up to
 64 buffers. Admission allows 4,096 data jobs globally and 1,024 per volume, plus
 64 separate discovery jobs; at most two workers perform discovery concurrently.
-These independent discovery allowances let a cold healthy file identify its
-volume even when another volume has reached its data limits. Queue saturation
+These independent discovery allowances and oldest-eligible scheduling let a
+cold healthy file identify its volume even while resolved volumes replenish
+their write queues. Discovery keeps its two-call concurrency limit. Queue saturation
 leaves buffers ready for retry without synchronous I/O on the main thread.
 Free-space samples and writes run within their volume's batch, so a slow probe
 cannot hold a shared coordinator lock or another volume's write lane.
