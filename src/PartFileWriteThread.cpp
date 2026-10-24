@@ -138,7 +138,7 @@ CPartFileWriteThread::CPartFileWriteThread()
 							       : IdentifyWriteVolume(write);
 		},
 		[this](std::vector<ToWrite> &batch) { WriteBatch(batch); },
-		[](std::vector<ToWrite> &batch, std::exception_ptr) {
+		[](std::vector<ToWrite> &batch, const std::exception_ptr &) {
 			for (auto &write : batch) {
 				if (write.pFile != nullptr) {
 					if (write.pBuffer == nullptr) {
@@ -180,7 +180,9 @@ bool CPartFileWriteThread::PrepareFile(CPartFile *file)
 		m_sessions[file] = session;
 		++file->m_iWrites;
 		if (!m_pool->Submit(std::to_string(session->id),
-			    ToWrite{ file, nullptr, file->m_PartPath, false, 0, session })) {
+			    ToWrite{ file, nullptr, file->m_PartPath, false, 0, session },
+			    "",
+			    true)) {
 			--file->m_iWrites;
 			session->preparing = false;
 		}
@@ -189,7 +191,7 @@ bool CPartFileWriteThread::PrepareFile(CPartFile *file)
 }
 
 bool CPartFileWriteThread::QueueWrite(
-	CPartFile *file, PartFileBufferedData *buffer, const CPath &, bool checkSpace, uint64 minFree)
+	CPartFile *file, PartFileBufferedData *buffer, bool checkSpace, uint64 minFree)
 {
 	if (!m_running || file->m_writeSession->cancelled.load()) {
 		return false;

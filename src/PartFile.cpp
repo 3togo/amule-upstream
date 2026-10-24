@@ -3641,7 +3641,6 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 				++m_iWrites;
 				if (!pThread->QueueWrite(this,
 					    item,
-					    GetFilePath(),
 					    thePrefs::IsCheckDiskspaceEnabled(),
 					    thePrefs::GetMinFreeDiskSpace())) {
 					--m_iWrites;

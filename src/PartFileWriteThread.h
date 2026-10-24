@@ -68,11 +68,7 @@ public:
 
 	void EndThread(); // eMule ref: PartFileWriteThread.cpp:62
 	bool PrepareFile(CPartFile *file);
-	bool QueueWrite(CPartFile *pFile,
-		PartFileBufferedData *pBuffer,
-		const CPath &dir,
-		bool checkSpace,
-		uint64 minFree);
+	bool QueueWrite(CPartFile *pFile, PartFileBufferedData *pBuffer, bool checkSpace, uint64 minFree);
 	bool IsRunning() const { return m_pool != nullptr && m_running; }
 
 	// Revoke queued ownership for a cancelling file. Active jobs retain their

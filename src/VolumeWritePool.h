@@ -8,6 +8,8 @@
 #include <exception>
 #include <functional>
 #include <list>
+#include <map>
+#include <algorithm>
 #include <mutex>
 #include <set>
 #include <string>
@@ -25,9 +27,10 @@ template <typename Job> class VolumeWritePool
 public:
 	static constexpr size_t kWorkers = 4;
 	static constexpr size_t kMaxJobs = 4096;
+	static constexpr size_t kVolumeJobs = 1024, kDiscoveryJobs = 64;
 	static constexpr size_t kBatchSize = 64;
 	using Batch = std::vector<Job>;
-	using Failure = std::function<void(Batch &, std::exception_ptr)>;
+	using Failure = std::function<void(Batch &, const std::exception_ptr &)>;
 
 	VolumeWritePool(
 		std::function<std::string(Job &)> resolve,
@@ -52,13 +55,42 @@ public:
 	VolumeWritePool(const VolumeWritePool &) = delete;
 	VolumeWritePool &operator=(const VolumeWritePool &) = delete;
 
-	bool Submit(const std::string &path, Job job, std::string volume = {})
+	bool Submit(const std::string &path, Job job, std::string volume = {}, bool discovery = false)
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
-		if (m_stopping || m_owned == kMaxJobs) {
+		if (m_stopping) {
 			return false;
 		}
-		m_queue.push_back({ path, std::move(volume), std::move(job), ++m_sequence });
+		if (discovery) {
+			if (m_discovery >= kDiscoveryJobs) {
+				return false;
+			}
+			volume.clear();
+		} else {
+			if (m_owned - m_discovery >= kMaxJobs) {
+				return false;
+			}
+			const size_t unknown = m_volumeJobs[""];
+			size_t known = 0;
+			if (volume.empty()) {
+				for (const auto &entry : m_volumeJobs) {
+					if (!entry.first.empty()) {
+						known = std::max(known, entry.second);
+					}
+				}
+			} else {
+				known = m_volumeJobs[volume];
+			}
+			if (unknown + known >= kVolumeJobs) {
+				return false;
+			}
+		}
+		m_queue.push_back({ path, volume, std::move(job), ++m_sequence, discovery });
+		if (discovery) {
+			++m_discovery;
+		} else {
+			++m_volumeJobs[volume];
+		}
 		++m_owned;
 		m_ready.notify_one();
 		return true;
@@ -73,6 +105,7 @@ public:
 			std::lock_guard<std::mutex> lock(m_mutex);
 			for (auto it = m_queue.begin(); it != m_queue.end();) {
 				if (predicate(it->job)) {
+					ReleaseCount(*it);
 					removed.push_back(std::move(it->job));
 					it = m_queue.erase(it);
 				} else {
@@ -110,7 +143,32 @@ private:
 		std::string path, volume;
 		Job job;
 		size_t sequence;
+		bool discovery;
 	};
+	void ReleaseCount(const Item &item)
+	{
+		if (item.discovery) {
+			--m_discovery;
+		} else {
+			ReleaseVolume(item.volume, 1);
+		}
+	}
+	void ReleaseVolume(const std::string &volume, size_t count)
+	{
+		auto found = m_volumeJobs.find(volume);
+		found->second -= count;
+		if (found->second == 0) {
+			m_volumeJobs.erase(found);
+		}
+	}
+	void Reclassify(Item &item, const std::string &volume)
+	{
+		if (!item.discovery && item.volume != volume) {
+			ReleaseVolume(item.volume, 1);
+			++m_volumeJobs[volume];
+		}
+		item.volume = volume;
+	}
 	using Iterator = typename std::list<Item>::iterator;
 	Iterator Next()
 	{
@@ -178,11 +236,15 @@ private:
 					if (!error) {
 						for (auto &queued : m_queue) {
 							if (queued.path == item.path) {
-								queued.volume = volume;
+								Reclassify(queued, volume);
 							}
 						}
 					}
+					if (!error) {
+						Reclassify(item, volume);
+					}
 					if (error || m_discard(item.job)) {
+						ReleaseCount(item);
 						--m_owned;
 					} else {
 						item.volume = volume;
@@ -203,6 +265,7 @@ private:
 				{
 					std::lock_guard<std::mutex> lock(m_mutex);
 					m_active.erase(volume);
+					ReleaseVolume(volume, batch.size());
 					m_owned -= batch.size();
 				}
 			}
@@ -213,13 +276,16 @@ private:
 	std::function<std::string(Job &)> m_resolve;
 	std::function<void(Batch &)> m_work;
 	Failure m_failure;
-	// Runs under the scheduler lock: must perform no I/O or pool re-entry.
+	// Runs under the scheduler lock: no I/O/re-entry. Discovery-only jobs
+	// must complete here and return true, without waiting for a write lane.
 	std::function<bool(Job &)> m_discard;
 	std::mutex m_mutex;
 	std::condition_variable m_ready;
 	std::list<Item> m_queue;
 	std::set<std::string> m_active, m_resolving;
 	std::array<std::thread, kWorkers> m_workers;
+	std::map<std::string, size_t> m_volumeJobs;
+	size_t m_discovery = 0;
 	size_t m_owned = 0, m_sequence = 0;
 	bool m_stopping = false;
 };

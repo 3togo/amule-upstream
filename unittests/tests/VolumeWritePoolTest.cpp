@@ -71,7 +71,7 @@ TEST(VolumeWritePool, AliasesCannotConsumeWorkersBehindOneStalledVolume)
 				control.Done(job.id);
 			}
 		},
-		[](Pool::Batch &, std::exception_ptr) {});
+		[](Pool::Batch &, const std::exception_ptr &) {});
 	ASSERT_TRUE(pool.Submit("first", { 0, "A" }));
 	ASSERT_TRUE(control.Wait([&] { return control.entered; }));
 	for (int id = 1; id <= 100; ++id) {
@@ -103,7 +103,7 @@ TEST(VolumeWritePool, HungDiscoveryDoesNotBlockAnotherVolume)
 				control.Done(job.id);
 			}
 		},
-		[](Pool::Batch &, std::exception_ptr) {});
+		[](Pool::Batch &, const std::exception_ptr &) {});
 	pool.Submit("hung", { 0, "A" });
 	ASSERT_TRUE(control.Wait([&] { return control.entered; }));
 	pool.Submit("healthy", { 1, "B" });
@@ -125,7 +125,7 @@ TEST(VolumeWritePool, UnknownIdentitiesShareOneLane)
 				control.Done(job.id);
 			}
 		},
-		[](Pool::Batch &, std::exception_ptr) {});
+		[](Pool::Batch &, const std::exception_ptr &) {});
 	pool.Submit("unknown1", { 0, "" });
 	ASSERT_TRUE(control.Wait([&] { return control.entered; }));
 	pool.Submit("unknown2", { 1, "" });
@@ -150,16 +150,16 @@ TEST(VolumeWritePool, QueueBoundAndCancellationPreserveActiveOwnership)
 				control.Done(job.id);
 			}
 		},
-		[](Pool::Batch &, std::exception_ptr) {});
+		[](Pool::Batch &, const std::exception_ptr &) {});
 	pool.Submit("same", { 0, "A" });
 	ASSERT_TRUE(control.Wait([&] { return control.entered; }));
-	for (size_t id = 1; id < Pool::kMaxJobs; ++id) {
-		ASSERT_TRUE(pool.Submit("same", { static_cast<int>(id), "A" }));
+	for (size_t id = 1; id < Pool::kVolumeJobs; ++id) {
+		ASSERT_TRUE(pool.Submit("same", { static_cast<int>(id), "A" }, "A"));
 	}
 	ASSERT_FALSE(pool.Submit("same", { 9999, "A" }));
 	size_t cancelled = 0;
 	pool.CancelQueued([](const Job &) { return true; }, [&](Job &) { ++cancelled; });
-	ASSERT_EQUALS(Pool::kMaxJobs - 1, cancelled);
+	ASSERT_EQUALS(Pool::kVolumeJobs - 1, cancelled);
 	control.Release();
 	pool.Stop();
 	ASSERT_EQUALS(size_t{ 1 }, control.done.size());
@@ -185,7 +185,7 @@ TEST(VolumeWritePool, CancelDuringDiscoveryCannotResurrectBehindBusyVolume)
 				active.Done(job.id);
 			}
 		},
-		[](Pool::Batch &, std::exception_ptr) {},
+		[](Pool::Batch &, const std::exception_ptr &) {},
 		[&](Job &job) {
 			if (job.id == 1 && cancelled.load()) {
 				active.Done(1);
@@ -224,7 +224,7 @@ TEST(VolumeWritePool, ExceptionsReleaseVolumeAndStopDrainsAcceptedJobsInOrder)
 				control.Done(job.id);
 			}
 		},
-		[&](Pool::Batch &batch, std::exception_ptr) {
+		[&](Pool::Batch &batch, const std::exception_ptr &) {
 			for (auto &job : batch) {
 				control.Done(job.id);
 			}
@@ -240,4 +240,39 @@ TEST(VolumeWritePool, ExceptionsReleaseVolumeAndStopDrainsAcceptedJobsInOrder)
 	for (int id = 0; id < 200; ++id) {
 		ASSERT_EQUALS(id, control.done[static_cast<size_t>(id) + 2]);
 	}
+}
+
+TEST(VolumeWritePool, SaturatedVolumeCannotConsumeColdDiscoveryCapacity)
+{
+	Control control;
+	Pool pool([](Job &job) { return job.volume; },
+		[&](Pool::Batch &batch) {
+			for (auto &job : batch) {
+				if (job.id == 0) {
+					control.Block();
+				}
+				control.Done(job.id);
+			}
+		},
+		[](Pool::Batch &, const std::exception_ptr &) {},
+		[&](Job &job) {
+			if (job.id == -1) {
+				control.Done(-1);
+				return true;
+			}
+			return false;
+		});
+	pool.Submit("active", { 0, "A" }, "A");
+	ASSERT_TRUE(control.Wait([&] { return control.entered; }));
+	for (size_t id = 1; id < Pool::kVolumeJobs; ++id) {
+		ASSERT_TRUE(pool.Submit("active", { static_cast<int>(id), "A" }, "A"));
+	}
+	ASSERT_FALSE(pool.Submit("overflow", { 9999, "A" }, "A"));
+	ASSERT_TRUE(pool.Submit("cold", { -1, "B" }, "", true));
+	ASSERT_TRUE(control.Wait([&] { return control.Has(-1); }));
+	ASSERT_TRUE(pool.Submit("cold", { 9999, "B" }, "B"));
+	ASSERT_TRUE(control.Wait([&] { return control.Has(9999); }));
+	control.Release();
+	pool.Stop();
+	ASSERT_EQUALS(Pool::kVolumeJobs + 2, control.done.size());
 }
