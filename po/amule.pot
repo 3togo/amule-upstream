@@ -5168,7 +5168,7 @@ msgid ""
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
 msgstr ""
 
-#: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
+#: src/muuli_wdr.cpp
 msgid "Media metadata extraction"
 msgstr ""
 
