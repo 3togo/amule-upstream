@@ -395,5 +395,6 @@ per-client waits. No per-client/drive history or unbounded histogram is retained
 UploadReadDiagnosticsTest uses an injected clock for latency, exception and
 pressure/reset tests; UploadBufferingTest checks the actual cap denial reasons.
 Debug Linux builds also register UploadStorageDiagnosticsIntegrationTest: a
-pipe-held read exceeds one second while healthy-drive uploads continue; the
-shutdown logfile must report its latency and same-storage admission denials.
+pipe-held read stays blocked until a periodic report exposes its pending age,
+while healthy-drive uploads continue. The shutdown logfile must then report its
+completed latency and same-storage admission denials. This adds about 30 seconds.

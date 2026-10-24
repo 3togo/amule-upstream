@@ -2710,7 +2710,7 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 						${CMAKE_CURRENT_SOURCE_DIR}/UploadStoragePoolIntegrationTest.py
 						$<TARGET_FILE:amuled> $<TARGET_FILE:UploadReadDelay> --stage read --diagnostics
 				)
-				set_tests_properties (UploadStorageDiagnosticsIntegrationTest PROPERTIES TIMEOUT 60)
+				set_tests_properties (UploadStorageDiagnosticsIntegrationTest PROPERTIES TIMEOUT 90)
 			endif()
 			add_test (NAME UploadRefillCompressedIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u

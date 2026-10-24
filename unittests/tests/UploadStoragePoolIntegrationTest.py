@@ -161,7 +161,6 @@ def run(binary, fixture, stage, diagnostics=False):
                                                   bad_data[peer_index])
                     print('fairness: both slow-volume peers alternated despite fast-volume dispatches; payloads verified')
                     return
-                held_since = time.monotonic()
                 if stage == 'session':
                     # Keep the socket/client identity and ask for the same block in a
                     # new upload session. The old read must not satisfy its request.
@@ -210,9 +209,18 @@ def run(binary, fixture, stage, diagnostics=False):
                 healthy.request([(2 * BLOCK, 3 * BLOCK)])
                 healthy.receive((2 * BLOCK, 3 * BLOCK), healthy_data)
                 if diagnostics:
-                    # Hold storage for at least one second. Scheduling delays can only
-                    # lengthen this measured interval, never make the lower bound flaky.
-                    time.sleep(max(0, 1.1 - (time.monotonic() - held_since)))
+                    # Observe the periodic report while the read is still held:
+                    # completion-only diagnostics would hide a permanent stall.
+                    deadline = time.monotonic() + 40
+                    while True:
+                        text = (root / 'logfile').read_text(errors='replace')
+                        pending = [line for line in text.splitlines() if 'Upload storage: ' in line
+                                   and int(re.search(r'pending=(\d+)', line)[1]) > 0
+                                   and int(re.search(r'oldest_ms=(\d+)', line)[1]) >= 1000]
+                        if pending:
+                            break
+                        assert proc.poll() is None and time.monotonic() < deadline, 'held read missing from periodic diagnostics'
+                        time.sleep(0.05)
                 # Recover the drive. Each remaining request must complete exactly once.
                 for index in range(4):
                     os.write(release_w, b'R')
