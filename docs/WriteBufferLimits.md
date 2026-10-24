@@ -94,9 +94,9 @@ the request was sent.
 
 Admission also limits live requests to 4,096 globally and 1,024 per volume. This
 bounds allocated write snapshots to 8,192 and 2,048 respectively, independently
-of packet size. The two validity maps use at most one quarter of admitted payload
-size (16 MiB globally); partial flushes use at most 1 MiB of temporary storage per
-writer. The original 64 MiB/16 MiB payload limits are unchanged. These are bounds
+of packet size. The two validity maps use at most 16 MiB globally, plus 64 KiB for rounding
+small maps to whole words. Partial flushes use at most 1 MiB of temporary storage
+per writer. The original 64 MiB/16 MiB payload limits are unchanged. These are bounds
 on cache-owned payload and metadata structures, not a process-RSS limit; existing
 file gap/corruption records, allocator overhead and kernel caches are separate.
 
