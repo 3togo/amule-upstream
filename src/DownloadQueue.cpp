@@ -384,7 +384,9 @@ void CDownloadQueue::AddDownload(CPartFile *file, bool paused, uint8 category)
 		m_listGeneration.fetch_add(1, std::memory_order_relaxed);
 		DoSortByPriority();
 	}
-	RequestGlobalSources(file->GetFileHash());
+	if (!paused) {
+		RequestGlobalSources(file->GetFileHash());
+	}
 
 	NotifyObservers(EventType(EventType::INSERTED, file));
 	if (category < theApp->glob_prefs->GetCatCount()) {
@@ -592,7 +594,7 @@ void CDownloadQueue::Process()
 			m_udcounter = 0;
 			if (theApp->serverconnect->IsUDPSocketAvailable()) {
 				if ((curTick - m_lastudpsearchtime) > UDPSERVERREASKTIME ||
-					m_queueServers.IsActive() || !m_udpPendingFiles.empty()) {
+					m_queueServers.IsActive() || m_udpRequests.Ready(curTick)) {
 					SendNextUDPPacket();
 				}
 			}
@@ -869,6 +871,8 @@ void CDownloadQueue::RemoveFile(CPartFile *file, bool keepAsCompleted)
 	wxMutexLocker lock(m_mutex);
 
 	EraseValue(m_filelist, file);
+	m_udpRequests.Remove(file->GetFileHash());
+	m_udpPassFiles.erase(file->GetFileHash());
 	m_listGeneration.fetch_add(1, std::memory_order_relaxed);
 
 	if (keepAsCompleted) {
@@ -941,7 +945,10 @@ static bool IsConnectedServer(const CServer *server)
 bool CDownloadQueue::SendNextUDPPacket()
 {
 	if (m_filelist.empty()) {
-		m_udpPendingFiles.clear();
+		m_udpRequests.Clear();
+		if (m_queueServers.IsActive()) {
+			DoStopUDPRequests();
+		}
 		return false;
 	}
 	if (!theApp->serverconnect->IsUDPSocketAvailable() || !theApp->IsConnectedED2K()) {
@@ -949,13 +956,11 @@ bool CDownloadQueue::SendNextUDPPacket()
 	}
 
 	if (!m_queueServers.IsActive()) {
-		// A pass over every download also covers the ones waiting for their own.
-		if ((::GetTickCount64() - m_lastudpsearchtime) > UDPSERVERREASKTIME) {
-			m_udpPassFiles.clear();
-		} else {
-			m_udpPassFiles.swap(m_udpPendingFiles);
+		const uint64 now = ::GetTickCount64();
+		m_udpFullPass = now - m_lastudpsearchtime > UDPSERVERREASKTIME;
+		if (!m_udpRequests.Begin(now, m_udpFullPass, m_udpPassFiles)) {
+			return false;
 		}
-		m_udpPendingFiles.clear();
 
 		AddObserver(&m_queueFiles);
 
@@ -994,13 +999,14 @@ bool CDownloadQueue::SendNextUDPPacket()
 
 			if ((status == PS_READY || status == PS_EMPTY) &&
 				file->GetSourceCount() < thePrefs::GetMaxSourcePerFileUDP() &&
-				(m_udpPassFiles.empty() || m_udpPassFiles.count(file->GetFileHash()))) {
+				(m_udpFullPass || m_udpPassFiles.count(file->GetFileHash()))) {
 				if (file->IsLargeFile() && !m_udpserver->SupportsLargeFilesUDP()) {
 					AddDebugLogLineN(logDownloadQueue,
 						"UDP Request for sources on a large file ignored: server "
 						"doesn't support it");
 				} else {
 					++m_cRequestsSentToServer;
+					m_udpRequests.Requested(file->GetFileHash(), ::GetTickCount64());
 					hashlist.WriteHash(file->GetFileHash());
 					// See the notes on TCP packet
 					if (m_udpserver->GetUDPFlags() & SRV_UDPFLG_EXT_GETSOURCES2) {
@@ -1040,6 +1046,9 @@ void CDownloadQueue::StopUDPRequests()
 {
 	wxMutexLocker lock(m_mutex);
 
+	if (!m_udpFullPass) {
+		m_udpRequests.Interrupted(m_udpPassFiles);
+	}
 	DoStopUDPRequests();
 }
 
@@ -1049,9 +1058,9 @@ void CDownloadQueue::DoStopUDPRequests()
 	theApp->serverlist->RemoveObserver(&m_queueServers);
 	RemoveObserver(&m_queueFiles);
 
-	m_udpserver = 0;
+	m_udpserver = nullptr;
 	// Only a pass over every download restarts the wait for the next one.
-	if (m_udpPassFiles.empty()) {
+	if (m_udpFullPass) {
 		m_lastudpsearchtime = ::GetTickCount64();
 	}
 	m_udpPassFiles.clear();
@@ -1061,7 +1070,7 @@ void CDownloadQueue::RequestGlobalSources(const CMD4Hash &fileHash)
 {
 	wxMutexLocker lock(m_mutex);
 
-	m_udpPendingFiles.insert(fileHash);
+	m_udpRequests.Queue(fileHash, ::GetTickCount64());
 }
 
 // Comparison function needed by sort. Returns true if file1 precedes file2

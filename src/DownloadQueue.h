@@ -26,7 +26,8 @@
 #ifndef DOWNLOADQUEUE_H
 #define DOWNLOADQUEUE_H
 
-#include "MD4Hash.h"         // Needed for CMD4Hash
+#include "MD4Hash.h" // Needed for CMD4Hash
+#include "UDPSourceRequestQueue.h"
 #include "ObservableQueue.h" // Needed for CObservableQueue
 #include "GetTickCount.h"    // Needed for GetTickCount64
 
@@ -274,8 +275,10 @@ private:
 	uint8 m_udcounter;
 	CServer *m_udpserver;
 	// Hashes, not pointers: a download can be deleted while it waits.
-	std::set<CMD4Hash> m_udpPendingFiles;
-	// The files the UDP pass in progress asks about; empty for a pass over every download.
+	UDPSourceRequestQueue<CMD4Hash> m_udpRequests;
+	// An explicit mode keeps a targeted pass targeted even after its last file is deleted.
+	bool m_udpFullPass = true;
+	// The files the targeted UDP pass in progress asks about.
 	std::set<CMD4Hash> m_udpPassFiles;
 
 	/// Stores a source with a dynamic hostname.

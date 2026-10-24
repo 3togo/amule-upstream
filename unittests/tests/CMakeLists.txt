@@ -109,6 +109,12 @@ add_test (NAME ECNotificationDrainTest COMMAND ECNotificationDrainTest)
 target_include_directories (ECNotificationDrainTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (ECNotificationDrainTest muleunit mulecommon)
 
+# Extra UDP source passes use a monotonic clock without live network traffic.
+add_executable (UDPSourceRequestQueueTest UDPSourceRequestQueueTest.cpp)
+add_test (NAME UDPSourceRequestQueueTest COMMAND UDPSourceRequestQueueTest)
+target_include_directories (UDPSourceRequestQueueTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (UDPSourceRequestQueueTest muleunit mulecommon)
+
 # Source and notes publication traversal without a running Kad instance.
 add_executable (KadPublishCursorTest KadPublishCursorTest.cpp)
 add_test (NAME KadPublishCursorTest COMMAND KadPublishCursorTest)

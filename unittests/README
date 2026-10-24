@@ -229,3 +229,9 @@ the server UDP label must follow external changes. Finally stage a network
 change and enable API guest access without a password: the rejected save must
 leave the core network flags unchanged. Supply valid settings and retry; the
 staged network change must then apply. Run these checks in both desktop clients.
+
+UDPSourceRequestQueueTest checks extra eD2k UDP source-pass scheduling with an
+injected monotonic clock: 60-second batching, the 1300-second per-file reask
+cooldown (also after regular passes), interrupted-pass recovery, and deletion.
+The regular full-pass timer and per-server packet/hash limits are unchanged.
+Repeated resume commands for an already active download do not enqueue work.

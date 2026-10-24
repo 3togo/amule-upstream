@@ -3018,12 +3018,15 @@ void CPartFile::ResumeFile()
 		// the paused state but the transition itself needs to be visible immediately.
 		MarkECChanged();
 	}
+	const bool resumed = m_paused || m_stopped || m_insufficient;
 	m_paused = false;
 	m_stopped = false;
 	m_insufficient = false;
 
 	m_lastsearchtime = 0;
-	theApp->downloadqueue->RequestGlobalSources(GetFileHash());
+	if (resumed) {
+		theApp->downloadqueue->RequestGlobalSources(GetFileHash());
+	}
 	SetStatus(status);
 	SetActive(theApp->IsConnected());
 
