@@ -2358,6 +2358,7 @@ bool CClientTCPSocket::PacketReceived(CPacket *packet)
 	}
 
 	if (!exception.IsEmpty()) {
+#ifdef __DEBUG__
 		AddDebugLogLineN(logPacketErrors,
 			CFormat("Caught %s\nOn packet with protocol %x, opcode %x, size %u\tClientData: "
 				"%s\n") %
@@ -2365,6 +2366,7 @@ bool CClientTCPSocket::PacketReceived(CPacket *packet)
 				packet->GetPacketSize() %
 				(m_client ? m_client->GetClientFullInfo() : "Unknown"));
 
+#endif
 		if (m_client) {
 			m_client->SetDownloadState(DS_ERROR);
 		}
