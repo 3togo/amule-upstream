@@ -205,10 +205,11 @@ void *CUploadDiskIOThread::Entry()
 
 void CUploadDiskIOThread::DrainCompletions(bool deliver)
 {
+	bool dataQueued = false;
 	for (;;) {
 		auto completed = m_pool->TakeCompleted();
 		if (!completed.job) {
-			return;
+			break;
 		}
 		auto *req = completed.job.release();
 		m_pendingClients.erase(req->clientId);
@@ -223,8 +224,13 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 		if (!deliver || req->closeOnly) {
 			DiscardRequest(req);
 		} else if (CommitRead(req, completed.error ? READ_FAILED : req->result)) {
-			ReadCompletionRoutine(req);
+			dataQueued = ReadCompletionRoutine(req) || dataQueued;
 		}
+	}
+	// Publish every ready result before waking the sender. Never wait for an
+	// outstanding read: a slow volume must not delay this batch's payload.
+	if (dataQueued && theApp->uploadBandwidthThrottler != nullptr) {
+		theApp->uploadBandwidthThrottler->NewUploadDataAvailable();
 	}
 }
 
@@ -539,14 +545,14 @@ bool CUploadDiskIOThread::CommitRead(ReadRequest_Struct *req, ReadResult result)
 }
 
 // eMule ref: CUploadDiskIOThread::ReadCompletetionRoutine()
-void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
+bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 {
-	if (req == NULL) {
+	if (req == nullptr) {
 		wxASSERT(false);
-		return;
+		return false;
 	}
 
-	bool signalThrottler = false;
+	bool dataQueued = false;
 
 	// The packets are built without uploadLock. Building allocates and copies the block, and
 	// compresses it for clients that take that; an allocation the kernel stalls under memory
@@ -622,7 +628,7 @@ void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 						pSocket->SendPacket(packet.first, true, false, packet.second);
 					}
 					packetList.clear();
-					signalThrottler = true;
+					dataQueued = true;
 				}
 			} else {
 				AddDebugLogLineN(logClient,
@@ -635,10 +641,8 @@ void CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 		}
 	}
 
-	if (signalThrottler && theApp->uploadBandwidthThrottler != nullptr) {
-		theApp->uploadBandwidthThrottler->NewUploadDataAvailable();
-	}
 	delete req;
+	return dataQueued;
 }
 
 // The request owns its snapshot, buffer and file pin until completion/discard.
