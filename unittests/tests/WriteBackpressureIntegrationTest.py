@@ -116,6 +116,24 @@ def wait_for(condition, timeout, detail):
         time.sleep(0.05)
 
 
+def wait_for_plateau(total, limit, detail):
+    # Reaching the near-limit threshold can leave final requests in flight.
+    # Require a quiet interval, checking the hard cap on every sample.
+    deadline = time.monotonic() + 5
+    settled = total()
+    stable_since = time.monotonic()
+    while time.monotonic() < deadline:
+        current = total()
+        assert current <= limit, detail()
+        if current != settled:
+            settled = current
+            stable_since = time.monotonic()
+        if time.monotonic() - stable_since >= 1.5:
+            return settled
+        time.sleep(0.05)
+    raise AssertionError(('requests did not settle', detail()))
+
+
 def run(binary, shim, compressed):
     with tempfile.TemporaryDirectory(prefix='amule-write-pressure-') as directory:
         root = Path(directory)
@@ -144,9 +162,7 @@ def run(binary, shim, compressed):
             detail = lambda: (total(), [(s.errors, s.opcodes[-20:]) for s in sources],
                               (root / 'logfile').read_text(errors='replace')[-4000:])
             wait_for(lambda: total() >= LIMIT - 2 * BLOCK, 15, detail)
-            settled = total()
-            time.sleep(1.5)
-            assert total() == settled and settled <= LIMIT, detail()
+            settled = wait_for_plateau(total, LIMIT, detail)
             assert not any(s.cancelled or s.errors for s in sources), detail()
             # EC responsiveness proves the writer stall did not block the main thread.
             ec.call(C['EC_OP_GET_DLOAD_QUEUE'])
