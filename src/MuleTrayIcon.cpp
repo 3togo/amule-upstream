@@ -322,6 +322,15 @@ CMuleTrayIcon::CMuleTrayIcon()
 		"org.amule.aMule", "org.amule.aMule", APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
 #pragma GCC diagnostic pop
 
+	// AppRun adds the bundled icons to our XDG_DATA_DIRS, but the SNI host runs
+	// outside the AppImage. Export the search path so it can resolve them too.
+	const char *appDir = g_getenv("APPDIR");
+	if (appDir && *appDir) {
+		char *iconPath = g_build_filename(appDir, "usr", "share", "icons", nullptr);
+		app_indicator_set_icon_theme_path(m_indicator, iconPath);
+		g_free(iconPath);
+	}
+
 	// ACTIVE = visible: the user already opted in by enabling the tray icon, and SetTrayIcon
 	// below changes artwork and the menu label without changing visibility.
 	// APP_INDICATOR_STATUS_ATTENTION is deliberately not used for the disconnected state -- it
