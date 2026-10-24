@@ -144,6 +144,7 @@ void *CUploadDiskIOThread::Entry()
 			const uint64 now = GetTickCount64();
 			if (refreshed == 0 || now - refreshed >= 5000) {
 				m_storageMap.Refresh();
+				m_storageKeys.clear();
 				refreshed = now;
 			}
 			std::vector<uint32> clients;
@@ -314,13 +315,8 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 				       (EMBLOCKSIZE * 3));
 		}
 
-		auto req = std::make_unique<ReadRequest_Struct>();
-		req->session = client->m_uploadReadSession;
-		req->clientId = clientId;
-		md4cpy(req->ucMD4FileHash, currentblock->FileID);
-		req->uStartOffset = currentblock->StartOffset;
-		req->uEndOffset = currentblock->EndOffset;
-
+		CPartFile *partFile = nullptr;
+		CPath filePath;
 		if (srcfile->IsPartFile()) {
 			CPartFile *srcPartFile = static_cast<CPartFile *>(srcfile);
 			if (!srcPartFile->IsComplete(
@@ -328,25 +324,46 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 				throw wxString(CFormat("Asked for incomplete block (%d - %d)") %
 					       currentblock->StartOffset % (currentblock->EndOffset - 1));
 			}
-			// Safe to pin: the client is uploading this file, and Delete() takes
-			// uploadLock to drop the file's uploaders before it waits for the pins.
-			++srcPartFile->m_pendingUploadReads;
-			req->pPartFile = srcPartFile;
-			req->path = srcPartFile->GetFullName();
+			partFile = srcPartFile;
+			filePath = srcPartFile->GetFullName();
 		} else {
-			req->path = srcfile->GetFilePath().JoinPaths(srcfile->GetFileName());
+			filePath = srcfile->GetFilePath().JoinPaths(srcfile->GetFileName());
 		}
 
-		wxString path = req->path.GetRaw();
+		wxString path = filePath.GetRaw();
 #ifdef __WINDOWS__
 		path.Replace("\\", "/");
 		path = path.Lower();
 #endif
+		auto storage = m_storageKeys.find(path);
+		if (storage == m_storageKeys.end()) {
 #ifdef __WINDOWS__
-		req->storage = m_storageMap.Lookup(path.ToStdString(wxConvUTF8), true);
+			storage = m_storageKeys
+					  .emplace(path,
+						  m_storageMap.Lookup(path.ToStdString(wxConvUTF8), true))
+					  .first;
 #else
-		req->storage = m_storageMap.Lookup(path.ToStdString(wxConvUTF8));
+			storage =
+				m_storageKeys.emplace(path, m_storageMap.Lookup(path.ToStdString(wxConvUTF8)))
+					.first;
 #endif
+		}
+		if (!m_pool->CanSubmit(storage->second)) {
+			return nullptr;
+		}
+		auto req = std::make_unique<ReadRequest_Struct>();
+		req->session = client->m_uploadReadSession;
+		req->clientId = clientId;
+		md4cpy(req->ucMD4FileHash, currentblock->FileID);
+		req->uStartOffset = currentblock->StartOffset;
+		req->uEndOffset = currentblock->EndOffset;
+		req->path = std::move(filePath);
+		req->storage = storage->second;
+		if (partFile != nullptr) {
+			// Safe to pin: Delete() takes uploadLock before waiting for these pins.
+			++partFile->m_pendingUploadReads;
+			req->pPartFile = partFile;
+		}
 		for (auto it = m_listOpenFiles.begin(); it != m_listOpenFiles.end(); ++it) {
 			if ((*it)->path.GetRaw() == req->path.GetRaw() && (*it)->storage == req->storage &&
 				md4cmp((*it)->ucMD4FileHash, req->ucMD4FileHash) == 0) {

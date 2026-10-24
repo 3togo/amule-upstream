@@ -130,6 +130,8 @@ private:
 	std::map<uint32, uint64> m_retryAfter;
 	uint32 m_lastDispatched = 0;
 	UploadStorageMap m_storageMap;
+	// Resolve each spelled path once per mount-table snapshot, including busy volumes.
+	std::map<wxString, std::string> m_storageKeys;
 	bool m_needCacheSlot = false;
 	std::list<std::shared_ptr<OpenFile_Struct>> m_listOpenFiles;
 };

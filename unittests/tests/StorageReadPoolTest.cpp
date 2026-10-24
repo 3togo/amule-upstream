@@ -50,8 +50,11 @@ TEST(StorageReadPool, ABlockedStorageCannotOccupyOtherWorkers)
 	Release release{ gate };
 	auto first = std::make_unique<Job>();
 	first->blocked = true;
+	ASSERT_TRUE(pool.CanSubmit("slow-device"));
 	ASSERT_TRUE(pool.Submit("slow-device", first));
 	ASSERT_TRUE(blocked.get_future().wait_for(std::chrono::seconds(3)) == std::future_status::ready);
+	ASSERT_FALSE(pool.CanSubmit("slow-device"));
+	ASSERT_TRUE(pool.CanSubmit("healthy-device"));
 	for (int i = 0; i < 12; ++i) {
 		auto another = std::make_unique<Job>();
 		ASSERT_FALSE(pool.Submit("slow-device", another));
@@ -80,11 +83,13 @@ TEST(StorageReadPool, FinishedResultsKeepStorageAndGlobalBudgetsUntilTaken)
 		ASSERT_TRUE(pool.Submit(std::to_string(i), job));
 	}
 	ASSERT_FALSE(pool.HasCapacity());
+	ASSERT_FALSE(pool.CanSubmit("other"));
 	auto fifth = std::make_unique<Job>();
 	ASSERT_FALSE(pool.Submit("other", fifth));
 	release.Open();
 	ASSERT_TRUE(allFinished.get_future().wait_for(std::chrono::seconds(3)) == std::future_status::ready);
 	ASSERT_FALSE(pool.HasCapacity());
+	ASSERT_FALSE(pool.CanSubmit("0"));
 	auto duplicate = std::make_unique<Job>();
 	ASSERT_FALSE(pool.Submit("0", duplicate));
 	size_t completed = 0;
@@ -93,9 +98,11 @@ TEST(StorageReadPool, FinishedResultsKeepStorageAndGlobalBudgetsUntilTaken)
 	}
 	ASSERT_EQUALS(StorageReadPool<Job>::kWorkers, completed);
 	ASSERT_TRUE(pool.HasCapacity());
+	ASSERT_TRUE(pool.CanSubmit("0"));
 	ASSERT_TRUE(pool.Submit("0", duplicate));
 	pool.Stop();
 	ASSERT_TRUE(pool.TakeCompleted().job != nullptr);
+	ASSERT_FALSE(pool.CanSubmit("other"));
 }
 
 TEST(StorageReadPool, ExceptionsAreReturnedAndDoNotKillWorkers)

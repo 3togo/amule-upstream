@@ -54,6 +54,21 @@ public:
 		return false;
 	}
 
+	// The coordinator can reject a busy volume before allocating a request or
+	// touching its file-handle cache. Only Submit transfers ownership.
+	bool CanSubmit(const std::string &storage) const
+	{
+		std::lock_guard<std::mutex> lock(m_mutex);
+		bool available = false;
+		for (const auto &slot : m_slots) {
+			if (slot.state != State::Free && slot.storage == storage) {
+				return false;
+			}
+			available |= slot.state == State::Free;
+		}
+		return available && !m_stopping;
+	}
+
 	// Transfers ownership only on success. At most one queued, running OR completed
 	// job per storage key is admitted, regardless of how many clients request it.
 	bool Submit(const std::string &storage, std::unique_ptr<Job> &job)
