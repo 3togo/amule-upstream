@@ -111,6 +111,19 @@ public:
 		return {};
 	}
 
+	// A new discovery snapshot can give an active path a different key (notably
+	// unknown -> a discovered volume). Keep its permit under the new identity too.
+	// The callback only examines immutable job metadata; it must not perform I/O.
+	template <typename StorageForJob> void ReclassifyStorage(StorageForJob storageForJob)
+	{
+		std::lock_guard<std::mutex> lock(m_mutex);
+		for (auto &slot : m_slots) {
+			if (slot.state != State::Free) {
+				slot.storage = storageForJob(*slot.job, slot.storage);
+			}
+		}
+	}
+
 	// Drain accepted jobs and join before their owners or the application disappear.
 	// A kernel read that cannot be interrupted must still finish; never detach it.
 	void Stop()

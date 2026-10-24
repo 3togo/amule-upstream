@@ -118,3 +118,28 @@ TEST(StorageReadPool, ExceptionsAreReturnedAndDoNotKillWorkers)
 	ASSERT_TRUE(result.error != nullptr);
 	ASSERT_TRUE(pool.HasCapacity());
 }
+
+TEST(StorageReadPool, DiscoveryReclassifiesAnOutstandingPermit)
+{
+	std::promise<void> gate;
+	auto ready = gate.get_future().share();
+	std::promise<void> blocked;
+	StorageReadPool<Job> pool(
+		[&](Job &) {
+			blocked.set_value();
+			ready.wait();
+		},
+		[] {});
+	Release release{ gate };
+	auto job = std::make_unique<Job>();
+	ASSERT_TRUE(pool.Submit("unknown", job));
+	ASSERT_TRUE(blocked.get_future().wait_for(std::chrono::seconds(3)) == std::future_status::ready);
+	pool.ReclassifyStorage([](const Job &, const std::string &) { return "device:1"; });
+	ASSERT_FALSE(pool.CanSubmit("device:1"));
+	ASSERT_TRUE(pool.CanSubmit("device:2"));
+	auto alias = std::make_unique<Job>();
+	ASSERT_FALSE(pool.Submit("device:1", alias));
+	release.Open();
+	pool.Stop();
+	ASSERT_TRUE(pool.TakeCompleted().job != nullptr);
+}

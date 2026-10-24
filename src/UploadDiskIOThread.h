@@ -83,6 +83,8 @@ struct ReadRequest_Struct
 	std::vector<uint8> data;
 	UploadReadResult result = READ_FAILED;
 	bool closeOnly = false;
+	std::unique_ptr<UploadStorageMap> storageMap; // discovery job, without a file/client
+	bool discoverNetwork = true;
 };
 
 // Port of eMule's CUploadDiskIOThread (UploadDiskIOThread.h:48-86). Windows primitives replaced
@@ -128,8 +130,12 @@ private:
 	std::unique_ptr<StorageReadPool<ReadRequest_Struct>> m_pool;
 	std::set<uint32> m_pendingClients;
 	std::map<uint32, uint64> m_retryAfter;
-	uint32 m_lastDispatched = 0;
+	// Oldest successful dispatch wins, independently of activity on other volumes.
+	std::map<uint32, uint64> m_lastDispatch;
+	uint64 m_dispatchSequence = 0;
 	UploadStorageMap m_storageMap;
+	uint64 m_storageRefreshed = 0;
+	bool m_storageMapReady = false;
 	// Resolve each spelled path once per mount-table snapshot, including busy volumes.
 	std::map<wxString, std::string> m_storageKeys;
 	bool m_needCacheSlot = false;

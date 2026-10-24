@@ -133,7 +133,6 @@ void *CUploadDiskIOThread::Entry()
 		m_pool = std::make_unique<StorageReadPool<ReadRequest_Struct>>(
 			[](ReadRequest_Struct &req) { req.result = ReadBlock(&req); },
 			[this] { NewBlockRequestsAvailable(); });
-		uint64 refreshed = 0;
 		while (m_bRun) {
 			{
 				wxMutexLocker lock(m_mutex);
@@ -142,10 +141,19 @@ void *CUploadDiskIOThread::Entry()
 			}
 			DrainCompletions(true);
 			const uint64 now = GetTickCount64();
-			if (refreshed == 0 || now - refreshed >= 5000) {
-				m_storageMap.Refresh();
-				m_storageKeys.clear();
-				refreshed = now;
+			if ((m_storageRefreshed == 0 || now - m_storageRefreshed >= 5000) &&
+				m_pool->CanSubmit("storage-discovery")) {
+				// Network providers may block even when resolving a mapped drive.
+				// Keep discovery on a bounded worker and use the previous snapshot.
+				auto req = std::make_unique<ReadRequest_Struct>();
+				req->storageMap = std::make_unique<UploadStorageMap>();
+#ifdef __WINDOWS__
+				// Publish local identities before consulting any network provider.
+				req->discoverNetwork = m_storageMapReady;
+#endif
+				if (m_pool->Submit("storage-discovery", req)) {
+					m_storageRefreshed = now;
+				}
 			}
 			std::vector<uint32> clients;
 			{
@@ -162,10 +170,20 @@ void *CUploadDiskIOThread::Entry()
 					++it;
 				}
 			}
-			const auto previous = std::find(clients.begin(), clients.end(), m_lastDispatched);
-			if (previous != clients.end()) {
-				std::rotate(clients.begin(), std::next(previous), clients.end());
+			for (auto it = m_lastDispatch.begin(); it != m_lastDispatch.end();) {
+				if (std::find(clients.begin(), clients.end(), it->first) == clients.end()) {
+					it = m_lastDispatch.erase(it);
+				} else {
+					++it;
+				}
 			}
+			const auto lastDispatch = [this](uint32 id) {
+				const auto it = m_lastDispatch.find(id);
+				return it == m_lastDispatch.end() ? 0 : it->second;
+			};
+			std::stable_sort(clients.begin(), clients.end(), [&](uint32 left, uint32 right) {
+				return lastDispatch(left) < lastDispatch(right);
+			});
 			for (uint32 clientId : clients) {
 				if (!m_bRun || !m_pool->HasCapacity()) {
 					break;
@@ -177,7 +195,7 @@ void *CUploadDiskIOThread::Entry()
 				if (req) {
 					m_pendingClients.insert(clientId);
 					if (m_pool->Submit(req->storage, req)) {
-						m_lastDispatched = clientId;
+						m_lastDispatch[clientId] = ++m_dispatchSequence;
 					} else {
 						m_pendingClients.erase(clientId);
 					}
@@ -210,6 +228,35 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 		auto completed = m_pool->TakeCompleted();
 		if (!completed.job) {
 			break;
+		}
+		if (completed.job->storageMap) {
+			if (deliver && !completed.error && completed.job->result == READ_OK) {
+				m_storageMap = std::move(*completed.job->storageMap);
+				m_storageMapReady = true;
+				if (!completed.job->discoverNetwork) {
+					m_storageRefreshed =
+						0; // follow the local snapshot with mapped drives
+				}
+				m_storageKeys.clear();
+#ifdef __WINDOWS__
+				constexpr bool windows = true;
+#else
+				constexpr bool windows = false;
+#endif
+				m_pool->ReclassifyStorage([this](const ReadRequest_Struct &req,
+								  const std::string &previous) {
+					return req.storageMap
+						       ? previous
+						       : m_storageMap.Lookup(
+								 req.path.GetRaw().ToStdString(wxConvUTF8),
+								 windows);
+				});
+				for (auto &file : m_listOpenFiles) {
+					file->storage = m_storageMap.Lookup(
+						file->path.GetRaw().ToStdString(wxConvUTF8), windows);
+				}
+			}
+			continue;
 		}
 		auto *req = completed.job.release();
 		m_pendingClients.erase(req->clientId);
@@ -245,6 +292,7 @@ void CUploadDiskIOThread::QueueIdleCloses()
 			auto req = std::make_unique<ReadRequest_Struct>();
 			req->closeOnly = true;
 			req->pFileStruct = file;
+			req->path = file->path;
 			req->storage = file->storage;
 			if (m_pool->Submit(req->storage, req)) {
 				it = m_listOpenFiles.erase(it);
@@ -407,6 +455,9 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 // pinned part file's ReadData and GetStatus.
 CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struct *req)
 {
+	if (req->storageMap) {
+		return req->storageMap->Refresh(req->discoverNetwork) ? READ_OK : READ_FAILED;
+	}
 	// Pins and uncached handles are released on this worker even when allocation,
 	// opening or reading throws; the coordinator never waits for that filesystem.
 	struct Cleanup

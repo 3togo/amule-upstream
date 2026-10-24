@@ -266,17 +266,23 @@ reads or opens behind pipe gates. Four clients request files from one storage
 ID through two directory aliases; another storage ID must continue uploading
 before any gate is released. The test checks the per-storage limit, recovery,
 a disconnect while blocked, same-client/same-block upload-session reuse, and
-shutdown while a worker still owns a read. No system mounts are changed.
+shutdown while a worker still owns a read. It also checks that two slow-volume
+peers alternate while a fast-volume peer completes a read between every release,
+and that uploads continue while storage discovery is blocked. No system mounts
+are changed.
 StorageReadPoolTest covers admission, retained completion budgets and worker
 exceptions without a daemon. UploadStorageMapTest checks prefix boundaries,
-lexical path normalization, mount escapes and grouping of mount aliases.
+lexical path normalization, mount escapes, macOS firmlink spellings and Windows
+mapped-drive/UNC aliases. A pool unit test checks that a refreshed storage key
+continues to reserve the permit for an already outstanding read.
 
 The pool has four outstanding ownership slots, at most one per filesystem/volume
 identity, including completed results not yet delivered. File open/read/close
 operations stay on workers; packet delivery uses copied buffers. Complete-file
 handles remain cached (32 entries); uncached and idle-handle closes use workers
-and the same storage limits. One pending read per client and rotating admission
-keep peers on the same volume fair.
+and the same storage limits. One pending read per client and admission in order
+of oldest successful dispatch keep peers on the same volume fair, independently
+of how frequently other volumes complete reads.
 
 The coordinator queues all currently ready completions before waking the upload
 throttler once for that batch. An empty batch, discarded session or close-only
@@ -285,7 +291,15 @@ so a stalled volume cannot hold back packets from a completed read.
 
 Linux identifies groups from mountinfo device IDs, macOS/FreeBSD from cached
 mount IDs, and Windows from volume GUIDs (UNC paths use the server/share).
-Unmapped paths share one conservative group. These are filesystem/volume limits,
+On macOS, the root fallback shares the Data volume's key when that mount exists,
+so firmlink and explicit Data spellings cannot bypass the volume limit. Windows
+mapped drives use WNetGetConnectionW to share their UNC server/share key.
+Discovery runs on one bounded pool slot; lookups use the last successful snapshot
+while a provider is blocked. Windows publishes a local-only snapshot before
+consulting network providers at startup. Refreshing reclassifies outstanding
+permits and cached handles before admitting new reads. Unmapped paths, including
+reads before the first successful snapshot, share one conservative group.
+These are filesystem/volume limits,
 not physical-controller topology: different volumes on the same hardware can
 consume separate slots. Paths crossing volumes through symlinks may also be
 grouped conservatively by their spelled mount path. Four distinct stalled groups
@@ -305,8 +319,11 @@ volume keep receiving data before the delay is released. Request from several
 paths on the delayed volume, including a second mount path/drive letter for that
 same volume where available: they must share one outstanding job. On Windows,
 also check that two directories on one UNC server/share are grouped together
-and that a separate share can progress. Do not create aliases or change system
-mounts merely to run this check.
+with mapped-drive spellings and that a separate share can progress. On macOS,
+compare /private/tmp paths with /System/Volumes/Data/private/tmp spellings.
+Queue two peers on the slow volume alongside a fast-volume peer; both slow peers
+must make progress. Do not create aliases or change system mounts merely to run
+this check.
 
 Release the delay and verify recovery and payload integrity. Repeat with a
 disconnect and upload-slot reuse while the read is held; an old completion must

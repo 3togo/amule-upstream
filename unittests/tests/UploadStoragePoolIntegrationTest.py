@@ -29,10 +29,10 @@ def run(binary, fixture, stage):
         incoming, slow, alias = root / 'Incoming', root / 'Slow', root / 'SlowAlias'
         for path in (incoming, slow, alias, root / 'Temp'):
             path.mkdir()
-        bad_data = [os.urandom(BLOCK) for _ in range(4)]
+        bad_data = [os.urandom((6 if stage == 'fairness' else 1) * BLOCK) for _ in range(4)]
         for index, data in enumerate(bad_data):
             ((slow if index < 2 else alias) / f'bad-{index}.bin').write_bytes(data)
-        healthy_data = os.urandom(3 * BLOCK)
+        healthy_data = os.urandom((7 if stage == 'fairness' else 3) * BLOCK)
         (incoming / 'healthy.bin').write_bytes(healthy_data)
         (root / 'shareddir.dat').write_text(f'{slow}\n{alias}\n')
         # Escape paths as mountinfo does, including user TMPDIR paths containing spaces.
@@ -55,6 +55,9 @@ def run(binary, fixture, stage):
                    AMULE_TEST_READ_STAGE='open' if stage == 'open' else 'read', AMULE_TEST_MOUNTINFO=str(mounts),
                    AMULE_TEST_READ_ARM=str(arm), AMULE_TEST_READ_NOTIFY_FD=str(notify_w),
                    AMULE_TEST_READ_RELEASE_FD=str(release_r))
+        if stage == 'discovery':
+            env['AMULE_TEST_READ_STAGE'] = 'discovery'
+            env['AMULE_TEST_READ_PATH'] = '/proc/self/mountinfo'
         peers = []
         ec = proc = None
         with (root / 'console.log').open('w') as log:
@@ -73,17 +76,48 @@ def run(binary, fixture, stage):
                         break
                     assert time.monotonic() < deadline, f'shares missing: {files}'
                     time.sleep(0.05)
-                bad_count = 1 if stage in ('session', 'shutdown') else 4
+                bad_count = 1 if stage in ('session', 'shutdown', 'discovery') else (2 if stage == 'fairness' else 4)
                 for index in range(bad_count):
                     peers.append(Peer(peer_port, index, files[f'bad-{index}.bin']))
                 peers.append(Peer(peer_port, bad_count, files['healthy.bin']))
                 healthy = peers[bad_count]
-                healthy.request([(BLOCK, 2 * BLOCK)])
-                healthy.receive((BLOCK, 2 * BLOCK), healthy_data)
+                probe = (6 * BLOCK, 7 * BLOCK) if stage == 'fairness' else (BLOCK, 2 * BLOCK)
+                healthy.request([probe])
+                healthy.receive(probe, healthy_data)
                 arm.touch()
+                if stage == 'discovery':
+                    wait_read(notify_r, (1 << 64) - 2)
+                    # A provider stuck resolving mounts/mapped drives must not stop
+                    # the coordinator or replace the last successful snapshot.
+                    healthy.request([(0, BLOCK)])
+                    healthy.receive((0, BLOCK), healthy_data)
+                    peers[0].request([(0, BLOCK)])
+                    peers[0].receive((0, BLOCK), bad_data[0])
+                    os.write(release_w, b'R')
+                    print('discovery: uploads continued while storage discovery was held')
+                    return
                 expected = (1 << 64) - 1 if stage == 'open' else 0
                 peers[0].request([(0, BLOCK)])
                 wait_read(notify_r, expected)
+                if stage == 'fairness':
+                    peers[0].request([(BLOCK, 2 * BLOCK), (2 * BLOCK, 3 * BLOCK)])
+                    peers[1].request([(i * BLOCK, (i + 1) * BLOCK) for i in range(3, 6)])
+                    for peer in peers[:2]:
+                        peer.barrier()
+                    # A fast peer finishes another read before every slow-volume
+                    # release. A global rotation cursor then always picks peer 0.
+                    order = [(0, 0), (1, 3), (0, 1), (1, 4), (0, 2), (1, 5)]
+                    for index, (peer_index, block_index) in enumerate(order):
+                        fast_start = index * BLOCK
+                        healthy.request([(fast_start, fast_start + BLOCK)])
+                        healthy.receive((fast_start, fast_start + BLOCK), healthy_data)
+                        os.write(release_w, b'R')
+                        if index + 1 < len(order):
+                            wait_read(notify_r, order[index + 1][1] * BLOCK)
+                        peers[peer_index].receive((block_index * BLOCK, (block_index + 1) * BLOCK),
+                                                  bad_data[peer_index])
+                    print('fairness: both slow-volume peers alternated despite fast-volume dispatches; payloads verified')
+                    return
                 if stage == 'session':
                     # Keep the socket/client identity and ask for the same block in a
                     # new upload session. The old read must not satisfy its request.
@@ -160,7 +194,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('binary')
     parser.add_argument('fixture')
-    parser.add_argument('--stage', choices=('read', 'open', 'session', 'shutdown'))
+    parser.add_argument('--stage', choices=('read', 'open', 'session', 'shutdown', 'fairness', 'discovery'))
     args = parser.parse_args()
-    for stage in ([args.stage] if args.stage else ('read', 'open', 'session', 'shutdown')):
+    for stage in ([args.stage] if args.stage else ('read', 'open', 'session', 'shutdown', 'fairness', 'discovery')):
         retry_port_collisions(run, str(Path(args.binary).resolve()), str(Path(args.fixture).resolve()), stage)
