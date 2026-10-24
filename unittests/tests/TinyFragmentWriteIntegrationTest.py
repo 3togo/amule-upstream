@@ -67,6 +67,7 @@ def run(binary, shim):
                               (root / 'logfile').read_text(errors='replace')[-3000:])
             wait_for(lambda: source.prefix_sent.is_set() and Path(str(gate) + '.entered').exists(),
                      12, detail)
+            assert not source.cancelled and not source.errors, detail()
             source.send_tail.set()
             wait_for(lambda: source.requested == source.size, 5, detail)
             ec.call(C['EC_OP_GET_DLOAD_QUEUE'])
@@ -75,7 +76,7 @@ def run(binary, shim):
             wait_for(completed.exists, 15, detail)
             assert completed.read_bytes() == b'x' * source.size
             assert source.requested == source.size, ('premature hashing caused a re-download', detail())
-            assert not source.cancelled and not source.errors, detail()
+            assert not source.errors, detail()
             print('PASS: 8,192 one-byte packets, overlap and concurrent snapshot reception completed '
                   'with intact payload and no re-download', flush=True)
         finally:
