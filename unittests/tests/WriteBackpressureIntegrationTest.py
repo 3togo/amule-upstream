@@ -40,6 +40,7 @@ class Source:
         self.first_start = None
         self.requested = 0
         self.cancelled = 0
+        self.opcodes = []
         self.errors = []
 
     def link(self):
@@ -69,8 +70,10 @@ class Source:
                     if not select.select([peer], [], [], 0.1)[0]:
                         continue
                     _, opcode, data = packet(peer)
+                    self.opcodes.append(hex(opcode))
                     if opcode in (0x4c, 0x58):
                         send(peer, 0x59, self.file_hash + struct.pack('<H', len(self.name)) + self.name)
+                        send(peer, 0x50, self.file_hash + bytes(2))
                     elif opcode == 0x4f:
                         # Seven parts; the source has them all.
                         send(peer, 0x50, self.file_hash + bytes(2))
@@ -138,7 +141,7 @@ def run(binary, shim, compressed):
                 assert add_link(ec, source.link()) == C['EC_OP_NOOP']
                 source.start(ports[1])
             total = lambda: sum(source.requested for source in sources)
-            detail = lambda: (total(), [s.errors for s in sources],
+            detail = lambda: (total(), [(s.errors, s.opcodes[-20:]) for s in sources],
                               (root / 'logfile').read_text(errors='replace')[-4000:])
             wait_for(lambda: total() >= LIMIT - 2 * BLOCK, 15, detail)
             settled = total()
@@ -164,7 +167,7 @@ def run(binary, shim, compressed):
                                 if part.read(32) == b'x' * 32:
                                     return True
                 return False
-            assert has_written_data(), 'drain resumed requests without writing payload' 
+            assert has_written_data(), 'drain resumed requests without writing payload'
             print(f'PASS compressed={compressed}: {settled} reserved bytes plateau under stalled '
                   'writes, no source cancellation, automatic resume after drain', flush=True)
         finally:
