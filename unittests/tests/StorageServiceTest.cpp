@@ -94,6 +94,7 @@ TEST(StorageService, IndependentPoolsKeepWaitingReadsOffBusyDeviceAndDrainPermit
 		&service);
 	StorageReadPool<int> reads(
 		[&](int &id) {
+			std::lock_guard<std::mutex> lock(mutex);
 			(id == 1 ? same : other) = true;
 			changed.notify_all();
 		},

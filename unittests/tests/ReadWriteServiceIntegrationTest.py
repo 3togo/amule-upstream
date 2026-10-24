@@ -54,7 +54,7 @@ def run(binary, reader, writer):
                 files.update(shared(ec))
                 return 'upload.bin' in files
             wait_for(shares_ready, 20, lambda: files)
-            peer = Peer(ports[1], 10, files['upload.bin'])
+            peer = Peer(ports[1], 10, files['upload.bin'], server_address=source.address)
             assert add_link(ec, source.link()) == C['EC_OP_NOOP']
             source.start(ports[1])
             wait_for(lambda: Path(str(write_gate) + '.entered').exists(), 10,
