@@ -278,6 +278,11 @@ handles remain cached (32 entries); uncached and idle-handle closes use workers
 and the same storage limits. One pending read per client and rotating admission
 keep peers on the same volume fair.
 
+The coordinator queues all currently ready completions before waking the upload
+throttler once for that batch. An empty batch, discarded session or close-only
+completion does not trigger a wake. Draining never waits for outstanding reads,
+so a stalled volume cannot hold back packets from a completed read.
+
 Linux identifies groups from mountinfo device IDs, macOS/FreeBSD from cached
 mount IDs, and Windows from volume GUIDs (UNC paths use the server/share).
 Unmapped paths share one conservative group. These are filesystem/volume limits,

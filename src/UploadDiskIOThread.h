@@ -112,7 +112,7 @@ private:
 	std::unique_ptr<ReadRequest_Struct> PrepareRead(uint32 clientId);
 	static ReadResult ReadBlock(ReadRequest_Struct *req);
 	bool CommitRead(ReadRequest_Struct *req, ReadResult result);
-	void ReadCompletionRoutine(ReadRequest_Struct *req); // eMule ref: line 369
+	bool ReadCompletionRoutine(ReadRequest_Struct *req); // true if payload was queued
 	void DiscardRequest(ReadRequest_Struct *req);        // frees a req never committed
 
 	bool m_started = false;
