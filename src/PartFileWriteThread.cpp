@@ -51,6 +51,7 @@ std::string IdentifyWriteVolume(ToWrite &write)
 	CPath spacePath = path;
 	std::string volume;
 #ifdef __WXMSW__
+	spacePath = CPath(); // Unknown target space must fail closed.
 	HANDLE handle = CreateFileW(path.GetRaw().wc_str(),
 		0,
 		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -73,7 +74,6 @@ std::string IdentifyWriteVolume(ToWrite &write)
 				spacePath = CPath(wxFileName(wxString(finalPath.data(), size)).GetPath());
 			} else {
 				volume.clear();
-				spacePath = path.GetPath();
 			}
 		}
 		CloseHandle(handle);
@@ -117,7 +117,12 @@ std::set<const CPartFile *> FilesWithoutSpace(const std::vector<ToWrite> &batch)
 		const std::string key = volume.empty() ? w.partPath.GetRaw().ToStdString(wxConvUTF8) : volume;
 		auto dir = freeByVolume.find(key);
 		if (dir == freeByVolume.end()) {
-			dir = freeByVolume.emplace(key, CPath::GetFreeSpaceAt(w.session->spacePath)).first;
+			dir = freeByVolume
+				      .emplace(key,
+					      w.session->spacePath.IsOk()
+						      ? CPath::GetFreeSpaceAt(w.session->spacePath)
+						      : wxInvalidOffset)
+				      .first;
 		}
 		if (FreeSpaceAllows(dir->second, file->second, w.checkSpace, w.minFree)) {
 			dir->second -= static_cast<sint64>(file->second);
