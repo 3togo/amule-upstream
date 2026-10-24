@@ -324,8 +324,7 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 	wxMutexLocker lockBlockLists(client->m_blockListLock);
 
 	CClientTCPSocket *pSock = client->GetSocket();
-	const uint32 nBufferLimit = UploadBufferTarget(client->GetUploadDatarate(), EMBLOCKSIZE);
-	pSock->SetUploadBufferTarget(nBufferLimit);
+	const uint32 nBufferLimit = pSock->UpdateUploadBufferTarget(client->GetUploadDatarate());
 
 	// Socket-owned accounting includes the current packet and survives statistics
 	// resets and upload-session switches. Pending reads are charged separately below.
