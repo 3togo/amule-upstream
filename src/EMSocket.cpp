@@ -89,7 +89,6 @@ CEMSocket::CEMSocket(const CProxyData *ProxyData)
 	m_bAccelerateUpload = false;
 
 	m_actualPayloadSize = 0;
-	m_actualPayloadSizeSent = 0;
 
 	m_bBusy = false;
 	m_hasSent = false;
@@ -415,16 +414,6 @@ uint64 CEMSocket::GetSentFileBytesForDisplayAndReset()
 	return bytes;
 }
 
-uint64 CEMSocket::GetSentPayloadSinceLastCallAndReset()
-{
-	std::lock_guard<std::mutex> lock(m_sendLocker);
-
-	uint64 sentBytes = m_actualPayloadSizeSent;
-	m_actualPayloadSizeSent = 0;
-
-	return sentBytes;
-}
-
 uint64 CEMSocket::QueuedUploadPayload() const
 {
 	std::lock_guard<std::mutex> lock(m_sendLocker);
@@ -725,7 +714,6 @@ SocketSentBytes CEMSocket::Send(
 				sendblen = 0;
 
 				if (!m_currentPacket_is_controlpacket) {
-					m_actualPayloadSizeSent += m_actualPayloadSize;
 					// Match the disk worker's send-ahead check. Wake once when the
 					// original payload crosses below its target, or the queue drains.
 					if (m_uploadRefill.Complete(m_actualPayloadSize) &&

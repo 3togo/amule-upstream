@@ -581,7 +581,6 @@ bool CUploadDiskIOThread::CommitRead(ReadRequest_Struct *req, ReadResult result)
 	client->SetUploadFileID(srcfile);
 
 	uint64 togo = req->uEndOffset - req->uStartOffset;
-	client->m_addedPayloadQueueSession += static_cast<sint64>(togo);
 	srcfile->statistic.AddTransferred(togo);
 	PushDoneBlock(client->m_DoneBlocks_list, currentblock);
 	client->m_BlockRequests_queue.pop_front();
