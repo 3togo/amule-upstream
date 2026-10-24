@@ -13,7 +13,7 @@ from AllSearchIntegrationTest import C, connect_daemon, free_ports, retry_port_c
 from CancelCompletedIntegrationTest import part_met
 from DaemonConfig import write_amule_conf
 from ED2KLinkIntegrationTest import add_link
-from WriteBackpressureIntegrationTest import Source, wait_for, LIMIT, BLOCK
+from WriteBackpressureIntegrationTest import Source, wait_for, wait_for_plateau, LIMIT, BLOCK
 
 
 def run(binary, shim, compressed, mode):
@@ -61,7 +61,7 @@ def run(binary, shim, compressed, mode):
             bad.start(ports[1])
             wait_for(lambda: Path(str(gate) + '.entered').exists() and
                      bad.requested >= LIMIT - 2 * BLOCK, 15, detail)
-            stalled = bad.requested
+            stalled = wait_for_plateau(lambda: bad.requested, LIMIT, detail)
             # This file is deliberately cold: its first discovery/request starts
             # only after the other volume is already stuck and at its byte cap.
             assert add_link(ec, healthy.link()) == C['EC_OP_NOOP']
