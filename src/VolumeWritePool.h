@@ -25,7 +25,7 @@
 template <typename Job> class VolumeWritePool
 {
 public:
-	static constexpr size_t kWorkers = 4;
+	static constexpr size_t kWorkers = 4, kResolvers = 2;
 	static constexpr size_t kMaxJobs = 4096;
 	static constexpr size_t kVolumeJobs = 1024, kDiscoveryJobs = 64;
 	static constexpr size_t kBatchSize = 64;
@@ -177,6 +177,9 @@ private:
 				return it;
 			}
 		}
+		if (m_probing == kResolvers) {
+			return m_queue.end();
+		}
 		for (auto it = m_queue.begin(); it != m_queue.end(); ++it) {
 			if (it->volume.empty() && m_resolving.count(it->path) == 0) {
 				return it;
@@ -203,6 +206,7 @@ private:
 				volume = next->volume;
 				if (volume.empty()) {
 					m_resolving.insert(next->path);
+					++m_probing;
 					probe.splice(probe.end(), m_queue, next);
 				} else {
 					m_active.insert(volume);
@@ -233,6 +237,7 @@ private:
 				{
 					std::lock_guard<std::mutex> lock(m_mutex);
 					m_resolving.erase(item.path);
+					--m_probing;
 					if (!error) {
 						for (auto &queued : m_queue) {
 							if (queued.path == item.path) {
@@ -285,7 +290,7 @@ private:
 	std::set<std::string> m_active, m_resolving;
 	std::array<std::thread, kWorkers> m_workers;
 	std::map<std::string, size_t> m_volumeJobs;
-	size_t m_discovery = 0;
+	size_t m_discovery = 0, m_probing = 0;
 	size_t m_owned = 0, m_sequence = 0;
 	bool m_stopping = false;
 };

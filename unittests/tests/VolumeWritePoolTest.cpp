@@ -276,3 +276,33 @@ TEST(VolumeWritePool, SaturatedVolumeCannotConsumeColdDiscoveryCapacity)
 	pool.Stop();
 	ASSERT_EQUALS(Pool::kVolumeJobs + 2, control.done.size());
 }
+
+TEST(VolumeWritePool, BlockedDiscoveryLeavesWorkersForKnownHealthyVolumes)
+{
+	Control control;
+	Pool pool(
+		[&](Job &job) {
+			{
+				std::lock_guard<std::mutex> lock(control.mutex);
+				++control.probes;
+				control.changed.notify_all();
+			}
+			control.Block();
+			return job.volume;
+		},
+		[&](Pool::Batch &batch) {
+			for (auto &job : batch) {
+				control.Done(job.id);
+			}
+		},
+		[](Pool::Batch &, const std::exception_ptr &) {});
+	for (int id = 0; id < 3; ++id) {
+		pool.Submit(std::to_string(id), { id, "A" });
+	}
+	ASSERT_TRUE(control.Wait([&] { return control.probes == Pool::kResolvers; }));
+	ASSERT_TRUE(pool.Submit("known", { 3, "B" }, "B"));
+	ASSERT_TRUE(control.Wait([&] { return control.Has(3); }));
+	control.Release();
+	pool.Stop();
+	ASSERT_EQUALS(size_t{ 4 }, control.done.size());
+}
