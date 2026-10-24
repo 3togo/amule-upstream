@@ -120,8 +120,8 @@ TEST(UploadRefill, OriginalPayloadDrainSizesCompressedUploadsAndExpires)
 	const uint32_t wireRate = 16 * 1024;
 	const uint32_t sourceRate = refill.PayloadRate(100);
 	ASSERT_EQUALS(3 * block, sourceRate);
-	ASSERT_EQUALS(6 * block + 1, UploadBufferTarget(std::max(wireRate, sourceRate), block));
-	ASSERT_TRUE(UploadBufferTarget(sourceRate, block) > UploadBufferTarget(wireRate, block));
+	ASSERT_EQUALS(10 * block + 1, UploadBufferTarget(std::max(wireRate, sourceRate), block, 2000));
+	ASSERT_TRUE(UploadBufferTarget(sourceRate, block, 2000) > UploadBufferTarget(wireRate, block, 2000));
 	ASSERT_EQUALS(sourceRate, refill.PayloadRate(1099));
 	ASSERT_EQUALS(uint32_t{ 0 }, refill.PayloadRate(1100));
 }
