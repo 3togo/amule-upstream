@@ -161,7 +161,8 @@ TEST(CFileAutoClose, ASharedDeleteReadHandleLetsTheFileMove)
 #ifndef __WINDOWS__
 TEST(CFileAutoClose, DescriptorIdentitySurvivesRenameAndAutoCloseWithoutProbingThePath)
 {
-	CFileAutoClose file(TestFile(), CFile::read, true);
+	CFileAutoClose file;
+	ASSERT_TRUE(file.Open(TestFile(), CFile::read, true));
 	const auto identity = file.GetKnownStorageIdentity();
 	ASSERT_FALSE(identity.empty());
 	ASSERT_TRUE(CPath::RenameFile(TestFile(), RenamedFile()));
