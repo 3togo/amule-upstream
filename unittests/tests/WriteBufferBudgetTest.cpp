@@ -101,3 +101,17 @@ TEST(WriteBufferBudget, ConcurrentAdmissionsAndWorkerReleasesStayBounded)
 	}
 	ASSERT_EQUALS(uint64_t{ 0 }, budget.Used());
 }
+
+TEST(WriteBufferBudget, PressureFlushesSmallFilesAndClearsAfterDrain)
+{
+	WriteBufferBudget budget(100, 20);
+	budget.Identify("a", "disk1");
+	budget.Identify("b", "disk1");
+	auto first = budget.Reserve("a", 7);
+	auto second = budget.Reserve("b", 8);
+	ASSERT_TRUE(budget.IsPressured());
+	first.reset();
+	ASSERT_FALSE(budget.IsPressured());
+	second.reset();
+	ASSERT_FALSE(budget.IsPressured());
+}
