@@ -1655,8 +1655,8 @@ uint32 CPartFile::Process(uint8 m_icounter)
 	// file is idle.
 	if ((m_nTotalBufferData > thePrefs::GetFileBufferSize()) ||
 		(dwCurTick > (m_nLastBufferFlushTime + BUFFER_TIME_LIMIT)) || HasPendingHashWork() ||
-		(m_nTotalBufferData != 0 && WriteBufferBudget::Get().IsPressured(
-						    GetFilePath().GetRaw().ToStdString(wxConvUTF8)))) {
+		(m_nTotalBufferData != 0 &&
+			WriteBufferBudget::Get().IsPressured(m_PartPath.GetRaw().ToStdString(wxConvUTF8)))) {
 		FlushBuffer();
 	}
 
