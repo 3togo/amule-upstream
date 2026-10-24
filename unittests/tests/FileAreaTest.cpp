@@ -1,5 +1,6 @@
 // Copyright (c) 2026 aMule Team
 // SPDX-License-Identifier: GPL-2.0-or-later
+#include "config.h"
 #include <muleunit/test.h>
 #include "FileArea.h"
 #include "FileAutoClose.h"
