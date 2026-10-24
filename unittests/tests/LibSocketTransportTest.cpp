@@ -272,6 +272,55 @@ TEST(LibSocketTransport, ContextPoolReleasesCrossContextAcceptsBeforeDestroyingS
 	ASSERT_TRUE(pending.expired());
 }
 
+TEST(LibSocketTransport, AcceptedPeerReadsOnItsOwnContext)
+{
+	boost::asio::ip::tcp::acceptor listener(
+		s_ioContexts.front(), { boost::asio::ip::address_v4::loopback(), 0 });
+	boost::asio::ip::tcp::socket peer(s_ioContexts.back());
+	boost::asio::io_context clientContext;
+	boost::asio::ip::tcp::socket client(clientContext);
+	std::promise<std::pair<int, std::thread::id>> accepted;
+	std::promise<std::pair<int, std::thread::id>> received;
+	auto acceptResult = accepted.get_future();
+	auto readResult = received.get_future();
+	char payload = 0;
+	// Declare last so workers are joined before any callback captures go out of scope.
+	CAsioService service;
+	listener.async_accept(peer, [&](const boost::system::error_code &error) {
+		accepted.set_value({ error.value(), std::this_thread::get_id() });
+		if (!error) {
+			boost::asio::async_read(peer,
+				boost::asio::buffer(&payload, 1),
+				[&](const boost::system::error_code &readError, size_t) {
+					received.set_value({ readError.value(), std::this_thread::get_id() });
+				});
+		}
+	});
+	boost::system::error_code clientError;
+	client.connect(listener.local_endpoint(), clientError);
+	if (!clientError) {
+		boost::asio::write(client, boost::asio::buffer("x", 1), clientError);
+	}
+	const auto acceptStatus = acceptResult.wait_for(std::chrono::seconds(2));
+	const auto readStatus = readResult.wait_for(std::chrono::seconds(2));
+	service.Stop();
+	boost::system::error_code ignored;
+	peer.close(ignored);
+	listener.close(ignored);
+	DrainSocketContexts();
+	ASSERT_TRUE(!clientError);
+	ASSERT_TRUE(acceptStatus == std::future_status::ready);
+	ASSERT_TRUE(readStatus == std::future_status::ready);
+	const auto accept = acceptResult.get();
+	const auto read = readResult.get();
+	ASSERT_EQUALS(0, accept.first);
+	ASSERT_EQUALS(0, read.first);
+	ASSERT_EQUALS('x', payload);
+	ASSERT_TRUE(accept.second != std::this_thread::get_id());
+	ASSERT_TRUE(read.second != std::this_thread::get_id());
+	ASSERT_TRUE(accept.second != read.second);
+}
+
 // Check actual socket executors, including wraparound, rather than only the selector.
 TEST(LibSocketTransport, TcpSocketsUseEveryContextInRoundRobinOrder)
 {
