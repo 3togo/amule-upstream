@@ -49,3 +49,14 @@ These limits bound admitted payload, including network responses still owed.
 They do not bound total process RSS, packet/decompression scratch space, buffer
 metadata, mapped pages, or the operating system's page cache. This stage adds
 write-worker isolation; it does not add write coalescing or a read cache.
+
+
+Adjacent heap-backed fragments from the same file are flushed with one bounded
+scatter write (at most 16 fragments and 1 MiB). POSIX uses `writev`; Windows uses
+a bounded temporary buffer with ordinary file handles. Gaps, file boundaries
+and mapped areas split groups. Mapped areas retain their existing individually
+synchronized failure/rewrite path. A short write fails the entire group: original
+areas, credits and file pins survive until retry or ordinary completion handling.
+Successful groups close their areas together; the main thread still harvests
+results and releases credits. These bounds reduce syscall count without claiming
+that writes have reached stable media or measuring physical HDD throughput.
