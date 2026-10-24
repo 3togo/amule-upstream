@@ -145,6 +145,7 @@ private:
 	std::map<std::string, std::string> m_storageKeys;
 	UploadBufferBudget m_bufferBudget;
 	UploadReadDiagnostics m_diagnostics;
+	bool m_collectDiagnostics = false;
 	uint64 m_lastDiagnostics = 0;
 	bool m_needCacheSlot = false;
 	std::list<std::shared_ptr<OpenFile_Struct>> m_listOpenFiles;

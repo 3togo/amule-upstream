@@ -16,9 +16,14 @@ struct UploadReadTiming
 	uint64_t submitted = 0;
 	uint64_t started = 0;
 	uint64_t finished = 0;
+	bool enabled = true;
 
 	template <typename Work, typename Clock> void Run(Work work, Clock clock)
 	{
+		if (!enabled) {
+			work();
+			return;
+		}
 		started = clock();
 		struct Finish
 		{
@@ -72,6 +77,9 @@ public:
 	void Completed(
 		const UploadReadTiming &timing, uint64_t now, bool closeOnly, bool failed, bool deferred)
 	{
+		if (!timing.enabled) {
+			return;
+		}
 		if (closeOnly) {
 			m_stats.close.Add(timing.finished - timing.started);
 			return;

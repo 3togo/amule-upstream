@@ -289,6 +289,9 @@ def run(binary, fixture, stage, diagnostics=False):
                 if proc:
                     stop_daemon(proc)
                 os.close(notify_r)
+            if not diagnostics:
+                text = (root / 'logfile').read_text(errors='replace')
+                assert 'Upload storage: ' not in text, 'disabled FileIO emitted storage diagnostics'
             if diagnostics:
                 text = (root / 'logfile').read_text(errors='replace')
                 summaries = [line.split('Upload storage: ', 1)[1]
