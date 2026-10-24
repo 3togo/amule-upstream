@@ -39,7 +39,8 @@
 #include "MD4Hash.h"
 #include "UploadBandwidthThrottler.h"
 #include "UploadBlockLists.h" // Needed for PushDoneBlock
-#include "Statistics.h"       // Needed for theStats
+#include "Preferences.h"
+#include "Statistics.h" // Needed for theStats
 #include "UploadPacketBuilder.h"
 
 #include <algorithm>
@@ -208,6 +209,7 @@ void *CUploadDiskIOThread::Entry()
 			QueueIdleCloses();
 			m_diagnostics.EndSweep(GetTickCount64(), !m_pool->HasCapacity());
 			ReportDiagnostics();
+			SamplePipelinePressure();
 			wxMutexLocker lock(m_mutex);
 			if (m_bRun && !m_bNewBlocksPending && !m_bSocketNeedsPending) {
 				m_condition.WaitTimeout(500);
@@ -266,6 +268,11 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 			continue;
 		}
 		auto *req = completed.job.release();
+		if (!req->closeOnly) {
+			m_lastCompletedMs = GetTickCount64();
+			m_lastReadMs = req->timing.finished - req->timing.started;
+			m_lastHandoffMs = m_lastCompletedMs - req->timing.finished;
+		}
 		m_diagnostics.Completed(req->timing,
 			GetTickCount64(),
 			req->closeOnly,
@@ -291,6 +298,82 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 	if (dataQueued && theApp->uploadBandwidthThrottler != nullptr) {
 		theApp->uploadBandwidthThrottler->NewUploadDataAvailable();
 	}
+}
+
+UploadPipelinePressure::Snapshot CUploadDiskIOThread::PipelinePressureSnapshot() const
+{
+	std::lock_guard<std::mutex> lock(m_pipelineMutex);
+	return m_pipelineSnapshot;
+}
+
+void CUploadDiskIOThread::SamplePipelinePressure()
+{
+	const uint64 now = GetTickCount64();
+	const auto previous = PipelinePressureSnapshot();
+	if (previous.valid && now - previous.sampledMs < UploadPipelinePressure::kSampleMs) {
+		return;
+	}
+	UploadPipelinePressure::Input input;
+	input.pendingReads = m_pendingClients.size();
+	for (const auto &pending : m_pendingClients) {
+		input.oldestReadMs = std::max(input.oldestReadMs, now - pending.second);
+	}
+	input.chargedBytes = m_bufferBudget.Used();
+	const auto jobs = m_pool->GetSnapshot();
+	input.queuedJobs = jobs.queued;
+	input.runningJobs = jobs.running;
+	input.finishedJobs = jobs.finished;
+	input.lastReadMs = m_lastReadMs;
+	input.lastHandoffMs = m_lastHandoffMs;
+	input.lastCompletedMs = m_lastCompletedMs;
+	input.wireRate = theStats::GetDisplayUploadRate();
+	input.limit = uint64{ thePrefs::GetMaxUpload() } * 1024;
+	const auto &pressure = m_diagnostics.LastPressure();
+	input.storageDenied = pressure[UploadReadDiagnostics::Storage];
+	input.clientMemoryDenied = pressure[UploadReadDiagnostics::ClientMemory];
+	input.globalMemoryDenied = pressure[UploadReadDiagnostics::GlobalMemory];
+	input.workersFull = pressure[UploadReadDiagnostics::Workers];
+	{
+		wxMutexLocker uploadLock(theApp->uploadqueue->GetUploadingListLock());
+		for (const auto &ref : theApp->uploadqueue->GetUploadingList()) {
+			CUpDownClient *client = ref.GetClient();
+			if (client->m_bIOError || client->GetSocket() == nullptr || !client->IsConnected()) {
+				continue;
+			}
+			wxMutexLocker blockLock(client->m_blockListLock);
+			input.AddClient(!client->m_BlockRequests_queue.empty(),
+				m_pendingClients.count(client->ECID()) != 0,
+				m_retryAfter.count(client->ECID()) != 0,
+				client->GetSocket()->UploadPressureSnapshot());
+		}
+	}
+	// Timestamp after collection; no diagnostics lock overlaps upload/socket locks.
+	const auto snapshot = m_pipelinePressure.Observe(input, GetTickCount64());
+	{
+		std::lock_guard<std::mutex> lock(m_pipelineMutex);
+		m_pipelineSnapshot = snapshot;
+	}
+	if (snapshot.sampledMs - m_lastPipelineLog < 5000) {
+		return;
+	}
+	m_lastPipelineLog = snapshot.sampledMs;
+	AddDebugLogLineF(logFileIO,
+		CFormat("Upload pipeline: sample_ms=%d active=%d requested=%d pending_clients=%d "
+			"pending_reads=%d oldest_read_ms=%d read_wait=%d transport_busy=%d ready=%d "
+			"admission_wait=%d deferred=%d drained=%d ready_bytes=%d charged_bytes=%d "
+			"wire_Bps=%d limit_Bps=%d underfilled=%d underfill_ms=%d sustained=%d persistent=%d "
+			"storage_denied=%d client_memory_denied=%d global_memory_denied=%d workers_full=%d "
+			"queued_jobs=%d running_jobs=%d finished_jobs=%d last_read_ms=%d last_handoff_ms=%d "
+			"last_completed_ms=%d") %
+			snapshot.sampledMs % input.active % input.requested % input.pendingClients %
+			input.pendingReads % input.oldestReadMs % input.readWait % input.transportBusy %
+			input.ready % input.admissionWait % input.deferred % input.drained %
+			input.readyBytes % input.chargedBytes % input.wireRate % input.limit %
+			snapshot.signals[UploadPipelinePressure::Underfilled] %
+			snapshot.ageMs[UploadPipelinePressure::Underfilled] % snapshot.sustainedUnderfill %
+			snapshot.persistentUnderfill % input.storageDenied % input.clientMemoryDenied %
+			input.globalMemoryDenied % input.workersFull % input.queuedJobs % input.runningJobs %
+			input.finishedJobs % input.lastReadMs % input.lastHandoffMs % input.lastCompletedMs);
 }
 
 // Debug-only FileIO output, at most once per 30 seconds plus a final summary.

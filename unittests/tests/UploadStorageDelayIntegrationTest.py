@@ -25,10 +25,12 @@ from UploadRefillIntegrationTest import BLOCK, packet, send
 
 
 class Peer:
-    def __init__(self, port, index, file_hash, compress=False):
+    def __init__(self, port, index, file_hash, compress=False, receive_buffer=None):
         self.file_hash = file_hash
         self.sock = socket.socket()
         try:
+            if receive_buffer is not None:
+                self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, receive_buffer)
             address = f'127.0.0.{index + 2}'
             self.sock.bind((address, 0))
             self.sock.settimeout(5)

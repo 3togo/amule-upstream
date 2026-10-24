@@ -43,6 +43,22 @@ public:
 	StorageReadPool(const StorageReadPool &) = delete;
 	StorageReadPool &operator=(const StorageReadPool &) = delete;
 
+	struct Snapshot
+	{
+		size_t queued = 0, running = 0, finished = 0;
+	};
+	Snapshot GetSnapshot() const
+	{
+		std::lock_guard<std::mutex> lock(m_mutex);
+		Snapshot snapshot;
+		for (const auto &slot : m_slots) {
+			snapshot.queued += slot.state == State::Queued;
+			snapshot.running += slot.state == State::Running;
+			snapshot.finished += slot.state == State::Finished;
+		}
+		return snapshot;
+	}
+
 	bool HasCapacity() const
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);

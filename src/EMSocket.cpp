@@ -467,6 +467,12 @@ uint64 CEMSocket::QueuedUploadPayload() const
 	return m_uploadRefill.Queued();
 }
 
+UploadPipelinePressure::Socket CEMSocket::UploadPressureSnapshot() const
+{
+	std::lock_guard<std::mutex> lock(m_sendLocker);
+	return { m_uploadRefill.Queued(), m_bBusy.load() };
+}
+
 // Non-resetting peek at bytes sent since the last GetSentPayloadSinceLastCallAndReset(). Used by
 // the disk I/O thread for a fresh view without consuming the counter SendBlockData() drains every
 // CORE_TIMER_PERIOD. Must not be called with m_sendLocker already held.

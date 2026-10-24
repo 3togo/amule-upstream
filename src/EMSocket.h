@@ -33,6 +33,7 @@
 
 #include "UploadRefill.h"
 #include "UploadBuffering.h"
+#include "UploadPipelinePressure.h"
 
 #include "ThrottledSocket.h" // Needed for ThrottledFileSocket
 
@@ -91,6 +92,7 @@ public:
 	uint64 PeekSentPayload(); // Non-resetting peek -- for disk I/O thread buffer check
 	uint32 UpdateUploadBufferTarget(uint32 wireRate);
 	uint64 QueuedUploadPayload() const;
+	UploadPipelinePressure::Socket UploadPressureSnapshot() const;
 	const std::shared_ptr<UploadBufferBudget::Account> &UploadBufferAccount() const
 	{
 		return m_uploadBufferAccount;

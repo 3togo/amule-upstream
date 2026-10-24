@@ -398,3 +398,51 @@ Debug Linux builds also register UploadStorageDiagnosticsIntegrationTest: a
 pipe-held read stays blocked until a periodic report exposes its pending age,
 while healthy-drive uploads continue. The shutdown logfile must then report its
 completed latency and same-storage admission denials. This adds about 30 seconds.
+
+Unified upload pipeline pressure monitor
+---------------------------------------
+The upload read coordinator publishes PipelinePressureSnapshot() in all builds,
+independently of logging. It samples at most once per 500 ms; callers must check
+valid and sampledMs because a blocked coordinator/shutdown can leave a stale
+snapshot. A mutex protects the published copy. Collection uses short upload-list,
+block-list and socket locks in that order; no filesystem work is added there.
+The snapshot combines connected, non-error uploading clients' queued demand,
+pending reads, ready original payload (including the current packet), transport
+busy state, deferred file-completion retries, read admission denials, buffer
+charges, worker queued/running/finished counts, and the last completed read's work
+and handoff durations/timestamp. pendingReads/oldestReadMs also include admitted
+reads whose client disconnected. Last-completion fields persist while idle and
+must be interpreted with lastCompletedMs; they do not time an unfinished read.
+Counters across different subsystems are successive observations, not an atomic
+snapshot of the entire application. No per-client or per-storage history is kept.
+
+Underfill means active demand exists, a finite configured upload limit exists,
+and the published one-second aggregate upload wire rate is below that limit by
+more than max(2 percent rounded up, 1 KiB/s), bounded to half the configured limit
+for low-rate operation. Wire rate includes protocol overhead and reports the
+existing application send-accounting rate, not NIC/ACK throughput. It is separate
+from queued original payload, so compressed bytes are not compared as payload.
+Two seconds of consecutive observations mark sustained underfill; ten mark
+persistent underfill. A gap over 1500 ms, a clock reset, loss of demand, or recovery
+breaks persistence. Read wait, transport busy, admission wait, deferred completion,
+storage/client-memory/global-memory denial and full-worker signals can overlap.
+A busy transport may be waiting for an asynchronous write or a receiver: it is
+not proof of network congestion. Pending work is not proof of physical disk
+saturation, and a delayed coordinator can reflect scheduling or CPU contention.
+
+The monitor changes no budgets, buffer targets, thread counts, peer admission or
+bandwidth limits. Its getters do not reset transfer accounting or refill targets.
+Debug FileIO output adds an anonymous "Upload pipeline:" snapshot at most once
+per five seconds with the same VerboseDebug/Cat_FileIO settings described above.
+No paths, file hashes, client IDs or storage keys are emitted.
+
+UploadPipelinePressureTest injects stage observations and time to distinguish
+controlled read, receiver, memory and worker bottlenecks, mixed conditions,
+deferred completion, idle/unlimited/capped traffic, threshold boundaries and
+observation gaps. StorageReadPoolTest verifies completed jobs remain separately
+observable while retaining ownership slots. Debug Linux builds register
+UploadPipelinePressureIntegrationTest: pipe-held storage must report read wait
+and same-storage denial, while a non-reading loopback peer must report queued
+payload and transport busy. Other peers must continue delivering verified data;
+recovery must clear underfill and busy/read-wait observations. No public peers,
+real mount changes, hardware throughput assumptions or adaptive actions are used.
