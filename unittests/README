@@ -246,8 +246,9 @@ the existing CI integration-test budget. The delay cases can be run separately:
 The delay test uses isolated offline daemon profiles and two loopback peers. A
 test-only LD_PRELOAD library gates actual reads of one synthetic shared file with pipes.
 While a later read is held, the preceding block must already reach its peer.
-A continuously drained twelve-request queue must yield to the other peer after
-at most eleven reads, for small, full, three-block and mixed request sizes.
+Each client keeps at most one read outstanding: the other peer must be served
+before the busy peer's twelfth read, for small, full, three-block and mixed
+request sizes.
 Payload contents and packet continuity are checked throughout. No production
 hooks, public peers, storage hardware or timed sleeps simulate the delay.
 These cases test delivery and sweep fairness. Progress on other storage while
@@ -268,7 +269,9 @@ before any gate is released. The test checks the per-storage limit, recovery,
 a disconnect while blocked, same-client/same-block upload-session reuse, and
 shutdown while a worker still owns a read. A compression gate also reuses a
 client/socket while its old session builds packets outside the upload-list lock;
-only the new session may receive data. It also checks that two slow-volume
+only the new session may receive data. Additional cases verify that heap reads
+reuse their original buffer and that mapped reads copy successfully or reject a
+SIGBUS caused by truncating the file after prefaulting, without ending the daemon. It also checks that two slow-volume
 peers alternate while a fast-volume peer completes a read between every release,
 and that uploads continue while storage discovery is blocked. No system mounts
 are changed.
