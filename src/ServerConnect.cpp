@@ -578,11 +578,35 @@ void CServerConnect::CheckForTimeout()
 			CServerSocket *value = it->second;
 			++it;
 			if (!value->IsSolving()) {
-				AddLogLineN(CFormat(_("Connection attempt to %s (%s:%i) timed out.")) %
-					    value->info % value->cur_server->GetFullIP() %
-					    value->cur_server->GetPort());
+				// Retry with the server-list entry, not the socket-owned copy
+				// which DestroySocket() deletes.
+				CServer *retryServer = nullptr;
+				if (singleconnecting && value->IsServerCryptEnabledConnection() &&
+					!thePrefs::IsClientCryptLayerRequired()) {
+					retryServer = theApp->serverlist->GetServerByAddress(
+						value->cur_server->GetAddress(),
+						value->cur_server->GetPort());
+				}
+
+				if (retryServer) {
+					AddLogLineN(CFormat(_("Connection attempt to %s (%s:%i) timed out; "
+							      "retrying without obfuscation.")) %
+						    value->info % retryServer->GetFullIP() %
+						    retryServer->GetPort());
+				} else {
+					AddLogLineN(
+						CFormat(_("Connection attempt to %s (%s:%i) timed out.")) %
+						value->info % value->cur_server->GetFullIP() %
+						value->cur_server->GetPort());
+				}
 
 				connectionattemps.erase(key);
+				if (retryServer) {
+					DestroySocket(value);
+					ConnectToServer(retryServer, false, true);
+					// The retry replaced the whole attempt map, so this sweep is over.
+					break;
+				}
 
 				TryAnotherConnectionrequest();
 				DestroySocket(value);
@@ -735,27 +759,6 @@ bool CServerConnect::IsLocalServer(uint32 dwIP, uint16 nPort)
 		if (connectedsocket->cur_server->GetIP() == dwIP &&
 			connectedsocket->cur_server->GetPort() == nPort)
 			return true;
-	}
-	return false;
-}
-
-bool CServerConnect::IsServerIP(uint32 ip) const
-{
-	if (ip == 0) {
-		return false;
-	}
-	// Match the live connection first -- cheapest, hottest case.
-	if (connectedsocket && connectedsocket->cur_server && connectedsocket->cur_server->GetIP() == ip) {
-		return true;
-	}
-	// Then any login still in flight. m_lstOpenSockets includes connectedsocket too, but the
-	// early-out above keeps the common case to a single pointer chase; the loop only runs while
-	// several servers are tried in parallel, bounded by max_simcons.
-	for (SocketsList::const_iterator it = m_lstOpenSockets.begin(); it != m_lstOpenSockets.end(); ++it) {
-		const CServerSocket *sock = *it;
-		if (sock && sock->cur_server && sock->cur_server->GetIP() == ip) {
-			return true;
-		}
 	}
 	return false;
 }

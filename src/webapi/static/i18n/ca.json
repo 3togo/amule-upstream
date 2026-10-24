@@ -609,6 +609,7 @@
   "search_ftype_archive": "Arxius",
   "stats_tree_servers_total_users": "Usuaris totals: %llu",
   "search_tab_close": "Tanca la cerca",
+  "search_tab_restore": "Carrega la cerca al formulari",
   "shared_prio_normal": "Normal",
   "prefs_opt_proxy_http": "HTTP",
   "networks_kad_buddy_not_needed_udp": "Cap amic necessari - Port UDP obert",
@@ -1049,5 +1050,8 @@
   "prefs_sources_apply_first": "Aplica primer els teus canvis",
   "prefs_field_servers_update_list": "Actualitza la llista de servidors",
   "prefs_sources_download_once": "Descarregar un cop",
-  "prefs_sources_one_off": "URL d'ús puntual"
+  "prefs_sources_one_off": "URL d'ús puntual",
+  "prefs_group_kad_repair_hashes": "Hashes de reparació de fitxers a Kad",
+  "prefs_field_kad_protocol10_enabled": "Comparteix i utilitza hashes de reparació de fitxers (AICH) a Kad",
+  "prefs_field_kad_strict_aich_publishers": "Ignora els hashes de reparació dels nodes Kad massa antics per admetre'ls"
 }

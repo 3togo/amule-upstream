@@ -270,6 +270,7 @@
   "search_related": "Gerelateerd",
   "search_ftype_archive": "Archieven",
   "search_tab_close": "Sluit zoeken",
+  "search_tab_restore": "Laad zoekopdracht in het formulier",
   "prefs_opt_proxy_http": "HTTP",
   "search_stop": "Stop",
   "search_status_queued_canceled": "In wachtrij (geannuleerd)",
@@ -1039,5 +1040,8 @@
   "prefs_sources_download_once": "Download een keer",
   "prefs_sources_one_off": "Eenmalige URL",
   "prefs_field_servers_update_urls": "Serverlijst-bron-URLs (één per regel)",
-  "prefs_sources_saved_help": "Downloads vanuit de opgeslagen bronnen."
+  "prefs_sources_saved_help": "Downloads vanuit de opgeslagen bronnen.",
+  "prefs_group_kad_repair_hashes": "Bestandsreparatiehashes via Kad",
+  "prefs_field_kad_protocol10_enabled": "Deel en gebruik bestandsreparatiehashes (AICH) via Kad",
+  "prefs_field_kad_strict_aich_publishers": "Negeer reparatiehashes van Kad-nodes die te oud zijn om ze te ondersteunen"
 }
