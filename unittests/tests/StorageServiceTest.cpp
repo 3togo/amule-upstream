@@ -121,3 +121,15 @@ TEST(StorageService, IndependentPoolsKeepWaitingReadsOffBusyDeviceAndDrainPermit
 	ASSERT_TRUE(independent && blocked && same);
 	ASSERT_EQUALS(size_t{ 0 }, service.Accounts());
 }
+
+TEST(StorageService, ReadOwnershipSlotsAreSharedByPartitionsOfOneDisk)
+{
+	StorageService service(true);
+	service.SetAliases({ { "a", "disk" }, { "b", "disk" }, { "c", "other" } });
+	StorageReadPool<int> reads([](int &) {}, [] {}, &service);
+	auto job = std::make_unique<int>(1);
+	ASSERT_TRUE(reads.Submit("a", job));
+	ASSERT_FALSE(reads.CanSubmit("b"));
+	ASSERT_TRUE(reads.CanSubmit("c"));
+	reads.Stop();
+}

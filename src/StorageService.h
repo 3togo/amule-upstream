@@ -139,6 +139,19 @@ public:
 		ticket->task.registered = true;
 		return ticket;
 	}
+	bool SameResource(const std::string &a, const std::string &b) const
+	{
+		std::lock_guard<std::mutex> lock(m_state->mutex);
+		if (!m_resolveAliases) {
+			return a == b;
+		}
+		const auto &aliases = m_state->aliasesPending ? m_state->pendingAliases : m_state->aliases;
+		const auto key = [&](const std::string &value) {
+			const auto found = aliases.find(value);
+			return found == aliases.end() ? std::string("unknown") : found->second;
+		};
+		return key(a) == key(b);
+	}
 	bool TryStart(const Permit &ticket, uint64_t now = Now())
 	{
 		if (!ticket) {
