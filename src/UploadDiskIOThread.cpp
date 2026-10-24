@@ -57,6 +57,23 @@ static const size_t MAX_CACHED_OPEN_FILES = 32;
 // delete on Windows and an unmount everywhere.
 static const uint32 MAX_IDLE_OPEN_FILE_SECONDS = 60;
 
+// Use one spelling for admission, outstanding permits and cached handles.
+static std::string StoragePath(const CPath &path)
+{
+	wxString spelled = path.GetRaw();
+#ifdef __WINDOWS__
+	spelled.Replace("\\", "/");
+	spelled = spelled.Lower();
+#endif
+	return spelled.ToStdString(wxConvUTF8);
+}
+
+#ifdef __WINDOWS__
+static constexpr bool WINDOWS_STORAGE = true;
+#else
+static constexpr bool WINDOWS_STORAGE = false;
+#endif
+
 // eMule ref: CUploadDiskIOThread::CUploadDiskIOThread()
 CUploadDiskIOThread::CUploadDiskIOThread()
 : wxThread(wxTHREAD_JOINABLE)
@@ -238,22 +255,15 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 						0; // follow the local snapshot with mapped drives
 				}
 				m_storageKeys.clear();
-#ifdef __WINDOWS__
-				constexpr bool windows = true;
-#else
-				constexpr bool windows = false;
-#endif
 				m_pool->ReclassifyStorage([this](const ReadRequest_Struct &req,
 								  const std::string &previous) {
-					return req.storageMap
-						       ? previous
-						       : m_storageMap.Lookup(
-								 req.path.GetRaw().ToStdString(wxConvUTF8),
-								 windows);
+					return req.storageMap ? previous
+							      : m_storageMap.Lookup(StoragePath(req.path),
+									WINDOWS_STORAGE);
 				});
 				for (auto &file : m_listOpenFiles) {
-					file->storage = m_storageMap.Lookup(
-						file->path.GetRaw().ToStdString(wxConvUTF8), windows);
+					file->storage =
+						m_storageMap.Lookup(StoragePath(file->path), WINDOWS_STORAGE);
 				}
 			}
 			continue;
@@ -384,23 +394,11 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 			filePath = srcfile->GetFilePath().JoinPaths(srcfile->GetFileName());
 		}
 
-		wxString path = filePath.GetRaw();
-#ifdef __WINDOWS__
-		path.Replace("\\", "/");
-		path = path.Lower();
-#endif
+		const std::string path = StoragePath(filePath);
 		auto storage = m_storageKeys.find(path);
 		if (storage == m_storageKeys.end()) {
-#ifdef __WINDOWS__
-			storage = m_storageKeys
-					  .emplace(path,
-						  m_storageMap.Lookup(path.ToStdString(wxConvUTF8), true))
-					  .first;
-#else
 			storage =
-				m_storageKeys.emplace(path, m_storageMap.Lookup(path.ToStdString(wxConvUTF8)))
-					.first;
-#endif
+				m_storageKeys.emplace(path, m_storageMap.Lookup(path, WINDOWS_STORAGE)).first;
 		}
 		if (!m_pool->CanSubmit(storage->second)) {
 			return nullptr;
@@ -474,7 +472,7 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 	if (req->closeOnly) {
 		return READ_OK;
 	}
-	CFileArea area;
+	CFileArea &area = req->area;
 	const uint32 togo = static_cast<uint32>(req->uEndOffset - req->uStartOffset);
 	ReadResult result = READ_OK;
 	try {
@@ -527,9 +525,14 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 			// An mmap read only maps the range: fault it in on the worker so filesystem
 			// reads and SIGBUS handling cannot stall the coordinator while it builds packets.
 			area.Prefault();
-			area.CheckError();
-			// Copy into owned memory so later packet construction cannot fault file pages.
-			req->data.assign(area.GetBuffer(), area.GetBuffer() + togo);
+			if (area.IsMapped()) {
+				// Heap reads already own their buffer. Only mapped reads need a copy so
+				// packet construction cannot fault file pages on the coordinator.
+				req->data.assign(area.GetBuffer(), area.GetBuffer() + togo);
+				// A page can fault again during the copy, after Prefault touched it.
+				area.CheckError();
+				area.Close();
+			}
 		}
 	} catch (const CIOFailureException &error) {
 		AddDebugLogLineC(logClient, "CUploadDiskIOThread: IO failure: " + error.what());
@@ -537,6 +540,11 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 	} catch (const CEOFException &) {
 		AddDebugLogLineN(logClient, "CUploadDiskIOThread: EOF reading block");
 		result = READ_FAILED;
+	}
+	if (result != READ_OK) {
+		// Failed mapped reads must also unmap on their worker, before handing the
+		// request back for validation/discard on the coordinator.
+		area.Close();
 	}
 	return result;
 }
@@ -645,8 +653,9 @@ bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 	if (packedFor != nullptr) {
 		// CommitRead set the file ID.
 		CPacketList packetList;
+		const uint8_t *payload = req->data.empty() ? req->area.GetBuffer() : req->data.data();
 		if (useCompression) {
-			UploadPacketBuilder::Packed(req->data.data(),
+			UploadPacketBuilder::Packed(payload,
 				req->uStartOffset,
 				req->uEndOffset,
 				packetList,
@@ -654,7 +663,7 @@ bool CUploadDiskIOThread::ReadCompletionRoutine(ReadRequest_Struct *req)
 				dataRate,
 				&theStats::AddUpOverheadFileRequest);
 		} else {
-			UploadPacketBuilder::Standard(req->data.data(),
+			UploadPacketBuilder::Standard(payload,
 				req->uStartOffset,
 				req->uEndOffset,
 				packetList,
