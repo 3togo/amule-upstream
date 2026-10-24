@@ -21,6 +21,8 @@
 #ifndef STORAGEREADPOOL_H
 #define STORAGEREADPOOL_H
 
+#include "StorageService.h"
+#include <algorithm>
 #include <array>
 #include <condition_variable>
 #include <cstdint>
@@ -44,9 +46,12 @@ public:
 		std::exception_ptr error;
 	};
 
-	StorageReadPool(std::function<void(Job &)> work, std::function<void()> notify)
+	StorageReadPool(std::function<void(Job &)> work,
+		std::function<void()> notify,
+		StorageService *service = nullptr)
 	: m_work(std::move(work))
 	, m_notify(std::move(notify))
+	, m_service(service)
 	{
 		try {
 			for (auto &worker : m_workers) {
@@ -105,7 +110,7 @@ public:
 
 	// Transfers ownership only on success. At most one queued, running OR completed
 	// job per storage key is admitted, regardless of how many clients request it.
-	bool Submit(const std::string &storage, std::unique_ptr<Job> &job)
+	bool Submit(const std::string &storage, std::unique_ptr<Job> &job, uint64_t deadline = 0)
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
 		if (m_stopping) {
@@ -123,6 +128,11 @@ public:
 		if (free == nullptr) {
 			return false;
 		}
+		free->permit = m_service != nullptr && storage != "storage-discovery"
+				       ? m_service->Queue(storage,
+						 StorageService::Kind::Read,
+						 deadline == 0 ? StorageService::Now() + 250 : deadline)
+				       : nullptr;
 		free->storage = storage;
 		free->job = std::move(job);
 		free->sequence = ++m_sequence;
@@ -189,6 +199,7 @@ private:
 		std::unique_ptr<Job> job;
 		std::exception_ptr error;
 		uint64_t sequence = 0;
+		StorageService::Permit permit;
 	};
 
 	void Run()
@@ -197,15 +208,36 @@ private:
 			Slot *next = nullptr;
 			{
 				std::unique_lock<std::mutex> lock(m_mutex);
-				m_ready.wait(lock, [&] {
+				for (;;) {
+					std::array<Slot *, kWorkers> queued{};
+					size_t count = 0;
 					for (auto &slot : m_slots) {
-						if (slot.state == State::Queued &&
-							(next == nullptr || slot.sequence < next->sequence)) {
-							next = &slot;
+						if (slot.state == State::Queued) {
+							queued[count++] = &slot;
 						}
 					}
-					return next != nullptr || m_stopping;
-				});
+					std::sort(queued.begin(),
+						queued.begin() + count,
+						[](const Slot *a, const Slot *b) {
+							return a->sequence < b->sequence;
+						});
+					for (size_t i = 0; i < count; ++i) {
+						auto *slot = queued[i];
+						if (m_service == nullptr ||
+							m_service->TryStart(slot->permit)) {
+							next = slot;
+							break;
+						}
+					}
+					if (next != nullptr || (m_stopping && count == 0)) {
+						break;
+					}
+					if (m_service == nullptr || count == 0) {
+						m_ready.wait(lock);
+					} else {
+						m_ready.wait_for(lock, std::chrono::milliseconds(10));
+					}
+				}
 				if (next == nullptr) {
 					return;
 				}
@@ -219,6 +251,7 @@ private:
 			}
 			{
 				std::lock_guard<std::mutex> lock(m_mutex);
+				next->permit.reset();
 				next->error = std::move(error);
 				next->state = State::Finished;
 			}
@@ -228,6 +261,7 @@ private:
 
 	std::function<void(Job &)> m_work;
 	std::function<void()> m_notify;
+	StorageService *m_service;
 	mutable std::mutex m_mutex;
 	std::condition_variable m_ready;
 	std::array<Slot, kWorkers> m_slots;

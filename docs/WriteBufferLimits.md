@@ -60,3 +60,23 @@ areas, credits and file pins survive until retry or ordinary completion handling
 Successful groups close their areas together; the main thread still harvests
 results and releases credits. These bounds reduce syscall count without claiming
 that writes have reached stable media or measuring physical HDD throughput.
+
+
+Upload reads and download writes acquire a shared storage service permit before
+issuing I/O. The earliest refill deadline competes with a dirty buffer's creation
+time plus one second; neither class can bypass a waiting other class for more
+than four service turns. A write turn contains at most 16 jobs and 1 MiB (a single
+larger existing job remains indivisible). These are operation bounds, not a
+promise to interrupt or time-limit a blocked kernel call. Pools keep waiting work
+queued and poll shared eligibility at 10 ms while blocked, leaving other workers
+available for independent storage.
+
+Linux descriptor and mount-table identities use the same major:minor spelling.
+Worker-side sysfs discovery groups partitions and single-device stacks by their
+backing disk; multi-device/unsupported stacks are conservative unknown resources.
+Memory filesystems retain independent identities. Updates drain active service
+permits before reclassifying queued work. Windows local-volume GUIDs and POSIX
+cached device identities match the corresponding upload discovery keys. A cold
+read which discovers a different descriptor identity defers and reacquires its
+permit before reading bytes. Native Windows/macOS behavior and HDD performance
+still require their own validation.

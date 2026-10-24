@@ -91,6 +91,7 @@ public:
 	uint64 GetSentPayloadSinceLastCallAndReset();
 	uint64 PeekSentPayload(); // Non-resetting peek -- for disk I/O thread buffer check
 	uint32 UpdateUploadBufferTarget(uint32 wireRate);
+	uint64 UploadRefillDeadline(uint32 wireRate);
 	uint64 QueuedUploadPayload() const;
 	UploadPipelinePressure::Socket UploadPressureSnapshot() const;
 	const std::shared_ptr<UploadBufferBudget::Account> &UploadBufferAccount() const

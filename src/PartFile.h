@@ -29,6 +29,7 @@
 #include "KnownFile.h"     // Needed for CKnownFile
 #include "FileAutoClose.h" // Needed for CFileAutoClose
 #include "WriteBufferBudget.h"
+#include "StorageService.h"
 #include "PartFileWriteSession.h"
 #include "FileArea.h" // Needed for CFileArea (PartFileBufferedData)
 #include <array>      // Needed for std::array (m_ecTickState)
@@ -83,6 +84,7 @@ class PartFileBufferedData
 {
 public:
 	WriteBufferBudget::Credit writeCredit;
+	uint64 dirtyAt = StorageService::Now();
 	CFileArea area;                // File area to be written
 	uint64 start;                  // This is the start offset of the data
 	uint64 end;                    // This is the end offset of the data

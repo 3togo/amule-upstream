@@ -20,6 +20,11 @@
 
 #include "config.h"
 #include "UploadStorageMap.h"
+#include "StorageService.h"
+#include "StorageIdentity.h"
+#include <fstream>
+#include <set>
+#include <sys/stat.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cwchar>
@@ -33,9 +38,53 @@
 #include <sys/mount.h>
 #endif
 
+#ifdef __linux__
+namespace
+{
+std::string BackingDevice(const std::string &device, unsigned depth = 0)
+{
+	if (depth >= 8) {
+		return "unknown";
+	}
+	std::error_code error;
+	auto path = std::filesystem::canonical("/sys/dev/block/" + device, error);
+	if (error) {
+		return "unknown";
+	}
+	if (std::filesystem::exists(path / "partition", error)) {
+		path = path.parent_path();
+	}
+	std::set<std::string> disks;
+	for (std::filesystem::directory_iterator it(path / "slaves", error), end; !error && it != end;
+		it.increment(error)) {
+		std::string child;
+		std::ifstream input(it->path() / "dev");
+		input >> child;
+		if (child.empty() || disks.size() >= 32) {
+			return "unknown";
+		}
+		disks.insert(BackingDevice(child, depth + 1));
+	}
+	if (error && error != std::errc::no_such_file_or_directory) {
+		return "unknown";
+	}
+	if (!disks.empty()) {
+		return disks.size() == 1 ? *disks.begin() : "unknown";
+	}
+	std::string parent;
+	std::ifstream input(path / "dev");
+	input >> parent;
+	return parent.empty() ? "unknown" : "disk:" + parent;
+}
+} // namespace
+#endif
+
 bool UploadStorageMap::Refresh([[maybe_unused]] bool includeNetwork)
 {
 	UploadStorageMap next;
+#ifdef __linux__
+	std::map<std::string, std::string> aliases;
+#endif
 #if defined(__linux__)
 	// mountinfo contains device IDs and mount points without probing any volume.
 	if (FILE *file = std::fopen("/proc/self/mountinfo", "r")) {
@@ -43,6 +92,35 @@ bool UploadStorageMap::Refresh([[maybe_unused]] bool includeNetwork)
 		size_t size = 0;
 		while (::getline(&line, &size, file) >= 0) {
 			next.AddLinuxMount(line);
+			std::istringstream fields(line);
+			std::string id, parent, device;
+			fields >> id >> parent >> device;
+			if (!device.empty()) {
+				const std::string key = "device:" + device;
+				if (aliases.count(key) != 0) {
+					continue;
+				}
+				const std::string entry(line);
+				const bool memory = entry.find(" - tmpfs ") != std::string::npos ||
+						    entry.find(" - ramfs ") != std::string::npos;
+				auto backing = memory ? key : BackingDevice(device);
+				// Btrfs can expose an anonymous st_dev while its mount source
+				// names the block device. Resolve that source on this worker.
+				std::string token, type, source;
+				while (fields >> token && token != "-") {
+				}
+				fields >> type >> source;
+				if (!memory && backing == "unknown" && source.compare(0, 5, "/dev/") == 0) {
+					struct stat info
+					{
+					};
+					if (::stat(source.c_str(), &info) == 0 && S_ISBLK(info.st_mode)) {
+						backing = BackingDevice(
+							StorageDeviceIdentity(info.st_rdev).substr(7));
+					}
+				}
+				aliases[key] = std::move(backing);
+			}
 		}
 		std::free(line);
 		std::fclose(file);
@@ -96,9 +174,12 @@ bool UploadStorageMap::Refresh([[maybe_unused]] bool includeNetwork)
 	struct statfs *mounts = nullptr;
 	const int count = getmntinfo(&mounts, MNT_NOWAIT);
 	for (int i = 0; i < count; ++i) {
-		next.Add(mounts[i].f_mntonname,
-			"device:" + std::to_string(mounts[i].f_fsid.val[0]) + ":" +
-				std::to_string(mounts[i].f_fsid.val[1]));
+		struct stat info
+		{
+		};
+		if (::stat(mounts[i].f_mntonname, &info) == 0) {
+			next.Add(mounts[i].f_mntonname, StorageDeviceIdentity(info.st_dev));
+		}
 	}
 #ifdef __APPLE__
 	next.MergeMacDataVolume();
@@ -108,6 +189,9 @@ bool UploadStorageMap::Refresh([[maybe_unused]] bool includeNetwork)
 	// use the conservative unknown group rather than inventing per-directory limits.
 	if (!next.m_mounts.empty()) {
 		m_mounts = std::move(next.m_mounts);
+#ifdef __linux__
+		StorageService::Get().SetAliases(std::move(aliases));
+#endif
 		return true;
 	}
 	return false;

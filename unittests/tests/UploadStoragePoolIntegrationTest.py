@@ -3,10 +3,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Hold a drive's reads/opens while other drives continue uploading (Linux).
 
-The preload fixture substitutes a mount-table snapshot with two storage IDs.
-Two distinct directories have the same ID, modelling bind/volume aliases. Four
-clients target that drive: an unrestricted four-thread pool would stall every
-worker. All filesystem delays are pipe-controlled; no real mounts are changed.
+Two directories on the data filesystem model aliases, and a tmpfs directory
+provides an independent storage identity. All delays are pipe-controlled; no
+real mounts are changed.
 """
 import argparse
 import os
@@ -46,9 +45,10 @@ def run(binary, fixture, stage, diagnostics=False, pipeline=False):
     if stage in ('mapped-copy', 'mapped-fault') and os.getenv('AMULE_TEST_SKIP_MMAP') == '1':
         print(f'{stage}: skipped because mmap support is disabled in this build')
         return
-    with tempfile.TemporaryDirectory(prefix='amule-storage-pool-') as directory:
+    with tempfile.TemporaryDirectory(prefix='amule-storage-pool-') as directory, \
+            tempfile.TemporaryDirectory(prefix='amule-upload-healthy-', dir='/dev/shm') as healthy_dir:
         root = Path(directory)
-        incoming, slow, alias = root / 'Incoming', root / 'Slow', root / 'SlowAlias'
+        incoming, slow, alias = Path(healthy_dir) / 'Incoming', root / 'Slow', root / 'SlowAlias'
         for path in (incoming, slow, alias, root / 'Temp'):
             path.mkdir()
         bad_data = [os.urandom((6 if stage == 'fairness' else 1) * BLOCK) for _ in range(4)]
@@ -60,14 +60,6 @@ def run(binary, fixture, stage, diagnostics=False, pipeline=False):
         healthy_data = os.urandom((7 if stage == 'fairness' else 3) * BLOCK)
         (incoming / 'healthy.bin').write_bytes(healthy_data)
         (root / 'shareddir.dat').write_text(f'{slow}\n{alias}\n')
-        # Escape paths as mountinfo does, including user TMPDIR paths containing spaces.
-        def escaped(path):
-            return str(path).replace('\\', '\\134').replace(' ', '\\040').replace('\t', '\\011').replace('\n', '\\012')
-        mounts = root / 'mountinfo'
-        mounts.write_text('1 0 0:1 / / rw - tmpfs root rw\n'
-                          + f'2 1 8:1 / {escaped(slow)} rw - ext4 synthetic-a rw\n'
-                          + f'3 1 8:1 /alias {escaped(alias)} rw - ext4 synthetic-a rw\n'
-                          + f'4 1 8:2 / {escaped(incoming)} rw - ext4 synthetic-b rw\n')
         ec_port, peer_port = free_ports(2, peer_index=1)
         write_amule_conf(root, ec_port, Port=peer_port, UDPEnable=0, FilterLanIPs=0,
                          MaxUpload=3500, SlotAllocation=100, MMapEnabled=int(stage in ('mapped-copy', 'mapped-fault')),
@@ -79,7 +71,7 @@ def run(binary, fixture, stage, diagnostics=False, pipeline=False):
         arm = root / 'armed'
         env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8',
                    LD_PRELOAD=os.pathsep.join(filter(None, (os.getenv('AMULE_TEST_PRELOAD_RUNTIME'), fixture))), AMULE_TEST_READ_PREFIX=str(root / 'Slow'),
-                   AMULE_TEST_READ_STAGE='open' if stage == 'open' else 'read', AMULE_TEST_MOUNTINFO=str(mounts),
+                   AMULE_TEST_READ_STAGE='open' if stage == 'open' else 'read',
                    AMULE_TEST_READ_ARM=str(arm), AMULE_TEST_READ_NOTIFY_FD=str(notify_w),
                    AMULE_TEST_READ_RELEASE_FD=str(release_r))
         if stage == 'discovery':
