@@ -250,5 +250,39 @@ A continuously drained twelve-request queue must yield to the other peer after
 at most eleven reads, for small, full, three-block and mixed request sizes.
 Payload contents and packet continuity are checked throughout. No production
 hooks, public peers, storage hardware or timed sleeps simulate the delay.
-This tests delivery and sweep fairness; the reader remains synchronous, so it
-does not promise that new reads progress while an individual read is blocked.
+These cases test delivery and sweep fairness. Progress on other storage while
+an individual read is blocked is covered by the pool cases below.
+
+Upload storage-worker isolation (Linux)
+--------------------------------------
+UploadRefillIntegrationTest also runs UploadStoragePoolIntegrationTest.py using
+that same preload fixture and CI integration budget. To run just the pool cases:
+
+  python3 unittests/tests/UploadStoragePoolIntegrationTest.py \
+    build/src/amuled build/unittests/tests/libUploadReadDelay.so
+
+The fixture substitutes only the process's mount-table input, then holds actual
+reads or opens behind pipe gates. Four clients request files from one storage
+ID through two directory aliases; another storage ID must continue uploading
+before any gate is released. The test checks the per-storage limit, recovery,
+a disconnect while blocked, same-client/same-block upload-session reuse, and
+shutdown while a worker still owns a read. No system mounts are changed.
+StorageReadPoolTest covers admission, retained completion budgets and worker
+exceptions without a daemon. UploadStorageMapTest checks prefix boundaries,
+lexical path normalization, mount escapes and grouping of mount aliases.
+
+The pool has four outstanding ownership slots, at most one per filesystem/volume
+identity, including completed results not yet delivered. File open/read/close
+operations stay on workers; packet delivery uses copied buffers. Complete-file
+handles remain cached (32 entries); uncached and idle-handle closes use workers
+and the same storage limits. One pending read per client and rotating admission
+keep peers on the same volume fair.
+
+Linux identifies groups from mountinfo device IDs, macOS/FreeBSD from cached
+mount IDs, and Windows from volume GUIDs (UNC paths use the server/share).
+Unmapped paths share one conservative group. These are filesystem/volume limits,
+not physical-controller topology: different volumes on the same hardware can
+consume separate slots. Paths crossing volumes through symlinks may also be
+grouped conservatively by their spelled mount path. Four distinct stalled groups
+can occupy all four workers. Shutdown joins accepted reads; it cannot interrupt
+an indefinitely blocked kernel call or safely detach a worker using core data.

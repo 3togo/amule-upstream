@@ -1,0 +1,68 @@
+// Copyright (c) 2026 aMule Team
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include "config.h"
+#include "UploadStorageMap.h"
+#include <cstdio>
+#include <cstdlib>
+#include <cwchar>
+
+#if defined(_WIN32)
+#include <wx/string.h>
+#include <windows.h>
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+#include <sys/param.h>
+#include <sys/mount.h>
+#endif
+
+void UploadStorageMap::Refresh()
+{
+	UploadStorageMap next;
+#if defined(__linux__)
+	// mountinfo contains device IDs and mount points without probing any volume.
+	if (FILE *file = std::fopen("/proc/self/mountinfo", "r")) {
+		char *line = nullptr;
+		size_t size = 0;
+		while (::getline(&line, &size, file) >= 0) {
+			next.AddLinuxMount(line);
+		}
+		std::free(line);
+		std::fclose(file);
+	}
+#elif defined(_WIN32)
+	wchar_t volume[MAX_PATH];
+	HANDLE search = FindFirstVolumeW(volume, MAX_PATH);
+	if (search != INVALID_HANDLE_VALUE) {
+		do {
+			DWORD size = 0;
+			GetVolumePathNamesForVolumeNameW(volume, nullptr, 0, &size);
+			if (size == 0) {
+				continue;
+			}
+			std::vector<wchar_t> paths(size);
+			if (GetVolumePathNamesForVolumeNameW(volume, paths.data(), size, &size)) {
+				for (const wchar_t *path = paths.data(); *path;
+					path += std::wcslen(path) + 1) {
+					wxString normalized(path);
+					normalized.Replace("\\", "/");
+					next.Add(normalized.Lower().ToStdString(wxConvUTF8),
+						wxString(volume).ToStdString(wxConvUTF8));
+				}
+			}
+		} while (FindNextVolumeW(search, volume, MAX_PATH));
+		FindVolumeClose(search);
+	}
+#elif defined(__APPLE__) || defined(__FreeBSD__)
+	struct statfs *mounts = nullptr;
+	const int count = getmntinfo(&mounts, MNT_NOWAIT);
+	for (int i = 0; i < count; ++i) {
+		next.Add(mounts[i].f_mntonname,
+			"device:" + std::to_string(mounts[i].f_fsid.val[0]) + ":" +
+				std::to_string(mounts[i].f_fsid.val[1]));
+	}
+#endif
+	// Keep the previous snapshot on a transient discovery failure. Unsupported OSes
+	// use the conservative unknown group rather than inventing per-directory limits.
+	if (!next.m_mounts.empty()) {
+		m_mounts = std::move(next.m_mounts);
+	}
+}

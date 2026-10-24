@@ -1,61 +1,139 @@
 // Copyright (c) 2026 aMule Team
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Linux-only LD_PRELOAD fixture. Gate real reads of one synthetic shared file,
-// after startup hashing, without adding delay hooks to the production daemon.
+// Linux-only fault injection. No delay or storage-identity hooks enter production.
+// Define both libc symbol spellings even when the daemon uses large-file aliases.
+#undef _FILE_OFFSET_BITS
+#define _LARGEFILE64_SOURCE 1
 #include <atomic>
 #include <cerrno>
+#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <dlfcn.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
-extern "C" ssize_t read(int fd, void *buffer, size_t count)
+namespace
+{
+bool Armed()
+{
+	const char *arm = std::getenv("AMULE_TEST_READ_ARM");
+	return arm && access(arm, F_OK) == 0;
+}
+
+bool Stage(const char *stage)
+{
+	const char *requested = std::getenv("AMULE_TEST_READ_STAGE");
+	return std::strcmp(requested ? requested : "read", stage) == 0;
+}
+
+void Gate(const char *path, std::uint64_t offset)
 {
 	static std::atomic<bool> disabled{ false };
-	const char *arm = std::getenv("AMULE_TEST_READ_ARM");
-	const char *path = std::getenv("AMULE_TEST_READ_PATH");
-	if (!disabled && arm && path && access(arm, F_OK) == 0) {
+	if (disabled || !Armed()) {
+		return;
+	}
+	const char *exact = std::getenv("AMULE_TEST_READ_PATH");
+	const char *prefix = std::getenv("AMULE_TEST_READ_PREFIX");
+	if (!(exact && std::strcmp(path, exact) == 0) &&
+		!(prefix && std::strncmp(path, prefix, std::strlen(prefix)) == 0)) {
+		return;
+	}
+	const char *notify = std::getenv("AMULE_TEST_READ_NOTIFY_FD");
+	const char *release = std::getenv("AMULE_TEST_READ_RELEASE_FD");
+	if (!notify || !release) {
+		_exit(98);
+	}
+	if (write(std::atoi(notify), &offset, sizeof(offset)) != sizeof(offset)) {
+		_exit(98);
+	}
+	pollfd gate{ std::atoi(release), POLLIN, 0 };
+	int ready;
+	do {
+		ready = poll(&gate, 1, 30000);
+	} while (ready < 0 && errno == EINTR);
+	if (ready <= 0) {
+		_exit(98);
+	}
+	char token;
+	ssize_t released;
+	do {
+		released = syscall(SYS_read, gate.fd, &token, 1);
+	} while (released < 0 && errno == EINTR);
+	if (released == 0) {
+		disabled = true;
+	} else if (released != 1) {
+		_exit(98);
+	}
+}
+
+const char *MountTable(const char *path)
+{
+	const char *fixture = std::getenv("AMULE_TEST_MOUNTINFO");
+	return fixture && std::strcmp(path, "/proc/self/mountinfo") == 0 ? fixture : path;
+}
+} // namespace
+
+extern "C" ssize_t read(int fd, void *buffer, size_t count)
+{
+	if (Stage("read") && Armed()) {
 		char link[64];
-		char actual[PATH_MAX];
+		char path[PATH_MAX];
 		std::snprintf(link, sizeof(link), "/proc/self/fd/%d", fd);
-		const ssize_t length = readlink(link, actual, sizeof(actual) - 1);
+		const auto length = readlink(link, path, sizeof(path) - 1);
 		if (length >= 0) {
-			actual[length] = '\0';
-			if (std::strcmp(actual, path) == 0) {
-				const char *notify = std::getenv("AMULE_TEST_READ_NOTIFY_FD");
-				const char *release = std::getenv("AMULE_TEST_READ_RELEASE_FD");
-				if (!notify || !release) {
-					_exit(98);
-				}
-				const auto offset = static_cast<std::uint64_t>(lseek(fd, 0, SEEK_CUR));
-				if (write(std::atoi(notify), &offset, sizeof(offset)) != sizeof(offset)) {
-					_exit(98);
-				}
-				pollfd gate{ std::atoi(release), POLLIN, 0 };
-				int ready;
-				do {
-					ready = poll(&gate, 1, 30000);
-				} while (ready < 0 && errno == EINTR);
-				if (ready <= 0) {
-					_exit(98);
-				}
-				char token;
-				ssize_t released;
-				do {
-					released = syscall(SYS_read, gate.fd, &token, 1);
-				} while (released < 0 && errno == EINTR);
-				if (released == 0) {
-					// Closing the parent pipe releases all remaining reads for teardown.
-					disabled = true;
-				} else if (released != 1) {
-					_exit(98);
-				}
-			}
+			path[length] = '\0';
+			Gate(path, static_cast<std::uint64_t>(lseek(fd, 0, SEEK_CUR)));
 		}
 	}
 	return syscall(SYS_read, fd, buffer, count);
+}
+
+extern "C" int open(const char *path, int flags, ...)
+{
+	mode_t mode = 0;
+	if ((flags & O_CREAT) || (flags & O_TMPFILE) == O_TMPFILE) {
+		va_list args;
+		va_start(args, flags);
+		mode = va_arg(args, mode_t);
+		va_end(args);
+	}
+	if (Stage("open")) {
+		Gate(path, UINT64_MAX);
+	}
+	return static_cast<int>(syscall(SYS_openat, AT_FDCWD, path, flags, mode));
+}
+
+extern "C" int open64(const char *path, int flags, ...)
+{
+	mode_t mode = 0;
+	if ((flags & O_CREAT) || (flags & O_TMPFILE) == O_TMPFILE) {
+		va_list args;
+		va_start(args, flags);
+		mode = va_arg(args, mode_t);
+		va_end(args);
+	}
+	if (Stage("open")) {
+		Gate(path, UINT64_MAX);
+	}
+	return static_cast<int>(syscall(SYS_openat, AT_FDCWD, path, flags | O_LARGEFILE, mode));
+}
+
+extern "C" FILE *fopen(const char *path, const char *mode)
+{
+	static const auto original =
+		reinterpret_cast<FILE *(*)(const char *, const char *)>(dlsym(RTLD_NEXT, "fopen"));
+	return original(MountTable(path), mode);
+}
+
+extern "C" FILE *fopen64(const char *path, const char *mode)
+{
+	static const auto original =
+		reinterpret_cast<FILE *(*)(const char *, const char *)>(dlsym(RTLD_NEXT, "fopen64"));
+	return original(MountTable(path), mode);
 }
