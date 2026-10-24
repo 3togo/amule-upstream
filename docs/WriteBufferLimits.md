@@ -12,11 +12,30 @@ credit until its last buffer is harvested or discarded. Write errors retain
 both the data and its reservation for retry. Overlapping duplicate packets only
 buffer the missing ranges. Compression does not reduce the reserved size.
 
-The write worker identifies volumes from the actual directory's device identity
-(or Windows volume serial), including directory aliases. Discovery never runs
-on the main thread. Unknown directories share one conservative allowance, which
-also counts against each known volume until discovery succeeds. A volume change
-with live reservations keeps the old identity until that ownership drains.
+Volume identity belongs to the actual data file, including file symlinks into
+another filesystem. POSIX reuses the descriptor identity from the existing
+open/create length query; reading that cache adds no filesystem call. Otherwise
+bounded background discovery runs before reserving network data. Unknown files
+share conservative capacity until discovery succeeds. Identity and free-space
+paths are retained for the file session; replacing/remounting an open backing
+file is not dynamically reclassified.
+
+Four workers run at most one batch per resolved volume. A batch contains up to
+64 buffers. Admission allows 4,096 data jobs globally and 1,024 per volume, plus
+64 separate discovery jobs; at most two workers perform discovery concurrently.
+These independent discovery allowances let a cold healthy file identify its
+volume even when another volume has reached its data limits. Queue saturation
+leaves buffers ready for retry without synchronous I/O on the main thread.
+Free-space samples and writes run within their volume's batch, so a slow probe
+cannot hold a shared coordinator lock or another volume's write lane.
+
+Cancellation revokes the file session and strips queued ownership. Active
+provider calls keep the file pinned until they return; result publication
+precedes the last pin release. Closing/deleting an active file and shutdown
+still wait for its kernel calls. Workers are joined after draining accepted
+ownership and are never detached. More blocked operations than the bounded pool
+can cover still require external recovery; unresolved paths cannot promise the
+same isolation as volumes with known identities.
 
 When credit is exhausted, sources remain in the downloading state and already
 requested responses remain admissible. Empty pipelines retry on download ticks
@@ -24,6 +43,5 @@ after writes drain; disk pressure does not trigger the no-needed-parts takeover.
 
 These limits bound admitted payload, including network responses still owed.
 They do not bound total process RSS, packet/decompression scratch space, buffer
-metadata, mapped pages, or the operating system's page cache. The existing single
-write worker still serializes volumes; this change does not isolate a healthy
-volume from a blocked write or add a read cache.
+metadata, mapped pages, or the operating system's page cache. This stage adds
+write-worker isolation; it does not add write coalescing or a read cache.
