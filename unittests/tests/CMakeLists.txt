@@ -211,6 +211,11 @@ target_include_directories (UploadStorageMapTest PRIVATE ${CMAKE_SOURCE_DIR}/src
 target_link_libraries (UploadStorageMapTest muleunit mulecommon)
 
 # Storage latency and sampled admission pressure use injected monotonic time.
+add_executable (UploadPipelinePressureTest UploadPipelinePressureTest.cpp)
+add_test (NAME UploadPipelinePressureTest COMMAND UploadPipelinePressureTest)
+target_include_directories (UploadPipelinePressureTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (UploadPipelinePressureTest muleunit mulecommon)
+
 add_executable (UploadReadDiagnosticsTest UploadReadDiagnosticsTest.cpp)
 add_test (NAME UploadReadDiagnosticsTest COMMAND UploadReadDiagnosticsTest)
 target_include_directories (UploadReadDiagnosticsTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -2711,6 +2716,12 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 						$<TARGET_FILE:amuled> $<TARGET_FILE:UploadReadDelay> --stage read --diagnostics
 				)
 				set_tests_properties (UploadStorageDiagnosticsIntegrationTest PROPERTIES TIMEOUT 90)
+				add_test (NAME UploadPipelinePressureIntegrationTest
+					COMMAND ${Python3_EXECUTABLE} -u
+						${CMAKE_CURRENT_SOURCE_DIR}/UploadPipelinePressureIntegrationTest.py
+						$<TARGET_FILE:amuled> $<TARGET_FILE:UploadReadDelay>
+				)
+				set_tests_properties (UploadPipelinePressureIntegrationTest PROPERTIES TIMEOUT 90)
 			endif()
 			add_test (NAME UploadRefillCompressedIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
