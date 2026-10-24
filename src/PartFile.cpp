@@ -377,7 +377,6 @@ CPartFile::~CPartFile()
 	if (m_hpartfile.IsOpened()) {
 		// FlushBuffer drains buffered writes / harvests Phase 2's PB_WRITTEN items into
 		// m_aChangedPart. Phase 3 itself returns early due to m_inDestructor.
-		FlushBuffer();
 		WaitForWrites();
 		FlushBuffer();
 
@@ -3623,7 +3622,9 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 	// fit (PB_NOSPACE). Probing here would block the main thread on a busy or hung mount, as
 	// ntfs-3g does during a trim. Without the write thread (shutdown), check here as before.
 	CPartFileWriteThread *pThread = theApp->partFileWriteThread;
-	const bool threaded = pThread && pThread->IsRunning();
+	// Teardown first joins this file's accepted work, then drains synchronously.
+	// It cannot enqueue another bounded batch and close while that batch runs.
+	const bool threaded = pThread && pThread->IsRunning() && !m_inDestructor;
 	const bool refused = PutBackRefusedWrites();
 	if (!m_BufferedData_list.empty() && (threaded ? refused : !CheckFreeDiskSpace(m_nTotalBufferData))) {
 		PauseForSpace();
