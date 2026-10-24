@@ -357,7 +357,7 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 		md4cpy(req->ucMD4FileHash, currentblock->FileID);
 		req->uStartOffset = currentblock->StartOffset;
 		req->uEndOffset = currentblock->EndOffset;
-		req->path = std::move(filePath);
+		req->path = filePath;
 		req->storage = storage->second;
 		if (partFile != nullptr) {
 			// Safe to pin: Delete() takes uploadLock before waiting for these pins.
