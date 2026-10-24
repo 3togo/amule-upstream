@@ -81,7 +81,8 @@ struct ReadRequest_Struct
 	CPartFile *pPartFile = nullptr;
 	CPath path;
 	std::string storage;
-	std::vector<uint8> data;
+	CFileArea area;
+	std::vector<uint8> data; // owned copy only when area was mapped
 	UploadBufferBudget::Lease bufferReservation;
 	UploadReadResult result = READ_FAILED;
 	bool closeOnly = false;
@@ -141,7 +142,7 @@ private:
 	uint64 m_storageRefreshed = 0;
 	bool m_storageMapReady = false;
 	// Resolve each spelled path once per mount-table snapshot, including busy volumes.
-	std::map<wxString, std::string> m_storageKeys;
+	std::map<std::string, std::string> m_storageKeys;
 	UploadBufferBudget m_bufferBudget;
 	UploadReadDiagnostics m_diagnostics;
 	uint64 m_lastDiagnostics = 0;
