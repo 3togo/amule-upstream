@@ -122,6 +122,25 @@ public:
 		std::lock_guard<std::mutex> lock(m_state->mutex);
 		return m_state->used;
 	}
+	bool IsPressured() const
+	{
+		std::lock_guard<std::mutex> lock(m_state->mutex);
+		if (m_state->used >= m_global - m_global / 4) {
+			return true;
+		}
+		std::map<std::string, uint64_t> volumes;
+		for (const auto &entry : m_state->paths) {
+			volumes[entry.second.volume] += entry.second.bytes;
+		}
+		const uint64_t unknown = volumes[""];
+		uint64_t largest = 0;
+		for (const auto &entry : volumes) {
+			if (!entry.first.empty()) {
+				largest = std::max(largest, entry.second);
+			}
+		}
+		return unknown + largest >= m_volume - m_volume / 4;
+	}
 
 private:
 	uint64_t m_global;

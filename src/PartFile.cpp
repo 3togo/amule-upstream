@@ -1653,7 +1653,8 @@ uint32 CPartFile::Process(uint8 m_icounter)
 	// bypass drains Phase 3 at Process()-tick rate (~100 ms) instead of every 60 s when the
 	// file is idle.
 	if ((m_nTotalBufferData > thePrefs::GetFileBufferSize()) ||
-		(dwCurTick > (m_nLastBufferFlushTime + BUFFER_TIME_LIMIT)) || HasPendingHashWork()) {
+		(dwCurTick > (m_nLastBufferFlushTime + BUFFER_TIME_LIMIT)) || HasPendingHashWork() ||
+		(m_nTotalBufferData != 0 && WriteBufferBudget::Get().IsPressured())) {
 		FlushBuffer();
 	}
 
@@ -2241,9 +2242,14 @@ void CPartFile::UpdatePartsInfo()
 }
 
 // [Maella -Enhanced Chunk Selection- (based on jicxicmic)]
-bool CPartFile::GetNextRequestedBlock(
-	CUpDownClient *sender, std::vector<Requested_Block_Struct *> &toadd, uint16 &count)
+bool CPartFile::GetNextRequestedBlock(CUpDownClient *sender,
+	std::vector<Requested_Block_Struct *> &toadd,
+	uint16 &count,
+	bool *writeLimited)
 {
+	if (writeLimited != nullptr) {
+		*writeLimited = false;
+	}
 
 	// Returns a list of blocks (~180KB) to download. To avoid prematurely stopping the
 	// download, all blocks requested from the same source must lie within the same chunk
@@ -2294,6 +2300,17 @@ bool CPartFile::GetNextRequestedBlock(
 		if (sender->GetLastPartAsked() != 0xffff) {
 			Requested_Block_Struct *pBlock = new Requested_Block_Struct;
 			if (GetNextEmptyBlockInPart(sender->GetLastPartAsked(), pBlock) == true) {
+				auto credit = WriteBufferBudget::Get().Reserve(
+					GetFilePath().GetRaw().ToStdString(wxConvUTF8),
+					pBlock->EndOffset - pBlock->StartOffset + 1);
+				if (!credit) {
+					if (writeLimited != nullptr) {
+						*writeLimited = true;
+					}
+					delete pBlock;
+					break;
+				}
+				m_writeCredits.emplace(pBlock, std::move(credit));
 				// Keep a track of all pending requested blocks
 				m_requestedblocks_list.push_back(pBlock);
 				// Update list of blocks to return
@@ -2488,6 +2505,7 @@ void CPartFile::RemoveBlockFromList(uint64 start, uint64 end)
 		std::list<Requested_Block_Struct *>::iterator it2 = it++;
 
 		if ((*it2)->StartOffset <= start && (*it2)->EndOffset >= end) {
+			m_writeCredits.erase(*it2);
 			m_requestedblocks_list.erase(it2);
 		}
 	}
@@ -2496,6 +2514,7 @@ void CPartFile::RemoveBlockFromList(uint64 start, uint64 end)
 void CPartFile::RemoveAllRequestedBlocks(void)
 {
 	m_requestedblocks_list.clear();
+	m_writeCredits.clear();
 }
 
 void CPartFile::CompleteFile(bool bIsHashingDone)
@@ -3521,33 +3540,46 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 	m_nLastBlockReceivedTick = GetTickCount64();
 	m_lastDateChanged = wxDateTime::GetTimeNow();
 
-	// Create a new buffered queue entry
-	PartFileBufferedData *item = new PartFileBufferedData(m_hpartfile, data, start, end, block);
-
-	InsertPartFileBufferedWrite(m_BufferedData_list, item);
-
-	// Increment buffer size marker
-	m_nTotalBufferData += lenData;
-
-	// Mark this small section of the file as filled
-	FillGap(item->start, item->end);
-
-	// Update the flushed mark on the requested block
-	// The loop here is unfortunate but necessary to detect deleted blocks.
-
-	std::list<Requested_Block_Struct *>::iterator it2 = m_requestedblocks_list.begin();
-	for (; it2 != m_requestedblocks_list.end(); ++it2) {
-		if (*it2 == item->block) {
-			item->block->transferred += lenData;
+	const auto credit = m_writeCredits.find(block);
+	if (credit == m_writeCredits.end()) {
+		return 0; // cancelled or invalidated request: no owned write capacity
+	}
+	struct Fragment
+	{
+		uint64 start;
+		uint64 end;
+	};
+	std::vector<Fragment> fragments;
+	for (auto gap = m_gaplist.begin(); gap != m_gaplist.end(); ++gap) {
+		if (gap.start() > end) {
+			break;
+		}
+		if (gap.end() >= start) {
+			fragments.push_back({ std::max(start, gap.start()), std::min(end, gap.end()) });
 		}
 	}
+	uint32 buffered = 0;
+	for (const auto &fragment : fragments) {
+		auto *item = new PartFileBufferedData(m_hpartfile,
+			data + fragment.start - start,
+			fragment.start,
+			fragment.end,
+			block,
+			credit->second);
+		InsertPartFileBufferedWrite(m_BufferedData_list, item);
+		const uint32 bytes = static_cast<uint32>(fragment.end - fragment.start + 1);
+		m_nTotalBufferData += bytes;
+		buffered += bytes;
+		FillGap(fragment.start, fragment.end);
+	}
+	block->transferred += buffered;
 
 	if (m_gaplist.IsComplete()) {
 		FlushBuffer();
 	}
 
 	// Return the length of data written to the buffer
-	return lenData;
+	return buffered;
 }
 
 void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
