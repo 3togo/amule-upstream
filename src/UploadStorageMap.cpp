@@ -9,12 +9,13 @@
 #if defined(_WIN32)
 #include <wx/string.h>
 #include <windows.h>
+#include <winnetwk.h>
 #elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
 #include <sys/param.h>
 #include <sys/mount.h>
 #endif
 
-void UploadStorageMap::Refresh()
+bool UploadStorageMap::Refresh([[maybe_unused]] bool includeNetwork)
 {
 	UploadStorageMap next;
 #if defined(__linux__)
@@ -51,6 +52,28 @@ void UploadStorageMap::Refresh()
 		} while (FindNextVolumeW(search, volume, MAX_PATH));
 		FindVolumeClose(search);
 	}
+	const DWORD drives = GetLogicalDrives();
+	for (unsigned index = 0; index < 26; ++index) {
+		if (!includeNetwork || (drives & (1UL << index)) == 0) {
+			continue;
+		}
+		const wchar_t drive[] = { static_cast<wchar_t>(L'A' + index), L':', L'\0' };
+		const auto local = wxString(drive).Lower().ToStdString(wxConvUTF8);
+		if (next.Lookup(local + "/", true) != "unknown") {
+			continue; // already covered by the local volume GUID table
+		}
+		std::vector<wchar_t> remote(MAX_PATH);
+		DWORD size = static_cast<DWORD>(remote.size());
+		DWORD result = WNetGetConnectionW(drive, remote.data(), &size);
+		if (result == ERROR_MORE_DATA && size > 0) {
+			remote.resize(size);
+			result = WNetGetConnectionW(drive, remote.data(), &size);
+		}
+		if (result == NO_ERROR) {
+			next.AddWindowsNetworkDrive(
+				local, wxString(remote.data()).Lower().ToStdString(wxConvUTF8));
+		}
+	}
 #elif defined(__APPLE__) || defined(__FreeBSD__)
 	struct statfs *mounts = nullptr;
 	const int count = getmntinfo(&mounts, MNT_NOWAIT);
@@ -59,10 +82,15 @@ void UploadStorageMap::Refresh()
 			"device:" + std::to_string(mounts[i].f_fsid.val[0]) + ":" +
 				std::to_string(mounts[i].f_fsid.val[1]));
 	}
+#ifdef __APPLE__
+	next.MergeMacDataVolume();
+#endif
 #endif
 	// Keep the previous snapshot on a transient discovery failure. Unsupported OSes
 	// use the conservative unknown group rather than inventing per-directory limits.
 	if (!next.m_mounts.empty()) {
 		m_mounts = std::move(next.m_mounts);
+		return true;
 	}
+	return false;
 }

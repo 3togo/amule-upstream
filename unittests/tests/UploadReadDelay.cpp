@@ -126,6 +126,9 @@ extern "C" int open64(const char *path, int flags, ...)
 
 extern "C" FILE *fopen(const char *path, const char *mode)
 {
+	if (Stage("discovery")) {
+		Gate(path, UINT64_MAX - 1);
+	}
 	static const auto original =
 		reinterpret_cast<FILE *(*)(const char *, const char *)>(dlsym(RTLD_NEXT, "fopen"));
 	return original(MountTable(path), mode);
@@ -133,6 +136,9 @@ extern "C" FILE *fopen(const char *path, const char *mode)
 
 extern "C" FILE *fopen64(const char *path, const char *mode)
 {
+	if (Stage("discovery")) {
+		Gate(path, UINT64_MAX - 1);
+	}
 	static const auto original =
 		reinterpret_cast<FILE *(*)(const char *, const char *)>(dlsym(RTLD_NEXT, "fopen64"));
 	return original(MountTable(path), mode);

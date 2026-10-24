@@ -260,6 +260,6 @@ if __name__ == '__main__':
             retry_port_collisions(run_storage_delay, str(Path(args.binary).resolve()),
                                   str(Path(args.storage_delay_fixture).resolve()), case)
         from UploadStoragePoolIntegrationTest import run as run_storage_pool
-        for stage in ('read', 'open', 'session', 'shutdown'):
+        for stage in ('read', 'open', 'session', 'shutdown', 'fairness', 'discovery'):
             retry_port_collisions(run_storage_pool, str(Path(args.binary).resolve()),
                                   str(Path(args.storage_delay_fixture).resolve()), stage)
