@@ -337,7 +337,8 @@ TEST(VolumeWritePool, ContinuousResolvedWritesCannotStarveColdDiscovery)
 				}
 				const bool accepted = owner->Submit(job.volume, job, job.volume);
 				std::unique_lock<std::mutex> lock(mutex);
-				submissionFailed |= !accepted;
+				// Stop may reject a replenishment already racing with test teardown.
+				submissionFailed |= !accepted && !finish;
 				++processed;
 				if (processed >= 100) {
 					++parked;
