@@ -578,13 +578,17 @@ if (BUILD_MONOLITHIC)
 endif()
 
 if ((BUILD_MONOLITHIC OR BUILD_REMOTEGUI) AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	# Centre the 20-pixel artwork on the 22-pixel canvas without duplicating it.
+	# SNI hosts do not draw the speed bar that uses the original right margin.
 	foreach (state IN ITEMS high low disconnected)
-		install (FILES "src/icons/sni/tray_${state}.svg"
+		set (tray_source "${CMAKE_CURRENT_SOURCE_DIR}/src/icons/tray_${state}.svg")
+		set_property (DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${tray_source}")
+		file (READ "${tray_source}" tray_svg)
+		string (REPLACE "<svg" "<svg viewBox=\"-1 0 22 22\"" tray_svg "${tray_svg}")
+		file (WRITE "${CMAKE_CURRENT_BINARY_DIR}/sni/tray_${state}.svg" "${tray_svg}")
+		install (FILES "${CMAKE_CURRENT_BINARY_DIR}/sni/tray_${state}.svg"
 			RENAME "org.amule.aMule-tray-${state}.svg"
 			DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps")
-		install (FILES "src/icons/sni/tray_${state}.png"
-			RENAME "org.amule.aMule-tray-${state}.png"
-			DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/22x22/apps")
 	endforeach ()
 endif ()
 

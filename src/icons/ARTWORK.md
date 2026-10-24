@@ -162,8 +162,9 @@ Render the 22-pixel PNG twins with librsvg and regenerate `icon_data.c` using
 
 ## Installed tray state variants
 
-The `sni/` variants reuse the existing coloured tray artwork. They shift its
+CMake generates the installed SNI variants from the existing coloured tray artwork
+at configure time and regenerates them when the originals change. They shift its
 20-pixel-wide content right by one pixel on the 22-pixel canvas, replacing the
 asymmetric speed-bar reserve with equal margins. SVGs use a `-1 0 22 22` viewBox;
-PNG pixels are translated by one pixel without rescaling. These files are
-installed for AppIndicator theme lookup and are not separately embedded.
+only scalable SVGs are installed for AppIndicator theme lookup. No duplicate
+sources or shifted PNGs are retained, and these variants are not separately embedded.
