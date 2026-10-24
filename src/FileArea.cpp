@@ -318,22 +318,25 @@ void CFileArea::StartWriteAt(CFileAutoClose &, uint64, size_t count)
 }
 #endif
 
-bool CFileArea::FlushAt(CFileAutoClose &file, uint64 offset, size_t count)
+void CFileArea::FlushAt(CFileAutoClose &file, uint64 offset, size_t count)
 {
-	if (!m_buffer)
-		return false;
+	if (m_buffer == nullptr) {
+		throw CIOFailureException("Cannot flush an uninitialized file area.");
+	}
 
 #ifdef MMAP_SUPPORTED
-	if (m_mmap_buffer) {
-		if (msync(m_mmap_buffer, m_length, MS_SYNC))
-			return false;
+	if (m_mmap_buffer != nullptr) {
+		if (msync(m_mmap_buffer, m_length, MS_SYNC) != 0) {
+			// Keep the mapping and its data so the caller can retry the failed write.
+			throw CIOFailureException(
+				wxString("Failed to flush mapped file: ") + wxSysErrorMsg());
+		}
 		Close();
-		return true;
+		return;
 	}
 #endif
 	file.WriteAt(m_buffer, offset, count);
 	Close();
-	return true;
 }
 
 void CFileArea::Prefault()
