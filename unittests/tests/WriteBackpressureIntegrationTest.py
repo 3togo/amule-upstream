@@ -37,6 +37,7 @@ class Source:
         self.identity.bind((self.address, 0))
         self.peer = None
         self.stopped = threading.Event()
+        self.first_start = None
         self.requested = 0
         self.cancelled = 0
         self.errors = []
@@ -85,6 +86,8 @@ class Source:
                             if end <= start:
                                 continue
                             self.requested += end - start
+                            if self.first_start is None:
+                                self.first_start = start
                             if self.compressed:
                                 packed = zlib.compress(b'x' * (end - start))
                                 payload = self.file_hash + struct.pack('<II', start, len(packed)) + packed
@@ -117,13 +120,14 @@ def run(binary, shim, compressed):
             (root / name).mkdir()
         gate = root / 'stall-writes'
         gate.touch()
+        failure = root / 'fail-writes'
         sources = [Source(index, compressed) for index in range(2)]
         ports = free_ports(2, peer_index=1)
         write_amule_conf(root, ports[0], Address=sources[0].address, Port=ports[1], UDPEnable=0,
                          FilterLanIPs=0, MaxDownload=0, MaxUpload=0)
         preload = ':'.join(filter(None, [os.environ.get('AMULE_TEST_PRELOAD_RUNTIME'), shim]))
         env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8',
-                   LD_PRELOAD=preload, AMULE_TEST_WRITE_GATE=str(gate))
+                   LD_PRELOAD=preload, AMULE_TEST_WRITE_GATE=str(gate), AMULE_TEST_WRITE_ERROR=str(failure))
         proc = ec = None
         try:
             with (root / 'console.log').open('w') as log:
@@ -143,14 +147,29 @@ def run(binary, shim, compressed):
             assert not any(s.cancelled or s.errors for s in sources), detail()
             # EC responsiveness proves the writer stall did not block the main thread.
             ec.call(C['EC_OP_GET_DLOAD_QUEUE'])
+            # Errors must retain the same dirty payload and prevent new requests.
+            failure.touch()
             gate.unlink()
+            time.sleep(1)
+            assert total() == settled, ('write errors released capacity', detail())
+            failure.unlink()
             wait_for(lambda: total() > settled + 6 * BLOCK, 10, detail)
             assert not any(s.errors for s in sources), detail()
-            assert any(path.stat().st_size > 0 for path in (root / 'Temp').glob('*.part'))
+            def has_written_data():
+                for path in (root / 'Temp').glob('*.part'):
+                    with path.open('rb') as part:
+                        for source in sources:
+                            if source.first_start is not None:
+                                part.seek(source.first_start)
+                                if part.read(32) == b'x' * 32:
+                                    return True
+                return False
+            assert has_written_data(), 'drain resumed requests without writing payload' 
             print(f'PASS compressed={compressed}: {settled} reserved bytes plateau under stalled '
                   'writes, no source cancellation, automatic resume after drain', flush=True)
         finally:
             gate.unlink(missing_ok=True)
+            failure.unlink(missing_ok=True)
             for source in sources:
                 if hasattr(source, 'worker'):
                     source.close()

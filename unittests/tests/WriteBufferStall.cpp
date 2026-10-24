@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <cerrno>
 
 extern "C" ssize_t write(int fd, const void *data, size_t size)
 {
@@ -22,6 +23,11 @@ extern "C" ssize_t write(int fd, const void *data, size_t size)
 			// The bound also permits cleanup if the parent test crashes.
 			for (unsigned tick = 0; tick < 3000 && access(gate, F_OK) == 0; ++tick) {
 				usleep(10000);
+			}
+			const char *failure = std::getenv("AMULE_TEST_WRITE_ERROR");
+			if (failure != nullptr && access(failure, F_OK) == 0) {
+				errno = EIO;
+				return -1;
 			}
 		}
 	}
