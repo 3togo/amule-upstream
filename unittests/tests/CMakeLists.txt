@@ -3778,6 +3778,12 @@ add_test (NAME ECSRPConfigTest COMMAND ECSRPConfigTest)
 # ECWire exits 77 when Python cryptography is unavailable. Preserve that skip
 # through every fixture that imports its EC helper, including indirect imports.
 foreach (ec_wire_test IN ITEMS
+	CallbackCooldownIntegrationTest
+	DownloadLimitHelloIntegrationTest
+	GlobalSourceRequestIntegrationTest
+	KadPacketValidationIntegrationTest
+	SearchParamsRestoreIntegrationTest
+	ShortBlockPacketIntegrationTest
 	KadPopulatedDistributionECTest
 	KadPopulatedLookupECTest
 	UploadRefillCompressedIntegrationTest
