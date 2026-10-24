@@ -53,15 +53,30 @@ public:
 		uint64_t m_charge;
 	};
 	using Lease = std::shared_ptr<Reservation>;
-
-	Lease Reserve(const std::shared_ptr<Account> &client, uint32_t payload)
+	enum class Denial
 	{
+		None,
+		Client,
+		Global
+	};
+
+	Lease Reserve(const std::shared_ptr<Account> &client, uint32_t payload, Denial *denial = nullptr)
+	{
+		if (denial != nullptr) {
+			*denial = Denial::None;
+		}
 		const uint64_t charge = uint64_t{ payload } * 4 + 4096;
 		if (payload == 0 || !Add(*client, charge, kClientLimit)) {
+			if (denial != nullptr) {
+				*denial = Denial::Client;
+			}
 			return {};
 		}
 		if (!Add(*m_global, charge, kGlobalLimit)) {
 			client->used.fetch_sub(charge);
+			if (denial != nullptr) {
+				*denial = Denial::Global;
+			}
 			return {};
 		}
 		try {

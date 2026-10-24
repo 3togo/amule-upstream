@@ -141,3 +141,28 @@ TEST(UploadBuffering, AdmissionsAndSenderReleasesCanRunConcurrently)
 	ASSERT_EQUALS(uint64_t{ 0 }, budget.Used());
 	ASSERT_EQUALS(uint64_t{ 0 }, client->used.load());
 }
+
+TEST(UploadBuffering, DenialReasonDistinguishesClientAndGlobalPressure)
+{
+	UploadBufferBudget budget;
+	auto client = std::make_shared<UploadBufferBudget::Account>();
+	UploadBufferBudget::Denial denial;
+	client->used = UploadBufferBudget::kClientLimit;
+	ASSERT_TRUE(budget.Reserve(client, block, &denial) == nullptr);
+	ASSERT_TRUE(denial == UploadBufferBudget::Denial::Client);
+	client->used = 0;
+	std::vector<UploadBufferBudget::Lease> pending;
+	for (unsigned i = 0; i < 256; ++i) {
+		auto other = std::make_shared<UploadBufferBudget::Account>();
+		auto lease = budget.Reserve(other, 3 * block, &denial);
+		if (!lease) {
+			break;
+		}
+		pending.push_back(std::move(lease));
+	}
+	ASSERT_TRUE(denial == UploadBufferBudget::Denial::Global);
+	ASSERT_EQUALS(uint64_t{ 0 }, client->used.load());
+	pending.clear();
+	ASSERT_TRUE(budget.Reserve(client, block, &denial) != nullptr);
+	ASSERT_TRUE(denial == UploadBufferBudget::Denial::None);
+}

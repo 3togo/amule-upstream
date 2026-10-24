@@ -10,6 +10,7 @@ worker. All filesystem delays are pipe-controlled; no real mounts are changed.
 """
 import argparse
 import os
+import re
 from pathlib import Path
 import select
 import struct
@@ -25,7 +26,7 @@ from UploadStorageDelayIntegrationTest import BLOCK, Peer, wait_read
 from UploadRefillIntegrationTest import packet, send
 
 
-def run(binary, fixture, stage):
+def run(binary, fixture, stage, diagnostics=False):
     with tempfile.TemporaryDirectory(prefix='amule-storage-pool-') as directory:
         root = Path(directory)
         incoming, slow, alias = root / 'Incoming', root / 'Slow', root / 'SlowAlias'
@@ -51,7 +52,9 @@ def run(binary, fixture, stage):
         ec_port, peer_port = free_ports(2, peer_index=1)
         write_amule_conf(root, ec_port, Port=peer_port, UDPEnable=0, FilterLanIPs=0,
                          MaxUpload=3500, SlotAllocation=100, MMapEnabled=0,
-                         SharedFileReverifyDays=0, IncomingDir=incoming)
+                         SharedFileReverifyDays=0, IncomingDir=incoming,
+                         VerboseDebug=int(diagnostics),
+                         sections={'Debug': {'Cat_FileIO': int(diagnostics)}})
         notify_r, notify_w = os.pipe()
         release_r, release_w = os.pipe()
         arm = root / 'armed'
@@ -158,6 +161,7 @@ def run(binary, fixture, stage):
                                                   bad_data[peer_index])
                     print('fairness: both slow-volume peers alternated despite fast-volume dispatches; payloads verified')
                     return
+                held_since = time.monotonic()
                 if stage == 'session':
                     # Keep the socket/client identity and ask for the same block in a
                     # new upload session. The old read must not satisfy its request.
@@ -205,6 +209,10 @@ def run(binary, fixture, stage):
                 peers[0].close()  # completion must discard a disconnected client's read
                 healthy.request([(2 * BLOCK, 3 * BLOCK)])
                 healthy.receive((2 * BLOCK, 3 * BLOCK), healthy_data)
+                if diagnostics:
+                    # Hold storage for at least one second. Scheduling delays can only
+                    # lengthen this measured interval, never make the lower bound flaky.
+                    time.sleep(max(0, 1.1 - (time.monotonic() - held_since)))
                 # Recover the drive. Each remaining request must complete exactly once.
                 for index in range(4):
                     os.write(release_w, b'R')
@@ -228,6 +236,17 @@ def run(binary, fixture, stage):
                 if proc:
                     stop_daemon(proc)
                 os.close(notify_r)
+            if diagnostics:
+                text = (root / 'logfile').read_text(errors='replace')
+                summaries = [line.split('Upload storage: ', 1)[1]
+                             for line in text.splitlines() if 'Upload storage: ' in line]
+                assert summaries, 'FileIO diagnostics missing from debug daemon logfile'
+                assert sum(int(re.search(r'slow_1s=(\d+)', line)[1]) for line in summaries) >= 1, summaries
+                assert max(int(re.search(r'work_ms=\d+/(\d+)', line)[1]) for line in summaries) >= 1000, summaries
+                assert sum(int(re.search(r'denials\(storage/client_memory/global_memory\)=(\d+)', line)[1])
+                           for line in summaries) > 0, summaries
+                assert all('bad-' not in line and str(root) not in line for line in summaries), summaries
+                print('diagnostics: controlled storage latency and storage denials recorded without paths')
 
 
 if __name__ == '__main__':
@@ -235,6 +254,7 @@ if __name__ == '__main__':
     parser.add_argument('binary')
     parser.add_argument('fixture')
     parser.add_argument('--stage', choices=('read', 'open', 'session', 'packet-session', 'shutdown', 'fairness', 'discovery'))
+    parser.add_argument('--diagnostics', action='store_true', help='verify debug FileIO summaries')
     args = parser.parse_args()
     for stage in ([args.stage] if args.stage else ('read', 'open', 'session', 'packet-session', 'shutdown', 'fairness', 'discovery')):
-        retry_port_collisions(run, str(Path(args.binary).resolve()), str(Path(args.fixture).resolve()), stage)
+        retry_port_collisions(run, str(Path(args.binary).resolve()), str(Path(args.fixture).resolve()), stage, args.diagnostics)

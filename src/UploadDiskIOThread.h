@@ -29,12 +29,12 @@
 #include <list>
 #include <atomic>
 #include <memory>
-#include <set>
 #include <map>
 #include <vector>
 #include "StorageReadPool.h"
 #include "UploadStorageMap.h"
 #include "UploadBuffering.h"
+#include "UploadReadDiagnostics.h"
 
 #include <wx/thread.h>
 
@@ -87,6 +87,7 @@ struct ReadRequest_Struct
 	bool closeOnly = false;
 	std::unique_ptr<UploadStorageMap> storageMap; // discovery job, without a file/client
 	bool discoverNetwork = true;
+	UploadReadTiming timing;
 };
 
 // Port of eMule's CUploadDiskIOThread (UploadDiskIOThread.h:48-86). Windows primitives replaced
@@ -113,6 +114,7 @@ private:
 	using ReadResult = UploadReadResult;
 	void DrainCompletions(bool deliver);
 	void QueueIdleCloses();
+	void ReportDiagnostics(bool final = false);
 	std::unique_ptr<ReadRequest_Struct> PrepareRead(uint32 clientId);
 	static ReadResult ReadBlock(ReadRequest_Struct *req);
 	bool CommitRead(ReadRequest_Struct *req, ReadResult result);
@@ -130,7 +132,7 @@ private:
 	bool m_bSocketNeedsPending; // set by SocketNeedsMoreData()
 
 	std::unique_ptr<StorageReadPool<ReadRequest_Struct>> m_pool;
-	std::set<uint32> m_pendingClients;
+	std::map<uint32, uint64> m_pendingClients;
 	std::map<uint32, uint64> m_retryAfter;
 	// Oldest successful dispatch wins, independently of activity on other volumes.
 	std::map<uint32, uint64> m_lastDispatch;
@@ -141,6 +143,8 @@ private:
 	// Resolve each spelled path once per mount-table snapshot, including busy volumes.
 	std::map<wxString, std::string> m_storageKeys;
 	UploadBufferBudget m_bufferBudget;
+	UploadReadDiagnostics m_diagnostics;
+	uint64 m_lastDiagnostics = 0;
 	bool m_needCacheSlot = false;
 	std::list<std::shared_ptr<OpenFile_Struct>> m_listOpenFiles;
 };
