@@ -109,7 +109,7 @@ public:
 		return service;
 	}
 	// A mount snapshot also identifies partitions sharing a physical device.
-	// Drain existing calls before changing the resource keys of queued tickets.
+	// Keep active keys until their calls finish and reclassify only queued tickets.
 	void SetAliases(std::map<std::string, std::string> aliases)
 	{
 		std::lock_guard<std::mutex> lock(m_state->mutex);
@@ -146,14 +146,15 @@ public:
 		} // non-storage discovery jobs
 		std::lock_guard<std::mutex> lock(m_state->mutex);
 		if (m_state->aliasesPending) {
-			if (m_state->active != 0) {
-				return false;
-			}
 			std::list<Task *> waiting;
-			for (auto &entry : m_state->lanes) {
-				waiting.splice(waiting.end(), entry.second.waiting);
+			for (auto it = m_state->lanes.begin(); it != m_state->lanes.end();) {
+				waiting.splice(waiting.end(), it->second.waiting);
+				if (it->second.active == nullptr) {
+					it = m_state->lanes.erase(it);
+				} else {
+					++it;
+				}
 			}
-			m_state->lanes.clear();
 			m_state->aliases = std::move(m_state->pendingAliases);
 			m_state->aliasesPending = false;
 			m_state->aliasesReady = true;
@@ -166,6 +167,20 @@ public:
 		auto &lane = m_state->lanes.at(task.key);
 		if (task.active || lane.active != nullptr) {
 			return false;
+		}
+		// A remapped active call still owns its previous resource, and also
+		// blocks aliases discovered by the new snapshot. Unaffected storage
+		// does not wait for that call merely because a mount was added.
+		for (const auto &entry : m_state->lanes) {
+			const auto *active = entry.second.active;
+			if (active != nullptr) {
+				const auto current = Resource(active->raw);
+				if (task.key == "unknown" || active->key == "unknown" ||
+					current == "unknown" || task.key == active->key ||
+					task.key == current) {
+					return false;
+				}
+			}
 		}
 		const auto unknown = m_state->lanes.find("unknown");
 		if (task.key == "unknown") {

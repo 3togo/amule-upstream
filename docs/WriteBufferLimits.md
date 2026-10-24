@@ -74,8 +74,9 @@ available for independent storage.
 Linux descriptor and mount-table identities use the same major:minor spelling.
 Worker-side sysfs discovery groups partitions and single-device stacks by their
 backing disk; multi-device/unsupported stacks are conservative unknown resources.
-Memory filesystems retain independent identities. Updates drain active service
-permits before reclassifying queued work. Windows local-volume GUIDs and POSIX
+Memory filesystems retain independent identities. Updates reclassify queued work while
+active calls retain both their previous resource and newly discovered alias
+conflicts until completion; independent resources remain available. Windows local-volume GUIDs and POSIX
 cached device identities match the corresponding upload discovery keys. A cold
 read which discovers a different descriptor identity defers and reacquires its
 permit before reading bytes. Native Windows/macOS behavior and HDD performance

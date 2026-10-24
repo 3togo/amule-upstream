@@ -53,6 +53,9 @@ TEST(StorageService, PartitionsShareBackingDeviceAndRemappingDrainsActiveCalls)
 	ASSERT_TRUE(service.TryStart(independent, 0));
 	service.SetAliases({ { "a", "disk" }, { "b", "disk" }, { "c", "disk" } });
 	read.reset();
+	auto unaffected = service.Queue("unresolved", StorageService::Kind::Read, 0);
+	ASSERT_FALSE(service.TryStart(unaffected, 0));
+	unaffected.reset();
 	ASSERT_FALSE(service.TryStart(write, 0));
 	independent.reset();
 	ASSERT_TRUE(service.TryStart(write, 0));
