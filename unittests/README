@@ -362,3 +362,38 @@ transport buffers and kernel TCP buffers are outside these counters. A request
 may overshoot the time target, but admission still requires room under both
 charge limits. Two seconds is bounded read-ahead, not a promise to hide longer
 storage stalls or compensate for a peer's small protocol request window.
+
+Upload storage diagnostics (debug builds)
+----------------------------------------
+Enable verbose debug output and the FileIO category (amule.conf:
+[eMule] VerboseDebug=1; [Debug] Cat_FileIO=1, on separate lines). The logfile
+receives an "Upload storage:" summary every 30 seconds and at coordinator
+shutdown. Release builds retain the existing policy of compiling out debug logs.
+No paths, file hashes, storage keys or client identities enter these summaries.
+
+work_ms, queue_ms, completion_ms and close_ms are total/maximum milliseconds
+for completed operations in the interval. Work covers opening/reopening, reading,
+prefault/copy and worker cleanup, including failed/deferred or stale reads; it
+is not a disk-only measurement. Idle cache closes are separate. completion_ms
+ends when the coordinator takes the result, before packet construction/sending.
+slow_1s counts completed read jobs taking at least one second. pending/oldest_ms
+cover admitted upload reads (queued, running or finished), exposing a stuck read
+before it completes. charged_bytes is current conservative application-buffer
+accounting, not RSS. These process-wide aggregates do not identify a drive.
+
+denials counts unsuccessful admission attempts by reason: a storage group is
+occupied, the socket memory cap is reached, or the global memory cap is reached.
+pressure_ms is sampled wall time since the previous sweep observed any such
+denial; workers_full instead measures all four ownership slots being occupied,
+including idle closes and undelivered completions. Reasons can overlap and do
+not sum to client wait time. Recovery is observed on a subsequent sweep (normally
+within the 500 ms idle poll, but coordinator work can extend that interval).
+A reset keeps ongoing pressure active in the next reporting interval. Counts
+are observations, not unique requests, bytes, physical-device latency or exact
+per-client waits. No per-client/drive history or unbounded histogram is retained.
+
+UploadReadDiagnosticsTest uses an injected clock for latency, exception and
+pressure/reset tests; UploadBufferingTest checks the actual cap denial reasons.
+Debug Linux builds also register UploadStorageDiagnosticsIntegrationTest: a
+pipe-held read exceeds one second while healthy-drive uploads continue; the
+shutdown logfile must report its latency and same-storage admission denials.

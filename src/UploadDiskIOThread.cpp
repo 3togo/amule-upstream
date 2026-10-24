@@ -130,8 +130,11 @@ void *CUploadDiskIOThread::Entry()
 {
 	try {
 		m_pool = std::make_unique<StorageReadPool<ReadRequest_Struct>>(
-			[](ReadRequest_Struct &req) { req.result = ReadBlock(&req); },
+			[](ReadRequest_Struct &req) {
+				req.timing.Run([&req] { req.result = ReadBlock(&req); }, GetTickCount64);
+			},
 			[this] { NewBlockRequestsAvailable(); });
+		m_lastDiagnostics = GetTickCount64();
 		while (m_bRun) {
 			{
 				wxMutexLocker lock(m_mutex);
@@ -192,15 +195,19 @@ void *CUploadDiskIOThread::Entry()
 				}
 				auto req = PrepareRead(clientId);
 				if (req) {
-					m_pendingClients.insert(clientId);
+					req->timing.submitted = GetTickCount64();
+					m_pendingClients.emplace(clientId, req->timing.submitted);
 					if (m_pool->Submit(req->storage, req)) {
 						m_lastDispatch[clientId] = ++m_dispatchSequence;
 					} else {
 						m_pendingClients.erase(clientId);
+						m_diagnostics.Denied(UploadReadDiagnostics::Storage);
 					}
 				}
 			}
 			QueueIdleCloses();
+			m_diagnostics.EndSweep(GetTickCount64(), !m_pool->HasCapacity());
+			ReportDiagnostics();
 			wxMutexLocker lock(m_mutex);
 			if (m_bRun && !m_bNewBlocksPending && !m_bSocketNeedsPending) {
 				m_condition.WaitTimeout(500);
@@ -213,6 +220,7 @@ void *CUploadDiskIOThread::Entry()
 	if (m_pool) {
 		m_pool->Stop();
 		DrainCompletions(false);
+		ReportDiagnostics(true);
 		m_pool.reset();
 	}
 	// Shutdown only: no shared lock is held, and workers no longer access handles.
@@ -258,6 +266,11 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 			continue;
 		}
 		auto *req = completed.job.release();
+		m_diagnostics.Completed(req->timing,
+			GetTickCount64(),
+			req->closeOnly,
+			completed.error || req->result == READ_FAILED || req->result == READ_OPEN_FAILED,
+			req->result == READ_DEFERRED);
 		m_pendingClients.erase(req->clientId);
 		if (deliver && req->result == READ_DEFERRED) {
 			// File completion may briefly park a request. Worker completion wakes must
@@ -280,6 +293,43 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 	}
 }
 
+// Debug-only FileIO output, at most once per 30 seconds plus a final summary.
+// Ages include admitted jobs still queued/running/finished, so a permanently
+// stalled read remains visible without waiting for its completion.
+void CUploadDiskIOThread::ReportDiagnostics(bool final)
+{
+	const uint64 now = GetTickCount64();
+	if (!final && now - m_lastDiagnostics < 30000) {
+		return;
+	}
+	[[maybe_unused]] const uint64 interval = now - m_lastDiagnostics;
+	m_lastDiagnostics = now;
+	[[maybe_unused]] const auto stats = m_diagnostics.Take(now);
+#ifdef __DEBUG__
+	uint64 oldest = 0;
+	for (const auto &pending : m_pendingClients) {
+		oldest = std::max(oldest, now - pending.second);
+	}
+	AddDebugLogLineF(logFileIO,
+		CFormat("Upload storage: interval_ms=%d reads=%d failed=%d deferred=%d "
+			"work_ms=%d/%d slow_1s=%d queue_ms=%d/%d completion_ms=%d/%d "
+			"closes=%d close_ms=%d/%d pending=%d oldest_ms=%d charged_bytes=%d "
+			"denials(storage/client_memory/global_memory)=%d/%d/%d "
+			"pressure_ms(storage/client_memory/global_memory/workers_full)=%d/%d/%d/%d") %
+			interval % stats.work.count % stats.failed % stats.deferred % stats.work.totalMs %
+			stats.work.maxMs % stats.work.overSecond % stats.queue.totalMs % stats.queue.maxMs %
+			stats.completion.totalMs % stats.completion.maxMs % stats.close.count %
+			stats.close.totalMs % stats.close.maxMs % m_pendingClients.size() % oldest %
+			m_bufferBudget.Used() % stats.denials[UploadReadDiagnostics::Storage] %
+			stats.denials[UploadReadDiagnostics::ClientMemory] %
+			stats.denials[UploadReadDiagnostics::GlobalMemory] %
+			stats.pressureMs[UploadReadDiagnostics::Storage] %
+			stats.pressureMs[UploadReadDiagnostics::ClientMemory] %
+			stats.pressureMs[UploadReadDiagnostics::GlobalMemory] %
+			stats.pressureMs[UploadReadDiagnostics::Workers]);
+#endif
+}
+
 void CUploadDiskIOThread::QueueIdleCloses()
 {
 	const uint64 now = GetTickCount64();
@@ -293,6 +343,7 @@ void CUploadDiskIOThread::QueueIdleCloses()
 			req->pFileStruct = file;
 			req->path = file->path;
 			req->storage = file->storage;
+			req->timing.submitted = GetTickCount64();
 			if (m_pool->Submit(req->storage, req)) {
 				it = m_listOpenFiles.erase(it);
 				m_needCacheSlot = false;
@@ -385,11 +436,16 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 #endif
 		}
 		if (!m_pool->CanSubmit(storage->second)) {
+			m_diagnostics.Denied(UploadReadDiagnostics::Storage);
 			return nullptr;
 		}
-		auto reservation =
-			m_bufferBudget.Reserve(pSock->UploadBufferAccount(), static_cast<uint32>(togo));
+		UploadBufferBudget::Denial denial;
+		auto reservation = m_bufferBudget.Reserve(
+			pSock->UploadBufferAccount(), static_cast<uint32>(togo), &denial);
 		if (!reservation) {
+			m_diagnostics.Denied(denial == UploadBufferBudget::Denial::Global
+						     ? UploadReadDiagnostics::GlobalMemory
+						     : UploadReadDiagnostics::ClientMemory);
 			return nullptr;
 		}
 		auto req = std::make_unique<ReadRequest_Struct>();

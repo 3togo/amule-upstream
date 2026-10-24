@@ -210,6 +210,12 @@ add_test (NAME UploadStorageMapTest COMMAND UploadStorageMapTest)
 target_include_directories (UploadStorageMapTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (UploadStorageMapTest muleunit mulecommon)
 
+# Storage latency and sampled admission pressure use injected monotonic time.
+add_executable (UploadReadDiagnosticsTest UploadReadDiagnosticsTest.cpp)
+add_test (NAME UploadReadDiagnosticsTest COMMAND UploadReadDiagnosticsTest)
+target_include_directories (UploadReadDiagnosticsTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (UploadReadDiagnosticsTest muleunit mulecommon)
+
 # Per-socket refill thresholds use original payload, independent of statistics resets.
 add_executable (UploadBufferingTest UploadBufferingTest.cpp)
 add_test (NAME UploadBufferingTest COMMAND UploadBufferingTest)
@@ -2704,6 +2710,14 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 					$<TARGET_FILE:amuled> --seconds 3
 					--storage-delay-fixture $<TARGET_FILE:UploadReadDelay>
 			)
+			if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+				add_test (NAME UploadStorageDiagnosticsIntegrationTest
+					COMMAND ${Python3_EXECUTABLE} -u
+						${CMAKE_CURRENT_SOURCE_DIR}/UploadStoragePoolIntegrationTest.py
+						$<TARGET_FILE:amuled> $<TARGET_FILE:UploadReadDelay> --stage read --diagnostics
+				)
+				set_tests_properties (UploadStorageDiagnosticsIntegrationTest PROPERTIES TIMEOUT 60)
+			endif()
 			add_test (NAME UploadRefillCompressedIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/UploadRefillIntegrationTest.py
