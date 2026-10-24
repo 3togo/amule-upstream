@@ -100,7 +100,7 @@ public:
 		std::lock_guard<std::mutex> lock(m_mutex);
 		bool available = false;
 		for (const auto &slot : m_slots) {
-			if (slot.state != State::Free && slot.storage == storage) {
+			if (slot.state != State::Free && SameStorage(slot.storage, storage)) {
 				return false;
 			}
 			available |= slot.state == State::Free;
@@ -118,7 +118,7 @@ public:
 		}
 		Slot *free = nullptr;
 		for (auto &slot : m_slots) {
-			if (slot.state != State::Free && slot.storage == storage) {
+			if (slot.state != State::Free && SameStorage(slot.storage, storage)) {
 				return false;
 			}
 			if (slot.state == State::Free) {
@@ -201,6 +201,12 @@ private:
 		uint64_t sequence = 0;
 		StorageService::Permit permit;
 	};
+
+	bool SameStorage(const std::string &a, const std::string &b) const
+	{
+		return a == b || (m_service != nullptr && a != "storage-discovery" &&
+					 b != "storage-discovery" && m_service->SameResource(a, b));
+	}
 
 	void Run()
 	{
