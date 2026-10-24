@@ -3272,3 +3272,11 @@ add_executable (VolumeWritePoolTest VolumeWritePoolTest.cpp)
 add_test (NAME VolumeWritePoolTest COMMAND VolumeWritePoolTest)
 target_include_directories (VolumeWritePoolTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (VolumeWritePoolTest muleunit mulecommon Threads::Threads)
+
+if (TARGET WriteBufferStall)
+	add_test (NAME WriteVolumeIsolationIntegrationTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/WriteVolumeIsolationIntegrationTest.py
+			$<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
+	set_tests_properties (WriteVolumeIsolationIntegrationTest PROPERTIES
+		TIMEOUT 90 RUN_SERIAL TRUE SKIP_RETURN_CODE 77)
+endif ()

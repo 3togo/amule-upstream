@@ -21,6 +21,18 @@ extern "C" ssize_t write(int fd, const void *data, size_t size)
 		char path[4096];
 		const ssize_t length = readlink(link, path, sizeof(path) - 1);
 		if (length > 5 && std::memcmp(path + length - 5, ".part", 5) == 0) {
+			const char *prefix = std::getenv("AMULE_TEST_WRITE_PREFIX");
+			if (prefix != nullptr &&
+				(static_cast<size_t>(length) < std::strlen(prefix) ||
+					std::memcmp(path, prefix, std::strlen(prefix)) != 0)) {
+				return realWrite(fd, data, size);
+			}
+			const std::string entered = std::string(gate) + ".entered";
+			const int marker = open(entered.c_str(), O_WRONLY | O_CREAT, 0600);
+			if (marker >= 0) {
+				close(marker);
+			}
+
 			// The bound also permits cleanup if the parent test crashes.
 			for (unsigned tick = 0; tick < 3000 && access(gate, F_OK) == 0; ++tick) {
 				usleep(10000);
