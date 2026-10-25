@@ -2,9 +2,9 @@
 # Copyright (c) 2026 aMule Team
 # SPDX-License-Identifier: GPL-2.0-or-later
 """An existing profile gains the office exclusion default and keeps its opt-out."""
+import configparser
 import os
 from pathlib import Path
-import re
 import subprocess
 import sys
 import tempfile
@@ -32,10 +32,14 @@ def run(binary):
                                 ('explicit-opt-out', names)]:
             config = root / 'amule.conf'
             if phase != 'disabled':
-                text = re.sub(r'^ExcludeOfficeDocuments=.*\n', '', config.read_text(), flags=re.M)
+                saved = configparser.ConfigParser(interpolation=None)
+                saved.optionxform = str
+                saved.read(config, encoding='utf-8')
+                saved.remove_option('eMule', 'ExcludeOfficeDocuments')
                 if phase == 'explicit-opt-out':
-                    text = text.replace('[eMule]\n', '[eMule]\nExcludeOfficeDocuments=0\n', 1)
-                config.write_text(text)
+                    saved.set('eMule', 'ExcludeOfficeDocuments', '0')
+                with config.open('w', encoding='utf-8') as output:
+                    saved.write(output, space_around_delimiters=False)
             ec = proc = None
             try:
                 with (root / ('console-' + phase)).open('w') as log:
