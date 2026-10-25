@@ -518,7 +518,7 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 	CClientTCPSocket *pSock = client->GetSocket();
 	// Only peer-requested data can be read. The latency estimate sizes the
 	// application queue; it does not count kernel or network flight.
-	const uint32 nBufferLimit = pSock->SetUploadBufferTarget(client->GetUploadDatarate());
+	const uint32 nBufferLimit = pSock->SetUploadBufferTarget(client->GetUploadDatarate(), sweepNow);
 
 	if (client->m_BlockRequests_queue.empty() || pSock->QueuedUploadPayload() >= nBufferLimit) {
 		return nullptr;

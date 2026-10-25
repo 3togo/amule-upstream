@@ -87,7 +87,7 @@ public:
 	uint64 GetSentBytesControlPacketSinceLastCallAndReset();
 	// Separate from accounting: a file/session switch can discard its old display bytes.
 	uint64 GetSentFileBytesForDisplayAndReset();
-	uint32 SetUploadBufferTarget(uint32 wireRate);
+	uint32 SetUploadBufferTarget(uint32 wireRate, uint64 now);
 	uint64 UploadRefillDeadline(uint32 wireRate);
 	void ObserveUploadReadLatency(uint64 milliseconds);
 	uint64 QueuedUploadPayload() const;

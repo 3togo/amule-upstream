@@ -422,10 +422,12 @@ uint64 CEMSocket::QueuedUploadPayload() const
 	return m_uploadRefill.Queued();
 }
 
-uint32 CEMSocket::SetUploadBufferTarget(uint32 wireRate)
+uint32 CEMSocket::SetUploadBufferTarget(uint32 wireRate, uint64 now)
 {
 	std::lock_guard<std::mutex> lock(m_sendLocker);
-	const uint32 payload = UploadBufferTarget(wireRate, EMBLOCKSIZE, m_readLatency.Milliseconds());
+	const uint32 payload = UploadBufferTarget(std::max(wireRate, m_uploadRefill.PayloadRate(now)),
+		EMBLOCKSIZE,
+		m_readLatency.Milliseconds());
 	if (m_uploadRefill.SetTarget(payload) && theApp->uploadDiskIOThread) {
 		// A larger target can require another read even when no completion
 		// crosses the old threshold. Keep a fresh worker pass pending.
@@ -739,7 +741,7 @@ SocketSentBytes CEMSocket::Send(
 				if (!m_currentPacket_is_controlpacket) {
 					// Match the disk worker's send-ahead check. Wake once when the
 					// original payload crosses below its target, or the queue drains.
-					if (m_uploadRefill.Complete(m_actualPayloadSize) &&
+					if (m_uploadRefill.Complete(m_actualPayloadSize, lastCalledSend) &&
 						theApp->uploadDiskIOThread) {
 						theApp->uploadDiskIOThread->SocketNeedsMoreData();
 					}
