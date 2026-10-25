@@ -80,7 +80,9 @@ void Gate(const char *path, std::uint64_t offset)
 	pollfd gate{ std::atoi(release), POLLIN, 0 };
 	int ready;
 	do {
-		ready = poll(&gate, 1, 30000);
+		// Diagnostics may deliberately hold a read through the first 30-second
+		// report, with a 40-second assertion deadline. Leave scheduling margin.
+		ready = poll(&gate, 1, 60000);
 	} while (ready < 0 && errno == EINTR);
 	if (ready <= 0) {
 		_exit(98);
