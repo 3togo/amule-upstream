@@ -23,6 +23,7 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
+#include "StorageIdentity.h"
 #include "CFile.h"       // Interface declarations.
 #include "Logger.h"      // Needed for AddDebugLogLineC
 #include <common/Path.h> // Needed for CPath
@@ -586,7 +587,7 @@ std::string CFile::GetKnownStorageIdentity() const
 	if (!m_storageKnown.load(std::memory_order_acquire)) {
 		return {};
 	}
-	return "device:" + std::to_string(m_storageDevice.load(std::memory_order_relaxed));
+	return StorageDeviceIdentity(m_storageDevice.load(std::memory_order_relaxed));
 }
 
 uint64 CFile::GetAvailable() const

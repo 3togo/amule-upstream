@@ -3322,3 +3322,15 @@ if (TARGET WriteBufferStall)
 	set_tests_properties (WriteVolumeIsolationIntegrationTest PROPERTIES
 		TIMEOUT 90 RUN_SERIAL TRUE SKIP_RETURN_CODE 77)
 endif ()
+
+add_executable (StorageServiceTest StorageServiceTest.cpp)
+add_test (NAME StorageServiceTest COMMAND StorageServiceTest)
+target_include_directories (StorageServiceTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (StorageServiceTest muleunit mulecommon ${CMAKE_THREAD_LIBS_INIT})
+
+if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND Python3_Interpreter_FOUND AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	add_test (NAME ReadWriteServiceIntegrationTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/ReadWriteServiceIntegrationTest.py
+		$<TARGET_FILE:amuled> $<TARGET_FILE:UploadReadDelay> $<TARGET_FILE:WriteBufferStall>)
+	set_tests_properties (ReadWriteServiceIntegrationTest PROPERTIES TIMEOUT 90 LABELS "integration")
+endif ()

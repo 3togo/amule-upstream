@@ -87,6 +87,7 @@ public:
 	// Separate from accounting: a file/session switch can discard its old display bytes.
 	uint64 GetSentFileBytesForDisplayAndReset();
 	void SetUploadBufferTarget(uint32 payload);
+	uint64 UploadRefillDeadline(uint32 wireRate);
 	uint64 QueuedUploadPayload() const;
 	UploadPipelinePressure::Socket UploadPressureSnapshot() const;
 	void TruncateQueues();

@@ -24,6 +24,7 @@
 //
 
 #include "PartFileWriteThread.h"
+#include "StorageIdentity.h"
 
 #include "FreeSpaceSamples.h" // Needed for FreeSpaceAllows
 
@@ -63,7 +64,7 @@ std::string IdentifyWriteVolume(ToWrite &write)
 	if (handle != INVALID_HANDLE_VALUE) {
 		BY_HANDLE_FILE_INFORMATION info{};
 		if (GetFileInformationByHandle(handle, &info)) {
-			volume = "device:" + std::to_string(info.dwVolumeSerialNumber);
+
 			// Resolve file symlinks/reparse points before choosing a directory
 			// for GetDiskFreeSpaceEx. This query stays on the worker too.
 			std::vector<wchar_t> finalPath(32768);
@@ -73,8 +74,17 @@ std::string IdentifyWriteVolume(ToWrite &write)
 				FILE_NAME_NORMALIZED);
 			if (size > 0 && size < finalPath.size()) {
 				spacePath = CPath(wxFileName(wxString(finalPath.data(), size)).GetPath());
-			} else {
-				volume.clear();
+			}
+			const DWORD guidSize = GetFinalPathNameByHandleW(handle,
+				finalPath.data(),
+				static_cast<DWORD>(finalPath.size()),
+				FILE_NAME_NORMALIZED | VOLUME_NAME_GUID);
+			if (guidSize > 0 && guidSize < finalPath.size()) {
+				const wxString finalName(finalPath.data(), guidSize);
+				const auto end = finalName.find(L'}');
+				if (end != wxString::npos && end + 1 < finalName.size()) {
+					volume = finalName.substr(0, end + 2).Lower().ToStdString(wxConvUTF8);
+				}
 			}
 		}
 		CloseHandle(handle);
@@ -82,7 +92,7 @@ std::string IdentifyWriteVolume(ToWrite &write)
 #else
 	wxStructStat info{};
 	if (wxStat(path.GetRaw(), &info) == 0) {
-		volume = "device:" + std::to_string(static_cast<uint64_t>(info.st_dev));
+		volume = StorageDeviceIdentity(static_cast<uint64_t>(info.st_dev));
 	}
 #endif
 	write.session->volume = volume;
@@ -165,7 +175,8 @@ CPartFileWriteThread::CPartFileWriteThread()
 				return true;
 			}
 			return false;
-		});
+		},
+		&StorageService::Get());
 }
 
 CPartFileWriteThread::~CPartFileWriteThread() = default;
@@ -222,7 +233,10 @@ bool CPartFileWriteThread::QueueWrite(
 		ToWrite{ file, buffer, file->m_PartPath, checkSpace, minFree, file->m_writeSession },
 		file->m_writeSession->ready
 			? (file->m_writeSession->volume.empty() ? "unknown" : file->m_writeSession->volume)
-			: "");
+			: "",
+		false,
+		buffer->dirtyAt,
+		buffer->end - buffer->start + 1);
 }
 
 void CPartFileWriteThread::Finish(ToWrite &write, uint8 status)

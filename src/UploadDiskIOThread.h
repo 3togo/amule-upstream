@@ -88,6 +88,8 @@ struct ReadRequest_Struct
 	std::unique_ptr<UploadStorageMap> storageMap; // discovery job, without a file/client
 	bool discoverNetwork = true;
 	UploadReadTiming timing;
+	uint64 refillDeadline = 0;
+	bool identityChanged = false;
 };
 
 // Port of eMule's CUploadDiskIOThread (UploadDiskIOThread.h:48-86). Windows primitives replaced

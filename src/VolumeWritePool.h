@@ -3,6 +3,7 @@
 #ifndef VOLUMEWRITEPOOL_H
 #define VOLUMEWRITEPOOL_H
 
+#include "StorageService.h"
 #include <array>
 #include <condition_variable>
 #include <exception>
@@ -36,11 +37,13 @@ public:
 		std::function<std::string(Job &)> resolve,
 		std::function<void(Batch &)> work,
 		Failure failure,
-		std::function<bool(Job &)> discard = [](Job &) { return false; })
+		std::function<bool(Job &)> discard = [](Job &) { return false; },
+		StorageService *service = nullptr)
 	: m_resolve(std::move(resolve))
 	, m_work(std::move(work))
 	, m_failure(std::move(failure))
 	, m_discard(std::move(discard))
+	, m_service(service)
 	{
 		try {
 			for (auto &worker : m_workers) {
@@ -55,7 +58,12 @@ public:
 	VolumeWritePool(const VolumeWritePool &) = delete;
 	VolumeWritePool &operator=(const VolumeWritePool &) = delete;
 
-	bool Submit(const std::string &path, Job job, std::string volume = {}, bool discovery = false)
+	bool Submit(const std::string &path,
+		Job job,
+		std::string volume = {},
+		bool discovery = false,
+		uint64_t dirtyAt = 0,
+		size_t bytes = 0)
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
 		if (m_stopping) {
@@ -85,7 +93,20 @@ public:
 				return false;
 			}
 		}
-		m_queue.push_back({ path, volume, std::move(job), ++m_sequence, discovery });
+		auto permit = m_service != nullptr && !volume.empty()
+				      ? m_service->Queue(volume,
+						StorageService::Kind::Write,
+						(dirtyAt == 0 ? StorageService::Now() : dirtyAt) +
+							StorageService::kDirtyAgeMs)
+				      : nullptr;
+		m_queue.push_back({ path,
+			volume,
+			std::move(job),
+			++m_sequence,
+			discovery,
+			dirtyAt,
+			bytes,
+			std::move(permit) });
 		if (discovery) {
 			++m_discovery;
 		} else {
@@ -144,6 +165,9 @@ private:
 		Job job;
 		size_t sequence;
 		bool discovery;
+		uint64_t dirtyAt;
+		size_t bytes;
+		StorageService::Permit permit;
 	};
 	void ReleaseCount(const Item &item)
 	{
@@ -168,6 +192,12 @@ private:
 			++m_volumeJobs[volume];
 		}
 		item.volume = volume;
+		if (m_service != nullptr && !item.discovery) {
+			item.permit = m_service->Queue(volume,
+				StorageService::Kind::Write,
+				(item.dirtyAt == 0 ? StorageService::Now() : item.dirtyAt) +
+					StorageService::kDirtyAgeMs);
+		}
 	}
 	using Iterator = typename std::list<Item>::iterator;
 	Iterator Next()
@@ -177,7 +207,8 @@ private:
 		// continuously replenish their queues. Busy lanes never hold a worker.
 		for (auto it = m_queue.begin(); it != m_queue.end(); ++it) {
 			if (!it->volume.empty()) {
-				if (m_active.count(it->volume) == 0) {
+				if (m_active.count(it->volume) == 0 &&
+					(m_service == nullptr || m_service->TryStart(it->permit))) {
 					return it;
 				}
 			} else if (m_probing < kResolvers && m_resolving.count(it->path) == 0) {
@@ -193,13 +224,17 @@ private:
 			Batch batch;
 			std::string volume;
 			std::list<Item> probe;
+			StorageService::Permit permit;
 			{
 				std::unique_lock<std::mutex> lock(m_mutex);
 				auto next = m_queue.end();
-				m_ready.wait(lock, [&] {
-					next = Next();
-					return next != m_queue.end() || (m_stopping && m_owned == 0);
-				});
+				while ((next = Next()) == m_queue.end() && !(m_stopping && m_owned == 0)) {
+					if (m_service == nullptr || m_queue.empty()) {
+						m_ready.wait(lock);
+					} else {
+						m_ready.wait_for(lock, std::chrono::milliseconds(10));
+					}
+				}
 				if (next == m_queue.end()) {
 					return;
 				}
@@ -210,9 +245,21 @@ private:
 					probe.splice(probe.end(), m_queue, next);
 				} else {
 					m_active.insert(volume);
+					permit = std::move(next->permit);
+					size_t bytes = 0;
 					for (auto it = m_queue.begin();
 						it != m_queue.end() && batch.size() < kBatchSize;) {
 						if (it->volume == volume) {
+							if (m_service != nullptr && !batch.empty() &&
+								(batch.size() >= 16 ||
+									it->bytes >
+										1024 * 1024 -
+											std::min<size_t>(
+												bytes,
+												1024 * 1024))) {
+								break;
+							}
+							bytes += it->bytes;
 							batch.push_back(std::move(it->job));
 							it = m_queue.erase(it);
 						} else {
@@ -269,6 +316,7 @@ private:
 				}
 				{
 					std::lock_guard<std::mutex> lock(m_mutex);
+					permit.reset();
 					m_active.erase(volume);
 					ReleaseVolume(volume, batch.size());
 					m_owned -= batch.size();
@@ -284,6 +332,7 @@ private:
 	// Runs under the scheduler lock: no I/O/re-entry. Discovery-only jobs
 	// must complete here and return true, without waiting for a write lane.
 	std::function<bool(Job &)> m_discard;
+	StorageService *m_service;
 	std::mutex m_mutex;
 	std::condition_variable m_ready;
 	std::list<Item> m_queue;

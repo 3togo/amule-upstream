@@ -23,7 +23,8 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 //
 
-#include "EMSocket.h" // Interface declarations.
+#include "EMSocket.h"
+#include "StorageService.h" // Interface declarations.
 
 #include <protocol/Protocols.h>
 #include <protocol/ed2k/Constants.h>
@@ -428,6 +429,13 @@ void CEMSocket::SetUploadBufferTarget(uint32 payload)
 		// crosses the old threshold. Keep a fresh worker pass pending.
 		theApp->uploadDiskIOThread->SocketNeedsMoreData();
 	}
+}
+
+uint64 CEMSocket::UploadRefillDeadline(uint32 wireRate)
+{
+	std::lock_guard<std::mutex> lock(m_sendLocker);
+	const uint64 reserveMs = wireRate == 0 ? 250 : m_uploadRefill.Queued() * 1000 / wireRate;
+	return StorageService::Now() + std::min<uint64>(reserveMs, 2000);
 }
 
 UploadPipelinePressure::Socket CEMSocket::UploadPressureSnapshot() const

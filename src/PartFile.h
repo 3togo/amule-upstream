@@ -29,6 +29,7 @@
 #include "KnownFile.h"     // Needed for CKnownFile
 #include "FileAutoClose.h" // Needed for CFileAutoClose
 #include "WriteBufferBudget.h"
+#include "StorageService.h"
 #include "BufferedWriteBlock.h"
 #include "PartFileWriteSession.h"
 #include "FileArea.h" // Needed for CFileArea (PartFileBufferedData)
@@ -83,6 +84,7 @@ typedef std::map<uint32, SourcenameItem> SourcenameItemMap;
 class PartFileBufferedData : public BufferedWriteBlock
 {
 public:
+	uint64 dirtyAt = StorageService::Now();
 	// Worker snapshots are immutable while pending. The owner publishes later
 	// fragments into a second READY assembly sharing the original request credit.
 	std::atomic<uint8> flushed{ 0 };

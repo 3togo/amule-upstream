@@ -152,7 +152,8 @@ void *CUploadDiskIOThread::Entry()
 			[](ReadRequest_Struct &req) {
 				req.timing.Run([&req] { req.result = ReadBlock(&req); }, GetTickCount64);
 			},
-			[this] { NewBlockRequestsAvailable(); });
+			[this] { NewBlockRequestsAvailable(); },
+			&StorageService::Get());
 		m_lastDiagnostics = GetTickCount64();
 		while (m_bRun) {
 			{
@@ -227,7 +228,7 @@ void *CUploadDiskIOThread::Entry()
 					req->timing.enabled = m_collectDiagnostics;
 					req->timing.submitted = m_collectDiagnostics ? GetTickCount64() : 0;
 					m_pendingClients.emplace(clientId, req->timing.submitted);
-					if (m_pool->Submit(req->storage, req)) {
+					if (m_pool->Submit(req->storage, req, req->refillDeadline)) {
 						m_lastDispatch[clientId] = ++m_dispatchSequence;
 					} else {
 						m_pendingClients.erase(clientId);
@@ -287,13 +288,21 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 									WINDOWS_STORAGE);
 				});
 				for (auto &file : m_listOpenFiles) {
-					file->storage =
-						m_storageMap.Lookup(StoragePath(file->path), WINDOWS_STORAGE);
+					const auto known = file->file.GetKnownStorageIdentity();
+					file->storage = known.empty()
+								? m_storageMap.Lookup(StoragePath(file->path),
+									  WINDOWS_STORAGE)
+								: known;
+					m_storageKeys[StoragePath(file->path)] = file->storage;
 				}
 			}
 			continue;
 		}
 		auto *req = completed.job.release();
+		if (req->identityChanged) {
+			m_storageKeys[StoragePath(req->path)] = req->storage;
+			req->pFileStruct->storage = req->storage;
+		}
 		if (m_collectDiagnostics && req->timing.enabled && !req->closeOnly) {
 			m_lastCompletedMs = GetTickCount64();
 			m_lastReadMs = req->timing.finished - req->timing.started;
@@ -454,7 +463,7 @@ void CUploadDiskIOThread::QueueIdleCloses()
 			req->storage = file->storage;
 			req->timing.enabled = m_collectDiagnostics;
 			req->timing.submitted = m_collectDiagnostics ? GetTickCount64() : 0;
-			if (m_pool->Submit(req->storage, req)) {
+			if (m_pool->Submit(req->storage, req, req->refillDeadline)) {
 				it = m_listOpenFiles.erase(it);
 				m_needCacheSlot = false;
 			}
@@ -542,6 +551,7 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 			return nullptr;
 		}
 		auto req = std::make_unique<ReadRequest_Struct>();
+		req->refillDeadline = pSock->UploadRefillDeadline(client->GetUploadDatarate());
 		req->session = client->m_uploadReadSession;
 		req->clientId = clientId;
 		md4cpy(req->ucMD4FileHash, currentblock->FileID);
@@ -615,6 +625,12 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 	ReadResult result = READ_OK;
 	try {
 		if (req->pPartFile != nullptr) {
+			const auto known = req->pPartFile->m_hpartfile.GetKnownStorageIdentity();
+			if (!known.empty() && known != req->storage) {
+				req->storage = known;
+				req->identityChanged = true;
+				return READ_DEFERRED;
+			}
 			bool handleClosed = false;
 			if (!req->pPartFile->ReadData(area, req->uStartOffset, togo, &handleClosed)) {
 				// A closed handle means PerformFileComplete got there first: the download
@@ -648,7 +664,14 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 					if (!file.IsOpened() && !file.Open(req->path, CFile::read, true)) {
 						result = READ_OPEN_FAILED;
 					} else {
-						area.ReadAt(file, req->uStartOffset, togo);
+						const auto known = file.GetKnownStorageIdentity();
+						if (!known.empty() && known != req->storage) {
+							req->storage = known;
+							req->identityChanged = true;
+							result = READ_DEFERRED;
+						} else {
+							area.ReadAt(file, req->uStartOffset, togo);
+						}
 					}
 					break;
 				} catch (const CIOFailureException &) {
