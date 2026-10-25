@@ -50,3 +50,48 @@ establish that another buffer is redundant on slow storage. Conversely, unit
 checks of ownership and bounds do not establish a performance benefit on either.
 A sustained bandwidth deficit also cannot be repaired by finite buffering;
 backpressure, fairness and recovery remain separate requirements.
+
+## Measurements on 25 October 2026
+
+The observer was compared with its exact diagnostics-only parent, rather than
+with a stack that also changes read-ahead or download scheduling. Both were
+fresh Release builds on x86-64 Ubuntu 26.10 (Stonking Stingray), GCC 15.3.0 and
+wxWidgets 3.2.11. The observer source was `7014b84aed1a`; its parent was
+`c238087a8b10`. Later changes in this PR update documentation only.
+
+Three loopback peers requested and verified every uploaded byte. Each row below
+is the median of two interleaved A/B pairs after five seconds of warmup and eight
+seconds of measurement. CPU is daemon CPU time per uploaded MiB. RSS is sampled
+process memory, including more than the observer. The fast cases used a 64 MiB/s
+network cap and warm native SSD pages. All cases used the same I/O tracing shim;
+its overhead is common to both variants. These short samples are not confidence
+intervals or a claim of zero overhead.
+
+| Workload | Parent / observer MiB/s | Parent / observer CPU ms/MiB | Parent / observer RSS MiB |
+| --- | ---: | ---: | ---: |
+| Fast storage, diagnostics off | 49.54 / 49.07 | 5.19 / 5.09 | 50.85 / 51.15 |
+| Fast storage, diagnostics on | 48.94 / 49.31 | 5.17 / 5.16 | 51.02 / 51.12 |
+| Slow service with headroom, diagnostics on | 4.01 / 4.02 | 19.12 / 19.84 | 50.84 / 51.03 |
+
+The last case imposed 8 MiB/s storage bandwidth, an 8 ms seek cost and 1 ms per
+read, with a 4 MiB/s network cap. It models service time on actual SSD-backed
+files; it is not a physical HDD measurement. Logging was checked: the enabled
+observer emitted range counters, and the disabled category emitted no storage
+summary. The measured memory difference was about 0.2–0.3 MiB in these samples;
+other workloads and longer sessions still need measurement.
+
+A separate owned-file probe read a 32 MiB file through the real daemon, with
+mmap disabled. Six rounds each requested 1,474,560 bytes in eight ranges. The
+first and distant cold rounds each caused 1,703,936 physical read bytes according
+to `/proc` accounting. Three exact-repeat rounds and an overlapping round caused
+zero additional physical read bytes, despite real file reads. The observer
+reported 48 reads, 24 exact repeats, 32 overlaps and zero history evictions.
+Thus logical reuse was already served by the OS cache in that fixture. Round
+elapsed time includes connection and upload-slot setup and does not measure disk
+latency.
+
+These results support keeping the bounded observer available for gathering
+representative evidence. They do not establish that an additional payload cache
+would be redundant on a slow device, nor that it would be beneficial. A payload
+cache proposal still needs avoided physical I/O, cache-state and reuse-distance
+measurements under slow service, along with its memory, CPU and copy costs.
