@@ -5277,6 +5277,14 @@ msgid "Follow symbolic links in shared folders"
 msgstr ""
 
 #: src/muuli_wdr.cpp
+msgid "Exclude office documents from sharing"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Do not share Word, Excel, PowerPoint, OpenDocument, RTF, CSV or TSV files, including macro-enabled documents. Applies to completed and partial downloads too. Files remain on disk and downloads continue."
+msgstr ""
+
+#: src/muuli_wdr.cpp
 msgid "Exclude files and folders matching:"
 msgstr ""
 
