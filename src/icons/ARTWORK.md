@@ -153,12 +153,20 @@ need desktop verification.
 
 ## Template tray artwork
 
-`tray_{high,low,disconnected}_template.svg` are original aMule artwork (GPL-2.0-or-later).
-A shared mule silhouette uses a check, padlock or cross to distinguish connection
-states after AppKit applies its template tint. The final two columns remain clear
-for the speed bar. Windows and Linux continue using the coloured tray artwork.
-Render the 22-pixel PNG twins with librsvg and regenerate `icon_data.c` using
-`embed_icons.py`; both vector and raster fallbacks are checked in.
+`tray_{high,low,disconnected}_template.svg` are adem4ik's monochrome tray
+artwork contributed in [PR #2041](https://github.com/amule-org/amule/pull/2041),
+from `amule_22_mono_.zip` (SHA-256
+`a4dd1646802a54e6733368ddd7c5b0df3bfe1d0458ac6406998c9db091ead4a8`).
+The `amule_22_mono_high.svg`, `amule_22_mono_low.svg` and `amule_22_mono_dis.svg`
+files map to `tray_high_template`, `tray_low_template` and
+`tray_disconnected_template`, respectively. The artwork is black on transparent
+with default fills and carries no stylesheet rules or SVG filters, so both
+NanoSVG and librsvg render it identically. Distinct silhouettes distinguish
+connection states after AppKit applies its template tint. The final two columns
+remain clear for the speed bar. Windows and Linux continue using the coloured
+tray artwork. Render the 22-pixel PNG twins with librsvg and regenerate
+`icon_data.c` using `embed_icons.py`; both vector and raster fallbacks are
+checked in.
 
 ## Installed tray state variants
 
