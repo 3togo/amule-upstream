@@ -61,9 +61,12 @@ def run(binary, shim, compressed, mode):
             bad.start(ports[1])
             wait_for(lambda: Path(str(gate) + '.entered').exists() and
                      bad.requested >= LIMIT - 2 * BLOCK, 15, detail)
-            stalled = wait_for_plateau(lambda: bad.requested, LIMIT, detail)
+            # Already requested responses remain admissible after byte pressure.
+            # This one source can have at most 24 block responses outstanding.
+            bound = LIMIT + 24 * BLOCK
+            stalled = wait_for_plateau(lambda: bad.requested, bound, detail)
             # This file is deliberately cold: its first discovery/request starts
-            # only after the other volume is already stuck and at its byte cap.
+            # only after the other volume is already stuck and at its byte-pressure threshold.
             assert add_link(ec, healthy.link()) == C['EC_OP_NOOP']
             healthy.start(ports[1])
             wait_for(lambda: healthy.requested >= 3 * 1024 * 1024, 5, detail)
@@ -75,7 +78,7 @@ def run(binary, shim, compressed, mode):
                     data.seek(healthy.first_start)
                     return data.read(32) == b'x' * 32
             wait_for(written, 3, detail)
-            assert bad.requested == stalled and stalled <= LIMIT, detail()
+            assert bad.requested == stalled and stalled <= bound, detail()
             assert not bad.cancelled and not any(s.errors for s in sources), detail()
             ec.call(C['EC_OP_GET_DLOAD_QUEUE'])
             # Cancelling a healthy file must not join/wait for the stalled worker.
