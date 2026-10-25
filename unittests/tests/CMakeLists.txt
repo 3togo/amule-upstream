@@ -2693,6 +2693,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND Python3_Interpreter_FOUND)
 endif ()
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 	if (Python3_Interpreter_FOUND)
+		add_test (NAME ECDisconnectIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/ECDisconnectIntegrationTest.py $<TARGET_FILE:amuled>
+		)
 		add_test (NAME KadDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled>)
 		add_test (NAME KadPopulatedDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled> --populated)
 		set_tests_properties (KadPopulatedDistributionECTest PROPERTIES SKIP_RETURN_CODE 77)
@@ -2739,6 +2743,11 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/UploadRefillIntegrationTest.py
 					$<TARGET_FILE:amuled> --seconds 3 --compress
+			)
+			# Two loopback peer addresses (127.0.0.2, 127.0.0.3) need Linux.
+			add_test (NAME UploadSlotScopeIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/UploadSlotScopeIntegrationTest.py $<TARGET_FILE:amuled>
 			)
 		endif()
 		add_test (NAME PathDefaultsIntegrationTest
