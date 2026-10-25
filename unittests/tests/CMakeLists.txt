@@ -3231,3 +3231,9 @@ if (TARGET wxWidgets::CORE)
 	set_tests_properties (BandwidthRateInputEnglishTest BandwidthRateInputItalianTest
 		PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
 endif()
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND Python3_Interpreter_FOUND AND UNIX AND NOT APPLE)
+    add_test (NAME OfficeSharingIntegrationTest COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/OfficeSharingIntegrationTest.py $<TARGET_FILE:amuled>)
+    set_tests_properties (OfficeSharingIntegrationTest PROPERTIES TIMEOUT 60 LABELS integration)
+endif ()

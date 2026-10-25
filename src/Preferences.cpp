@@ -254,6 +254,8 @@ bool CPreferences::s_AutoRescanSharedDirs;
 bool CPreferences::s_FollowSymlinksInShares;
 wxString CPreferences::s_ExcludeSharePatterns;
 bool CPreferences::s_ExcludeSharePatternsUseRegex;
+bool CPreferences::s_ExcludeOfficeDocuments;
+bool CPreferences::s_officeExclusionAvailable = true;
 CShareExcludeFilter CPreferences::s_ShareExcludeFilter;
 bool CPreferences::s_NewVersionCheck;
 // Default true so the monolithic app (which never receives the capability tag over EC
@@ -988,7 +990,8 @@ protected:
 	bool m_is_skin;
 };
 
-int CPreferences::PreviewExcludeCount(const wxString &patterns, bool useRegex, const wxArrayString &fileNames)
+int CPreferences::PreviewExcludeCount(
+	const wxString &patterns, bool useRegex, const wxArrayString &fileNames, bool excludeOffice)
 {
 	CShareExcludeFilter filter;
 	filter.Compile(patterns, useRegex);
@@ -997,7 +1000,8 @@ int CPreferences::PreviewExcludeCount(const wxString &patterns, bool useRegex, c
 	}
 	int count = 0;
 	for (size_t i = 0; i < fileNames.GetCount(); ++i) {
-		if (filter.Matches(fileNames[i])) {
+		if (filter.Matches(fileNames[i]) ||
+			(excludeOffice && ShareExclude::IsOfficeDocument(fileNames[i]))) {
 			++count;
 		}
 	}
@@ -1429,6 +1433,8 @@ void CPreferences::BuildItemList(const wxString &appdir)
 			".DS_Store|._*|.Spotlight-V100|.Trashes|.fseventsd|"
 			".DocumentRevisions-V100|.TemporaryItems|.apdisk|"
 			"Thumbs.db|ehthumbs.db|desktop.ini|.directory")));
+	NewCfgItem(IDC_EXCLUDE_OFFICE_DOCUMENTS,
+		(new Cfg_Bool("/eMule/ExcludeOfficeDocuments", s_ExcludeOfficeDocuments, true)));
 	NewCfgItem(IDC_EXCLUDE_SHARE_REGEX,
 		(new Cfg_Bool("/eMule/ExcludeSharePatternsUseRegex", s_ExcludeSharePatternsUseRegex, false)));
 
