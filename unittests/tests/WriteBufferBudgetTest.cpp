@@ -105,6 +105,8 @@ TEST(WriteBufferBudget, PressureIsLocalUnlessUnknownDataOrTheGlobalTotalOverlaps
 	auto unknownData = unresolved->Payload();
 	ASSERT_TRUE(budget.IsPressured("hot"));
 	ASSERT_FALSE(budget.IsPressured("healthy"));
+	ASSERT_FALSE(budget.IsPressured("new-path", "b"));
+	ASSERT_TRUE(budget.IsPressured("new-path", "a"));
 	ASSERT_TRUE(budget.IsPressured("unknown"));
 	ASSERT_TRUE(budget.ReserveRequest("other-b", 8, "b") != nullptr);
 	ASSERT_TRUE(budget.Identify("unknown", "b"));

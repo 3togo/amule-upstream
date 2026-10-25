@@ -30,6 +30,7 @@
 #include "FileAutoClose.h" // Needed for CFileAutoClose
 #include "WriteBufferBudget.h"
 #include "BufferedWriteBlock.h"
+#include "PartFileWriteSession.h"
 #include "FileArea.h" // Needed for CFileArea (PartFileBufferedData)
 #include <array>      // Needed for std::array (m_ecTickState)
 #include <atomic>     // Needed for std::atomic (m_iWrites, flushed)
@@ -436,6 +437,7 @@ private:
 
 	void PerformFileComplete();
 	void WaitForUploadReads();
+	void WaitForWrites();
 
 	// Handles the .part.met saves CPartMetWriter finished: logs failures, and clears the dirty
 	// bits once the file on disk holds the current state. Main thread.
@@ -455,6 +457,7 @@ private:
 	uint32 m_nTotalBufferData;
 	bool m_writeQueueDeferred = false;
 	uint64 m_nLastBufferFlushTime;
+	std::shared_ptr<PartFileWriteSession> m_writeSession = std::make_shared<PartFileWriteSession>();
 	std::atomic<int32> m_iWrites; // eMule ref: count of items queued to write thread (not yet PB_WRITTEN)
 	std::vector<bool> m_aChangedPart; // eMule ref: persistent tracking of parts needing hash verification
 

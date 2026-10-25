@@ -378,6 +378,7 @@ CPartFile::~CPartFile()
 	if (m_hpartfile.IsOpened()) {
 		// FlushBuffer drains buffered writes / harvests Phase 2's PB_WRITTEN items into
 		// m_aChangedPart. Phase 3 itself returns early due to m_inDestructor.
+		WaitForWrites();
 		FlushBuffer();
 
 		// Sync-hash any parts still flagged dirty in m_aChangedPart.
@@ -1655,8 +1656,9 @@ uint32 CPartFile::Process(uint8 m_icounter)
 	// file is idle.
 	if ((m_nTotalBufferData > thePrefs::GetFileBufferSize()) || m_writeQueueDeferred ||
 		(dwCurTick > (m_nLastBufferFlushTime + BUFFER_TIME_LIMIT)) || HasPendingHashWork() ||
-		(m_nTotalBufferData != 0 && WriteBufferBudget::Get().ShouldFlush(
-						    GetFilePath().GetRaw().ToStdString(wxConvUTF8)))) {
+		(m_nTotalBufferData != 0 &&
+			WriteBufferBudget::Get().ShouldFlush(m_PartPath.GetRaw().ToStdString(wxConvUTF8),
+				m_writeSession->ready ? m_writeSession->volume : ""))) {
 		FlushBuffer();
 	}
 
@@ -2253,8 +2255,18 @@ bool CPartFile::GetNextRequestedBlock(CUpDownClient *sender,
 		*writeLimited = false;
 	}
 
+	// Discover identity before checking pressure, without a main-thread provider call.
+	auto *writer = theApp->partFileWriteThread;
+	if (writer != nullptr && writer->IsRunning() && !writer->PrepareFile(this)) {
+		if (writeLimited != nullptr) {
+			*writeLimited = true;
+		}
+		count = 0;
+		return false;
+	}
 	// Only allocated dirty payload applies backpressure; request metadata does not.
-	if (WriteBufferBudget::Get().IsPressured(GetFilePath().GetRaw().ToStdString(wxConvUTF8))) {
+	if (WriteBufferBudget::Get().IsPressured(m_PartPath.GetRaw().ToStdString(wxConvUTF8),
+		    m_writeSession->ready ? m_writeSession->volume : "")) {
 		if (writeLimited != nullptr) {
 			*writeLimited = true;
 		}
@@ -2312,8 +2324,9 @@ bool CPartFile::GetNextRequestedBlock(CUpDownClient *sender,
 			Requested_Block_Struct *pBlock = new Requested_Block_Struct;
 			if (GetNextEmptyBlockInPart(sender->GetLastPartAsked(), pBlock) == true) {
 				auto credit = WriteBufferBudget::Get().ReserveRequest(
-					GetFilePath().GetRaw().ToStdString(wxConvUTF8),
-					pBlock->EndOffset - pBlock->StartOffset + 1);
+					m_PartPath.GetRaw().ToStdString(wxConvUTF8),
+					pBlock->EndOffset - pBlock->StartOffset + 1,
+					m_writeSession->ready ? m_writeSession->volume : "");
 				if (!credit) {
 					if (writeLimited != nullptr) {
 						*writeLimited = true;
@@ -2753,6 +2766,8 @@ void CPartFile::Delete()
 	// SuspendUpload above dropped this file's uploaders under the uploading-list lock, so no
 	// new upload read can start.
 	WaitForUploadReads();
+
+	WaitForWrites();
 
 	// Same reasoning as PerformFileComplete: the upload reader holds
 	// m_hpartfileMutex around its Seek+Read, so the close takes it too.
@@ -3592,7 +3607,8 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 	block->transferred += buffered;
 
 	if (m_gaplist.IsComplete() ||
-		WriteBufferBudget::Get().ShouldFlush(GetFilePath().GetRaw().ToStdString(wxConvUTF8))) {
+		WriteBufferBudget::Get().ShouldFlush(m_PartPath.GetRaw().ToStdString(wxConvUTF8),
+			m_writeSession->ready ? m_writeSession->volume : "")) {
 		FlushBuffer();
 	}
 
@@ -3600,8 +3616,18 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 	return buffered;
 }
 
+void CPartFile::WaitForWrites()
+{
+	while (m_iWrites.load() != 0) {
+		wxMilliSleep(10);
+	}
+}
+
 void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 {
+	if (m_deleting) {
+		return;
+	}
 	m_nLastBufferFlushTime = GetTickCount64();
 
 	uint32 partCount = GetPartCount();
@@ -3620,7 +3646,9 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 	// fit (PB_NOSPACE). Probing here would block the main thread on a busy or hung mount, as
 	// ntfs-3g does during a trim. Without the write thread (shutdown), check here as before.
 	CPartFileWriteThread *pThread = theApp->partFileWriteThread;
-	const bool threaded = pThread && pThread->IsRunning();
+	// Teardown first joins this file's accepted work, then drains synchronously.
+	// It cannot enqueue another bounded batch and close while that batch runs.
+	const bool threaded = pThread && pThread->IsRunning() && !m_inDestructor;
 	const bool refused = PutBackRefusedWrites();
 	uint64 spaceBytes = 0;
 	if (!threaded) {
@@ -3653,11 +3681,14 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 				}
 				item->flushed = PB_PENDING;
 				++m_iWrites;
-				pThread->QueueWrite(this,
-					item,
-					GetFilePath(),
-					thePrefs::IsCheckDiskspaceEnabled(),
-					thePrefs::GetMinFreeDiskSpace());
+				if (!pThread->QueueWrite(this,
+					    item,
+					    thePrefs::IsCheckDiskspaceEnabled(),
+					    thePrefs::GetMinFreeDiskSpace())) {
+					--m_iWrites;
+					item->flushed = PB_READY;
+					m_writeQueueDeferred = true;
+				}
 				owned.insert(item->writeCredit.get());
 			}
 		}

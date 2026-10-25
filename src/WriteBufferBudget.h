@@ -337,20 +337,30 @@ public:
 		std::lock_guard<std::mutex> lock(m_state->mutex);
 		return m_state->volumes.size();
 	}
-	bool IsPressured(const std::string &path) const { return CheckPressure(path, false); }
-	bool ShouldFlush(const std::string &path) const { return CheckPressure(path, true); }
+	bool IsPressured(const std::string &path, const std::string &volumeHint = {}) const
+	{
+		return CheckPressure(path, false, volumeHint);
+	}
+	bool ShouldFlush(const std::string &path, const std::string &volumeHint = {}) const
+	{
+		return CheckPressure(path, true, volumeHint);
+	}
 
 private:
-	bool CheckPressure(const std::string &path, bool early) const
+	bool CheckPressure(const std::string &path, bool early, const std::string &volumeHint) const
 	{
 		std::lock_guard<std::mutex> lock(m_state->mutex);
 		const bool global =
 			early ? m_state->used.bytes >= m_global / 8
 			      : UpdatePressure(m_state->used.bytes, m_global, m_state->globalBytes);
 		const auto found = m_state->paths.find(path);
-		const std::string key = found == m_state->paths.end() ? "" : found->second->volume;
+		const std::string key = found == m_state->paths.end() ? volumeHint : found->second->volume;
 		const auto debt = m_state->Debt(key);
-		bool &pressure = key.empty() ? m_state->unknownBytes : m_state->volumes.at(key).bytePressure;
+		const auto group = m_state->volumes.find(key);
+		if (!key.empty() && group == m_state->volumes.end()) {
+			return global || debt.bytes >= (early ? m_volume / 8 : m_volume);
+		}
+		bool &pressure = key.empty() ? m_state->unknownBytes : group->second.bytePressure;
 		return global ||
 		       (early ? debt.bytes >= m_volume / 8 : UpdatePressure(debt.bytes, m_volume, pressure));
 	}

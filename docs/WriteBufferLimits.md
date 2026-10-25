@@ -39,3 +39,19 @@ Volume discovery runs in the write worker using the directory's device identity
 (or Windows volume serial). Unknown paths conservatively share an allowance
 and count against known volumes. A live remount keeps its old identity until
 its payload drains. The single write worker still serializes volumes.
+
+
+## Writes on separate filesystem volumes
+
+The writer uses four bounded workers, with at most one active batch on a resolved
+filesystem volume. Discovery is bounded separately and runs off the main thread.
+An open file's cached descriptor identity avoids repeating a provider lookup;
+unknown identities share a conservative lane. Main-thread request selection uses
+the prepared volume hint while allocated payload accounting remains unchanged.
+
+Queue limits are 4,096 accepted write jobs globally, 1,024 per volume, 64 discovery
+jobs and 64 entries per batch. A refused queue entry remains owned by the part
+file and is retried; it never becomes a synchronous main-thread write. Immutable
+snapshots of one request remain serialized, including sparse read-modify-write.
+Deletion waits for accepted work and shutdown drains owned jobs. A kernel call
+that never returns can still prevent shutdown; workers are not detached.
