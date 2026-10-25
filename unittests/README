@@ -362,3 +362,18 @@ pressure transitions and reset. UploadStorageDiagnosticsIntegrationTest holds a
 real read past the reporting deadline while healthy storage continues, then
 checks completed latency and same-storage denials. It also verifies that disabled
 FileIO emits no summaries. This adds about 30 seconds.
+
+Upload pipeline:" snapshot at most once
+per five seconds with the same VerboseDebug/Cat_FileIO settings described above.
+No paths, file hashes, client IDs or storage keys are emitted.
+
+UploadPipelinePressureTest injects stage observations and time to distinguish
+controlled read, receiver, memory and worker bottlenecks, mixed conditions,
+deferred completion, idle/unlimited/capped traffic, threshold boundaries and
+observation gaps, independent rate expiry and overflow-safe arithmetic. StorageReadPoolTest verifies completed jobs remain separately
+observable while retaining ownership slots. Debug Linux builds register
+UploadPipelinePressureIntegrationTest: pipe-held storage must report read wait
+and same-storage denial, while a non-reading loopback peer must report queued
+payload and transport busy. Other peers must continue delivering verified data;
+recovery must clear underfill and busy/read-wait observations. No public peers,
+real mount changes, hardware throughput assumptions or adaptive actions are used.

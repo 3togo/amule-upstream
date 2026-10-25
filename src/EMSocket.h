@@ -32,6 +32,7 @@
 #include "EncryptedStreamSocket.h" // Needed for CEncryptedStreamSocket
 
 #include "UploadRefill.h"
+#include "UploadPipelinePressure.h"
 
 #include "ThrottledSocket.h" // Needed for ThrottledFileSocket
 
@@ -87,6 +88,7 @@ public:
 	uint64 GetSentFileBytesForDisplayAndReset();
 	void SetUploadBufferTarget(uint32 payload);
 	uint64 QueuedUploadPayload() const;
+	UploadPipelinePressure::Socket UploadPressureSnapshot() const;
 	void TruncateQueues();
 
 	SocketSentBytes SendControlData(uint32 maxNumberOfBytesToSend, uint32 minFragSize) override

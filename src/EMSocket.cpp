@@ -436,6 +436,12 @@ void CEMSocket::SetUploadBufferTarget(uint32 payload)
 	}
 }
 
+UploadPipelinePressure::Socket CEMSocket::UploadPressureSnapshot() const
+{
+	std::lock_guard<std::mutex> lock(m_sendLocker);
+	return { m_uploadRefill.Queued(), m_bBusy.load() };
+}
+
 bool CEMSocket::HasQueues(bool bOnlyStandardPackets) const
 {
 	// Locked: the disk I/O thread calls this while the throttler sends.

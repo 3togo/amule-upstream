@@ -48,7 +48,24 @@ def seed_incomplete_part(root, data):
         + struct.pack('<I', len(tags)) + b''.join(tags))
 
 
-def run(binary, fixture, stage, diagnostics=False):
+
+def wait_pipeline(root, proc, predicate, after=0):
+    deadline = time.monotonic() + 20
+    samples = []
+    while time.monotonic() < deadline:
+        logfile = root / 'logfile'
+        text = logfile.read_text(errors='replace') if logfile.exists() else ''
+        samples = [dict((key, int(value)) for key, value in re.findall(r'(\w+)=(\d+)', line))
+                   for line in text.splitlines() if 'Upload pipeline: ' in line]
+        for sample in reversed(samples):
+            if sample['sample_ms'] > after and predicate(sample):
+                return sample
+        assert proc.poll() is None, 'daemon exited while waiting for pipeline observation'
+        time.sleep(0.05)
+    raise AssertionError(f'pipeline observation missing: {samples[-4:]}')
+
+
+def run(binary, fixture, stage, diagnostics=False, pipeline=False):
     if stage in ('mapped-copy', 'mapped-fault') and os.getenv('AMULE_TEST_SKIP_MMAP') == '1':
         print(f'{stage}: skipped because mmap support is disabled in this build')
         return
@@ -82,8 +99,8 @@ def run(binary, fixture, stage, diagnostics=False):
         write_amule_conf(root, ec_port, Port=peer_port, UDPEnable=0, FilterLanIPs=0,
                          MaxUpload=3500, SlotAllocation=100, MMapEnabled=int(stage in ('mapped-copy', 'mapped-fault')),
                          SharedFileReverifyDays=0, IncomingDir=incoming,
-                         VerboseDebug=int(diagnostics),
-                         sections={'Debug': {'Cat_FileIO': int(diagnostics)}})
+                         VerboseDebug=int(diagnostics or pipeline),
+                         sections={'Debug': {'Cat_FileIO': int(diagnostics or pipeline)}})
         notify_r, notify_w = os.pipe()
         release_r, release_w = os.pipe()
         arm = root / 'armed'
@@ -298,7 +315,8 @@ def run(binary, fixture, stage, diagnostics=False):
                 # There must be no second read/open on the blocked drive, including
                 # the alias directory, even though all its clients have requested data.
                 assert not select.select([notify_r], [], [], 0)[0], 'same storage occupied multiple workers'
-                peers[0].close()  # completion must discard a disconnected client's read
+                if not pipeline:
+                    peers[0].close()  # completion must discard a disconnected client's read
                 healthy.request([(2 * BLOCK, 3 * BLOCK)])
                 healthy.receive((2 * BLOCK, 3 * BLOCK), healthy_data)
                 if diagnostics:
@@ -314,6 +332,12 @@ def run(binary, fixture, stage, diagnostics=False):
                             break
                         assert proc.poll() is None and time.monotonic() < deadline, 'held read missing from periodic diagnostics'
                         time.sleep(0.05)
+                if pipeline:
+                    held = wait_pipeline(root, proc, lambda sample:
+                        sample['read_wait'] > 0 and sample['running_jobs'] > 0
+                        and sample['storage_denied'] == 1 and sample['sustained'] == 1
+                        and sample['transport_busy'] == 0)
+                    peers[0].close()
                 # Recover the drive. Each remaining request must complete exactly once.
                 for index in range(4):
                     os.write(release_w, b'R')
@@ -321,6 +345,13 @@ def run(binary, fixture, stage, diagnostics=False):
                         wait_read(notify_r, expected)
                 for index in range(1, 4):
                     peers[index].receive((0, BLOCK), bad_data[index])
+                if pipeline:
+                    wait_pipeline(root, proc, lambda sample:
+                        sample['active'] > 0 and sample['active'] == sample['drained']
+                        and sample['pending_reads'] == 0 and sample['transport_busy'] == 0
+                        and sample['underfilled'] == 0 and sample['sustained'] == 0,
+                        after=held['sample_ms'])
+                    print('pipeline: held storage classified separately from transport, recovery clears underfill')
                 assert proc.poll() is None, 'daemon exited after the delayed client disconnected'
                 print(f'{stage}: healthy uploads continued, one permit across storage aliases, disconnect/recovery verified')
             except BaseException:
@@ -337,7 +368,7 @@ def run(binary, fixture, stage, diagnostics=False):
                 if proc:
                     stop_daemon(proc)
                 os.close(notify_r)
-            if not diagnostics:
+            if not (diagnostics or pipeline):
                 text = (root / 'logfile').read_text(errors='replace')
                 assert 'Upload storage: ' not in text, 'disabled FileIO emitted storage diagnostics'
             if diagnostics:
