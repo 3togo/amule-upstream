@@ -2008,10 +2008,6 @@ wxSizer *PreferencesDirectoriesTab( wxWindow *parent, bool call_fit, bool set_si
     itemFollowSymlinks->SetValue( TRUE );
     item9->Add( itemFollowSymlinks, 0, wxALIGN_CENTER_VERTICAL, 0 );
 
-    wxCheckBox *office = new wxCheckBox(item10, IDC_EXCLUDE_OFFICE_DOCUMENTS, _("Exclude office documents from sharing"));
-    office->SetToolTip(_("Do not share Word, Excel, PowerPoint, OpenDocument, RTF, CSV or TSV files, including macro-enabled documents. Applies to completed and partial downloads too. Files remain on disk and downloads continue."));
-    item9->Add(office, 0, wxALIGN_CENTER_VERTICAL, 0);
-
     // Shared-file exclusion filter: files whose name matches are not shared.
     wxBoxSizer *itemExcludeRow = new wxBoxSizer( wxHORIZONTAL );
     wxStaticText *itemExcludeLabel = new wxStaticText( item10, -1, _("Exclude files and folders matching:"), wxDefaultPosition, wxDefaultSize, 0 );

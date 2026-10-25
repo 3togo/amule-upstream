@@ -599,7 +599,6 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 	}
 
 #ifdef CLIENT_GUI
-	FindWindow(IDC_EXCLUDE_OFFICE_DOCUMENTS)->Show(thePrefs::OfficeExclusionAvailable());
 	// The shared-file exclusion preview counts against the core's in-memory shared list,
 	// which the remote GUI has no local access to. Remove the button and its info label
 	// here; the pattern/regex fields still work and sync to amuled over EC.
@@ -1233,9 +1232,8 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 	TransferFromWindow();
 
 	// Before the share commit below, whose reload must already use the new filter.
-	const bool excludeFilterChanged = CfgChanged(IDC_EXCLUDE_SHARE_PATTERNS) ||
-					  CfgChanged(IDC_EXCLUDE_SHARE_REGEX) ||
-					  CfgChanged(IDC_EXCLUDE_OFFICE_DOCUMENTS);
+	const bool excludeFilterChanged =
+		CfgChanged(IDC_EXCLUDE_SHARE_PATTERNS) || CfgChanged(IDC_EXCLUDE_SHARE_REGEX);
 	if (excludeFilterChanged) {
 		// Reject-on-apply: in regex mode an invalid expression leaves the filter disabled
 		// (fail-open, never exclude-all), so tell the user rather than silently sharing
@@ -2168,8 +2166,7 @@ void PrefsUnifiedDlg::OnButtonExcludePreview(wxCommandEvent &WXUNUSED(event))
 	bool truncated = false;
 	theApp->sharedfiles->GetShareCandidateNames(names, truncated);
 
-	const int excluded = thePrefs::PreviewExcludeCount(
-		patterns, useRegex, names, CastChild(IDC_EXCLUDE_OFFICE_DOCUMENTS, wxCheckBox)->GetValue());
+	const int excluded = thePrefs::PreviewExcludeCount(patterns, useRegex, names);
 	if (excluded == wxNOT_FOUND) {
 		info->SetLabel(_("Invalid regular expression"));
 	} else {

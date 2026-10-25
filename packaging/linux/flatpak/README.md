@@ -171,13 +171,6 @@ recursive-sharing intent. Flatpak defaults to not following symlinks inside shar
 existing explicit symlink preferences are retained. The private profile itself remains writable so existing
 identities, configuration and partial downloads continue to work.
 
-**Exclude office documents from sharing** is enabled for new and existing
-profiles independently of custom wildcard/regex exclusions. It excludes Word,
-Excel, PowerPoint (including macro-enabled variants), OpenDocument, RTF, CSV and
-TSV files, case-insensitively. Downloads continue and files stay on disk, but
-excluded partial/completed downloads are not added to the upload list. This is
-extension-based accidental-sharing protection, not content classification.
-
 Run the offline permission checks with:
 
 ```sh
