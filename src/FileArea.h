@@ -62,14 +62,19 @@ public:
 	void StartWriteAt(CFileAutoClose &file, uint64 offset, size_t count);
 
 	/**
-	 * Flushes data not yet written.
+	 * Flushes data not yet written. Throws CIOFailureException on failure, retaining the
+	 * buffer so the caller can retry. A failed mapped flush falls back to an allocated
+	 * buffer, so a retry writes the data again rather than only synchronizing clean pages.
 	 */
-	bool FlushAt(CFileAutoClose &file, uint64 offset, size_t count);
+	void FlushAt(CFileAutoClose &file, uint64 offset, size_t count);
 
 	/**
 	 * The buffer holding the data read or to be written, or NULL if not initialized.
 	 */
 	uint8_t *GetBuffer() const { return m_buffer; };
+
+	//! Whether the current read still uses file-backed pages.
+	bool IsMapped() const { return m_mmap_buffer != nullptr; }
 
 	/**
 	 * Touches every page of a memory-mapped read, so its disk reads (and any SIGBUS error)

@@ -506,7 +506,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr "Bạn đã yêu cầu chạy máy chủ web khi khởi động, nhưng không thể chạy tệp thực thi amuleweb. Vui lòng cài đặt gói chứa máy chủ web aMule, hoặc biên dịch aMule từ mã nguồn với -DBUILD_WEBSERVER=YES và cài đặt nó."
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "LỖI"
 
@@ -1298,6 +1298,10 @@ msgstr ""
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Không thể tạo thư mục '%s' cho danh mục '%s', giữ nguyên thư mục '%s'."
+
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr "URL không hợp lệ"
 
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
@@ -2288,6 +2292,26 @@ msgstr[0] "Không thể thêm %u liên kết (xem nhật ký để biết chi ti
 #, c-format
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Liên kết eD2k không hợp lệ! LỖI: %s"
+
+#: src/EditServerListDlg.cpp
+#, fuzzy
+msgid "Edit server list sources"
+msgstr "Chỉnh sửa danh sách máy chủ"
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
+msgstr ""
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr ""
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
@@ -5065,38 +5089,6 @@ msgstr "Tự động kết nối khi khởi động"
 msgid "Reconnect on loss"
 msgstr "Tự động kết nối lại khi mất kết nối"
 
-#: src/muuli_wdr.cpp
-msgid "File repair hashes over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Share and use file repair hashes (AICH) over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
-"\n"
-"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
-"\n"
-"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
-"\n"
-"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Ignore repair hashes from Kad nodes too old to support them"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
-"\n"
-"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
-"\n"
-"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
-msgstr ""
-
 #: src/muuli_wdr.cpp src/PeerCapabilities.h
 msgid "IPv6"
 msgstr ""
@@ -5134,8 +5126,9 @@ msgid "retries"
 msgstr "lần thử lại"
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr "Danh sách"
+#, fuzzy
+msgid "Edit sources…"
+msgstr "Nguồn tệp:"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5261,6 +5254,38 @@ msgstr "Bật"
 #: src/muuli_wdr.cpp
 msgid "Advanced I.C.H. trusts every hash (not recommended)"
 msgstr "I.C.H. nâng cao tin tưởng mọi hash (không khuyến nghị)"
+
+#: src/muuli_wdr.cpp
+msgid "File repair hashes over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Share and use file repair hashes (AICH) over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
+"\n"
+"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
+"\n"
+"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
+"\n"
+"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Ignore repair hashes from Kad nodes too old to support them"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
+"\n"
+"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
+"\n"
+"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
 
 #: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
 msgid "Media metadata extraction"
@@ -5742,17 +5767,19 @@ msgstr ""
 msgid "Click this button to reset the log."
 msgstr "Nhấp vào nút này để đặt lại nhật ký."
 
-#: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
-msgstr "Nhấp vào nút này để cập nhật danh sách máy chủ từ URL ..."
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
+#, fuzzy
+msgid "Update server list"
+msgstr "Chỉnh sửa danh sách máy chủ"
 
 #: src/muuli_wdr.cpp
-msgid "Server list"
-msgstr "Danh sách máy chủ"
+msgid "One-off URL:"
+msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
-msgstr "Nhập URL đến tệp server.met vào đây và nhấn nút bên trái để cập nhật danh sách các máy chủ đã biết."
+#, fuzzy
+msgid "Download once"
+msgstr "Đã tải xuống"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -6761,8 +6788,8 @@ msgstr ""
 "    %PARTNAME - chỉ tên tệp"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Tray icon support requires libayatana-appindicator3 at compile time."
-msgstr "Hỗ trợ biểu tượng khay hệ thống yêu cầu libayatana-appindicator3 tại thời điểm biên dịch."
+msgid "No system tray found. Use a desktop with a system tray, or build aMule with libayatana-appindicator3."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Not available on Wayland: the protocol does not report when a window is minimized, so this option cannot intercept the system minimize button. Workaround: launch aMule with `GDK_BACKEND=x11` to use XWayland instead."
@@ -7072,18 +7099,6 @@ msgstr "Đặt lại các cài đặt trên trang này về giá trị mặc đ�
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset to defaults"
 msgstr "Đặt lại về mặc định"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr "Chỉnh sửa danh sách máy chủ"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-"Thêm URL vào đây để tải xuống các tệp server.met.\n"
-"Mỗi dòng chỉ chứa một URL."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
@@ -7585,6 +7600,11 @@ msgid "ERROR: Socket invalid at timeout check"
 msgstr "LỖI: Socket không hợp lệ khi kiểm tra hết thời gian chờ"
 
 #: src/ServerConnect.cpp
+#, fuzzy, c-format
+msgid "Connection attempt to %s (%s:%i) timed out; retrying without obfuscation."
+msgstr "Nỗ lực kết nối đến %s (%s:%i) đã hết thời gian chờ."
+
+#: src/ServerConnect.cpp
 #, c-format
 msgid "Connection attempt to %s (%s:%i) timed out."
 msgstr "Nỗ lực kết nối đến %s (%s:%i) đã hết thời gian chờ."
@@ -7671,17 +7691,12 @@ msgid "IO failure while writing 'server.met': %s"
 msgstr ""
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr "URL không hợp lệ"
+msgid "A server list download is already in progress."
+msgstr ""
 
 #: src/ServerList.cpp
-#, c-format
-msgid "Finished downloading the server list from %s"
-msgstr "Đã tải xong danh sách máy chủ từ %s"
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
-msgstr "Không tìm thấy mục địa chỉ danh sách máy chủ trong 'addresses.dat'. Vui lòng dán một địa chỉ danh sách máy chủ hợp lệ vào tệp này để tự động cập nhật danh sách máy chủ của bạn"
+msgid "No server list sources configured"
+msgstr ""
 
 #: src/ServerList.cpp
 #, c-format
@@ -7690,17 +7705,8 @@ msgstr "Bắt đầu tải xuống danh sách máy chủ từ %s"
 
 #: src/ServerList.cpp
 #, c-format
-msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
-msgstr "CẢNH BÁO: URL không hợp lệ được chỉ định để tự động cập nhật máy chủ: %s"
-
-#: src/ServerList.cpp
-msgid "No valid server.met auto-download url on addresses.dat"
-msgstr "Không có URL tự động tải xuống server.met hợp lệ trong addresses.dat"
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Failed to download the server list from %s"
-msgstr "Không thể tải xuống danh sách máy chủ từ %s"
+msgid "Finished downloading the server list from %s"
+msgstr "Đã tải xong danh sách máy chủ từ %s"
 
 #: src/ServerList.cpp
 msgid "Local server is filtered by the IPFilters, reconnecting to a different server!"
@@ -7907,6 +7913,14 @@ msgstr "Không thể phân giải DNS cho máy chủ %s: Không thể kết nố
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
 msgstr "Nhật ký aMuleGUI"
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr ""
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -10110,6 +10124,42 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
+#~ msgstr "Hỗ trợ biểu tượng khay hệ thống yêu cầu libayatana-appindicator3 tại thời điểm biên dịch."
+
+#~ msgid "List"
+#~ msgstr "Danh sách"
+
+#~ msgid "Click on this button to update the servers list from URL ..."
+#~ msgstr "Nhấp vào nút này để cập nhật danh sách máy chủ từ URL ..."
+
+#~ msgid "Server list"
+#~ msgstr "Danh sách máy chủ"
+
+#~ msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+#~ msgstr "Nhập URL đến tệp server.met vào đây và nhấn nút bên trái để cập nhật danh sách các máy chủ đã biết."
+
+#~ msgid ""
+#~ "Add here URL's to download server.met files.\n"
+#~ "Only one url on each line."
+#~ msgstr ""
+#~ "Thêm URL vào đây để tải xuống các tệp server.met.\n"
+#~ "Mỗi dòng chỉ chứa một URL."
+
+#~ msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
+#~ msgstr "Không tìm thấy mục địa chỉ danh sách máy chủ trong 'addresses.dat'. Vui lòng dán một địa chỉ danh sách máy chủ hợp lệ vào tệp này để tự động cập nhật danh sách máy chủ của bạn"
+
+#, c-format
+#~ msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
+#~ msgstr "CẢNH BÁO: URL không hợp lệ được chỉ định để tự động cập nhật máy chủ: %s"
+
+#~ msgid "No valid server.met auto-download url on addresses.dat"
+#~ msgstr "Không có URL tự động tải xuống server.met hợp lệ trong addresses.dat"
+
+#, c-format
+#~ msgid "Failed to download the server list from %s"
+#~ msgstr "Không thể tải xuống danh sách máy chủ từ %s"
 
 #~ msgid "Download graph scale:"
 #~ msgstr "Tỷ lệ đồ thị tải xuống:"

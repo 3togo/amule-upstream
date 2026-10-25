@@ -522,7 +522,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr "Zahtevali ste zagon spletnega strežnika ob zagonu, vendar binarne datoteke amuleweb ni mogoče zagnati. Namestite paket, ki vsebuje spletni strežnik aMule, ali zgradite aMule iz izvorne kode z -DBUILD_WEBSERVER=YES in ga namestite."
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "NAPAKA"
 
@@ -1317,6 +1317,10 @@ msgstr "Mapa za začasne datoteke prejemanj"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Ni moč ustvariti mape »%s« za kategorijo »%s«, obdržana bo mapa »%s«."
+
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr "Neveljaven URL"
 
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
@@ -2353,6 +2357,26 @@ msgstr[3] "Ni bilo mogoče dodati %u povezav (podrobnosti si oglejte v dnevniku)
 #, c-format
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Neveljavna povezava eD2k. NAPAKA: %s"
+
+#: src/EditServerListDlg.cpp
+#, fuzzy
+msgid "Edit server list sources"
+msgstr "Uredi seznam strežnikov"
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
+msgstr ""
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr ""
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
@@ -5173,38 +5197,6 @@ msgstr "Samodejno se poveži ob zagonu"
 msgid "Reconnect on loss"
 msgstr "Ponovno se poveži ob prekinjeni povezavi"
 
-#: src/muuli_wdr.cpp
-msgid "File repair hashes over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Share and use file repair hashes (AICH) over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
-"\n"
-"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
-"\n"
-"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
-"\n"
-"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Ignore repair hashes from Kad nodes too old to support them"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
-"\n"
-"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
-"\n"
-"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
-msgstr ""
-
 #: src/muuli_wdr.cpp src/PeerCapabilities.h
 msgid "IPv6"
 msgstr ""
@@ -5242,8 +5234,9 @@ msgid "retries"
 msgstr "poskusih"
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr "Seznam"
+#, fuzzy
+msgid "Edit sources…"
+msgstr "Viri datoteke:"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5369,6 +5362,38 @@ msgstr "Omogoči"
 #: src/muuli_wdr.cpp
 msgid "Advanced I.C.H. trusts every hash (not recommended)"
 msgstr "Napredni I.R.P. zaupa vsaki kodi (ni priporočeno)"
+
+#: src/muuli_wdr.cpp
+msgid "File repair hashes over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Share and use file repair hashes (AICH) over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
+"\n"
+"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
+"\n"
+"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
+"\n"
+"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Ignore repair hashes from Kad nodes too old to support them"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
+"\n"
+"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
+"\n"
+"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
 
 #: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
 msgid "Media metadata extraction"
@@ -5853,17 +5878,19 @@ msgstr "Izberite barvo za to kategorijo (trenutno izbrano)"
 msgid "Click this button to reset the log."
 msgstr "Kliknite ta gumb, da ponastavite dnevnik."
 
-#: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
-msgstr "Kliknite ta gumb za posodobitev seznama strežnikov iz URL-ja."
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
+#, fuzzy
+msgid "Update server list"
+msgstr "Uredi seznam strežnikov"
 
 #: src/muuli_wdr.cpp
-msgid "Server list"
-msgstr "Seznam strežnikov"
+msgid "One-off URL:"
+msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
-msgstr "Vnesite URL do datoteke server.met in kliknite gumb na levi, da posodobite seznam strežnikov."
+#, fuzzy
+msgid "Download once"
+msgstr "Prejeto"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -6898,8 +6925,8 @@ msgstr ""
 "    %PARTNAME – samo ime datoteke"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Tray icon support requires libayatana-appindicator3 at compile time."
-msgstr "Podpora za ikono v sistemski vrstici zahteva libayatana-appindicator3 v času prevajanja."
+msgid "No system tray found. Use a desktop with a system tray, or build aMule with libayatana-appindicator3."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Not available on Wayland: the protocol does not report when a window is minimized, so this option cannot intercept the system minimize button. Workaround: launch aMule with `GDK_BACKEND=x11` to use XWayland instead."
@@ -7215,18 +7242,6 @@ msgstr "Ali želite ponastaviti nastavitve na tej strani na privzete vrednosti?"
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset to defaults"
 msgstr "Ponastavi na privzeto"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr "Uredi seznam strežnikov"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-"Sem dodajte URL-je do datotek server.met.\n"
-"Po en URL v vsako vrstico."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
@@ -7756,6 +7771,11 @@ msgid "ERROR: Socket invalid at timeout check"
 msgstr "NAPAKA: po poteku časa je bila vtičnica neveljavna"
 
 #: src/ServerConnect.cpp
+#, fuzzy, c-format
+msgid "Connection attempt to %s (%s:%i) timed out; retrying without obfuscation."
+msgstr "Čas za poskus povezovanja z %s (%s:%i) je potekel."
+
+#: src/ServerConnect.cpp
 #, c-format
 msgid "Connection attempt to %s (%s:%i) timed out."
 msgstr "Čas za poskus povezovanja z %s (%s:%i) je potekel."
@@ -7848,17 +7868,12 @@ msgid "IO failure while writing 'server.met': %s"
 msgstr "Vhodno/izhodna napaka med branjem »server.met«: "
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr "Neveljaven URL"
+msgid "A server list download is already in progress."
+msgstr ""
 
 #: src/ServerList.cpp
-#, c-format
-msgid "Finished downloading the server list from %s"
-msgstr "Prejemanje seznama strežnikov od %s zaključeno"
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
-msgstr "V »addresses.dat« ni bil najden noben vnos za seznam strežnikov. Za samodejno posodobitev seznama strežnikov morate v to datoteko vnesti veljaven naslov seznama strežnikov."
+msgid "No server list sources configured"
+msgstr ""
 
 #: src/ServerList.cpp
 #, c-format
@@ -7867,17 +7882,8 @@ msgstr "Začni s prejemanjem seznama strežnikov od %s"
 
 #: src/ServerList.cpp
 #, c-format
-msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
-msgstr "OPOZORILO: za samodejno posodabljanje strežnikov je bil naveden neveljaven URL: %s"
-
-#: src/ServerList.cpp
-msgid "No valid server.met auto-download url on addresses.dat"
-msgstr "V addresses.dat ni veljavnega server.met URL-ja za samodejno posodabljanje."
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Failed to download the server list from %s"
-msgstr "Ni bilo mogoče prejeti seznama strežnikov od %s"
+msgid "Finished downloading the server list from %s"
+msgstr "Prejemanje seznama strežnikov od %s zaključeno"
 
 #: src/ServerList.cpp
 msgid "Local server is filtered by the IPFilters, reconnecting to a different server!"
@@ -8091,6 +8097,14 @@ msgstr "Ni mogoče razrešiti DNS za strežnik: %s: Povezava ni mogoča."
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
 msgstr "Dnevnik aMuleGUI"
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr ""
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -10335,6 +10349,42 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
+#~ msgstr "Podpora za ikono v sistemski vrstici zahteva libayatana-appindicator3 v času prevajanja."
+
+#~ msgid "List"
+#~ msgstr "Seznam"
+
+#~ msgid "Click on this button to update the servers list from URL ..."
+#~ msgstr "Kliknite ta gumb za posodobitev seznama strežnikov iz URL-ja."
+
+#~ msgid "Server list"
+#~ msgstr "Seznam strežnikov"
+
+#~ msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+#~ msgstr "Vnesite URL do datoteke server.met in kliknite gumb na levi, da posodobite seznam strežnikov."
+
+#~ msgid ""
+#~ "Add here URL's to download server.met files.\n"
+#~ "Only one url on each line."
+#~ msgstr ""
+#~ "Sem dodajte URL-je do datotek server.met.\n"
+#~ "Po en URL v vsako vrstico."
+
+#~ msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
+#~ msgstr "V »addresses.dat« ni bil najden noben vnos za seznam strežnikov. Za samodejno posodobitev seznama strežnikov morate v to datoteko vnesti veljaven naslov seznama strežnikov."
+
+#, c-format
+#~ msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
+#~ msgstr "OPOZORILO: za samodejno posodabljanje strežnikov je bil naveden neveljaven URL: %s"
+
+#~ msgid "No valid server.met auto-download url on addresses.dat"
+#~ msgstr "V addresses.dat ni veljavnega server.met URL-ja za samodejno posodabljanje."
+
+#, c-format
+#~ msgid "Failed to download the server list from %s"
+#~ msgstr "Ni bilo mogoče prejeti seznama strežnikov od %s"
 
 #~ msgid "Download graph scale:"
 #~ msgstr "Merilo za graf prejemanj:"

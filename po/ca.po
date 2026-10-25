@@ -15,7 +15,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-21 09:04+0000\n"
+"PO-Revision-Date: 2026-10-24 07:47+0000\n"
 "Last-Translator: minterior <minterior@gmail.com>\n"
 "Language-Team: Català\n"
 "Language: ca\n"
@@ -532,7 +532,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr "Heu demanat que s'executi el servidor web a l'inici, però el fitxer binari de l'amuleweb no es pot executar. Instal·leu el paquet que conté el servidor web de l'aMule, o compileu l'aMule des del codi font amb -DBUILD_WEBSERVER=YES i instal·leu-lo."
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "ERROR"
 
@@ -1322,6 +1322,10 @@ msgstr "No s'ha pogut suprimir la categoria: %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "No s'ha pogut crear el directori '%s' per a la categoria '%s', es mantindrà el directori '%s'."
+
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr "Adreça invàlida"
 
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
@@ -2324,6 +2328,27 @@ msgstr[1] "No s'han pogut afegir %u enllaços (consulteu el registre per a més 
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Enllaç eD2k invàlid! ERROR: %s"
 
+#: src/EditServerListDlg.cpp
+msgid "Edit server list sources"
+msgstr "Editar les fonts de la llista de servidors"
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
+msgstr ""
+"Introduceix una URL de server.met per línia.\n"
+"En desar, es substituirà la llista de fonts i s'eliminaran les línies de comentari."
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr "No s'han pogut desar les fonts de la llista de servidors a %s. Comprova les URLs i els permisos del fitxer."
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
+msgstr "addresses.dat al directori de configuració del dimoni"
+
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
 msgstr "El client ha enviat un paquet després d'una autenticació fallida."
@@ -3057,7 +3082,7 @@ msgstr "Port UDP extès (Kad / cerca global) "
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Enable UPnP for router port forwarding"
-msgstr "Activa UPnP per redirecció de ports"
+msgstr "Activa UPnP per a la redirecció de ports a l'encaminador"
 
 #: src/FirstRunWizard.cpp
 msgid ""
@@ -3065,9 +3090,9 @@ msgid ""
 "peers can reach you (a \"HighID\"). Turn off if your router\n"
 "doesn't support UPnP or you forward ports manually."
 msgstr ""
-"Permet que l'aMule demani al vostre encaminador que reenviï els ports\n"
-"de dalt perquè altres parells us puguin arribar (una «HighID»). Desactiveu-ho\n"
-"si el vostre encaminador no admet UPnP o si reenvieu els ports manualment."
+"Permet a l'aMule demanar al vostre encaminador reenviar els ports de dalt\n"
+"perquè altres parells arribin a vosaltres (una \"ID Alta\"). Desactiveu-ho si el\n"
+"vostre encaminador no admet UPnP o si reenvieu els ports manualment."
 
 #: src/FirstRunWizard.cpp
 msgid "Bootstrap files"
@@ -3468,7 +3493,7 @@ msgstr "Nodes (%u)"
 
 #: src/KadDlg.cpp
 msgid "Invalid ip to bootstrap"
-msgstr "IP invàlida per a l'arrancada"
+msgstr "IP no vàlida per inicialitzar"
 
 #: src/KadDlg.cpp
 msgid "Invalid port to bootstrap"
@@ -4444,7 +4469,7 @@ msgstr "Extensió"
 
 #: src/muuli_wdr.cpp
 msgid "Min Size"
-msgstr "Mida Mín."
+msgstr "Mida mínima"
 
 #: src/muuli_wdr.cpp
 msgid "Bytes"
@@ -4464,7 +4489,7 @@ msgstr "GiB"
 
 #: src/muuli_wdr.cpp
 msgid "Max Size"
-msgstr "Mida Màx."
+msgstr "Mida màxima"
 
 #: src/muuli_wdr.cpp
 msgid "Availability"
@@ -5056,7 +5081,7 @@ msgstr "Aquest port UDP és utilitzat per sol·licituds eD2k i Kad exteses"
 
 #: src/muuli_wdr.cpp
 msgid "UPnP TCP Port (Optional):"
-msgstr "UPnP Port TCP (Opcional):"
+msgstr "Port TCP UPnP (opcional):"
 
 #: src/muuli_wdr.cpp
 msgid "Bind local address to IP (empty for any):"
@@ -5093,50 +5118,6 @@ msgstr "Autoconnecta a l'inici"
 #: src/muuli_wdr.cpp
 msgid "Reconnect on loss"
 msgstr "Reconnecta en perdre la connexió"
-
-#: src/muuli_wdr.cpp
-msgid "File repair hashes over Kad"
-msgstr "Hashes de reparació de fitxers a Kad"
-
-#: src/muuli_wdr.cpp
-msgid "Share and use file repair hashes (AICH) over Kad"
-msgstr "Comparteix i utilitza hashes de reparació de fitxers (AICH) a Kad"
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
-"\n"
-"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
-"\n"
-"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
-"\n"
-"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
-msgstr ""
-"Comparteix els hashes de reparació de fitxers amb altres nodes Kad i n'obté de les cerques a Kad. Aquests hashes poden ajudar l'aMule a reparar dades de baixada malmeses sense haver de tornar a baixar una part sencera. L'aMule només fa servir un hash per reparar quan prou clients independents comuniquen el mateix hash.\n"
-"\n"
-"Els clients Kad molt antics (anteriors a l'eMule 0.49b) poden perdre resultats de cerca que continguin aquests hashes. Si noteu que falten resultats, proveu de desactivar aquesta opció.\n"
-"\n"
-"En desactivar aquesta opció, els hashes de reparació emmagatzemats al vostre índex Kad es descarten en el següent desament. Si la torneu a activar, es tornen a recollir.\n"
-"\n"
-"Detall tècnic: en activar-la s'anuncia la versió 0x0a del protocol Kad i s'afegeixen hashes AICH a la publicació de paraules clau i als resultats de cerca."
-
-#: src/muuli_wdr.cpp
-msgid "Ignore repair hashes from Kad nodes too old to support them"
-msgstr "Ignora els hashes de reparació dels nodes Kad massa antics per admetre'ls"
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
-"\n"
-"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
-"\n"
-"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
-msgstr ""
-"Només s'aplica si està activada l'opció de compartir i utilitzar hashes de reparació de fitxers a Kad. Ignora els hashes publicats per nodes que declaren una versió de Kad massa antiga per admetre'ls.\n"
-"\n"
-"La versió que declara un node pot estar desactualitzada o ser inexacta, de manera que això pot descartar hashes vàlids i no fa que els hashes acceptats siguin fiables. Els nodes amb una versió desconeguda s'accepten igualment.\n"
-"\n"
-"Detall tècnic: rebutja les etiquetes de publicació AICH dels nodes que anuncien versions del protocol Kad inferiors a 0x09."
 
 #: src/muuli_wdr.cpp src/PeerCapabilities.h
 msgid "IPv6"
@@ -5175,8 +5156,8 @@ msgid "retries"
 msgstr "intents"
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr "Llista"
+msgid "Edit sources…"
+msgstr "Edita les fonts…"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5301,6 +5282,50 @@ msgstr "Activa"
 #: src/muuli_wdr.cpp
 msgid "Advanced I.C.H. trusts every hash (not recommended)"
 msgstr "I.C.H. avançat confia en totes les comprovacions (no recomanat)"
+
+#: src/muuli_wdr.cpp
+msgid "File repair hashes over Kad"
+msgstr "Hashes de reparació de fitxers a Kad"
+
+#: src/muuli_wdr.cpp
+msgid "Share and use file repair hashes (AICH) over Kad"
+msgstr "Comparteix i utilitza hashes de reparació de fitxers (AICH) a Kad"
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
+"\n"
+"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
+"\n"
+"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
+"\n"
+"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
+msgstr ""
+"Comparteix els hashes de reparació de fitxers amb altres nodes Kad i n'obté de les cerques a Kad. Aquests hashes poden ajudar l'aMule a reparar dades de baixada malmeses sense haver de tornar a baixar una part sencera. L'aMule només fa servir un hash per reparar quan prou clients independents comuniquen el mateix hash.\n"
+"\n"
+"Els clients Kad molt antics (anteriors a l'eMule 0.49b) poden perdre resultats de cerca que continguin aquests hashes. Si noteu que falten resultats, proveu de desactivar aquesta opció.\n"
+"\n"
+"En desactivar aquesta opció, els hashes de reparació emmagatzemats al vostre índex Kad es descarten en el següent desament. Si la torneu a activar, es tornen a recollir.\n"
+"\n"
+"Detall tècnic: en activar-la s'anuncia la versió 0x0a del protocol Kad i s'afegeixen hashes AICH a la publicació de paraules clau i als resultats de cerca."
+
+#: src/muuli_wdr.cpp
+msgid "Ignore repair hashes from Kad nodes too old to support them"
+msgstr "Ignora els hashes de reparació dels nodes Kad massa antics per admetre'ls"
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
+"\n"
+"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
+"\n"
+"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
+"Només s'aplica si està activada l'opció de compartir i utilitzar hashes de reparació de fitxers a Kad. Ignora els hashes publicats per nodes que declaren una versió de Kad massa antiga per admetre'ls.\n"
+"\n"
+"La versió que declara un node pot estar desactualitzada o ser inexacta, de manera que això pot descartar hashes vàlids i no fa que els hashes acceptats siguin fiables. Els nodes amb una versió desconeguda s'accepten igualment.\n"
+"\n"
+"Detall tècnic: rebutja les etiquetes de publicació AICH dels nodes que anuncien versions del protocol Kad inferiors a 0x09."
 
 #: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
 msgid "Media metadata extraction"
@@ -5656,7 +5681,7 @@ msgstr "Port TCP:"
 
 #: src/muuli_wdr.cpp
 msgid "Enable UPnP port forwarding on the EC port"
-msgstr "Activa l'encaminament UPnP al port de connexions externes"
+msgstr "Activa l'encaminament UPnP al port EC (connexions externes)"
 
 #: src/muuli_wdr.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Password"
@@ -5720,7 +5745,7 @@ msgstr "Plantilla web"
 
 #: src/muuli_wdr.cpp
 msgid "Full rights password"
-msgstr "Contrasenya de l'administrador:"
+msgstr "Contrasenya amb drets totals"
 
 #: src/muuli_wdr.cpp
 msgid "Enable Low rights User"
@@ -5728,19 +5753,19 @@ msgstr "Habilita l'usuari convidat"
 
 #: src/muuli_wdr.cpp
 msgid "Low rights password"
-msgstr "Contrasenya del convidat:"
+msgstr "Contrasenya amb drets restringits"
 
 #: src/muuli_wdr.cpp
 msgid "Enable UPnP port forwarding of the web server port"
-msgstr "Activa redirecció de ports UPnP en el port del servidor web"
+msgstr "Activa l'encaminament UPnP del port del servidor web"
 
 #: src/muuli_wdr.cpp
 msgid "Web server UPnP TCP port (Optional)"
-msgstr "Port TCP del servidor web (Opcional):"
+msgstr "Port TCP UPnP del servidor web (opcional)"
 
 #: src/muuli_wdr.cpp
 msgid "Page Refresh Time (in secs)"
-msgstr "Temps de refresc de la pàgina (en segons):"
+msgstr "Temps de refresc de la pàgina (en segons)"
 
 #: src/muuli_wdr.cpp
 msgid "Enable Gzip compression"
@@ -5782,17 +5807,17 @@ msgstr "Seleccioneu un color per a la Categoria (actualment seleccionat)"
 msgid "Click this button to reset the log."
 msgstr "Feu clic per a reiniciar el registre."
 
-#: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
-msgstr "Feu clic en aquest botó per a actualitzar la llista de servidors des d'una URL ..."
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
+msgid "Update server list"
+msgstr "Actualitza la llista de servidors"
 
 #: src/muuli_wdr.cpp
-msgid "Server list"
-msgstr "Llista de servidors"
+msgid "One-off URL:"
+msgstr "URL d'ús puntual:"
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
-msgstr "Introduïu l'adreça d'un fitxer server.met i premeu el botó de l'esquerra per a actualitzar la llista de servidors coneguts."
+msgid "Download once"
+msgstr "Baixa una vegada"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -5844,7 +5869,7 @@ msgstr "Nodes (0)"
 
 #: src/muuli_wdr.cpp
 msgid "Enter the url to a nodes.dat file here and press the button to the left to update the list of known nodes."
-msgstr "Introduïu la URL d'un fitxer nodes.dat i premeu el botó de l'esquerra per a actualitzar la llista de nodes coneguts."
+msgstr "Introduïu aquí la URL d'un fitxer nodes.dat i premeu el botó de l'esquerra per actualitzar la llista de nodes coneguts."
 
 #: src/muuli_wdr.cpp
 msgid "Lookup diagnostics"
@@ -6634,7 +6659,7 @@ msgstr "S'ha acabat de refer els resums de %s"
 #: src/PartFile.cpp
 #, c-format
 msgid "Unexpected error while completing %s. File paused"
-msgstr "S'ha produït un error inesperat mentre es completava %s. S'ha pausat el fitxer."
+msgstr "S'ha produït un error inesperat mentre es completava %s. Fitxer en pausa"
 
 #: src/PartFile.cpp
 #, c-format
@@ -6663,7 +6688,7 @@ msgstr "AVÍS: No ha estat possible fer el resum de la part descarregada - conju
 #: src/PartFile.cpp
 #, c-format
 msgid "ERROR: Unable to hash downloaded part - hashset incomplete (%s). This should never happen"
-msgstr "ERROR: No ha estat possible fer el resum de la part descarregada - conjunt de resums incomplet (%s). Açò no hauria de passar mai."
+msgstr "ERROR: no s'ha pogut calcular el resum (hash) de la part descarregada - conjunt de resums (hashset) incomplet (%s). Això no hauria de passar mai"
 
 #: src/PartFile.cpp
 #, c-format
@@ -6804,8 +6829,8 @@ msgstr ""
 "    %PARTNAME - només el nom del fitxer"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Tray icon support requires libayatana-appindicator3 at compile time."
-msgstr "La compatibilitat amb la icona de la safata requereix libayatana-appindicator3 en temps de compilació."
+msgid "No system tray found. Use a desktop with a system tray, or build aMule with libayatana-appindicator3."
+msgstr "No s'ha trobat cap safata del sistema. Utilitzeu un escriptori amb safata del sistema o compileu l'aMule amb libayatana-appindicator3."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Not available on Wayland: the protocol does not report when a window is minimized, so this option cannot intercept the system minimize button. Workaround: launch aMule with `GDK_BACKEND=x11` to use XWayland instead."
@@ -7115,18 +7140,6 @@ msgstr "Voleu restablir els paràmetres d'aquesta pàgina als valors predetermin
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset to defaults"
 msgstr "Restableix els valors predeterminats"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr "Edita la llista de servidors"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-"Afegiu adreces URL d'on baixar el fitxer server.met.\n"
-"Només una adreça a cada línia."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
@@ -7632,6 +7645,11 @@ msgid "ERROR: Socket invalid at timeout check"
 msgstr "ERROR: Sòcol invàlid en comprovar el temps d'espera"
 
 #: src/ServerConnect.cpp
+#, fuzzy, c-format
+msgid "Connection attempt to %s (%s:%i) timed out; retrying without obfuscation."
+msgstr "L'intent de connexió a %s (%s:%i) ha excedit el temps."
+
+#: src/ServerConnect.cpp
 #, c-format
 msgid "Connection attempt to %s (%s:%i) timed out."
 msgstr "L'intent de connexió a %s (%s:%i) ha excedit el temps."
@@ -7720,17 +7738,12 @@ msgid "IO failure while writing 'server.met': %s"
 msgstr "Error d'E/S en escriure «server.met»: %s"
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr "Adreça invàlida"
+msgid "A server list download is already in progress."
+msgstr "Ja hi ha una descàrrega de la llista de servidors en curs."
 
 #: src/ServerList.cpp
-#, c-format
-msgid "Finished downloading the server list from %s"
-msgstr "S'ha acabat de baixar la llista de servidors des de %s"
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
-msgstr "No s'ha trobat cap adreça d'una llista de servidors al fitxer 'addresses.dat'. Enganxeu una adreça cap a una llista de servidors vàlida a aquest fitxer per a que es pugui actualitzar automàticament la llista de servidors"
+msgid "No server list sources configured"
+msgstr "No s'han configurat fonts de la llista de servidors"
 
 #: src/ServerList.cpp
 #, c-format
@@ -7739,17 +7752,8 @@ msgstr "Comença a baixar la llista de servidors des de %s"
 
 #: src/ServerList.cpp
 #, c-format
-msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
-msgstr "AVÍS: s'ha especificat una URL invàlida per a l'actualització automàtica de servidors: %s"
-
-#: src/ServerList.cpp
-msgid "No valid server.met auto-download url on addresses.dat"
-msgstr "No s'ha trobat una URL per a baixar un server.met al fitxer addresses.dat"
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Failed to download the server list from %s"
-msgstr "No s'ha pogut baixar la llista de servidors des de %s"
+msgid "Finished downloading the server list from %s"
+msgstr "S'ha acabat de baixar la llista de servidors des de %s"
 
 #: src/ServerList.cpp
 msgid "Local server is filtered by the IPFilters, reconnecting to a different server!"
@@ -7957,6 +7961,14 @@ msgstr "No es pot resoldre el dns per al servidor %s: Ha estat impossible connec
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
 msgstr "Registre de l'aMuleGUI"
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
+msgstr "Descarrega i fusiona totes les fonts desades"
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr "Descarrega aquesta URL de server.met un cop sense desar-la."
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -10180,6 +10192,42 @@ msgstr "Kad no ha pogut carregar l'índex desat. S'han conservat els fitxers d'�
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr "Kad no ha pogut desar un índex. S'ha conservat la còpia anterior d'aquest fitxer."
+
+#~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
+#~ msgstr "La compatibilitat amb la icona de la safata requereix libayatana-appindicator3 en temps de compilació."
+
+#~ msgid "List"
+#~ msgstr "Llista"
+
+#~ msgid "Click on this button to update the servers list from URL ..."
+#~ msgstr "Feu clic en aquest botó per a actualitzar la llista de servidors des d'una URL ..."
+
+#~ msgid "Server list"
+#~ msgstr "Llista de servidors"
+
+#~ msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+#~ msgstr "Introduïu l'adreça d'un fitxer server.met i premeu el botó de l'esquerra per a actualitzar la llista de servidors coneguts."
+
+#~ msgid ""
+#~ "Add here URL's to download server.met files.\n"
+#~ "Only one url on each line."
+#~ msgstr ""
+#~ "Afegiu adreces URL d'on baixar el fitxer server.met.\n"
+#~ "Només una adreça a cada línia."
+
+#~ msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
+#~ msgstr "No s'ha trobat cap adreça d'una llista de servidors al fitxer 'addresses.dat'. Enganxeu una adreça cap a una llista de servidors vàlida a aquest fitxer per a que es pugui actualitzar automàticament la llista de servidors"
+
+#, c-format
+#~ msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
+#~ msgstr "AVÍS: s'ha especificat una URL invàlida per a l'actualització automàtica de servidors: %s"
+
+#~ msgid "No valid server.met auto-download url on addresses.dat"
+#~ msgstr "No s'ha trobat una URL per a baixar un server.met al fitxer addresses.dat"
+
+#, c-format
+#~ msgid "Failed to download the server list from %s"
+#~ msgstr "No s'ha pogut baixar la llista de servidors des de %s"
 
 #, c-format
 #~ msgid "Skipped deleting '%s': the selected file has changed."

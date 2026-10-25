@@ -523,7 +523,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr "您要求在啟動時執行網站伺服器，但無法執行 amuleweb 執行檔。請安裝包含 aMule 網站伺服器的套件，或從原始碼以 -DBUILD_WEBSERVER=YES 建置 aMule 並安裝。"
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "錯誤"
 
@@ -1318,6 +1318,10 @@ msgstr "暫存資料夾"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "無法建立 %s 目錄 ( %s 分類用)，繼續使用 %s 目錄。"
+
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr "無效網址"
 
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
@@ -2320,6 +2324,26 @@ msgstr[0] "無法新增 %u 個連結（詳情請參閱記錄檔）。"
 #, c-format
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "無效的 eD2k 連結！錯誤：%s "
+
+#: src/EditServerListDlg.cpp
+#, fuzzy
+msgid "Edit server list sources"
+msgstr "編輯伺服器清單"
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
+msgstr ""
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr ""
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
@@ -5112,38 +5136,6 @@ msgstr "啟動後自動連線"
 msgid "Reconnect on loss"
 msgstr "斷線後自動重新連線"
 
-#: src/muuli_wdr.cpp
-msgid "File repair hashes over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Share and use file repair hashes (AICH) over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
-"\n"
-"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
-"\n"
-"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
-"\n"
-"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Ignore repair hashes from Kad nodes too old to support them"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
-"\n"
-"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
-"\n"
-"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
-msgstr ""
-
 #: src/muuli_wdr.cpp src/PeerCapabilities.h
 msgid "IPv6"
 msgstr ""
@@ -5181,8 +5173,9 @@ msgid "retries"
 msgstr "次重試"
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr "清單"
+#, fuzzy
+msgid "Edit sources…"
+msgstr "檔案來源："
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5308,6 +5301,38 @@ msgstr "啟用"
 #: src/muuli_wdr.cpp
 msgid "Advanced I.C.H. trusts every hash (not recommended)"
 msgstr "進階 I.C.H. 信任所有 hash 值 (不建議)"
+
+#: src/muuli_wdr.cpp
+msgid "File repair hashes over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Share and use file repair hashes (AICH) over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
+"\n"
+"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
+"\n"
+"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
+"\n"
+"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Ignore repair hashes from Kad nodes too old to support them"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
+"\n"
+"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
+"\n"
+"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
 
 #: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
 msgid "Media metadata extraction"
@@ -5792,17 +5817,19 @@ msgstr "選取該分類的顏色 (目前選擇)"
 msgid "Click this button to reset the log."
 msgstr "點選這個按鈕來清除記錄。"
 
-#: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
-msgstr "點選這個按鈕從該網址更新伺服器清單 ..."
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
+#, fuzzy
+msgid "Update server list"
+msgstr "編輯伺服器清單"
 
 #: src/muuli_wdr.cpp
-msgid "Server list"
-msgstr "伺服器清單"
+msgid "One-off URL:"
+msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
-msgstr "輸入 server.met 檔案的網址並按下左邊的按鈕以更新已知伺服器清單。"
+#, fuzzy
+msgid "Download once"
+msgstr "已下載"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -6822,8 +6849,8 @@ msgstr ""
 "    %PARTNAME - 只有檔案名稱"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Tray icon support requires libayatana-appindicator3 at compile time."
-msgstr "系統匣圖示支援需要在編譯時安裝 libayatana-appindicator3。"
+msgid "No system tray found. Use a desktop with a system tray, or build aMule with libayatana-appindicator3."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Not available on Wayland: the protocol does not report when a window is minimized, so this option cannot intercept the system minimize button. Workaround: launch aMule with `GDK_BACKEND=x11` to use XWayland instead."
@@ -7132,18 +7159,6 @@ msgstr "要將此頁面的設定重設為預設值嗎？"
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset to defaults"
 msgstr "重設為預設值"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr "編輯伺服器清單"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-"加入可下載 server.met 檔案的網址。\n"
-"每一行一個網址。"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
@@ -7657,6 +7672,11 @@ msgid "ERROR: Socket invalid at timeout check"
 msgstr "錯誤：連接端點於逾時查驗時失效"
 
 #: src/ServerConnect.cpp
+#, fuzzy, c-format
+msgid "Connection attempt to %s (%s:%i) timed out; retrying without obfuscation."
+msgstr "連線到 %s (%s:%i) 時逾時。"
+
+#: src/ServerConnect.cpp
 #, c-format
 msgid "Connection attempt to %s (%s:%i) timed out."
 msgstr "連線到 %s (%s:%i) 時逾時。"
@@ -7743,17 +7763,12 @@ msgid "IO failure while writing 'server.met': %s"
 msgstr "讀取 server.met 時發生 IO 錯誤："
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr "無效網址"
+msgid "A server list download is already in progress."
+msgstr ""
 
 #: src/ServerList.cpp
-#, c-format
-msgid "Finished downloading the server list from %s"
-msgstr "完成從 %s 下載伺服器清單"
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
-msgstr "在 addresses.dat 中找不到伺服器清單檔位址。請在檔案中貼上有效的伺服器清單檔位址，以自動更新您的伺服器清單"
+msgid "No server list sources configured"
+msgstr ""
 
 #: src/ServerList.cpp
 #, c-format
@@ -7762,17 +7777,8 @@ msgstr "開始從 %s下載伺服器清單"
 
 #: src/ServerList.cpp
 #, c-format
-msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
-msgstr "警告：自動更新伺服器的網址無效 - %s"
-
-#: src/ServerList.cpp
-msgid "No valid server.met auto-download url on addresses.dat"
-msgstr "addresses.dat 檔案中沒有有效的自動更新伺服器清單網址"
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Failed to download the server list from %s"
-msgstr "無法從 %s 下載伺服器清單"
+msgid "Finished downloading the server list from %s"
+msgstr "完成從 %s 下載伺服器清單"
 
 #: src/ServerList.cpp
 msgid "Local server is filtered by the IPFilters, reconnecting to a different server!"
@@ -7983,6 +7989,14 @@ msgstr "無法解析伺服器 %s 的 DNS 資訊：無法連線！"
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
 msgstr "aMuleGUI 記錄"
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr ""
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -10189,6 +10203,42 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
+#~ msgstr "系統匣圖示支援需要在編譯時安裝 libayatana-appindicator3。"
+
+#~ msgid "List"
+#~ msgstr "清單"
+
+#~ msgid "Click on this button to update the servers list from URL ..."
+#~ msgstr "點選這個按鈕從該網址更新伺服器清單 ..."
+
+#~ msgid "Server list"
+#~ msgstr "伺服器清單"
+
+#~ msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+#~ msgstr "輸入 server.met 檔案的網址並按下左邊的按鈕以更新已知伺服器清單。"
+
+#~ msgid ""
+#~ "Add here URL's to download server.met files.\n"
+#~ "Only one url on each line."
+#~ msgstr ""
+#~ "加入可下載 server.met 檔案的網址。\n"
+#~ "每一行一個網址。"
+
+#~ msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
+#~ msgstr "在 addresses.dat 中找不到伺服器清單檔位址。請在檔案中貼上有效的伺服器清單檔位址，以自動更新您的伺服器清單"
+
+#, c-format
+#~ msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
+#~ msgstr "警告：自動更新伺服器的網址無效 - %s"
+
+#~ msgid "No valid server.met auto-download url on addresses.dat"
+#~ msgstr "addresses.dat 檔案中沒有有效的自動更新伺服器清單網址"
+
+#, c-format
+#~ msgid "Failed to download the server list from %s"
+#~ msgstr "無法從 %s 下載伺服器清單"
 
 #~ msgid "Download graph scale:"
 #~ msgstr "下載統計圖比例："

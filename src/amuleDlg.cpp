@@ -65,6 +65,7 @@
 #include "MuleTextCtrl.h" // Needed for CMuleTextCtrl (fast-links placeholder)
 #include "MuleLogCtrl.h"  // Needed for CMuleLogCtrl (the log/server-info panes)
 #include "MuleTrayIcon.h"
+#include "BandwidthRateConversion.h"
 #include "muuli_wdr.h"   // Needed for ID_BUTTON*
 #include "Preferences.h" // Needed for CPreferences
 #include "PrefsUnifiedDlg.h"
@@ -178,6 +179,7 @@ CamuleDlg::CamuleDlg(wxWindow *pParent, const wxString &title, wxPoint where, wx
 , m_prefsVisible(false)
 , m_wndToolbar(NULL)
 , m_wndTaskbarNotifier(NULL)
+, m_hiddenTaskbarNotifier(nullptr)
 , m_nActiveDialog(DT_NETWORKS_WND)
 , m_is_safe_state(false)
 , m_BlinkMessages(false)
@@ -219,6 +221,14 @@ CamuleDlg::CamuleDlg(wxWindow *pParent, const wxString &title, wxPoint where, wx
 	wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED);
 	SetExtraStyle(GetExtraStyle() | wxWS_EX_PROCESS_IDLE);
 	wxUpdateUIEvent::SetMode(wxUPDATE_UI_PROCESS_SPECIFIED);
+#ifndef WITH_LIBAYATANA_APPINDICATOR
+	Bind(wxEVT_DPI_CHANGED, [this](wxDPIChangedEvent &event) {
+		event.Skip();
+		if (m_wndTaskbarNotifier) {
+			m_wndTaskbarNotifier->InvalidateForDPIChange();
+		}
+	});
+#endif
 	wxInitAllImageHandlers();
 	Apply_Clients_Skin();
 
@@ -561,9 +571,32 @@ void CamuleDlg::CreateSystray()
 {
 	wxCHECK_RET(m_wndTaskbarNotifier == NULL, "Systray already created");
 
-	m_wndTaskbarNotifier = new CMuleTrayIcon();
+	if (m_hiddenTaskbarNotifier) {
+		m_wndTaskbarNotifier = m_hiddenTaskbarNotifier;
+		m_hiddenTaskbarNotifier = nullptr;
+		m_wndTaskbarNotifier->SetVisible(true);
+	} else {
+		m_wndTaskbarNotifier = new CMuleTrayIcon();
+	}
 	// This will effectively show the Tray Icon.
 	UpdateTrayIcon(0);
+}
+
+void CamuleDlg::HideSystray()
+{
+#ifdef __WXGTK__
+	// SNI hosts key an item by bus name and object path, and a new indicator in this process
+	// gets both back. GNOME's AppIndicator extension then resets the stale item instead of
+	// showing the new one, so a re-enabled icon stayed away until a restart. Hide the
+	// indicator and keep it instead.
+	if (m_wndTaskbarNotifier) {
+		m_wndTaskbarNotifier->SetVisible(false);
+		m_hiddenTaskbarNotifier = m_wndTaskbarNotifier;
+		m_wndTaskbarNotifier = nullptr;
+	}
+#else
+	RemoveSystray();
+#endif
 }
 
 void CamuleDlg::RemoveSystray()
@@ -584,9 +617,14 @@ void CamuleDlg::RemoveSystray()
 	// each click is a separate event, so the pending deletion has run by the time
 	// CreateSystray() looks.
 	CMuleTrayIcon *icon = m_wndTaskbarNotifier;
+	CMuleTrayIcon *hidden = m_hiddenTaskbarNotifier;
 	m_wndTaskbarNotifier = NULL;
-	if (icon) {
-		CallAfter([icon] { delete icon; });
+	m_hiddenTaskbarNotifier = nullptr;
+	if (icon || hidden) {
+		CallAfter([icon, hidden] {
+			delete icon;
+			delete hidden;
+		});
 	}
 }
 
@@ -1485,8 +1523,9 @@ void CamuleDlg::ShowTransferRate()
 	wxASSERT((m_wndTaskbarNotifier != NULL) == thePrefs::UseTrayIcon());
 	if (m_wndTaskbarNotifier) {
 		// set trayicon-icon
-		int percentDown = (int)ceil((kBpsDown * 100) / thePrefs::GetMaxGraphDownloadRate());
-		UpdateTrayIcon((percentDown > 100) ? 100 : percentDown);
+		const int percentDown =
+			BandwidthRateConversion::ToPercent(kBpsDown, thePrefs::GetMaxGraphDownloadRate());
+		UpdateTrayIcon(percentDown);
 
 		wxString buffer2;
 		if (theApp->IsConnected()) {
@@ -1710,7 +1749,7 @@ void CamuleDlg::OnShow(wxShowEvent &evt)
 	} else {
 		DismissComboPopups(this);
 	}
-#ifdef WITH_LIBAYATANA_APPINDICATOR
+#ifdef __WXGTK__
 	// SNI tray menus are static between rebuilds, so the "Show aMule"/"Hide aMule" entry's
 	// label can drift out of sync when the window is hidden via paths that do not go through
 	// CMuleTrayIcon::DoShowHide (close-button HideOnClose, minimize-to-tray, a programmatic
@@ -1743,7 +1782,7 @@ void CamuleDlg::OnMinimize(wxIconizeEvent &evt)
 	}
 #endif
 
-#ifdef WITH_LIBAYATANA_APPINDICATOR
+#ifdef __WXGTK__
 	// SNI tray menu is built once and held; iconize does not fire EVT_SHOW so OnShow's
 	// RebuildMenu() does not run. Push the refresh from here so the "Show aMule"/"Hide aMule"
 	// label follows iconize transitions too.

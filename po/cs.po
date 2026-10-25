@@ -10,7 +10,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-20 14:05+0000\n"
+"PO-Revision-Date: 2026-10-24 07:47+0000\n"
 "Last-Translator: David Watzke <david@watzke.cz>\n"
 "Language-Team: cs <cs@li.org>\n"
 "Language: cs\n"
@@ -529,7 +529,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr "Požádali jste o spuštění webového serveru po startu, avšak binární soubor amuleweb nelze spustit. Nainstalujte balíček obsahující webový server aMule, nebo sestavte aMule ze zdrojového kódu pomocí přepínače -DBUILD_WEBSERVER=YES a pak jej nainstalujte."
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "CHYBA"
 
@@ -724,16 +724,15 @@ msgstr "Ukládání seedů zdrojů..."
 
 #: src/amule.cpp
 msgid "Stopping background downloads and workers..."
-msgstr ""
+msgstr "Zastavování stahování na pozadí a workerů..."
 
 #: src/amule.cpp
-#, fuzzy
 msgid "Closing connections..."
-msgstr " - stav: připojování..."
+msgstr "Uzavírání spojení..."
 
 #: src/amule.cpp
 msgid "Saving known files and statistics..."
-msgstr ""
+msgstr "Ukládání známých souborů a statistik..."
 
 #: src/amule.cpp
 msgid "ERROR: can't open logfile"
@@ -1049,11 +1048,11 @@ msgstr "Odesílání: %.1f%s | Stahování: %.1f%s"
 
 #: src/amuleDlg.cpp
 msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
-msgstr ""
+msgstr "Rychlost přenosů je hlášena daemonem. Celkové odesílání zahrnuje kontrolní provoz; rychlost odesílání peera zahrnuje jen pakety souborů. Hodnoty v závorkách ukazují režii protokolu v KiB/s."
 
 #: src/amuleDlg.cpp
 msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
-msgstr ""
+msgstr "Rychlosti živě jsou průměrovány za poslední sekundu. Celkové odesílání zahrnuje kontrolní provoz; rychlosti odesílání peera zahrnují jen pakety souborů. Hodnoty v závorkách ukazují režii protokolu v KiB/s."
 
 #: src/amuleDlg.cpp
 #, c-format
@@ -1268,19 +1267,19 @@ msgstr "Připraveno"
 
 #: src/amule-remote-gui.cpp
 msgid "*** Solve the CAPTCHA and send its text as a message."
-msgstr ""
+msgstr "*** Vyřešte výzvu CAPTCHA a odešlete její text jako zprávu."
 
 #: src/amule-remote-gui.cpp
 msgid "*** CAPTCHA passed; your message was delivered."
-msgstr ""
+msgstr "*** CAPTCHA vyřešena správně; vaše zpráva byla doručena."
 
 #: src/amule-remote-gui.cpp
 msgid "*** CAPTCHA failed; send another message to try again."
-msgstr ""
+msgstr "*** CAPTCHA selhala; pro opakování pošlete další zprávu."
 
 #: src/amule-remote-gui.cpp
 msgid "*** CAPTCHA failed; no attempts remain."
-msgstr ""
+msgstr "*** CAPTCHA selhala; nezbývají další pokusy."
 
 #: src/amule-remote-gui.cpp src/TransferWnd.cpp
 msgid "All"
@@ -1288,7 +1287,7 @@ msgstr "Vše"
 
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
-msgstr ""
+msgstr "Daemon nemohl použít změny portu připojení."
 
 #: src/amule-remote-gui.cpp
 msgid "not readable"
@@ -1321,9 +1320,13 @@ msgstr "Nešlo smazat kategorii: %s"
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Nelze vytvořit adresář '%s' pro kategorii '%s', ponechává se adresář '%s'."
 
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr "Neplatná adresa URL"
+
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
-msgstr ""
+msgstr "Jádro nepotvrdilo smazání souboru. Obnovte a zkuste to znovu."
 
 #: src/amule-remote-gui.cpp
 #, c-format
@@ -1340,7 +1343,7 @@ msgstr "Neznámý"
 
 #: src/amule-remote-gui.cpp
 msgid "The connected daemon does not support All searches."
-msgstr ""
+msgstr "Připojený daemon nepodporuje Všechna vyhledávání."
 
 #: src/BaseClient.cpp
 msgid "Searching buddy for lowid connection"
@@ -2147,9 +2150,8 @@ msgid "C&lear completed"
 msgstr "O&debrat dokončené"
 
 #: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-#, fuzzy
 msgid "Delete file from &disk"
-msgstr "Mazání souboru: %s"
+msgstr "Smazat soubor z &disk"
 
 #: src/DownloadListCtrl.cpp
 msgid "Swap every A4AF to this file now"
@@ -2335,6 +2337,27 @@ msgstr[2] "Nelze přidat %u odkazů (podrobnosti viz protokol)."
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Neplatný odkaz eD2k! CHYBA: %s"
 
+#: src/EditServerListDlg.cpp
+msgid "Edit server list sources"
+msgstr "Upravit zdroje seznamu serverů"
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
+msgstr ""
+"Zadejte jednu URL server.met na řádek.\n"
+"Uložení nahradí seznam zdrojů a odebere řádky komentářů."
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr "Nepodařilo se uložit zdroje seznamu serverů do %s. Zkontrolujte adresy a oprávnění souborů."
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
+msgstr "addresses.dat v adresáři nastavení daemona"
+
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
 msgstr "Klient odeslal paket po neúspěšném ověření."
@@ -2436,9 +2459,8 @@ msgid "Unauthorized access attempt from %s. Connection closed."
 msgstr "Pokus o neoprávněný přístup z %s. Připojení bylo uzavřeno."
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "Invalid partfile command target."
-msgstr "Neplatný název souboru."
+msgstr "Neplatný cíl partfile příkazu."
 
 #: src/ExternalConn.cpp
 #, c-format
@@ -2451,18 +2473,18 @@ msgid "FileHash not found: %s"
 msgstr "Hash souboru nebyl nalezen: %s"
 
 #: src/ExternalConn.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Cannot cancel a finished download: %s"
-msgstr "Stahování dokončeno: %s"
+msgstr "Nelze zrušit dokončené stahování: %s"
 
 #: src/ExternalConn.cpp
 msgid "The selected download has changed or is completing. Refresh and try again."
-msgstr ""
+msgstr "Vybrané stahování bylo změněno, nebo je dokončováno. Obnovte a zkuste to znovu."
 
 #: src/ExternalConn.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "No such category: %u"
-msgstr "Tato kategorie neexistuje."
+msgstr "Neexistující kategorie: %u"
 
 #: src/ExternalConn.cpp
 msgid "OOPS! OpCode processing error!"
@@ -2552,9 +2574,8 @@ msgid "Version check is not available on this daemon."
 msgstr "Kontrola verze není u tohoto démona k dispozici."
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "Invalid complete-file deletion target."
-msgstr "Neplatný název souboru."
+msgstr "Neplatný cíl smazání kompletních souborů."
 
 #: src/ExternalConn.cpp
 msgid "File not found."
@@ -2611,7 +2632,7 @@ msgstr "Prázdná zpráva chatu"
 
 #: src/ExternalConn.cpp
 msgid "CAPTCHA challenge is no longer pending"
-msgstr ""
+msgstr "Výzva CAPTCHA již není ve stavu čekání"
 
 #: src/ExternalConn.cpp
 msgid "Unknown chat target"
@@ -2907,7 +2928,7 @@ msgstr "Přejmenování souboru"
 
 #: src/ExternalCommand.cpp
 msgid "The command has no executable."
-msgstr ""
+msgstr "Příkaz nemá spustitelný soubor."
 
 #: src/ExternalCommand.cpp
 msgid "The command template or an argument contains a NUL character."
@@ -5133,38 +5154,6 @@ msgstr "Automaticky se připojit při spuštění"
 msgid "Reconnect on loss"
 msgstr "Znovu se připojit po ztrátě připojení"
 
-#: src/muuli_wdr.cpp
-msgid "File repair hashes over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Share and use file repair hashes (AICH) over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
-"\n"
-"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
-"\n"
-"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
-"\n"
-"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Ignore repair hashes from Kad nodes too old to support them"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
-"\n"
-"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
-"\n"
-"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
-msgstr ""
-
 #: src/muuli_wdr.cpp src/PeerCapabilities.h
 msgid "IPv6"
 msgstr "IPv6"
@@ -5202,8 +5191,9 @@ msgid "retries"
 msgstr "pokusech"
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr "Seznam"
+#, fuzzy
+msgid "Edit sources…"
+msgstr "Zdroje souboru:"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5329,6 +5319,38 @@ msgstr "Povolit"
 #: src/muuli_wdr.cpp
 msgid "Advanced I.C.H. trusts every hash (not recommended)"
 msgstr "Pokročilé I.C.H. důvěřuje každému hashi (není doporučeno)"
+
+#: src/muuli_wdr.cpp
+msgid "File repair hashes over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Share and use file repair hashes (AICH) over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
+"\n"
+"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
+"\n"
+"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
+"\n"
+"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Ignore repair hashes from Kad nodes too old to support them"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
+"\n"
+"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
+"\n"
+"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
 
 #: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
 msgid "Media metadata extraction"
@@ -5810,17 +5832,19 @@ msgstr "Vyberte barvu pro tuto kategorii (nyní vybranou)"
 msgid "Click this button to reset the log."
 msgstr "Kliknutím na toto tlačítko vymažete protokol."
 
-#: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
-msgstr "Klikněte na toto tlačítko pro aktualizaci seznamu serverů z URL ..."
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
+#, fuzzy
+msgid "Update server list"
+msgstr "Upravit seznam serverů"
 
 #: src/muuli_wdr.cpp
-msgid "Server list"
-msgstr "Seznam serverů"
+msgid "One-off URL:"
+msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
-msgstr "Zde zadejte URL souboru server.met a stiskněte tlačítko vlevo pro aktualizaci seznamu známých serverů."
+#, fuzzy
+msgid "Download once"
+msgstr "Staženo"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -6837,8 +6861,8 @@ msgstr ""
 "    %PARTNAME - pouze název souboru"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Tray icon support requires libayatana-appindicator3 at compile time."
-msgstr "Podpora ikony v systémové liště vyžaduje knihovnu libayatana-appindicator3 v době kompilace."
+msgid "No system tray found. Use a desktop with a system tray, or build aMule with libayatana-appindicator3."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Not available on Wayland: the protocol does not report when a window is minimized, so this option cannot intercept the system minimize button. Workaround: launch aMule with `GDK_BACKEND=x11` to use XWayland instead."
@@ -7152,18 +7176,6 @@ msgstr "Obnovit nastavení této stránky na výchozí hodnoty?"
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset to defaults"
 msgstr "Obnovit výchozí nastavení"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr "Upravit seznam serverů"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-"Sem přidejte adresy URL pro stažení souborů server.met.\n"
-"Na každý řádek zadejte pouze jednu adresu URL."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
@@ -7682,6 +7694,11 @@ msgid "ERROR: Socket invalid at timeout check"
 msgstr "CHYBA: Socket neplatný při kontrole časového limitu"
 
 #: src/ServerConnect.cpp
+#, fuzzy, c-format
+msgid "Connection attempt to %s (%s:%i) timed out; retrying without obfuscation."
+msgstr "Vypršel časový limit pokusu o připojení k %s (%s:%i)."
+
+#: src/ServerConnect.cpp
 #, c-format
 msgid "Connection attempt to %s (%s:%i) timed out."
 msgstr "Vypršel časový limit pokusu o připojení k %s (%s:%i)."
@@ -7772,17 +7789,12 @@ msgid "IO failure while writing 'server.met': %s"
 msgstr "Selhání I/O při zápisu 'server.met': %s"
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr "Neplatná adresa URL"
+msgid "A server list download is already in progress."
+msgstr ""
 
 #: src/ServerList.cpp
-#, c-format
-msgid "Finished downloading the server list from %s"
-msgstr "Stažení seznamu serverů z %s bylo dokončeno"
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
-msgstr "V souboru 'addresses.dat' nebyla nalezena žádná adresa seznamu serverů. Vložte prosím platnou adresu seznamu serverů do tohoto souboru, aby se váš seznam serverů mohl automaticky aktualizovat"
+msgid "No server list sources configured"
+msgstr ""
 
 #: src/ServerList.cpp
 #, c-format
@@ -7791,17 +7803,8 @@ msgstr "Zahájení stahování seznamu serverů z %s"
 
 #: src/ServerList.cpp
 #, c-format
-msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
-msgstr "VAROVÁNÍ: pro automatickou aktualizaci serverů byla zadána neplatná URL adresa: %s"
-
-#: src/ServerList.cpp
-msgid "No valid server.met auto-download url on addresses.dat"
-msgstr "Soubor addresses.dat neobsahuje žádnou platnou adresu URL pro automatické stažení souboru server.met"
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Failed to download the server list from %s"
-msgstr "Seznam serverů se z adresy %s nepodařilo stáhnout"
+msgid "Finished downloading the server list from %s"
+msgstr "Stažení seznamu serverů z %s bylo dokončeno"
 
 #: src/ServerList.cpp
 msgid "Local server is filtered by the IPFilters, reconnecting to a different server!"
@@ -8010,6 +8013,14 @@ msgstr "Nepodařilo se vyřešit DNS pro server %s: Nelze se připojit!"
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
 msgstr "Protokol aMuleGUI"
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr ""
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -10246,6 +10257,42 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
+#~ msgstr "Podpora ikony v systémové liště vyžaduje knihovnu libayatana-appindicator3 v době kompilace."
+
+#~ msgid "List"
+#~ msgstr "Seznam"
+
+#~ msgid "Click on this button to update the servers list from URL ..."
+#~ msgstr "Klikněte na toto tlačítko pro aktualizaci seznamu serverů z URL ..."
+
+#~ msgid "Server list"
+#~ msgstr "Seznam serverů"
+
+#~ msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+#~ msgstr "Zde zadejte URL souboru server.met a stiskněte tlačítko vlevo pro aktualizaci seznamu známých serverů."
+
+#~ msgid ""
+#~ "Add here URL's to download server.met files.\n"
+#~ "Only one url on each line."
+#~ msgstr ""
+#~ "Sem přidejte adresy URL pro stažení souborů server.met.\n"
+#~ "Na každý řádek zadejte pouze jednu adresu URL."
+
+#~ msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
+#~ msgstr "V souboru 'addresses.dat' nebyla nalezena žádná adresa seznamu serverů. Vložte prosím platnou adresu seznamu serverů do tohoto souboru, aby se váš seznam serverů mohl automaticky aktualizovat"
+
+#, c-format
+#~ msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
+#~ msgstr "VAROVÁNÍ: pro automatickou aktualizaci serverů byla zadána neplatná URL adresa: %s"
+
+#~ msgid "No valid server.met auto-download url on addresses.dat"
+#~ msgstr "Soubor addresses.dat neobsahuje žádnou platnou adresu URL pro automatické stažení souboru server.met"
+
+#, c-format
+#~ msgid "Failed to download the server list from %s"
+#~ msgstr "Seznam serverů se z adresy %s nepodařilo stáhnout"
 
 #, c-format
 #~ msgid "Skipped deleting '%s': the selected file has changed."

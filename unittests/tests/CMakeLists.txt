@@ -199,6 +199,17 @@ add_test (NAME ProtocolPeerIdentityTest COMMAND ProtocolPeerIdentityTest)
 target_include_directories (ProtocolPeerIdentityTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (ProtocolPeerIdentityTest muleunit mulecommon)
 
+# Worker admission and mount lookup run without the application or real disks.
+add_executable (StorageReadPoolTest StorageReadPoolTest.cpp)
+add_test (NAME StorageReadPoolTest COMMAND StorageReadPoolTest)
+target_include_directories (StorageReadPoolTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (StorageReadPoolTest muleunit mulecommon)
+
+add_executable (UploadStorageMapTest UploadStorageMapTest.cpp)
+add_test (NAME UploadStorageMapTest COMMAND UploadStorageMapTest)
+target_include_directories (UploadStorageMapTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (UploadStorageMapTest muleunit mulecommon)
+
 # Per-socket refill thresholds use original payload, independent of statistics resets.
 add_executable (UploadRefillTest UploadRefillTest.cpp)
 add_test (NAME UploadRefillTest COMMAND UploadRefillTest)
@@ -1044,6 +1055,12 @@ add_test (NAME ServerSourceRecordsTest COMMAND ServerSourceRecordsTest)
 target_include_directories (ServerSourceRecordsTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (ServerSourceRecordsTest muleunit mulecommon)
 
+# Global source request queue for one server, without the application.
+add_executable (GlobalSourceQueueTest GlobalSourceQueueTest.cpp)
+add_test (NAME GlobalSourceQueueTest COMMAND GlobalSourceQueueTest)
+target_include_directories (GlobalSourceQueueTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
+target_link_libraries (GlobalSourceQueueTest muleunit mulecommon)
+
 # Which address an OP_FOUNDSOURCES / OP_FOUNDSOURCES_OBFU sentinel source is contacted on, without
 # the application.
 add_executable (ServerIPv6SourcePolicyTest
@@ -1273,6 +1290,38 @@ target_include_directories (FileAutoCloseTest PRIVATE
 	${CMAKE_SOURCE_DIR}/src/include
 )
 target_link_libraries (FileAutoCloseTest muleunit)
+
+# File-area flush errors retain their buffers and reach the existing write retry path.
+add_executable (FileAreaTest
+	FileAreaTest.cpp
+	${CMAKE_SOURCE_DIR}/src/FileArea.cpp
+	${CMAKE_SOURCE_DIR}/src/FileAutoClose.cpp
+	${CMAKE_SOURCE_DIR}/src/SafeFile.cpp
+	${CMAKE_SOURCE_DIR}/src/CFile.cpp
+	${CMAKE_SOURCE_DIR}/src/MemFile.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+	${CMAKE_SOURCE_DIR}/src/Tag.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/Path.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/Format.cpp
+	${CMAKE_SOURCE_DIR}/src/libs/common/strerror_r.c
+)
+add_test (NAME FileAreaTest COMMAND FileAreaTest)
+target_include_directories (FileAreaTest PRIVATE
+	${CMAKE_BINARY_DIR}
+	${CMAKE_SOURCE_DIR}/src
+	${CMAKE_SOURCE_DIR}/src/include
+)
+target_link_libraries (FileAreaTest muleunit)
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	set_property (TARGET FileAreaTest APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--wrap=msync")
+	target_compile_definitions (FileAreaTest PRIVATE AMULE_TEST_WRAP_MSYNC=1)
+endif ()
+
+add_executable (PartFileBufferingTest PartFileBufferingTest.cpp)
+add_test (NAME PartFileBufferingTest COMMAND PartFileBufferingTest)
+target_include_directories (PartFileBufferingTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (PartFileBufferingTest muleunit mulecommon)
 
 add_executable (FileDataIOTest
 	FileDataIOTest.cpp
@@ -2653,6 +2702,8 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				${CMAKE_CURRENT_SOURCE_DIR}/AmuleApiRestartIntegrationTest.py $<TARGET_FILE:amuled>
 		)
 		if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+			add_library (UploadReadDelay MODULE UploadReadDelay.cpp)
+			target_link_libraries (UploadReadDelay ${CMAKE_DL_LIBS} ZLIB::ZLIB)
 			add_test (NAME DisplayRatesIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/DisplayRatesIntegrationTest.py $<TARGET_FILE:amuled>
@@ -2662,11 +2713,28 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/DownloadDisplayRatesIntegrationTest.py $<TARGET_FILE:amuled>
 			)
+			add_test (NAME DownloadLimitHelloIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/DownloadLimitHelloIntegrationTest.py $<TARGET_FILE:amuled>
+			)
+			add_test (NAME ShortBlockPacketIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/ShortBlockPacketIntegrationTest.py $<TARGET_FILE:amuled>
+			)
+			add_test (NAME CallbackCooldownIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/CallbackCooldownIntegrationTest.py $<TARGET_FILE:amuled>
+			)
 			add_test (NAME UploadRefillIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/UploadRefillIntegrationTest.py
 					$<TARGET_FILE:amuled> --seconds 3
+					--storage-delay-fixture $<TARGET_FILE:UploadReadDelay>
 			)
+			if (NOT MMAP_SUPPORTED)
+				set_tests_properties (UploadRefillIntegrationTest PROPERTIES
+					ENVIRONMENT "AMULE_TEST_SKIP_MMAP=1")
+			endif()
 			add_test (NAME UploadRefillCompressedIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/UploadRefillIntegrationTest.py
@@ -2689,6 +2757,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/AllSearchIntegrationTest.py $<TARGET_FILE:amuled>
 		)
+		add_test (NAME SearchParamsRestoreIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/SearchParamsRestoreIntegrationTest.py $<TARGET_FILE:amuled>
+		)
 		add_test (NAME CategoryTagECTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/CategoryTagECTest.py $<TARGET_FILE:amuled>
@@ -2696,6 +2768,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 		add_test (NAME KadSourceTagsECTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/KadSourceTagsECTest.py $<TARGET_FILE:amuled>
+		)
+		add_test (NAME KadPacketValidationIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/KadPacketValidationIntegrationTest.py $<TARGET_FILE:amuled>
 		)
 		add_test (NAME KadLookupECTest
 			COMMAND ${Python3_EXECUTABLE}
@@ -2741,6 +2817,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 		add_test (NAME KnownHistoryIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/KnownHistoryIntegrationTest.py $<TARGET_FILE:amuled>
+		)
+		add_test (NAME GlobalSourceRequestIntegrationTest
+			COMMAND ${Python3_EXECUTABLE} -u
+				${CMAKE_CURRENT_SOURCE_DIR}/GlobalSourceRequestIntegrationTest.py $<TARGET_FILE:amuled>
 		)
 		add_test (NAME PacketReceiveIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}

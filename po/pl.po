@@ -522,7 +522,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr "Zażądano uruchomienia serwera sieciowego przy starcie, ale nie można uruchomić pliku binarnego amuleweb. Zainstaluj pakiet zawierający serwer sieciowy aMule lub zbuduj aMule ze źródeł z opcją -DBUILD_WEBSERVER=YES i zainstaluj go."
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "BŁĄD"
 
@@ -1317,6 +1317,10 @@ msgstr "Folder dla pobranych plików tymczasowych"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Nie można utworzyć katalogu '%s' dla kategorii '%s', używany jest nadal katalog '%s'."
+
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr "Nieprawidłowy URL"
 
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
@@ -2341,6 +2345,26 @@ msgstr[2] "Nie udało się dodać %u linków (szczegóły w logu)."
 #, c-format
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Nieprawidłowy link eD2k! BŁĄD: %s"
+
+#: src/EditServerListDlg.cpp
+#, fuzzy
+msgid "Edit server list sources"
+msgstr "Edytuj listę serwerów"
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
+msgstr ""
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr ""
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
@@ -5153,38 +5177,6 @@ msgstr "Automatycznie połącz przy uruchomieniu"
 msgid "Reconnect on loss"
 msgstr "Połącz ponownie po rozłączeniu"
 
-#: src/muuli_wdr.cpp
-msgid "File repair hashes over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Share and use file repair hashes (AICH) over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
-"\n"
-"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
-"\n"
-"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
-"\n"
-"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Ignore repair hashes from Kad nodes too old to support them"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
-"\n"
-"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
-"\n"
-"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
-msgstr ""
-
 #: src/muuli_wdr.cpp src/PeerCapabilities.h
 msgid "IPv6"
 msgstr ""
@@ -5222,8 +5214,9 @@ msgid "retries"
 msgstr "próbach"
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr "Lista"
+#, fuzzy
+msgid "Edit sources…"
+msgstr "Źródła pliku:"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5349,6 +5342,38 @@ msgstr "Włączone"
 #: src/muuli_wdr.cpp
 msgid "Advanced I.C.H. trusts every hash (not recommended)"
 msgstr "Zaawansowane I.C.H. ufa każdemu skrótu (nie zalecane)"
+
+#: src/muuli_wdr.cpp
+msgid "File repair hashes over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Share and use file repair hashes (AICH) over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
+"\n"
+"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
+"\n"
+"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
+"\n"
+"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Ignore repair hashes from Kad nodes too old to support them"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
+"\n"
+"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
+"\n"
+"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
 
 #: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
 msgid "Media metadata extraction"
@@ -5834,17 +5859,19 @@ msgstr "Wybierz kolor dla tej kategorii (aktualnie wybrany)"
 msgid "Click this button to reset the log."
 msgstr "Kliknij tu aby wyczyścić logi."
 
-#: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
-msgstr "Kliknij na tym przycisku aby uaktualnić listę serwerów z URL-a ..."
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
+#, fuzzy
+msgid "Update server list"
+msgstr "Edytuj listę serwerów"
 
 #: src/muuli_wdr.cpp
-msgid "Server list"
-msgstr "Lista serwerów"
+msgid "One-off URL:"
+msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
-msgstr "Wpisz tu url do pliku server.met  i przyciśnij przycisk po lewej aby zaktualizować listę znanych serwerów."
+#, fuzzy
+msgid "Download once"
+msgstr "Pobrano"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -6872,8 +6899,8 @@ msgstr ""
 "    %PARTNAME - tylko nazwa pliku"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Tray icon support requires libayatana-appindicator3 at compile time."
-msgstr "Obsługa ikony zasobnika wymaga biblioteki libayatana-appindicator3 w czasie kompilacji."
+msgid "No system tray found. Use a desktop with a system tray, or build aMule with libayatana-appindicator3."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Not available on Wayland: the protocol does not report when a window is minimized, so this option cannot intercept the system minimize button. Workaround: launch aMule with `GDK_BACKEND=x11` to use XWayland instead."
@@ -7185,18 +7212,6 @@ msgstr "Przywrócić ustawienia tej strony do wartości domyślnych?"
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset to defaults"
 msgstr "Przywróć domyślne"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr "Edytuj listę serwerów"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-"Dodaj jeden URL w każdej linii.\n"
-"Tylko jeden URL w każdej linii."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
@@ -7720,6 +7735,11 @@ msgid "ERROR: Socket invalid at timeout check"
 msgstr "BŁĄD: nieprawidłowe gniazdo przy sprawdzaniu timeouta"
 
 #: src/ServerConnect.cpp
+#, fuzzy, c-format
+msgid "Connection attempt to %s (%s:%i) timed out; retrying without obfuscation."
+msgstr "Próba połączenia z %s (%s:%i) przedawniła się."
+
+#: src/ServerConnect.cpp
 #, c-format
 msgid "Connection attempt to %s (%s:%i) timed out."
 msgstr "Próba połączenia z %s (%s:%i) przedawniła się."
@@ -7810,17 +7830,12 @@ msgid "IO failure while writing 'server.met': %s"
 msgstr "Błąd IO podczas odczytu pliku %s: %s"
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr "Nieprawidłowy URL"
+msgid "A server list download is already in progress."
+msgstr ""
 
 #: src/ServerList.cpp
-#, c-format
-msgid "Finished downloading the server list from %s"
-msgstr "Zakończono pobieranie listy serwerów z %s"
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
-msgstr "Brak wpisu listy adresów serwerów w 'addresses.dat'. Wklej prawidłową listę adresów do tego pliku, aby automatycznie zaktualizować listę twoich serwerów"
+msgid "No server list sources configured"
+msgstr ""
 
 #: src/ServerList.cpp
 #, c-format
@@ -7829,17 +7844,8 @@ msgstr "Rozpocznij pobieranie listy serwerów z %s"
 
 #: src/ServerList.cpp
 #, c-format
-msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
-msgstr "UWAGA: określono nieprawidłowo adres URL dla autoaktualizacji serwerów: %s"
-
-#: src/ServerList.cpp
-msgid "No valid server.met auto-download url on addresses.dat"
-msgstr "Niepoprawny url do auto-pobierania serwer.met w adresses.dat"
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Failed to download the server list from %s"
-msgstr "Nie udało się pobrać listy serwerów z %s"
+msgid "Finished downloading the server list from %s"
+msgstr "Zakończono pobieranie listy serwerów z %s"
 
 #: src/ServerList.cpp
 msgid "Local server is filtered by the IPFilters, reconnecting to a different server!"
@@ -8052,6 +8058,14 @@ msgstr "Nie mogę rozwiązać dns dla serwera %s: Nie mogę połączyć!"
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
 msgstr "Logi aMuleGUI"
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr ""
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -10287,6 +10301,42 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
+#~ msgstr "Obsługa ikony zasobnika wymaga biblioteki libayatana-appindicator3 w czasie kompilacji."
+
+#~ msgid "List"
+#~ msgstr "Lista"
+
+#~ msgid "Click on this button to update the servers list from URL ..."
+#~ msgstr "Kliknij na tym przycisku aby uaktualnić listę serwerów z URL-a ..."
+
+#~ msgid "Server list"
+#~ msgstr "Lista serwerów"
+
+#~ msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+#~ msgstr "Wpisz tu url do pliku server.met  i przyciśnij przycisk po lewej aby zaktualizować listę znanych serwerów."
+
+#~ msgid ""
+#~ "Add here URL's to download server.met files.\n"
+#~ "Only one url on each line."
+#~ msgstr ""
+#~ "Dodaj jeden URL w każdej linii.\n"
+#~ "Tylko jeden URL w każdej linii."
+
+#~ msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
+#~ msgstr "Brak wpisu listy adresów serwerów w 'addresses.dat'. Wklej prawidłową listę adresów do tego pliku, aby automatycznie zaktualizować listę twoich serwerów"
+
+#, c-format
+#~ msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
+#~ msgstr "UWAGA: określono nieprawidłowo adres URL dla autoaktualizacji serwerów: %s"
+
+#~ msgid "No valid server.met auto-download url on addresses.dat"
+#~ msgstr "Niepoprawny url do auto-pobierania serwer.met w adresses.dat"
+
+#, c-format
+#~ msgid "Failed to download the server list from %s"
+#~ msgstr "Nie udało się pobrać listy serwerów z %s"
 
 #~ msgid "Download graph scale:"
 #~ msgstr "Skala wykresu pobierania:"

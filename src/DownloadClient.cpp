@@ -844,6 +844,20 @@ void CUpDownClient::ProcessBlockPacket(const uint8_t *packet, uint32 size, bool 
 			throw wxString("Wrong fileid sent (ProcessBlockPacket)");
 		}
 
+		// Validate the file hash first: a complete wrong hash must still disconnect
+		// the peer even when the remaining fixed header is truncated.
+		// Fixed header: file hash (16), start position (4, or 8 with largeblocks), then
+		// the compressed block size (4) or the end position (4, or 8 with largeblocks).
+		const uint32 offsetFieldSize = largeblocks ? 8 : 4;
+		const uint32 minBlockHeaderSize = 16 + offsetFieldSize + (packed ? 4 : offsetFieldSize);
+		if (size < minBlockHeaderSize) {
+			AddDebugLogLineC(logRemoteClient,
+				CFormat("Error reading data packet: block header too short: "
+					"RS: %i, need at least %i") %
+					static_cast<int>(size) % static_cast<int>(minBlockHeaderSize));
+			return;
+		}
+
 		if (largeblocks) {
 			nStartPos = data.ReadUInt64();
 			header_size += 8;

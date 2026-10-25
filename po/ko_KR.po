@@ -519,7 +519,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr "시작 시 웹 서버를 실행하도록 요청하셨지만, amuleweb 바이너리를 실행할 수 없습니다. aMule 웹 서버가 포함된 패키지를 설치하거나, -DBUILD_WEBSERVER=YES 옵션으로 aMule을 소스에서 빌드하여 설치하세요."
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "오류"
 
@@ -1314,6 +1314,10 @@ msgstr "이미 %s 파일을 내려받으려고 하고있음"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "폴더 '%s'을(를) 분류 '%s'에 대해 생성할 수 없어 폴더 '%s'을(를) 유지합니다."
+
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr "유효하지 않는 주소입니다."
 
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
@@ -2325,6 +2329,26 @@ msgstr[1] "%u개의 링크를 추가할 수 없습니다(자세한 내용은 로
 #, c-format
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "잘못된 eD2k 링크입니다! 오류: %s"
+
+#: src/EditServerListDlg.cpp
+#, fuzzy
+msgid "Edit server list sources"
+msgstr "서버 목록 편집"
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
+msgstr ""
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr ""
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
@@ -5127,38 +5151,6 @@ msgstr "시작시 자동연결"
 msgid "Reconnect on loss"
 msgstr "끊겼을시 재연결"
 
-#: src/muuli_wdr.cpp
-msgid "File repair hashes over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Share and use file repair hashes (AICH) over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
-"\n"
-"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
-"\n"
-"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
-"\n"
-"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Ignore repair hashes from Kad nodes too old to support them"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
-"\n"
-"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
-"\n"
-"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
-msgstr ""
-
 #: src/muuli_wdr.cpp src/PeerCapabilities.h
 msgid "IPv6"
 msgstr ""
@@ -5196,8 +5188,9 @@ msgid "retries"
 msgstr "재시도"
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr "목록"
+#, fuzzy
+msgid "Edit sources…"
+msgstr "파일 자료:"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5323,6 +5316,38 @@ msgstr "활성화"
 #: src/muuli_wdr.cpp
 msgid "Advanced I.C.H. trusts every hash (not recommended)"
 msgstr "고급 I.C.H.는 모든 해시를 신뢰합니다 (권장하지 않음)"
+
+#: src/muuli_wdr.cpp
+msgid "File repair hashes over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Share and use file repair hashes (AICH) over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
+"\n"
+"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
+"\n"
+"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
+"\n"
+"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Ignore repair hashes from Kad nodes too old to support them"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
+"\n"
+"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
+"\n"
+"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
 
 #: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
 msgid "Media metadata extraction"
@@ -5806,17 +5831,19 @@ msgstr "이 분류의 색 선택 (현재 선택됨)"
 msgid "Click this button to reset the log."
 msgstr "로그를 초기화하려면 이 버튼을 클릭하세요."
 
-#: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
-msgstr "URL로부터 서버 목록을 갱신하려면 이 버튼을 클릭..."
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
+#, fuzzy
+msgid "Update server list"
+msgstr "서버 목록 편집"
 
 #: src/muuli_wdr.cpp
-msgid "Server list"
-msgstr "서버 목록"
+msgid "One-off URL:"
+msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
-msgstr "알려진 서버의 목록을 갱신하기 위해서는 이곳에 server.met파일의 url을 입력하고 왼쪽편의 버튼을 누르세요."
+#, fuzzy
+msgid "Download once"
+msgstr "내려받음"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -6837,8 +6864,8 @@ msgstr ""
 "    %PARTNAME - 파일 이름만"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Tray icon support requires libayatana-appindicator3 at compile time."
-msgstr "트레이 아이콘 지원을 사용하려면 컴파일 시 libayatana-appindicator3가 필요합니다."
+msgid "No system tray found. Use a desktop with a system tray, or build aMule with libayatana-appindicator3."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Not available on Wayland: the protocol does not report when a window is minimized, so this option cannot intercept the system minimize button. Workaround: launch aMule with `GDK_BACKEND=x11` to use XWayland instead."
@@ -7150,18 +7177,6 @@ msgstr "이 페이지의 설정을 기본값으로 초기화하시겠습니까?"
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset to defaults"
 msgstr "기본값으로 초기화"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr "서버 목록 편집"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-"server.met파일을 내려받을 URL을 추가하세요.\n"
-"각 행에 오직 하나의 URL을 넣으세요."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
@@ -7678,6 +7693,11 @@ msgid "ERROR: Socket invalid at timeout check"
 msgstr "오류: 시간 초과 확인 시 소켓이 유효하지 않습니다"
 
 #: src/ServerConnect.cpp
+#, fuzzy, c-format
+msgid "Connection attempt to %s (%s:%i) timed out; retrying without obfuscation."
+msgstr "%s(%s:%i)에 접속을 시도하는데 시간이 지났습니다."
+
+#: src/ServerConnect.cpp
 #, c-format
 msgid "Connection attempt to %s (%s:%i) timed out."
 msgstr "%s(%s:%i)에 접속을 시도하는데 시간이 지났습니다."
@@ -7766,17 +7786,12 @@ msgid "IO failure while writing 'server.met': %s"
 msgstr "known.met 파일을 읽는동안 입출력 오류: %s"
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr "유효하지 않는 주소입니다."
+msgid "A server list download is already in progress."
+msgstr ""
 
 #: src/ServerList.cpp
-#, c-format
-msgid "Finished downloading the server list from %s"
-msgstr "%s에서 서버 목록 내려받기를 완료했습니다"
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
-msgstr "'addresses.dat'에서 서버 목록 주소 항목을 찾을 수 없습니다. 서버 목록을 자동으로 갱신하려면 이 파일에 유효한 서버 목록 주소를 붙여넣으세요"
+msgid "No server list sources configured"
+msgstr ""
 
 #: src/ServerList.cpp
 #, c-format
@@ -7785,17 +7800,8 @@ msgstr "%s에서 서버 목록 내려받기 시작"
 
 #: src/ServerList.cpp
 #, c-format
-msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
-msgstr "경고: 서버 자동 갱신에 잘못된 URL이 지정되었습니다: %s"
-
-#: src/ServerList.cpp
-msgid "No valid server.met auto-download url on addresses.dat"
-msgstr "adrresses.dat에 유효한 server.met 자동갱신 주소가 없습니다."
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Failed to download the server list from %s"
-msgstr "%s로부터 서버 목록를 내려받지 못함"
+msgid "Finished downloading the server list from %s"
+msgstr "%s에서 서버 목록 내려받기를 완료했습니다"
 
 #: src/ServerList.cpp
 msgid "Local server is filtered by the IPFilters, reconnecting to a different server!"
@@ -8007,6 +8013,14 @@ msgstr "%s 서버에 대한 DNS를 해석 할 수 없음: 연결할수 없습니
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
 msgstr "aMuleGUI 로그"
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr ""
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -10227,6 +10241,42 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
+#~ msgstr "트레이 아이콘 지원을 사용하려면 컴파일 시 libayatana-appindicator3가 필요합니다."
+
+#~ msgid "List"
+#~ msgstr "목록"
+
+#~ msgid "Click on this button to update the servers list from URL ..."
+#~ msgstr "URL로부터 서버 목록을 갱신하려면 이 버튼을 클릭..."
+
+#~ msgid "Server list"
+#~ msgstr "서버 목록"
+
+#~ msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+#~ msgstr "알려진 서버의 목록을 갱신하기 위해서는 이곳에 server.met파일의 url을 입력하고 왼쪽편의 버튼을 누르세요."
+
+#~ msgid ""
+#~ "Add here URL's to download server.met files.\n"
+#~ "Only one url on each line."
+#~ msgstr ""
+#~ "server.met파일을 내려받을 URL을 추가하세요.\n"
+#~ "각 행에 오직 하나의 URL을 넣으세요."
+
+#~ msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
+#~ msgstr "'addresses.dat'에서 서버 목록 주소 항목을 찾을 수 없습니다. 서버 목록을 자동으로 갱신하려면 이 파일에 유효한 서버 목록 주소를 붙여넣으세요"
+
+#, c-format
+#~ msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
+#~ msgstr "경고: 서버 자동 갱신에 잘못된 URL이 지정되었습니다: %s"
+
+#~ msgid "No valid server.met auto-download url on addresses.dat"
+#~ msgstr "adrresses.dat에 유효한 server.met 자동갱신 주소가 없습니다."
+
+#, c-format
+#~ msgid "Failed to download the server list from %s"
+#~ msgstr "%s로부터 서버 목록를 내려받지 못함"
 
 #~ msgid "Download graph scale:"
 #~ msgstr "내려받기 그래프 배율:"

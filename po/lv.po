@@ -513,7 +513,7 @@ msgid "You requested to run web server on startup, but the amuleweb binary canno
 msgstr "Jūs esiet iespējojuši 'Kad palaiž, palaist arī tīmekļa serveri' iestatījumu, taču amuleweb izpilddatni nevar palaist. Lūdzu, uzstādiet pakotni, kas satur aMule tīmekļa serveri (amuleweb), vai pārkompilējiet aMule no pirmkoda ar -DBUILD_WEBSERVER=YES parametru un uzstādiet to."
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
-#: src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
+#: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "KĻŪDA"
 
@@ -1306,6 +1306,10 @@ msgstr "Nevarēja izdzēst kategoriju: %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Nevar izveidot '%s' mapi '%s' kategorijai, turpinam izmantot '%s' mapi."
+
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
+msgid "Invalid URL"
+msgstr "Nederīga URL adrese"
 
 #: src/amule-remote-gui.cpp
 msgid "The core did not confirm deleting the file. Refresh and try again."
@@ -2324,6 +2328,26 @@ msgstr[2] "Neizdevās pievienot %u saites (skatiet žurnālu, lai uzzinātu vair
 #, c-format
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Nederīga eD2k saite! KĻŪDA: %s"
+
+#: src/EditServerListDlg.cpp
+#, fuzzy
+msgid "Edit server list sources"
+msgstr "Rediģēt serveru sarakstu"
+
+#: src/EditServerListDlg.cpp
+msgid ""
+"Enter one server.met URL per line.\n"
+"Saving replaces the source list and removes comment lines."
+msgstr ""
+
+#: src/EditServerListDlg.cpp src/ExternalConn.cpp
+#, c-format
+msgid "Could not save server list sources to %s. Check the URLs and file permissions."
+msgstr ""
+
+#: src/EditServerListDlg.cpp
+msgid "addresses.dat in the daemon configuration directory"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
@@ -5133,38 +5157,6 @@ msgstr "Kad palaiž, automātiski pieslēgties"
 msgid "Reconnect on loss"
 msgstr "Atkārtoti pieslēgties, kad zaudēts savienojums"
 
-#: src/muuli_wdr.cpp
-msgid "File repair hashes over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Share and use file repair hashes (AICH) over Kad"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
-"\n"
-"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
-"\n"
-"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
-"\n"
-"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Ignore repair hashes from Kad nodes too old to support them"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
-"\n"
-"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
-"\n"
-"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
-msgstr ""
-
 #: src/muuli_wdr.cpp src/PeerCapabilities.h
 msgid "IPv6"
 msgstr ""
@@ -5202,8 +5194,9 @@ msgid "retries"
 msgstr "mēģinājumiem"
 
 #: src/muuli_wdr.cpp
-msgid "List"
-msgstr "Saraksts"
+#, fuzzy
+msgid "Edit sources…"
+msgstr "Datnes avoti:"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5329,6 +5322,38 @@ msgstr "Iespējot"
 #: src/muuli_wdr.cpp
 msgid "Advanced I.C.H. trusts every hash (not recommended)"
 msgstr "Uzlabotā I.C.H. uzticas katrai kontrolsummai (nav ieteicams)"
+
+#: src/muuli_wdr.cpp
+msgid "File repair hashes over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Share and use file repair hashes (AICH) over Kad"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Share file repair hashes with other Kad nodes and learn them from Kad searches. These hashes can help aMule repair damaged download data without downloading an entire part again. aMule uses a hash for repair only once enough independent peers report the same one.\n"
+"\n"
+"Very old Kad clients (before eMule 0.49b) may miss search results containing these hashes. If you notice missing results, try turning this option off.\n"
+"\n"
+"Turning this option off discards the repair hashes stored in your Kad index on the next save. Turning it back on starts collecting them again.\n"
+"\n"
+"Technical detail: enabling this advertises Kad protocol version 0x0a and adds AICH hashes to keyword publish and search results."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Ignore repair hashes from Kad nodes too old to support them"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Only applies when sharing and using file repair hashes over Kad is enabled. Ignore hashes published by nodes that report a Kad version too old to support them.\n"
+"\n"
+"A node's reported version may be out of date or inaccurate, so this can discard valid hashes and does not make accepted hashes trustworthy. Nodes whose version is unknown are still accepted.\n"
+"\n"
+"Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
+msgstr ""
 
 #: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
 msgid "Media metadata extraction"
@@ -5812,17 +5837,19 @@ msgstr ""
 msgid "Click this button to reset the log."
 msgstr "Noklikšķiniet uz šīs pogas, lai atiestatītu žurnālu."
 
-#: src/muuli_wdr.cpp
-msgid "Click on this button to update the servers list from URL ..."
-msgstr "Noklikšķiniet uz šīs pogas, lai atjauninātu serveru sarakstu no URL ..."
+#: src/muuli_wdr.cpp src/ServerWnd.cpp
+#, fuzzy
+msgid "Update server list"
+msgstr "Rediģēt serveru sarakstu"
 
 #: src/muuli_wdr.cpp
-msgid "Server list"
-msgstr "Serveru saraksts"
+msgid "One-off URL:"
+msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
-msgstr "Šeit ievadiet server.met datnes URL un nospiediet kreisajā pusē esošo pogu, lai atjauninātu zināmo serveru sarakstu."
+#, fuzzy
+msgid "Download once"
+msgstr "Lejupielādēta"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -6839,8 +6866,8 @@ msgstr ""
 "    %PARTNAME - tikai datnes nosaukums"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Tray icon support requires libayatana-appindicator3 at compile time."
-msgstr "Paziņojumu joslas ikonas atbalstam kompilēšanas laikā nepieciešams libayatana-appindicator3."
+msgid "No system tray found. Use a desktop with a system tray, or build aMule with libayatana-appindicator3."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Not available on Wayland: the protocol does not report when a window is minimized, so this option cannot intercept the system minimize button. Workaround: launch aMule with `GDK_BACKEND=x11` to use XWayland instead."
@@ -7154,18 +7181,6 @@ msgstr "Vai atiestatīt šīs lapas iestatījumus uz to noklusējuma vērtībām
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset to defaults"
 msgstr "Atiestatīt uz noklusējumu"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "Edit server list"
-msgstr "Rediģēt serveru sarakstu"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid ""
-"Add here URL's to download server.met files.\n"
-"Only one url on each line."
-msgstr ""
-"Šeit pievienojiet URL adreses server.met datņu lejupielādei.\n"
-"Katrā rindā tikai viena URL adrese."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "IP2Country update failed"
@@ -7676,6 +7691,11 @@ msgid "ERROR: Socket invalid at timeout check"
 msgstr "KĻŪDA: ligzda nederīga noildzes pārbaudē"
 
 #: src/ServerConnect.cpp
+#, fuzzy, c-format
+msgid "Connection attempt to %s (%s:%i) timed out; retrying without obfuscation."
+msgstr "Savienojuma mēģinājumam ar %s (%s:%i) iestājās noilgums."
+
+#: src/ServerConnect.cpp
 #, c-format
 msgid "Connection attempt to %s (%s:%i) timed out."
 msgstr "Savienojuma mēģinājumam ar %s (%s:%i) iestājās noilgums."
@@ -7766,17 +7786,12 @@ msgid "IO failure while writing 'server.met': %s"
 msgstr ""
 
 #: src/ServerList.cpp
-msgid "Invalid URL"
-msgstr "Nederīga URL adrese"
+msgid "A server list download is already in progress."
+msgstr ""
 
 #: src/ServerList.cpp
-#, c-format
-msgid "Finished downloading the server list from %s"
-msgstr "Pabeigta serveru saraksta lejupielāde no %s"
-
-#: src/ServerList.cpp
-msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
-msgstr "Datnē 'addresses.dat' nav atrasts neviens serveru saraksta adreses ieraksts. Lūdzu, ielīmējiet šajā datnē derīgu serveru saraksta adresi, lai varētu automātiski atjaunināt savu serveru sarakstu"
+msgid "No server list sources configured"
+msgstr ""
 
 #: src/ServerList.cpp
 #, c-format
@@ -7785,17 +7800,8 @@ msgstr "Sāk serveru saraksta lejupielādi no %s"
 
 #: src/ServerList.cpp
 #, c-format
-msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
-msgstr "BRĪDINĀJUMS: norādīts nederīgs URL serveru automātiskai atjaunināšanai: %s"
-
-#: src/ServerList.cpp
-msgid "No valid server.met auto-download url on addresses.dat"
-msgstr "Datnē addresses.dat nav derīga server.met automātiskās lejupielādes URL"
-
-#: src/ServerList.cpp
-#, c-format
-msgid "Failed to download the server list from %s"
-msgstr "Neizdevās lejupielādēt serveru sarakstu no %s"
+msgid "Finished downloading the server list from %s"
+msgstr "Pabeigta serveru saraksta lejupielāde no %s"
 
 #: src/ServerList.cpp
 msgid "Local server is filtered by the IPFilters, reconnecting to a different server!"
@@ -8006,6 +8012,14 @@ msgstr "Neizdevās atrisināt DNS serverim %s: nevar izveidot savienojumu!"
 #: src/ServerWnd.cpp
 msgid "aMuleGUI Log"
 msgstr "aMuleGUI žurnāls"
+
+#: src/ServerWnd.cpp
+msgid "Download and merge every saved source"
+msgstr ""
+
+#: src/ServerWnd.cpp
+msgid "Download this server.met URL once without saving it."
+msgstr ""
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -10245,6 +10259,42 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
+#~ msgstr "Paziņojumu joslas ikonas atbalstam kompilēšanas laikā nepieciešams libayatana-appindicator3."
+
+#~ msgid "List"
+#~ msgstr "Saraksts"
+
+#~ msgid "Click on this button to update the servers list from URL ..."
+#~ msgstr "Noklikšķiniet uz šīs pogas, lai atjauninātu serveru sarakstu no URL ..."
+
+#~ msgid "Server list"
+#~ msgstr "Serveru saraksts"
+
+#~ msgid "Enter the url to a server.met file here and press the button to the left to update the list of known servers."
+#~ msgstr "Šeit ievadiet server.met datnes URL un nospiediet kreisajā pusē esošo pogu, lai atjauninātu zināmo serveru sarakstu."
+
+#~ msgid ""
+#~ "Add here URL's to download server.met files.\n"
+#~ "Only one url on each line."
+#~ msgstr ""
+#~ "Šeit pievienojiet URL adreses server.met datņu lejupielādei.\n"
+#~ "Katrā rindā tikai viena URL adrese."
+
+#~ msgid "No server list address entry in 'addresses.dat' found. Please paste a valid server list address into this file in order to auto-update your server list"
+#~ msgstr "Datnē 'addresses.dat' nav atrasts neviens serveru saraksta adreses ieraksts. Lūdzu, ielīmējiet šajā datnē derīgu serveru saraksta adresi, lai varētu automātiski atjaunināt savu serveru sarakstu"
+
+#, c-format
+#~ msgid "WARNING: invalid URL specified for auto-updating of servers: %s"
+#~ msgstr "BRĪDINĀJUMS: norādīts nederīgs URL serveru automātiskai atjaunināšanai: %s"
+
+#~ msgid "No valid server.met auto-download url on addresses.dat"
+#~ msgstr "Datnē addresses.dat nav derīga server.met automātiskās lejupielādes URL"
+
+#, c-format
+#~ msgid "Failed to download the server list from %s"
+#~ msgstr "Neizdevās lejupielādēt serveru sarakstu no %s"
 
 #~ msgid "Download graph scale:"
 #~ msgstr "Lejupielādes grafika mērogs:"
