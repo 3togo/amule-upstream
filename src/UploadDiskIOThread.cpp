@@ -24,6 +24,7 @@
 //
 
 #include "UploadDiskIOThread.h"
+#include <array>
 
 #include "updownclient.h"    // Needed for CUpDownClient
 #include "UploadQueue.h"     // Needed for CUploadQueue
@@ -223,7 +224,7 @@ void *CUploadDiskIOThread::Entry()
 				if (m_pendingClients.count(clientId) || m_retryAfter.count(clientId)) {
 					continue;
 				}
-				auto req = PrepareRead(clientId);
+				auto req = PrepareRead(clientId, now);
 				if (req) {
 					req->timing.enabled = m_collectDiagnostics;
 					req->timing.submitted = m_collectDiagnostics ? GetTickCount64() : 0;
@@ -266,6 +267,13 @@ void *CUploadDiskIOThread::Entry()
 
 void CUploadDiskIOThread::DrainCompletions(bool deliver)
 {
+	struct Sample
+	{
+		uint32 client;
+		uint64 session, admitted;
+	};
+	std::array<Sample, StorageReadPool<ReadRequest_Struct>::kWorkers> samples{};
+	size_t sampleCount = 0;
 	bool dataQueued = false;
 	for (;;) {
 		auto completed = m_pool->TakeCompleted();
@@ -328,7 +336,31 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 		if (!deliver || req->closeOnly) {
 			DiscardRequest(req);
 		} else if (CommitRead(req, completed.error ? READ_FAILED : req->result)) {
-			dataQueued = ReadCompletionRoutine(req) || dataQueued;
+			const Sample sample{ req->clientId, req->session, req->admittedMs };
+			if (ReadCompletionRoutine(req)) {
+				dataQueued = true;
+				if (sampleCount < samples.size()) {
+					samples[sampleCount++] = sample;
+				}
+			}
+		}
+	}
+	if (sampleCount != 0) {
+		// One sweep timestamp, after packet construction/handoff, covers queue,
+		// read and delivery cost without enabling per-read diagnostic clocks.
+		const uint64 ready = GetTickCount64();
+		wxMutexLocker uploadLock(theApp->uploadqueue->GetUploadingListLock());
+		for (size_t i = 0; i < sampleCount; ++i) {
+			const auto &sample = samples[i];
+			auto *client = theApp->uploadqueue->FindUploadingClient(sample.client);
+			if (client != nullptr && client->GetSocket() != nullptr) {
+				wxMutexLocker blocks(client->m_blockListLock);
+				if (client->m_uploadReadSession == sample.session &&
+					ready >= sample.admitted) {
+					client->GetSocket()->ObserveUploadReadLatency(
+						ready - sample.admitted);
+				}
+			}
 		}
 	}
 	// Publish every ready result before waking the sender. Never wait for an
@@ -473,7 +505,7 @@ void CUploadDiskIOThread::QueueIdleCloses()
 
 // Returns the next block to read for this client, or nullptr if there is none or it is enough
 // blocks ahead already.
-std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clientId)
+std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clientId, uint64 sweepNow)
 {
 	wxMutexLocker uploadLock(theApp->uploadqueue->GetUploadingListLock());
 	CUpDownClient *client = theApp->uploadqueue->FindUploadingClient(clientId);
@@ -484,11 +516,9 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 	wxMutexLocker lockBlockLists(client->m_blockListLock);
 
 	CClientTCPSocket *pSock = client->GetSocket();
-	const bool bFastUpload = client->GetUploadDatarate() > BIGBUFFER_MINDATARATE;
-	// Preserve the one-or-ten-block target. Only data requested by the peer
-	// can be read; this queue covers storage latency, not data in flight.
-	const uint32 nBufferLimit = bFastUpload ? ((10 * EMBLOCKSIZE) + 1) : (EMBLOCKSIZE + 1);
-	pSock->SetUploadBufferTarget(nBufferLimit);
+	// Only peer-requested data can be read. The latency estimate sizes the
+	// application queue; it does not count kernel or network flight.
+	const uint32 nBufferLimit = pSock->SetUploadBufferTarget(client->GetUploadDatarate());
 
 	if (client->m_BlockRequests_queue.empty() || pSock->QueuedUploadPayload() >= nBufferLimit) {
 		return nullptr;
@@ -552,6 +582,7 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 		}
 		auto req = std::make_unique<ReadRequest_Struct>();
 		req->refillDeadline = pSock->UploadRefillDeadline(client->GetUploadDatarate());
+		req->admittedMs = sweepNow;
 		req->session = client->m_uploadReadSession;
 		req->clientId = clientId;
 		md4cpy(req->ucMD4FileHash, currentblock->FileID);

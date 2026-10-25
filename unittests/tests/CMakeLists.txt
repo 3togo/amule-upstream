@@ -3334,3 +3334,8 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND Python3_Interpreter_FOUND AND 
 		$<TARGET_FILE:amuled> $<TARGET_FILE:UploadReadDelay> $<TARGET_FILE:WriteBufferStall>)
 	set_tests_properties (ReadWriteServiceIntegrationTest PROPERTIES TIMEOUT 90 LABELS "integration")
 endif ()
+
+add_executable (UploadReadLatencyTest UploadReadLatencyTest.cpp)
+add_test (NAME UploadReadLatencyTest COMMAND UploadReadLatencyTest)
+target_include_directories (UploadReadLatencyTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (UploadReadLatencyTest muleunit mulecommon)

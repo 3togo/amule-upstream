@@ -32,6 +32,7 @@
 #include "EncryptedStreamSocket.h" // Needed for CEncryptedStreamSocket
 
 #include "UploadRefill.h"
+#include "UploadReadLatency.h"
 #include "UploadPipelinePressure.h"
 
 #include "ThrottledSocket.h" // Needed for ThrottledFileSocket
@@ -86,8 +87,9 @@ public:
 	uint64 GetSentBytesControlPacketSinceLastCallAndReset();
 	// Separate from accounting: a file/session switch can discard its old display bytes.
 	uint64 GetSentFileBytesForDisplayAndReset();
-	void SetUploadBufferTarget(uint32 payload);
+	uint32 SetUploadBufferTarget(uint32 wireRate);
 	uint64 UploadRefillDeadline(uint32 wireRate);
+	void ObserveUploadReadLatency(uint64 milliseconds);
 	uint64 QueuedUploadPayload() const;
 	UploadPipelinePressure::Socket UploadPressureSnapshot() const;
 	void TruncateQueues();
@@ -186,6 +188,7 @@ private:
 
 	mutable std::mutex m_sendLocker;
 	UploadRefill m_uploadRefill;
+	UploadReadLatency m_readLatency;
 
 	uint64 m_numberOfSentBytesCompleteFile;
 	uint64 m_numberOfSentBytesPartFile;
