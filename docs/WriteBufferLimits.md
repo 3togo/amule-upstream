@@ -5,14 +5,17 @@ per-volume budgets. Selecting or sending block requests consumes no credit.
 This leaves the normal source pipeline available regardless of source count
 or round-trip time when storage keeps up.
 
-At 75% usage, stop selecting new blocks and flush small buffers early. Resume
-selection at 50%. Global pressure affects all volumes; local pressure affects
-only possible aliases, including unresolved directory identities. The normal
+Stop selecting new blocks at the budget and resume selection at 50%. Flush
+small buffers early at 12.5%, leaving headroom for arrivals between main-thread
+scheduling ticks. Successful writes return capacity immediately in the worker.
+Global pressure affects all volumes; local pressure affects only possible
+aliases, including unresolved directory identities. The normal
 file-buffer preference still controls batching below these thresholds.
 
 Already requested responses remain admissible, including compressed responses.
 Each missing fragment is charged by its uncompressed size and releases its own
-charge when harvested or discarded. Duplicate overlap is not buffered again.
+charge as soon as the worker successfully writes and frees its payload, or
+when it is discarded. Duplicate overlap is not buffered again.
 Write errors retain data and its charge for retry; disconnecting a source does
 not release dirty data. Empty pipelines keep their upload slots and retry on
 download ticks after storage drains.

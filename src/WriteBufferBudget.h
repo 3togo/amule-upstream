@@ -101,10 +101,16 @@ public:
 	}
 	// Global pressure flushes every volume; local pressure flushes only paths
 	// that can share the constrained volume, including unresolved identities.
-	bool IsPressured(const std::string &path) const
+	bool IsPressured(const std::string &path) const { return CheckPressure(path, false); }
+	bool ShouldFlush(const std::string &path) const { return CheckPressure(path, true); }
+
+private:
+	bool CheckPressure(const std::string &path, bool earlyFlush) const
 	{
 		std::lock_guard<std::mutex> lock(m_state->mutex);
-		const bool global = UpdatePressure(m_state->used, m_global, m_state->globalPressured);
+		const bool global =
+			earlyFlush ? m_state->used >= m_global / 8
+				   : UpdatePressure(m_state->used, m_global, m_state->globalPressured);
 		std::map<std::string, uint64_t> volumes;
 		for (const auto &entry : m_state->paths) {
 			volumes[entry.second.volume] += entry.second.bytes;
@@ -122,16 +128,17 @@ public:
 			known = volumes[volume];
 		}
 		const bool local =
-			UpdatePressure(volumes[""] + known, m_volume, m_state->volumePressured[volume]);
+			earlyFlush ? volumes[""] + known >= m_volume / 8
+				   : UpdatePressure(
+					     volumes[""] + known, m_volume, m_state->volumePressured[volume]);
 		return global || local;
 	}
 
-private:
-	// Start early flushing at 75%, and keep it active until half the allowance
-	// is free. Request admission uses the same latch as early flushing.
+	// Stop selection at the budget, and resume below half. Flush much earlier
+	// to leave room for arrivals between main-thread scheduling ticks.
 	static bool UpdatePressure(uint64_t used, uint64_t limit, bool &pressured)
 	{
-		if (used >= limit - limit / 4) {
+		if (used >= limit) {
 			pressured = true;
 		} else if (used <= limit / 2) {
 			pressured = false;
