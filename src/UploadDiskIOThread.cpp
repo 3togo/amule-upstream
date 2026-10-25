@@ -39,7 +39,8 @@
 #include "MD4Hash.h"
 #include "UploadBandwidthThrottler.h"
 #include "UploadBlockLists.h" // Needed for PushDoneBlock
-#include "Statistics.h"       // Needed for theStats
+#include "Preferences.h"
+#include "Statistics.h" // Needed for theStats
 #include "UploadPacketBuilder.h"
 
 #include <algorithm>
@@ -148,13 +149,25 @@ void *CUploadDiskIOThread::Entry()
 {
 	try {
 		m_pool = std::make_unique<StorageReadPool<ReadRequest_Struct>>(
-			[](ReadRequest_Struct &req) { req.result = ReadBlock(&req); },
+			[](ReadRequest_Struct &req) {
+				req.timing.Run([&req] { req.result = ReadBlock(&req); }, GetTickCount64);
+			},
 			[this] { NewBlockRequestsAvailable(); });
+		m_lastDiagnostics = GetTickCount64();
 		while (m_bRun) {
 			{
 				wxMutexLocker lock(m_mutex);
 				m_bNewBlocksPending = false;
 				m_bSocketNeedsPending = false;
+			}
+			const bool collect = theLogger.IsEnabled(logFileIO);
+			if (collect != m_collectDiagnostics) {
+				m_collectDiagnostics = collect;
+				m_diagnostics = {};
+				m_pipelinePressure = {};
+				m_pipelineSnapshot = {};
+				m_lastCompletedMs = m_lastReadMs = m_lastHandoffMs = m_lastPipelineLog = 0;
+				m_lastDiagnostics = GetTickCount64();
 			}
 			DrainCompletions(true);
 			const uint64 now = GetTickCount64();
@@ -164,6 +177,7 @@ void *CUploadDiskIOThread::Entry()
 				// Keep discovery on a bounded worker and use the previous snapshot.
 				auto req = std::make_unique<ReadRequest_Struct>();
 				req->storageMap = std::make_unique<UploadStorageMap>();
+				req->timing.enabled = false;
 #ifdef __WINDOWS__
 				// Publish local identities before consulting any network provider.
 				req->discoverNetwork = m_storageMapReady;
@@ -210,15 +224,25 @@ void *CUploadDiskIOThread::Entry()
 				}
 				auto req = PrepareRead(clientId);
 				if (req) {
-					m_pendingClients.insert(clientId);
+					req->timing.enabled = m_collectDiagnostics;
+					req->timing.submitted = m_collectDiagnostics ? GetTickCount64() : 0;
+					m_pendingClients.emplace(clientId, req->timing.submitted);
 					if (m_pool->Submit(req->storage, req)) {
 						m_lastDispatch[clientId] = ++m_dispatchSequence;
 					} else {
 						m_pendingClients.erase(clientId);
+						if (m_collectDiagnostics) {
+							m_diagnostics.Denied(UploadReadDiagnostics::Storage);
+						}
 					}
 				}
 			}
 			QueueIdleCloses();
+			if (m_collectDiagnostics) {
+				m_diagnostics.EndSweep(GetTickCount64(), !m_pool->HasCapacity());
+			}
+			ReportDiagnostics();
+			SamplePipelinePressure();
 			wxMutexLocker lock(m_mutex);
 			if (m_bRun && !m_bNewBlocksPending && !m_bSocketNeedsPending) {
 				m_condition.WaitTimeout(500);
@@ -231,6 +255,7 @@ void *CUploadDiskIOThread::Entry()
 	if (m_pool) {
 		m_pool->Stop();
 		DrainCompletions(false);
+		ReportDiagnostics(true);
 		m_pool.reset();
 	}
 	// Shutdown only: no shared lock is held, and workers no longer access handles.
@@ -269,6 +294,19 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 			continue;
 		}
 		auto *req = completed.job.release();
+		if (m_collectDiagnostics && req->timing.enabled && !req->closeOnly) {
+			m_lastCompletedMs = GetTickCount64();
+			m_lastReadMs = req->timing.finished - req->timing.started;
+			m_lastHandoffMs = m_lastCompletedMs - req->timing.finished;
+		}
+		if (m_collectDiagnostics && req->timing.enabled) {
+			m_diagnostics.Completed(req->timing,
+				GetTickCount64(),
+				req->closeOnly,
+				completed.error || req->result == READ_FAILED ||
+					req->result == READ_OPEN_FAILED,
+				req->result == READ_DEFERRED);
+		}
 		m_pendingClients.erase(req->clientId);
 		if (deliver && req->result == READ_DEFERRED) {
 			// File completion may briefly park a request. Worker completion wakes must
@@ -291,6 +329,116 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 	}
 }
 
+void CUploadDiskIOThread::SamplePipelinePressure()
+{
+	if (!theLogger.IsEnabled(logFileIO)) {
+		return;
+	}
+	const uint64 now = GetTickCount64();
+	const auto &previous = m_pipelineSnapshot;
+	if (previous.valid && now - previous.sampledMs < UploadPipelinePressure::kSampleMs) {
+		return;
+	}
+	UploadPipelinePressure::Input input;
+	input.pendingReads = m_pendingClients.size();
+	for (const auto &pending : m_pendingClients) {
+		if (pending.second != 0) {
+			input.oldestReadMs = std::max(input.oldestReadMs, now - pending.second);
+		}
+	}
+	const auto jobs = m_pool->GetSnapshot();
+	input.queuedJobs = jobs.queued;
+	input.runningJobs = jobs.running;
+	input.finishedJobs = jobs.finished;
+	input.lastReadMs = m_lastReadMs;
+	input.lastHandoffMs = m_lastHandoffMs;
+	input.lastCompletedMs = m_lastCompletedMs;
+	const auto traffic =
+		m_pipelinePressure.ObserveTraffic(theApp->uploadBandwidthThrottler->PipelineSentBytes(), now);
+	input.wireRate = traffic.rate;
+	input.wireWindowMs = traffic.windowMs;
+	input.wireValid = traffic.valid;
+	input.limit = uint64{ thePrefs::GetMaxUpload() } * 1024;
+	const auto &pressure = m_diagnostics.LastPressure();
+	input.storageDenied = pressure[UploadReadDiagnostics::Storage];
+	input.workersFull = pressure[UploadReadDiagnostics::Workers];
+	{
+		wxMutexLocker uploadLock(theApp->uploadqueue->GetUploadingListLock());
+		for (const auto &ref : theApp->uploadqueue->GetUploadingList()) {
+			CUpDownClient *client = ref.GetClient();
+			if (client->m_bIOError || client->GetSocket() == nullptr || !client->IsConnected()) {
+				continue;
+			}
+			wxMutexLocker blockLock(client->m_blockListLock);
+			input.AddClient(!client->m_BlockRequests_queue.empty(),
+				m_pendingClients.count(client->ECID()) != 0,
+				m_retryAfter.count(client->ECID()) != 0,
+				client->GetSocket()->UploadPressureSnapshot());
+		}
+	}
+	// Timestamp the start of collection so a blocked sampler cannot appear fresh.
+	const auto snapshot = m_pipelinePressure.Observe(input, now);
+	m_pipelineSnapshot = snapshot;
+	if (snapshot.sampledMs - m_lastPipelineLog < 5000) {
+		return;
+	}
+	m_lastPipelineLog = snapshot.sampledMs;
+	AddDebugLogLineF(logFileIO,
+		CFormat("Upload pipeline: sample_ms=%d active=%d requested=%d pending_clients=%d "
+			"pending_reads=%d oldest_read_ms=%d read_wait=%d transport_busy=%d ready=%d "
+			"admission_wait=%d deferred=%d drained=%d ready_bytes=%d "
+			"wire_Bps=%d wire_valid=%d wire_window_ms=%d limit_Bps=%d underfilled=%d "
+			"underfill_ms=%d sustained=%d persistent=%d "
+			"storage_denied=%d workers_full=%d "
+			"queued_jobs=%d running_jobs=%d finished_jobs=%d last_read_ms=%d last_handoff_ms=%d "
+			"last_completed_ms=%d") %
+			snapshot.sampledMs % input.active % input.requested % input.pendingClients %
+			input.pendingReads % input.oldestReadMs % input.readWait % input.transportBusy %
+			input.ready % input.admissionWait % input.deferred % input.drained %
+			input.readyBytes % input.wireRate % input.wireValid % input.wireWindowMs %
+			input.limit % snapshot.signals[UploadPipelinePressure::Underfilled] %
+			snapshot.ageMs[UploadPipelinePressure::Underfilled] % snapshot.sustainedUnderfill %
+			snapshot.persistentUnderfill % input.storageDenied % input.workersFull %
+			input.queuedJobs % input.runningJobs % input.finishedJobs % input.lastReadMs %
+			input.lastHandoffMs % input.lastCompletedMs);
+}
+
+// Runtime-enabled FileIO output, at most once per 30 seconds plus a final summary.
+// Ages include admitted jobs still queued/running/finished, so a permanently
+// stalled read remains visible without waiting for its completion.
+void CUploadDiskIOThread::ReportDiagnostics(bool final)
+{
+	if (!theLogger.IsEnabled(logFileIO)) {
+		return;
+	}
+	const uint64 now = GetTickCount64();
+	if (!final && now - m_lastDiagnostics < 30000) {
+		return;
+	}
+	[[maybe_unused]] const uint64 interval = now - m_lastDiagnostics;
+	m_lastDiagnostics = now;
+	[[maybe_unused]] const auto stats = m_diagnostics.Take(now);
+	uint64 oldest = 0;
+	for (const auto &pending : m_pendingClients) {
+		if (pending.second != 0) {
+			oldest = std::max(oldest, now - pending.second);
+		}
+	}
+	AddDebugLogLineF(logFileIO,
+		CFormat("Upload storage: interval_ms=%d reads=%d failed=%d deferred=%d "
+			"work_ms=%d/%d slow_1s=%d queue_ms=%d/%d completion_ms=%d/%d "
+			"closes=%d close_ms=%d/%d pending=%d oldest_ms=%d "
+			"denials(storage)=%d "
+			"pressure_ms(storage/workers_full)=%d/%d") %
+			interval % stats.work.count % stats.failed % stats.deferred % stats.work.totalMs %
+			stats.work.maxMs % stats.work.overSecond % stats.queue.totalMs % stats.queue.maxMs %
+			stats.completion.totalMs % stats.completion.maxMs % stats.close.count %
+			stats.close.totalMs % stats.close.maxMs % m_pendingClients.size() % oldest %
+			stats.denials[UploadReadDiagnostics::Storage] %
+			stats.pressureMs[UploadReadDiagnostics::Storage] %
+			stats.pressureMs[UploadReadDiagnostics::Workers]);
+}
+
 void CUploadDiskIOThread::QueueIdleCloses()
 {
 	const uint64 now = GetTickCount64();
@@ -304,6 +452,8 @@ void CUploadDiskIOThread::QueueIdleCloses()
 			req->pFileStruct = file;
 			req->path = file->path;
 			req->storage = file->storage;
+			req->timing.enabled = m_collectDiagnostics;
+			req->timing.submitted = m_collectDiagnostics ? GetTickCount64() : 0;
 			if (m_pool->Submit(req->storage, req)) {
 				it = m_listOpenFiles.erase(it);
 				m_needCacheSlot = false;
@@ -324,29 +474,14 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 	}
 	wxMutexLocker lockBlockLists(client->m_blockListLock);
 
-	// GetQueueSessionPayloadUp() is probably outdated, so also add what the socket reports as
-	// sent since the last timer tick. PeekSentPayload() is non-resetting (it does not consume
-	// the counter SendBlockData() uses) and is protected by m_sendLocker. Calling it from the
-	// disk thread is safe: we hold uploadLock, and disconnect/cleanup needs that lock.
-	sint64 nCurQueueSessionPayloadUp = client->m_nCurQueueSessionPayloadUp;
 	CClientTCPSocket *pSock = client->GetSocket();
-	if (pSock != nullptr)
-		nCurQueueSessionPayloadUp += (sint64)pSock->PeekSentPayload();
-	sint64 addedPayloadQueueSession = client->m_addedPayloadQueueSession;
-
-	bool bFastUpload = client->GetUploadDatarate() > BIGBUFFER_MINDATARATE;
-	// Send-ahead depth: how many blocks this thread primes into a fast slot's async send queue
-	// (1 otherwise). This is the upload-side in-flight depth -- the mirror of the leecher's
-	// request cap -- so it is bandwidth-delay-product limited: on a high-RTT link a shallow
-	// buffer drains before the next refill and caps throughput. eMule's 5 is a low-BDP default;
-	// 10 keeps a fast slot fed across moderate WAN RTTs. The cost is a transient ~1.8 MB of
-	// send-queue data per active fast slot, self-bounded by the OS TCP send buffer.
+	const bool bFastUpload = client->GetUploadDatarate() > BIGBUFFER_MINDATARATE;
+	// Preserve the one-or-ten-block target. Only data requested by the peer
+	// can be read; this queue covers storage latency, not data in flight.
 	const uint32 nBufferLimit = bFastUpload ? ((10 * EMBLOCKSIZE) + 1) : (EMBLOCKSIZE + 1);
 	pSock->SetUploadBufferTarget(nBufferLimit);
 
-	if (client->m_BlockRequests_queue.empty() ||
-		(addedPayloadQueueSession > nCurQueueSessionPayloadUp &&
-			(uint32)(addedPayloadQueueSession - nCurQueueSessionPayloadUp) >= nBufferLimit)) {
+	if (client->m_BlockRequests_queue.empty() || pSock->QueuedUploadPayload() >= nBufferLimit) {
 		return nullptr;
 	}
 
@@ -401,6 +536,9 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 				m_storageKeys.emplace(path, m_storageMap.Lookup(path, WINDOWS_STORAGE)).first;
 		}
 		if (!m_pool->CanSubmit(storage->second)) {
+			if (m_collectDiagnostics) {
+				m_diagnostics.Denied(UploadReadDiagnostics::Storage);
+			}
 			return nullptr;
 		}
 		auto req = std::make_unique<ReadRequest_Struct>();
@@ -440,7 +578,7 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 		}
 		req->pFileStruct->lastRead = GetTickCount64();
 		return req;
-	} catch (const wxString &DEBUG_ONLY(error)) {
+	} catch (const wxString &error) {
 		AddDebugLogLineN(logClient,
 			CFormat("CUploadDiskIOThread: error for client '%s': %s") % client->GetUserName() %
 				error);
@@ -596,7 +734,6 @@ bool CUploadDiskIOThread::CommitRead(ReadRequest_Struct *req, ReadResult result)
 	client->SetUploadFileID(srcfile);
 
 	uint64 togo = req->uEndOffset - req->uStartOffset;
-	client->m_addedPayloadQueueSession += static_cast<sint64>(togo);
 	srcfile->statistic.AddTransferred(togo);
 	PushDoneBlock(client->m_DoneBlocks_list, currentblock);
 	client->m_BlockRequests_queue.pop_front();

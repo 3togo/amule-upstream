@@ -227,8 +227,6 @@ void CUpDownClient::Init()
 	m_bUnicodeSupport = false;
 
 	m_fSentOutOfPartReqs = 0;
-	m_nCurQueueSessionPayloadUp = 0;
-	m_addedPayloadQueueSession = 0;
 	m_nUpDatarate = 0;
 	m_nSumForAvgUpDataRate = 0;
 
@@ -1446,7 +1444,7 @@ void CUpDownClient::ClearDownloadBlockRequests()
 	}
 }
 
-bool CUpDownClient::Disconnected(const wxString &DEBUG_ONLY(strReason), bool bFromSocket)
+bool CUpDownClient::Disconnected(const wxString &strReason, bool bFromSocket)
 {
 	// wxASSERT(theApp->clientlist->IsValidClient(this));
 
@@ -3146,7 +3144,6 @@ bool CUpDownClient::CheckHandshakeFinished() const
 	return true;
 }
 
-#ifdef __DEBUG__
 wxString CUpDownClient::GetClientFullInfo()
 {
 	if (m_clientVerString.IsEmpty()) {
@@ -3157,7 +3154,6 @@ wxString CUpDownClient::GetClientFullInfo()
 	       (m_Username.IsEmpty() ? wxString(_("Unknown")) : m_Username) % GetFullIP() % GetUserPort() %
 	       m_clientSoftString % m_clientVerString % m_strModVersion;
 }
-#endif
 
 wxString CUpDownClient::GetClientShortInfo()
 {

@@ -90,6 +90,10 @@ TEST(StorageReadPool, FinishedResultsKeepStorageAndGlobalBudgetsUntilTaken)
 	ASSERT_TRUE(allFinished.get_future().wait_for(std::chrono::seconds(3)) == std::future_status::ready);
 	ASSERT_FALSE(pool.HasCapacity());
 	ASSERT_FALSE(pool.CanSubmit("0"));
+	const auto occupied = pool.GetSnapshot();
+	ASSERT_EQUALS(StorageReadPool<Job>::kWorkers, occupied.finished);
+	ASSERT_EQUALS(size_t{ 0 }, occupied.queued);
+	ASSERT_EQUALS(size_t{ 0 }, occupied.running);
 	auto duplicate = std::make_unique<Job>();
 	ASSERT_FALSE(pool.Submit("0", duplicate));
 	size_t completed = 0;

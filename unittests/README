@@ -337,3 +337,43 @@ application must wait for that read, then exit cleanly when it is released.
 Keep opens, reads and closes off the coordinator in each native run. Record
 unavailable alias/UNC/fault-injection cases as untested, rather than treating a
 successful build or ordinary two-volume transfer as an isolation test.
+
+Upload storage diagnostics
+--------------------------
+Enable verbose output and the FileIO category (amule.conf: [eMule]
+VerboseDebug=1; [Debug] Cat_FileIO=1, on separate lines). Debug and Release
+builds report an "Upload storage:" summary every 30 seconds and at coordinator
+shutdown. Disabled diagnostics collect no timing samples. Summaries contain no
+paths, file hashes, storage keys or client identities.
+
+work_ms, queue_ms, completion_ms and close_ms report total/maximum milliseconds
+for completed operations. Work includes opening/reopening, reading, prefault/copy
+and cleanup; it is not disk-only latency. Completion ends before packet delivery.
+pending/oldest_ms expose admitted reads still queued, running or awaiting the
+coordinator, so a stuck read is visible before completion. denials(storage) counts
+unsuccessful admission attempts. pressure_ms(storage/workers_full) samples wall
+time when a storage group or all worker slots were last observed occupied.
+Reasons can overlap and are not summed client wait times. Reporting resets retain
+ongoing pressure. These observations do not add time targets or buffer budgets;
+master's fixed refill target and peer request limits remain unchanged.
+
+UploadReadDiagnosticsTest uses an injected clock to cover latency, exceptions,
+pressure transitions and reset. UploadStorageDiagnosticsIntegrationTest holds a
+real read past the reporting deadline while healthy storage continues, then
+checks completed latency and same-storage denials. It also verifies that disabled
+FileIO emits no summaries. This adds about 30 seconds.
+
+Upload pipeline:" snapshot at most once
+per five seconds with the same VerboseDebug/Cat_FileIO settings described above.
+No paths, file hashes, client IDs or storage keys are emitted.
+
+UploadPipelinePressureTest injects stage observations and time to distinguish
+controlled read, receiver, memory and worker bottlenecks, mixed conditions,
+deferred completion, idle/unlimited/capped traffic, threshold boundaries and
+observation gaps, independent rate expiry and overflow-safe arithmetic. StorageReadPoolTest verifies completed jobs remain separately
+observable while retaining ownership slots. Debug Linux builds register
+UploadPipelinePressureIntegrationTest: pipe-held storage must report read wait
+and same-storage denial, while a non-reading loopback peer must report queued
+payload and transport busy. Other peers must continue delivering verified data;
+recovery must clear underfill and busy/read-wait observations. No public peers,
+real mount changes, hardware throughput assumptions or adaptive actions are used.
