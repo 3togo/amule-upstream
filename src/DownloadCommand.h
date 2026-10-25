@@ -34,6 +34,8 @@ struct CDownloadTarget
 {
 	CMD4Hash hash;
 	uint32 ecid;
+	// Remote selections are also scoped to a connection generation.
+	uint64 generation = 0;
 };
 
 enum class DownloadCommand
@@ -53,8 +55,15 @@ inline bool CanCancelDownload(uint8 status)
 // Resolve at execution time. Neither queued commands nor their callers own a file pointer.
 // Lookup and apply run on the core/GUI event thread, without yielding between them.
 template <typename Lookup, typename Apply>
-bool ApplyDownloadCommand(const CDownloadTarget &target, DownloadCommand command, Lookup lookup, Apply apply)
+bool ApplyDownloadCommand(const CDownloadTarget &target,
+	DownloadCommand command,
+	Lookup lookup,
+	Apply apply,
+	uint64 generation = 0)
 {
+	if (target.generation != generation) {
+		return false;
+	}
 	auto *file = lookup(target);
 	if (!file || file->ECID() != target.ecid || file->GetFileHash() != target.hash) {
 		return false;

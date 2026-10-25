@@ -110,3 +110,26 @@ TEST(DownloadCommand, CancelCanDestroyTheResolvedFile)
 		[&](File *, DownloadCommand) { file.reset(); }));
 	ASSERT_FALSE(file);
 }
+
+TEST(DownloadCommand, ReconnectRejectsReusedIdentityBeforeLookup)
+{
+	File file;
+	const CDownloadTarget selected{ file.hash, file.id, 4 };
+	unsigned lookups = 0;
+	unsigned applied = 0;
+	auto lookup = [&](const CDownloadTarget &) {
+		++lookups;
+		return &file;
+	};
+	auto apply = [&](File *, DownloadCommand) { ++applied; };
+	for (DownloadCommand command : { DownloadCommand::Pause,
+		     DownloadCommand::Resume,
+		     DownloadCommand::Stop,
+		     DownloadCommand::Cancel }) {
+		ASSERT_FALSE(ApplyDownloadCommand(selected, command, lookup, apply, 5));
+	}
+	ASSERT_EQUALS(0u, lookups);
+	ASSERT_EQUALS(0u, applied);
+	ASSERT_TRUE(ApplyDownloadCommand(selected, DownloadCommand::Cancel, lookup, apply, 4));
+	ASSERT_EQUALS(1u, applied);
+}

@@ -833,6 +833,10 @@ void CamuleRemoteGuiApp::BeginReconnect()
 	if (m_reconnecting) {
 		return;
 	}
+	// ECIDs can be reused by a restarted daemon. Retire selections held by open dialogs.
+	if (downloadqueue) {
+		downloadqueue->InvalidateCommands();
+	}
 	m_reconnecting = true;
 	m_reconnectAttempt = 0;
 
@@ -929,6 +933,10 @@ void CamuleRemoteGuiApp::FinishReconnect(int result)
 	connect_timeout_timer = nullptr;
 
 	if (result == wxID_OK) {
+		// Also retire selections made while disconnected, before the fresh snapshot arrives.
+		if (downloadqueue) {
+			downloadqueue->InvalidateCommands();
+		}
 		AddLogLineCS(_("Reconnected to the remote core."));
 
 		// The daemon may have been upgraded while we were away, so re-read

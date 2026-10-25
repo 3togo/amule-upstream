@@ -1003,11 +1003,25 @@ void ConvertReaddAllJobs()
 
 #endif // #ifndef CLIENT_GUI
 
+CDownloadTarget Download_Target(const CPartFile *file)
+{
+	CDownloadTarget target{ file->GetFileHash(), file->ECID() };
+#ifdef CLIENT_GUI
+	target.generation = theApp->downloadqueue->CommandGeneration();
+#endif
+	return target;
+}
+
 // Values must be copied into MuleNotify's queued functor.
 // NOLINTBEGIN(performance-unnecessary-value-param)
 void Download_Execute(CDownloadTarget target, DownloadCommand command)
 // NOLINTEND(performance-unnecessary-value-param)
 {
+#ifdef CLIENT_GUI
+	const uint64 generation = theApp->downloadqueue->CommandGeneration();
+#else
+	const uint64 generation = 0;
+#endif
 	ApplyDownloadCommand(
 		target,
 		command,
@@ -1054,7 +1068,8 @@ void Download_Execute(CDownloadTarget target, DownloadCommand command)
 				break;
 			}
 #endif
-		});
+		},
+		generation);
 }
 
 // MuleNotify stores notification arguments by value; a reference would not match the queued

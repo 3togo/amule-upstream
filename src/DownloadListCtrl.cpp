@@ -602,7 +602,7 @@ void CDownloadListCtrl::OnCancelFile(wxCommandEvent &WXUNUSED(event))
 	for (wxUIntPtr data : GetSelectedItemData()) {
 		const CPartFile *file = reinterpret_cast<CPartFile *>(data);
 		if (CanCancelDownload(file->GetStatus())) {
-			files.push_back({ file->GetFileHash(), file->ECID() });
+			files.push_back(MuleNotify::Download_Target(file));
 		}
 	}
 	if (files.empty()) {
@@ -715,7 +715,7 @@ void CDownloadListCtrl::OnSetStatus(wxCommandEvent &event)
 	std::vector<CDownloadTarget> selected;
 	for (wxUIntPtr data : GetSelectedItemData()) {
 		const CPartFile *file = reinterpret_cast<CPartFile *>(data);
-		selected.push_back({ file->GetFileHash(), file->ECID() });
+		selected.push_back(MuleNotify::Download_Target(file));
 	}
 	for (const CDownloadTarget &target : selected) {
 		MuleNotify::DoNotify(&MuleNotify::Download_Execute, target, command);
