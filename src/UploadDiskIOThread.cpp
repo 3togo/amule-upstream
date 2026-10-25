@@ -39,7 +39,8 @@
 #include "MD4Hash.h"
 #include "UploadBandwidthThrottler.h"
 #include "UploadBlockLists.h" // Needed for PushDoneBlock
-#include "Statistics.h"       // Needed for theStats
+#include "Preferences.h"
+#include "Statistics.h" // Needed for theStats
 #include "UploadPacketBuilder.h"
 
 #include <algorithm>
@@ -163,6 +164,9 @@ void *CUploadDiskIOThread::Entry()
 			if (collect != m_collectDiagnostics) {
 				m_collectDiagnostics = collect;
 				m_diagnostics = {};
+				m_pipelinePressure = {};
+				m_pipelineSnapshot = {};
+				m_lastCompletedMs = m_lastReadMs = m_lastHandoffMs = m_lastPipelineLog = 0;
 				m_lastDiagnostics = GetTickCount64();
 			}
 			DrainCompletions(true);
@@ -238,6 +242,7 @@ void *CUploadDiskIOThread::Entry()
 				m_diagnostics.EndSweep(GetTickCount64(), !m_pool->HasCapacity());
 			}
 			ReportDiagnostics();
+			SamplePipelinePressure();
 			wxMutexLocker lock(m_mutex);
 			if (m_bRun && !m_bNewBlocksPending && !m_bSocketNeedsPending) {
 				m_condition.WaitTimeout(500);
@@ -289,6 +294,11 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 			continue;
 		}
 		auto *req = completed.job.release();
+		if (m_collectDiagnostics && req->timing.enabled && !req->closeOnly) {
+			m_lastCompletedMs = GetTickCount64();
+			m_lastReadMs = req->timing.finished - req->timing.started;
+			m_lastHandoffMs = m_lastCompletedMs - req->timing.finished;
+		}
 		if (m_collectDiagnostics && req->timing.enabled) {
 			m_diagnostics.Completed(req->timing,
 				GetTickCount64(),
@@ -317,6 +327,80 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 	if (dataQueued && theApp->uploadBandwidthThrottler != nullptr) {
 		theApp->uploadBandwidthThrottler->NewUploadDataAvailable();
 	}
+}
+
+void CUploadDiskIOThread::SamplePipelinePressure()
+{
+	if (!theLogger.IsEnabled(logFileIO)) {
+		return;
+	}
+	const uint64 now = GetTickCount64();
+	const auto &previous = m_pipelineSnapshot;
+	if (previous.valid && now - previous.sampledMs < UploadPipelinePressure::kSampleMs) {
+		return;
+	}
+	UploadPipelinePressure::Input input;
+	input.pendingReads = m_pendingClients.size();
+	for (const auto &pending : m_pendingClients) {
+		if (pending.second != 0) {
+			input.oldestReadMs = std::max(input.oldestReadMs, now - pending.second);
+		}
+	}
+	const auto jobs = m_pool->GetSnapshot();
+	input.queuedJobs = jobs.queued;
+	input.runningJobs = jobs.running;
+	input.finishedJobs = jobs.finished;
+	input.lastReadMs = m_lastReadMs;
+	input.lastHandoffMs = m_lastHandoffMs;
+	input.lastCompletedMs = m_lastCompletedMs;
+	const auto traffic =
+		m_pipelinePressure.ObserveTraffic(theApp->uploadBandwidthThrottler->PipelineSentBytes(), now);
+	input.wireRate = traffic.rate;
+	input.wireWindowMs = traffic.windowMs;
+	input.wireValid = traffic.valid;
+	input.limit = uint64{ thePrefs::GetMaxUpload() } * 1024;
+	const auto &pressure = m_diagnostics.LastPressure();
+	input.storageDenied = pressure[UploadReadDiagnostics::Storage];
+	input.workersFull = pressure[UploadReadDiagnostics::Workers];
+	{
+		wxMutexLocker uploadLock(theApp->uploadqueue->GetUploadingListLock());
+		for (const auto &ref : theApp->uploadqueue->GetUploadingList()) {
+			CUpDownClient *client = ref.GetClient();
+			if (client->m_bIOError || client->GetSocket() == nullptr || !client->IsConnected()) {
+				continue;
+			}
+			wxMutexLocker blockLock(client->m_blockListLock);
+			input.AddClient(!client->m_BlockRequests_queue.empty(),
+				m_pendingClients.count(client->ECID()) != 0,
+				m_retryAfter.count(client->ECID()) != 0,
+				client->GetSocket()->UploadPressureSnapshot());
+		}
+	}
+	// Timestamp the start of collection so a blocked sampler cannot appear fresh.
+	const auto snapshot = m_pipelinePressure.Observe(input, now);
+	m_pipelineSnapshot = snapshot;
+	if (snapshot.sampledMs - m_lastPipelineLog < 5000) {
+		return;
+	}
+	m_lastPipelineLog = snapshot.sampledMs;
+	AddDebugLogLineF(logFileIO,
+		CFormat("Upload pipeline: sample_ms=%d active=%d requested=%d pending_clients=%d "
+			"pending_reads=%d oldest_read_ms=%d read_wait=%d transport_busy=%d ready=%d "
+			"admission_wait=%d deferred=%d drained=%d ready_bytes=%d "
+			"wire_Bps=%d wire_valid=%d wire_window_ms=%d limit_Bps=%d underfilled=%d "
+			"underfill_ms=%d sustained=%d persistent=%d "
+			"storage_denied=%d workers_full=%d "
+			"queued_jobs=%d running_jobs=%d finished_jobs=%d last_read_ms=%d last_handoff_ms=%d "
+			"last_completed_ms=%d") %
+			snapshot.sampledMs % input.active % input.requested % input.pendingClients %
+			input.pendingReads % input.oldestReadMs % input.readWait % input.transportBusy %
+			input.ready % input.admissionWait % input.deferred % input.drained %
+			input.readyBytes % input.wireRate % input.wireValid % input.wireWindowMs %
+			input.limit % snapshot.signals[UploadPipelinePressure::Underfilled] %
+			snapshot.ageMs[UploadPipelinePressure::Underfilled] % snapshot.sustainedUnderfill %
+			snapshot.persistentUnderfill % input.storageDenied % input.workersFull %
+			input.queuedJobs % input.runningJobs % input.finishedJobs % input.lastReadMs %
+			input.lastHandoffMs % input.lastCompletedMs);
 }
 
 // Runtime-enabled FileIO output, at most once per 30 seconds plus a final summary.

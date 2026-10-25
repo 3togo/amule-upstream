@@ -100,6 +100,7 @@ public:
 		m_pressure[Workers] = workersFull;
 		m_sweep = {};
 	}
+	const PressureMask &LastPressure() const { return m_pressure; }
 	Snapshot Take(uint64_t now)
 	{
 		Advance(now);

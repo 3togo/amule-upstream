@@ -34,6 +34,7 @@
 #include "StorageReadPool.h"
 #include "UploadStorageMap.h"
 #include "UploadReadDiagnostics.h"
+#include "UploadPipelinePressure.h"
 
 #include <wx/thread.h>
 
@@ -108,6 +109,7 @@ public:
 	void SocketNeedsMoreData();       // eMule ref: UploadDiskIOThread.h:56
 
 private:
+	void SamplePipelinePressure();
 	void *Entry() override; // replaces RunProc/RunInternal
 
 	using ReadResult = UploadReadResult;
@@ -144,6 +146,11 @@ private:
 	UploadReadDiagnostics m_diagnostics;
 	bool m_collectDiagnostics = false;
 	uint64 m_lastDiagnostics = 0;
+	UploadPipelinePressure m_pipelinePressure;
+	// Sampling state is private to the coordinator and only used with FileIO enabled.
+	UploadPipelinePressure::Snapshot m_pipelineSnapshot;
+	uint64 m_lastPipelineLog = 0;
+	uint64 m_lastReadMs = 0, m_lastHandoffMs = 0, m_lastCompletedMs = 0;
 	bool m_needCacheSlot = false;
 	std::list<std::shared_ptr<OpenFile_Struct>> m_listOpenFiles;
 };
