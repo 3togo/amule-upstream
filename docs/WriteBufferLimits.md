@@ -1,7 +1,8 @@
 # Download write-buffer backpressure
 
-Only received, unwritten payload counts toward the 64 MiB global and 16 MiB
-per-volume budgets. Selecting or sending block requests consumes no credit.
+Only allocated write payload counts toward the 64 MiB global and 16 MiB
+per-volume budgets. Selecting or sending block requests allocates no payload;
+request metadata alone consumes no write capacity.
 This leaves the normal source pipeline available regardless of source count
 or round-trip time when storage keeps up.
 
@@ -15,9 +16,12 @@ aliases, including unresolved directory identities. The normal
 file-buffer preference still controls batching below these thresholds.
 
 Already requested responses remain admissible, including compressed responses.
-Each missing fragment is charged by its uncompressed size and releases its own
-charge as soon as the worker successfully writes and frees its payload, or
-when it is discarded. Duplicate overlap is not buffered again.
+The first missing fragment allocates its requested span, at most 180 KiB, and
+charges that full allocation, including its unused holes. At most two immutable
+write snapshots share the allocation. The charge ends when the last buffered
+owner releases it; an outstanding request alone retains no payload. Duplicate
+overlap is not buffered again. See [the metadata design](WriteMetadataLimits.md)
+for bitmap costs and sparse read-modify-write amplification.
 Write errors retain data and its charge for retry; disconnecting a source does
 not release dirty data. Empty pipelines keep their upload slots and retry on
 download ticks after storage drains.
