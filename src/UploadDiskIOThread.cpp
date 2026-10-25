@@ -324,29 +324,14 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 	}
 	wxMutexLocker lockBlockLists(client->m_blockListLock);
 
-	// GetQueueSessionPayloadUp() is probably outdated, so also add what the socket reports as
-	// sent since the last timer tick. PeekSentPayload() is non-resetting (it does not consume
-	// the counter SendBlockData() uses) and is protected by m_sendLocker. Calling it from the
-	// disk thread is safe: we hold uploadLock, and disconnect/cleanup needs that lock.
-	sint64 nCurQueueSessionPayloadUp = client->m_nCurQueueSessionPayloadUp;
 	CClientTCPSocket *pSock = client->GetSocket();
-	if (pSock != nullptr)
-		nCurQueueSessionPayloadUp += (sint64)pSock->PeekSentPayload();
-	sint64 addedPayloadQueueSession = client->m_addedPayloadQueueSession;
-
-	bool bFastUpload = client->GetUploadDatarate() > BIGBUFFER_MINDATARATE;
-	// Send-ahead depth: how many blocks this thread primes into a fast slot's async send queue
-	// (1 otherwise). This is the upload-side in-flight depth -- the mirror of the leecher's
-	// request cap -- so it is bandwidth-delay-product limited: on a high-RTT link a shallow
-	// buffer drains before the next refill and caps throughput. eMule's 5 is a low-BDP default;
-	// 10 keeps a fast slot fed across moderate WAN RTTs. The cost is a transient ~1.8 MB of
-	// send-queue data per active fast slot, self-bounded by the OS TCP send buffer.
+	const bool bFastUpload = client->GetUploadDatarate() > BIGBUFFER_MINDATARATE;
+	// Preserve the one-or-ten-block target. Only data requested by the peer
+	// can be read; this queue covers storage latency, not data in flight.
 	const uint32 nBufferLimit = bFastUpload ? ((10 * EMBLOCKSIZE) + 1) : (EMBLOCKSIZE + 1);
 	pSock->SetUploadBufferTarget(nBufferLimit);
 
-	if (client->m_BlockRequests_queue.empty() ||
-		(addedPayloadQueueSession > nCurQueueSessionPayloadUp &&
-			(uint32)(addedPayloadQueueSession - nCurQueueSessionPayloadUp) >= nBufferLimit)) {
+	if (client->m_BlockRequests_queue.empty() || pSock->QueuedUploadPayload() >= nBufferLimit) {
 		return nullptr;
 	}
 
@@ -461,11 +446,22 @@ CUploadDiskIOThread::ReadResult CUploadDiskIOThread::ReadBlock(ReadRequest_Struc
 	struct Cleanup
 	{
 		ReadRequest_Struct *req;
-		~Cleanup()
+		~Cleanup() noexcept
 		{
-			req->ReleasePartFile();
-			if (!req->pFileStruct->cached || req->closeOnly) {
-				req->pFileStruct->file.Close();
+			try {
+				req->ReleasePartFile();
+				// Open can fail, and the stale-handle retry closes before throwing. In both
+				// cases this cleanup still owns the uncached entry, but no open handle.
+				if ((!req->pFileStruct->cached || req->closeOnly) &&
+					req->pFileStruct->file.IsOpened()) {
+					req->pFileStruct->file.Close();
+				}
+			} catch (const CMuleException &error) {
+				AddDebugLogLineC(logClient,
+					wxString("CUploadDiskIOThread: cleanup failed: ") + error.what());
+			} catch (...) {
+				AddDebugLogLineC(logClient,
+					"CUploadDiskIOThread: cleanup failed with an unexpected exception");
 			}
 		}
 	} cleanup{ req };
@@ -596,7 +592,6 @@ bool CUploadDiskIOThread::CommitRead(ReadRequest_Struct *req, ReadResult result)
 	client->SetUploadFileID(srcfile);
 
 	uint64 togo = req->uEndOffset - req->uStartOffset;
-	client->m_addedPayloadQueueSession += static_cast<sint64>(togo);
 	srcfile->statistic.AddTransferred(togo);
 	PushDoneBlock(client->m_DoneBlocks_list, currentblock);
 	client->m_BlockRequests_queue.pop_front();
