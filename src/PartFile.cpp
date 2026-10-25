@@ -3672,6 +3672,12 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 
 		switch (item->flushed) {
 		case PB_READY:
+			if (threaded) {
+				// A second snapshot remains READY while its first writer owns the
+				// file mutex. Never turn that deliberate deferral into a main-thread write.
+				++it;
+				continue;
+			}
 			// Write thread not running -- fall back to synchronous write
 			{
 				wxASSERT((item->end - item->start) < 0xFFFFFFFF);
