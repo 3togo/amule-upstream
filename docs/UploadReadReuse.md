@@ -2,9 +2,9 @@
 
 A repeated request does not necessarily cause another physical disk read. The
 operating system can serve it from its page cache. Upload heap reads already
-hand their original allocation to packet construction, and download snapshots
-share one reserved payload allocation. Another payload cache needs evidence that
-its saved work justifies its memory, ownership rules and invalidation cost.
+hand their original allocation to packet construction. Another payload cache
+needs evidence that its saved work justifies its memory, ownership rules and
+invalidation cost.
 
 Enabling the FileIO debug category adds range observations to the existing
 `Upload storage:` summary. `range_reads` and `range_bytes` count successful file
@@ -39,3 +39,14 @@ separate measurements. A high logical-repeat count with no additional physical
 reads supports retaining the OS page cache for that workload. It does not prove
 that a shared cache could never save CPU, nor justify adding one without a
 measured benefit under representative load.
+
+
+A slow device is a primary reason to absorb service-time variation with buffers.
+A useful comparison therefore includes cold working sets, limited bandwidth,
+seek latency and simultaneous reads/writes. It measures delivered throughput and
+delivery gaps as well as CPU, retained memory, physical reads and write
+amplification. A fast SSD result quantifies cost in that workload; it cannot
+establish that another buffer is redundant on slow storage. Conversely, unit
+checks of ownership and bounds do not establish a performance benefit on either.
+A sustained bandwidth deficit also cannot be repaired by finite buffering;
+backpressure, fairness and recovery remain separate requirements.
