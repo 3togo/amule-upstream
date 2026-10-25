@@ -34,6 +34,7 @@
 #include "StorageReadPool.h"
 #include "UploadStorageMap.h"
 #include "UploadReadDiagnostics.h"
+#include "UploadReadReuse.h"
 
 #include <wx/thread.h>
 
@@ -142,6 +143,7 @@ private:
 	// Resolve each spelled path once per mount-table snapshot, including busy volumes.
 	std::map<std::string, std::string> m_storageKeys;
 	UploadReadDiagnostics m_diagnostics;
+	UploadReadReuse m_readReuse;
 	bool m_collectDiagnostics = false;
 	uint64 m_lastDiagnostics = 0;
 	bool m_needCacheSlot = false;

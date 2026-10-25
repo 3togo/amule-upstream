@@ -163,6 +163,7 @@ void *CUploadDiskIOThread::Entry()
 			if (collect != m_collectDiagnostics) {
 				m_collectDiagnostics = collect;
 				m_diagnostics = {};
+				m_readReuse.Reset();
 				m_lastDiagnostics = GetTickCount64();
 			}
 			DrainCompletions(true);
@@ -290,6 +291,9 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 		}
 		auto *req = completed.job.release();
 		if (m_collectDiagnostics && req->timing.enabled) {
+			if (!req->closeOnly && !completed.error && req->result == READ_OK) {
+				m_readReuse.Observe(req->ucMD4FileHash, req->uStartOffset, req->uEndOffset);
+			}
 			m_diagnostics.Completed(req->timing,
 				GetTickCount64(),
 				req->closeOnly,
@@ -334,6 +338,7 @@ void CUploadDiskIOThread::ReportDiagnostics(bool final)
 	[[maybe_unused]] const uint64 interval = now - m_lastDiagnostics;
 	m_lastDiagnostics = now;
 	[[maybe_unused]] const auto stats = m_diagnostics.Take(now);
+	[[maybe_unused]] const auto reuse = m_readReuse.Take();
 	uint64 oldest = 0;
 	for (const auto &pending : m_pendingClients) {
 		if (pending.second != 0) {
@@ -345,14 +350,18 @@ void CUploadDiskIOThread::ReportDiagnostics(bool final)
 			"work_ms=%d/%d slow_1s=%d queue_ms=%d/%d completion_ms=%d/%d "
 			"closes=%d close_ms=%d/%d pending=%d oldest_ms=%d "
 			"denials(storage)=%d "
-			"pressure_ms(storage/workers_full)=%d/%d") %
+			"pressure_ms(storage/workers_full)=%d/%d "
+			"range_reads=%d range_bytes=%d exact_repeat_reads=%d exact_repeat_bytes=%d "
+			"overlap_reads=%d overlap_bytes=%d reuse_evictions=%d") %
 			interval % stats.work.count % stats.failed % stats.deferred % stats.work.totalMs %
 			stats.work.maxMs % stats.work.overSecond % stats.queue.totalMs % stats.queue.maxMs %
 			stats.completion.totalMs % stats.completion.maxMs % stats.close.count %
 			stats.close.totalMs % stats.close.maxMs % m_pendingClients.size() % oldest %
 			stats.denials[UploadReadDiagnostics::Storage] %
 			stats.pressureMs[UploadReadDiagnostics::Storage] %
-			stats.pressureMs[UploadReadDiagnostics::Workers]);
+			stats.pressureMs[UploadReadDiagnostics::Workers] % reuse.reads % reuse.bytes %
+			reuse.exactReads % reuse.exactBytes % reuse.overlapReads % reuse.overlapBytes %
+			reuse.evictions);
 }
 
 void CUploadDiskIOThread::QueueIdleCloses()

@@ -3277,3 +3277,8 @@ if (TARGET wxWidgets::CORE)
 	set_tests_properties (BandwidthRateInputEnglishTest BandwidthRateInputItalianTest
 		PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
 endif()
+
+add_executable (UploadReadReuseTest UploadReadReuseTest.cpp)
+add_test (NAME UploadReadReuseTest COMMAND UploadReadReuseTest)
+target_include_directories (UploadReadReuseTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (UploadReadReuseTest muleunit mulecommon)
