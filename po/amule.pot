@@ -2391,8 +2391,12 @@ msgid "FileHash not found: %s"
 msgstr ""
 
 #: src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr ""
+
+#: src/ExternalConn.cpp
 #, c-format
-msgid "Cannot cancel a finished download: %s"
+msgid "Cannot cancel a hashing or finished download: %s"
 msgstr ""
 
 #: src/ExternalConn.cpp
