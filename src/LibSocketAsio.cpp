@@ -1243,7 +1243,9 @@ private:
 				// Bounded synchronous connect: async_connect raced against a steady_timer,
 				// both driven here on the socket's own context. A synchronous EC connection
 				// may precede the CAsioService worker pool. Restart a stopped context before
-				// running another connect. Portable through asio with no per-OS
+				// running another connect. It must precede the pool: run_one() returns only
+				// for handlers run on this thread, so a worker that took the completion would
+				// leave this loop waiting for the timer. Portable through asio with no per-OS
 				// socket-timeout handling: a wrong or unreachable host fails in
 				// m_connectTimeoutMs instead of hanging on the OS TCP connect timeout.
 				ec = boost::asio::error::would_block;
