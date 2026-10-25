@@ -25,7 +25,6 @@
 #include "MuleLogCtrl.h"
 
 #include <wx/settings.h>
-#include <wx/dcclient.h>
 
 #include <cstdlib> // std::abs
 
@@ -101,7 +100,6 @@ CMuleLogCtrl::CMuleLogCtrl(wxWindow *parent,
 	// so re-apply on every theme change.
 	SetupStyles();
 	Bind(wxEVT_SYS_COLOUR_CHANGED, &CMuleLogCtrl::OnSysColourChanged, this);
-	Bind(wxEVT_PAINT, &CMuleLogCtrl::OnPaint, this);
 
 	SetReadOnly(true);
 }
@@ -133,19 +131,6 @@ void CMuleLogCtrl::SetupStyles()
 void CMuleLogCtrl::OnSysColourChanged(wxSysColourChangedEvent &event)
 {
 	SetupStyles();
-	event.Skip();
-}
-
-void CMuleLogCtrl::OnPaint(wxPaintEvent &event)
-{
-	const wxSize size = GetClientSize();
-	if (size.x <= 0 || size.y <= 0) {
-		// A splitter resize can temporarily collapse a log pane. wxSTC's
-		// buffered paint handler blits even an empty buffer: wxGTK 3.2 then
-		// divides by zero and invalidates the shared Cairo drawing context.
-		wxPaintDC dc(this);
-		return;
-	}
 	event.Skip();
 }
 
