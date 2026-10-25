@@ -254,8 +254,6 @@ bool CPreferences::s_AutoRescanSharedDirs;
 bool CPreferences::s_FollowSymlinksInShares;
 wxString CPreferences::s_ExcludeSharePatterns;
 bool CPreferences::s_ExcludeSharePatternsUseRegex;
-bool CPreferences::s_ExcludeOfficeDocuments;
-bool CPreferences::s_officeExclusionAvailable = true;
 CShareExcludeFilter CPreferences::s_ShareExcludeFilter;
 bool CPreferences::s_NewVersionCheck;
 // Default true so the monolithic app (which never receives the capability tag over EC
@@ -991,7 +989,7 @@ protected:
 };
 
 int CPreferences::PreviewExcludeCount(
-	const wxString &patterns, bool useRegex, const wxArrayString &fileNames, bool excludeOffice)
+	const wxString &patterns, bool useRegex, const wxArrayString &fileNames)
 {
 	CShareExcludeFilter filter;
 	filter.Compile(patterns, useRegex);
@@ -1000,8 +998,7 @@ int CPreferences::PreviewExcludeCount(
 	}
 	int count = 0;
 	for (size_t i = 0; i < fileNames.GetCount(); ++i) {
-		if (filter.Matches(fileNames[i]) ||
-			(excludeOffice && ShareExclude::IsOfficeDocument(fileNames[i]))) {
+		if (filter.Matches(fileNames[i])) {
 			++count;
 		}
 	}
@@ -1418,23 +1415,33 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	 * Shared-file exclusion by name. A '|'-separated list of wildcard patterns, or a
 	 * single regex when ExcludeSharePatternsUseRegex is on.
 	 *
-	 * The default excludes OS-generated metadata junk that no peer wants to download.
-	 * Matching is case-insensitive. Configs missing the key pick this up on load (not
-	 * just fresh installs) -- intentional for this junk, which should never have been
-	 * shared: macOS .DS_Store, ._* (AppleDouble), .Spotlight-V100, .Trashes, .fseventsd,
-	 * .DocumentRevisions-V100, .TemporaryItems, .apdisk; Windows Thumbs.db, ehthumbs.db,
-	 * desktop.ini; Linux .directory (KDE folder metadata). Deliberately NOT included:
-	 * broad download-temp globs (*.part, *.tmp, *.!ut, *INCOMPLETE*) -- those can match
-	 * real user files, so they are left for the user to add.
+	 * The default excludes OS-generated metadata junk that no peer wants to download,
+	 * and office documents, which routinely hold private correspondence or business
+	 * data a user did not mean to publish. Matching is case-insensitive. Configs
+	 * missing the key pick this up on load (not just fresh installs) -- intentional
+	 * for this junk, which should never have been shared: macOS .DS_Store, ._*
+	 * (AppleDouble), .Spotlight-V100, .Trashes, .fseventsd, .DocumentRevisions-V100,
+	 * .TemporaryItems, .apdisk; Windows Thumbs.db, ehthumbs.db, desktop.ini; Linux
+	 * .directory (KDE folder metadata). Deliberately NOT included: broad download-temp
+	 * globs (*.part, *.tmp, *.!ut, *INCOMPLETE*) -- those can match real user files,
+	 * so they are left for the user to add.
+	 *
+	 * The office part is plain globs, not a separate preference, so the user can see
+	 * and edit exactly what is excluded in the same field. A profile that already has
+	 * a saved ExcludeSharePatterns keeps its own list and does not gain these globs;
+	 * that is covered by the release notes rather than by rewriting a saved choice.
 	 */
 	NewCfgItem(IDC_EXCLUDE_SHARE_PATTERNS,
 		(new Cfg_Str("/eMule/ExcludeSharePatterns",
 			s_ExcludeSharePatterns,
 			".DS_Store|._*|.Spotlight-V100|.Trashes|.fseventsd|"
 			".DocumentRevisions-V100|.TemporaryItems|.apdisk|"
-			"Thumbs.db|ehthumbs.db|desktop.ini|.directory")));
-	NewCfgItem(IDC_EXCLUDE_OFFICE_DOCUMENTS,
-		(new Cfg_Bool("/eMule/ExcludeOfficeDocuments", s_ExcludeOfficeDocuments, true)));
+			"Thumbs.db|ehthumbs.db|desktop.ini|.directory|"
+			"*.doc|*.docx|*.docm|*.dot|*.dotx|*.dotm|"
+			"*.xls|*.xlsx|*.xlsm|*.xlsb|*.xlt|*.xltx|*.xltm|*.xlam|"
+			"*.ppt|*.pptx|*.pptm|*.pot|*.potx|*.potm|*.pps|*.ppsx|*.ppsm|"
+			"*.odt|*.ott|*.ods|*.ots|*.odp|*.otp|*.odg|*.otg|*.odf|*.odb|"
+			"*.rtf|*.csv|*.tsv")));
 	NewCfgItem(IDC_EXCLUDE_SHARE_REGEX,
 		(new Cfg_Bool("/eMule/ExcludeSharePatternsUseRegex", s_ExcludeSharePatternsUseRegex, false)));
 

@@ -187,8 +187,20 @@ TEST(ShareExclude, ExpansionCapsSeenNames)
 	wxFileName::Rmdir(root.GetRaw(), wxPATH_RMDIR_RECURSIVE);
 }
 
-TEST(ShareExclude, OfficeDocumentsMatchExactExtensions)
+// Office documents are excluded as plain globs inside the default ExcludeSharePatterns, so the
+// user sees and edits them in the same field as every other pattern. This is that glob list.
+TEST(ShareExclude, OfficeDocumentGlobsMatchExactExtensions)
 {
+	CShareExcludeFilter filter;
+	filter.Compile(
+		"*.doc|*.docx|*.docm|*.dot|*.dotx|*.dotm|"
+		"*.xls|*.xlsx|*.xlsm|*.xlsb|*.xlt|*.xltx|*.xltm|*.xlam|"
+		"*.ppt|*.pptx|*.pptm|*.pot|*.potx|*.potm|*.pps|*.ppsx|*.ppsm|"
+		"*.odt|*.ott|*.ods|*.ots|*.odp|*.otp|*.odg|*.otg|*.odf|*.odb|"
+		"*.rtf|*.csv|*.tsv",
+		false);
+	ASSERT_TRUE(filter.IsValid());
+
 	const char *blocked[] = { "Letter.DOC",
 		"letter.docx",
 		"macro.DoCm",
@@ -206,7 +218,7 @@ TEST(ShareExclude, OfficeDocumentsMatchExactExtensions)
 		"contacts.csv",
 		"contacts.TSV" };
 	for (const char *name : blocked) {
-		ASSERT_TRUE(ShareExclude::IsOfficeDocument(name));
+		ASSERT_TRUE_M(filter.Matches(name), name);
 	}
 	const char *allowed[] = { "music.mp3",
 		"movie.mkv",
@@ -217,6 +229,6 @@ TEST(ShareExclude, OfficeDocumentsMatchExactExtensions)
 		"README",
 		"report.docx.exe" };
 	for (const char *name : allowed) {
-		ASSERT_TRUE(!ShareExclude::IsOfficeDocument(name));
+		ASSERT_TRUE_M(!filter.Matches(name), name);
 	}
 }
