@@ -127,6 +127,7 @@ TEST(DownloadCommand, ReconnectRejectsReusedIdentityBeforeLookup)
 		     DownloadCommand::Stop,
 		     DownloadCommand::Cancel }) {
 		ASSERT_FALSE(ApplyDownloadCommand(selected, command, lookup, apply, 5));
+		ASSERT_FALSE(ApplyDownloadCommand(selected, command, lookup, apply, 4, false));
 	}
 	ASSERT_EQUALS(0u, lookups);
 	ASSERT_EQUALS(0u, applied);

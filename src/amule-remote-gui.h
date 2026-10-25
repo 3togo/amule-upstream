@@ -483,12 +483,23 @@ class CDownQueueRem : public std::map<uint32, CPartFile *>
 {
 	CRemoteConnect *m_conn;
 	uint64 m_commandGeneration = 0;
+	bool m_commandsEnabled = true;
 
 public:
 	CDownQueueRem(CRemoteConnect *conn) { m_conn = conn; }
 
 	uint64 CommandGeneration() const { return m_commandGeneration; }
-	void InvalidateCommands() { ++m_commandGeneration; }
+	bool CommandsEnabled() const { return m_commandsEnabled; }
+	void InvalidateCommands()
+	{
+		++m_commandGeneration;
+		m_commandsEnabled = false;
+	}
+	void EnableCommands()
+	{
+		++m_commandGeneration;
+		m_commandsEnabled = true;
+	}
 
 	CPartFile *GetFileByID(uint32 id);
 

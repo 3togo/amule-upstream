@@ -1019,8 +1019,10 @@ void Download_Execute(CDownloadTarget target, DownloadCommand command)
 {
 #ifdef CLIENT_GUI
 	const uint64 generation = theApp->downloadqueue->CommandGeneration();
+	const bool connected = theApp->downloadqueue->CommandsEnabled();
 #else
 	const uint64 generation = 0;
+	const bool connected = true;
 #endif
 	ApplyDownloadCommand(
 		target,
@@ -1069,7 +1071,8 @@ void Download_Execute(CDownloadTarget target, DownloadCommand command)
 			}
 #endif
 		},
-		generation);
+		generation,
+		connected);
 }
 
 // MuleNotify stores notification arguments by value; a reference would not match the queued

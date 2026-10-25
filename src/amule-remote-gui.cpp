@@ -935,7 +935,7 @@ void CamuleRemoteGuiApp::FinishReconnect(int result)
 	if (result == wxID_OK) {
 		// Also retire selections made while disconnected, before the fresh snapshot arrives.
 		if (downloadqueue) {
-			downloadqueue->InvalidateCommands();
+			downloadqueue->EnableCommands();
 		}
 		AddLogLineCS(_("Reconnected to the remote core."));
 

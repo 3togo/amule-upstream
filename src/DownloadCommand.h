@@ -59,9 +59,10 @@ bool ApplyDownloadCommand(const CDownloadTarget &target,
 	DownloadCommand command,
 	Lookup lookup,
 	Apply apply,
-	uint64 generation = 0)
+	uint64 generation = 0,
+	bool connected = true)
 {
-	if (target.generation != generation) {
+	if (!connected || target.generation != generation) {
 		return false;
 	}
 	auto *file = lookup(target);
