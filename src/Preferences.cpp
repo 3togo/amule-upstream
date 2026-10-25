@@ -988,8 +988,7 @@ protected:
 	bool m_is_skin;
 };
 
-int CPreferences::PreviewExcludeCount(
-	const wxString &patterns, bool useRegex, const wxArrayString &fileNames)
+int CPreferences::PreviewExcludeCount(const wxString &patterns, bool useRegex, const wxArrayString &fileNames)
 {
 	CShareExcludeFilter filter;
 	filter.Compile(patterns, useRegex);

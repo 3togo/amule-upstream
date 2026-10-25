@@ -192,12 +192,11 @@ TEST(ShareExclude, ExpansionCapsSeenNames)
 TEST(ShareExclude, OfficeDocumentGlobsMatchExactExtensions)
 {
 	CShareExcludeFilter filter;
-	filter.Compile(
-		"*.doc|*.docx|*.docm|*.dot|*.dotx|*.dotm|"
-		"*.xls|*.xlsx|*.xlsm|*.xlsb|*.xlt|*.xltx|*.xltm|*.xlam|"
-		"*.ppt|*.pptx|*.pptm|*.pot|*.potx|*.potm|*.pps|*.ppsx|*.ppsm|"
-		"*.odt|*.ott|*.ods|*.ots|*.odp|*.otp|*.odg|*.otg|*.odf|*.odb|"
-		"*.rtf|*.csv|*.tsv",
+	filter.Compile("*.doc|*.docx|*.docm|*.dot|*.dotx|*.dotm|"
+		       "*.xls|*.xlsx|*.xlsm|*.xlsb|*.xlt|*.xltx|*.xltm|*.xlam|"
+		       "*.ppt|*.pptx|*.pptm|*.pot|*.potx|*.potm|*.pps|*.ppsx|*.ppsm|"
+		       "*.odt|*.ott|*.ods|*.ots|*.odp|*.otp|*.odg|*.otg|*.odf|*.odb|"
+		       "*.rtf|*.csv|*.tsv",
 		false);
 	ASSERT_TRUE(filter.IsValid());
 
