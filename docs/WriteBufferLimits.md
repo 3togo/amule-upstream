@@ -1,32 +1,32 @@
-# Download write-buffer limits
+# Download write-buffer backpressure
 
-Download block selection reserves the full uncompressed range before a block
-can enter a request packet. The fixed safety limits are 64 MiB globally and
-16 MiB per filesystem volume, shared across files and sources. The existing
-file-buffer preference still controls normal flush batching. At 75% pressure,
-small buffers on the affected volume flush early; global pressure flushes all
-volumes. Unknown identities conservatively count against possible aliases.
-Early flushing remains active until usage falls to 50%, avoiding threshold
-oscillation while leaving admission caps unchanged.
+Only received, unwritten payload counts toward the 64 MiB global and 16 MiB
+per-volume budgets. Selecting or sending block requests consumes no credit.
+This leaves the normal source pipeline available regardless of source count
+or round-trip time when storage keeps up.
 
-The request and its buffered fragments share ownership of one reservation.
-Disconnecting or cancelling releases unsatisfied requests; queued data keeps its
-credit until its last buffer is harvested or discarded. Write errors retain
-both the data and its reservation for retry. Overlapping duplicate packets only
-buffer the missing ranges. Compression does not reduce the reserved size.
+At 75% usage, stop selecting new blocks and flush small buffers early. Resume
+selection at 50%. Global pressure affects all volumes; local pressure affects
+only possible aliases, including unresolved directory identities. The normal
+file-buffer preference still controls batching below these thresholds.
 
-The write worker identifies volumes from the actual directory's device identity
-(or Windows volume serial), including directory aliases. Discovery never runs
-on the main thread. Unknown directories share one conservative allowance, which
-also counts against each known volume until discovery succeeds. A volume change
-with live reservations keeps the old identity until that ownership drains.
+Already requested responses remain admissible, including compressed responses.
+Each missing fragment is charged by its uncompressed size and releases its own
+charge when harvested or discarded. Duplicate overlap is not buffered again.
+Write errors retain data and its charge for retry; disconnecting a source does
+not release dirty data. Empty pipelines keep their upload slots and retry on
+download ticks after storage drains.
 
-When credit is exhausted, sources remain in the downloading state and already
-requested responses remain admissible. Empty pipelines retry on download ticks
-after writes drain; disk pressure does not trigger the no-needed-parts takeover.
+The thresholds are not hard payload caps: outstanding responses can overshoot
+them. During a complete stall, retained payload is bounded by the threshold
+plus all outstanding requested ranges when selection stops (at most 24 blocks
+of 180 KiB per downloading source). Slow sources can contribute their full
+outstanding ranges, so this allowance is not necessarily rate times RTT.
+Changing source count changes this bound. This does not promise a fixed total
+RSS bound: packet/decompression scratch space, fragment metadata, mapped pages,
+and the operating system's page cache are outside payload accounting.
 
-These limits bound admitted payload, including network responses still owed.
-They do not bound total process RSS, packet/decompression scratch space, buffer
-metadata, mapped pages, or the operating system's page cache. The existing single
-write worker still serializes volumes; this change does not isolate a healthy
-volume from a blocked write or add a read cache.
+Volume discovery runs in the write worker using the directory's device identity
+(or Windows volume serial). Unknown paths conservatively share an allowance
+and count against known volumes. A live remount keeps its old identity until
+its payload drains. The single write worker still serializes volumes.

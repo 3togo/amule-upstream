@@ -10,9 +10,9 @@
 #include <mutex>
 #include <string>
 
-// Payload credits cover both requested network data and dirty buffers. A request
-// and all its received fragments share a lease: cancellation cannot uncharge data
-// still owned by the writer, and a failed write retains its credit for retry.
+// Credits cover only buffered, unwritten payload. Already requested responses
+// remain admissible during pressure; each fragment releases its own charge when
+// harvested or discarded. Failed writes keep their charge for retry.
 class WriteBufferBudget
 {
 	struct Account
@@ -69,34 +69,9 @@ public:
 		return budget;
 	}
 
-	Credit Reserve(const std::string &path, uint64_t bytes)
+	Credit Charge(const std::string &path, uint64_t bytes)
 	{
 		std::lock_guard<std::mutex> lock(m_state->mutex);
-		if (bytes == 0 || bytes > m_global || m_state->used > m_global - bytes) {
-			return nullptr;
-		}
-		const auto found = m_state->paths.find(path);
-		const std::string volume = found == m_state->paths.end() ? "" : found->second.volume;
-		std::map<std::string, uint64_t> volumes;
-		for (const auto &entry : m_state->paths) {
-			volumes[entry.second.volume] += entry.second.bytes;
-		}
-		const uint64_t unknown = volumes[""];
-		uint64_t known = 0;
-		if (volume.empty()) {
-			for (const auto &entry : volumes) {
-				if (!entry.first.empty()) {
-					known = std::max(known, entry.second);
-				}
-			}
-		} else {
-			known = volumes[volume];
-		}
-		// Unknown paths might alias ANY known volume. Include that debt in every
-		// volume's allowance, so learning an identity cannot exceed its limit.
-		if (bytes > m_volume || unknown + known > m_volume - bytes) {
-			return nullptr;
-		}
 		auto &account = m_state->paths[path];
 		auto lease = std::make_shared<Lease>(m_state, path, bytes);
 		account.bytes += bytes;
@@ -153,7 +128,7 @@ public:
 
 private:
 	// Start early flushing at 75%, and keep it active until half the allowance
-	// is free. Admission limits are independent of this batching hysteresis.
+	// is free. Request admission uses the same latch as early flushing.
 	static bool UpdatePressure(uint64_t used, uint64_t limit, bool &pressured)
 	{
 		if (used >= limit - limit / 4) {

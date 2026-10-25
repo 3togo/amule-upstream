@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 aMule Team
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Real peers must stop requesting at the volume limit and resume after disk drain."""
+"""Real peers must stop requesting under buffered pressure and resume after disk drain."""
 import hashlib
 import os
 from pathlib import Path
@@ -27,7 +27,8 @@ BLOCK = 184320
 
 
 class Source:
-    def __init__(self, index, compressed):
+    def __init__(self, index, compressed, response_gate):
+        self.response_gate = response_gate
         self.address = local_ipv4()
         self.name = f'write-pressure-{index}.bin'.encode()
         self.hashes = b''.join(hashlib.md5(self.name + bytes([part])).digest() for part in range(7))
@@ -91,6 +92,9 @@ class Source:
                             self.requested += end - start
                             if self.first_start is None:
                                 self.first_start = start
+                            while not self.response_gate.wait(0.1):
+                                if self.stopped.is_set():
+                                    return
                             if self.compressed:
                                 packed = zlib.compress(b'x' * (end - start))
                                 payload = self.file_hash + struct.pack('<II', start, len(packed)) + packed
@@ -134,7 +138,7 @@ def wait_for_plateau(total, limit, detail):
     raise AssertionError(('requests did not settle', detail()))
 
 
-def run(binary, shim, compressed):
+def run(binary, shim, compressed, held_sources=False):
     with tempfile.TemporaryDirectory(prefix='amule-write-pressure-') as directory:
         root = Path(directory)
         for name in ('Incoming', 'Temp'):
@@ -142,7 +146,11 @@ def run(binary, shim, compressed):
         gate = root / 'stall-writes'
         gate.touch()
         failure = root / 'fail-writes'
-        sources = [Source(index, compressed) for index in range(2)]
+        response_gate = threading.Event()
+        if not held_sources:
+            response_gate.set()
+        sources = [Source(index, compressed, response_gate)
+                   for index in range(100 if held_sources else 2)]
         ports = free_ports(2, peer_index=1)
         write_amule_conf(root, ports[0], Address=sources[0].address, Port=ports[1], UDPEnable=0,
                          FilterLanIPs=0, MaxDownload=0, MaxUpload=0)
@@ -161,8 +169,13 @@ def run(binary, shim, compressed):
             total = lambda: sum(source.requested for source in sources)
             detail = lambda: (total(), [(s.errors, s.opcodes[-20:]) for s in sources],
                               (root / 'logfile').read_text(errors='replace')[-4000:])
-            wait_for(lambda: total() >= LIMIT - 2 * BLOCK, 15, detail)
-            settled = wait_for_plateau(total, LIMIT, detail)
+            if held_sources:
+                # Each source withholds its first response. Requests alone must
+                # exceed the old volume cap without consuming buffer capacity.
+                wait_for(lambda: total() > LIMIT, 30, detail)
+                response_gate.set()
+            wait_for(lambda: total() >= LIMIT * 3 // 4, 15, detail)
+            settled = wait_for_plateau(total, LIMIT + len(sources) * 24 * BLOCK, detail)
             assert not any(s.cancelled or s.errors for s in sources), detail()
             # EC responsiveness proves the writer stall did not block the main thread.
             ec.call(C['EC_OP_GET_DLOAD_QUEUE'])
@@ -185,9 +198,10 @@ def run(binary, shim, compressed):
                                     return True
                 return False
             assert has_written_data(), 'drain resumed requests without writing payload'
-            print(f'PASS compressed={compressed}: {settled} reserved bytes plateau under stalled '
+            print(f'PASS compressed={compressed}: {settled} requested bytes plateau under stalled '
                   'writes, no source cancellation, automatic resume after drain', flush=True)
         finally:
+            response_gate.set()
             gate.unlink(missing_ok=True)
             failure.unlink(missing_ok=True)
             for source in sources:
@@ -205,3 +219,6 @@ if __name__ == '__main__':
     for compressed in (False, True):
         retry_port_collisions(lambda: run(str(Path(sys.argv[1]).resolve()),
                                          str(Path(sys.argv[2]).resolve()), compressed))
+
+    retry_port_collisions(lambda: run(str(Path(sys.argv[1]).resolve()),
+                                     str(Path(sys.argv[2]).resolve()), False, held_sources=True))

@@ -2252,6 +2252,16 @@ bool CPartFile::GetNextRequestedBlock(CUpDownClient *sender,
 		*writeLimited = false;
 	}
 
+	// Only resident dirty payload applies backpressure. Outstanding requests do
+	// not occupy memory and must not constrain a healthy network pipeline.
+	if (WriteBufferBudget::Get().IsPressured(GetFilePath().GetRaw().ToStdString(wxConvUTF8))) {
+		if (writeLimited != nullptr) {
+			*writeLimited = true;
+		}
+		count = 0;
+		return false;
+	}
+
 	// Returns a list of blocks (~180KB) to download. To avoid prematurely stopping the
 	// download, all blocks requested from the same source must lie within the same chunk
 	// (part, ~9MB).
@@ -2301,17 +2311,6 @@ bool CPartFile::GetNextRequestedBlock(CUpDownClient *sender,
 		if (sender->GetLastPartAsked() != 0xffff) {
 			Requested_Block_Struct *pBlock = new Requested_Block_Struct;
 			if (GetNextEmptyBlockInPart(sender->GetLastPartAsked(), pBlock) == true) {
-				auto credit = WriteBufferBudget::Get().Reserve(
-					GetFilePath().GetRaw().ToStdString(wxConvUTF8),
-					pBlock->EndOffset - pBlock->StartOffset + 1);
-				if (!credit) {
-					if (writeLimited != nullptr) {
-						*writeLimited = true;
-					}
-					delete pBlock;
-					break;
-				}
-				m_writeCredits.emplace(pBlock, std::move(credit));
 				// Keep a track of all pending requested blocks
 				m_requestedblocks_list.push_back(pBlock);
 				// Update list of blocks to return
@@ -2506,7 +2505,6 @@ void CPartFile::RemoveBlockFromList(uint64 start, uint64 end)
 		std::list<Requested_Block_Struct *>::iterator it2 = it++;
 
 		if ((*it2)->StartOffset <= start && (*it2)->EndOffset >= end) {
-			m_writeCredits.erase(*it2);
 			m_requestedblocks_list.erase(it2);
 		}
 	}
@@ -2515,7 +2513,6 @@ void CPartFile::RemoveBlockFromList(uint64 start, uint64 end)
 void CPartFile::RemoveAllRequestedBlocks(void)
 {
 	m_requestedblocks_list.clear();
-	m_writeCredits.clear();
 }
 
 void CPartFile::CompleteFile(bool bIsHashingDone)
@@ -3531,10 +3528,6 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 		}
 	}
 
-	const auto credit = m_writeCredits.find(block);
-	if (credit == m_writeCredits.end()) {
-		return 0; // cancelled or invalidated request: no owned write capacity
-	}
 	// Stamp real accepted reception, rather than periodic flushing.
 	m_nLastBlockReceivedTick = GetTickCount64();
 	m_lastDateChanged = wxDateTime::GetTimeNow();
@@ -3560,7 +3553,8 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 			fragment.start,
 			fragment.end,
 			block,
-			credit->second);
+			WriteBufferBudget::Get().Charge(GetFilePath().GetRaw().ToStdString(wxConvUTF8),
+				fragment.end - fragment.start + 1));
 		InsertPartFileBufferedWrite(m_BufferedData_list, item);
 		const uint32 bytes = static_cast<uint32>(fragment.end - fragment.start + 1);
 		m_nTotalBufferData += bytes;

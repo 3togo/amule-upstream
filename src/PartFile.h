@@ -442,7 +442,6 @@ private:
 	uint64 m_LastNoNeededCheck;
 	CGapList m_gaplist;
 	CReqBlockPtrList m_requestedblocks_list;
-	std::map<Requested_Block_Struct *, WriteBufferBudget::Credit> m_writeCredits;
 	double percentcompleted;
 	std::list<uint16> m_corrupted_list;
 	uint16 m_availablePartsCount;
