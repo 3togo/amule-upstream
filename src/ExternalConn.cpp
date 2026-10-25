@@ -837,7 +837,8 @@ const CECPacket *CECServerSocket::OnPacketReceived(const CECPacket *packet, uint
 	if (m_conn_state == CONN_FAILED) {
 		// Client didn't close the socket when authentication failed.
 		AddLogLineN(_("Client sent packet after authentication failed."));
-		CloseSocket();
+		// A local close raises no lost event, and OnLost is what destroys the socket.
+		CloseAndDispatchLost();
 		return nullptr;
 	}
 
@@ -853,7 +854,7 @@ const CECPacket *CECServerSocket::OnPacketReceived(const CECPacket *packet, uint
 			// legitimate clear packet, a terminal AUTH_FAIL, only arrives before
 			// CONN_ESTABLISHED.
 			AddDebugLogLineN(logEC, "EC: cleartext packet on an encrypted session, dropping");
-			CloseSocket();
+			CloseAndDispatchLost();
 			return nullptr;
 		}
 		reply = ProcessRequest2(packet);

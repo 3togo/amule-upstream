@@ -265,3 +265,14 @@ TEST(ECSocketFlags, DisconnectedReadDoesNotDispatchAPacket)
 	socket.OnInput();
 	ASSERT_EQUALS(0u, socket.received);
 }
+
+TEST(ECSocketFlags, InputEventAfterCloseIsIgnored)
+{
+	CInputProbe socket;
+	socket.AppendPacket(0x60);
+	socket.AppendPacket();
+	socket.OnInput();
+	socket.OnInput();
+	ASSERT_EQUALS(0u, socket.received);
+	ASSERT_EQUALS(1u, socket.lost);
+}

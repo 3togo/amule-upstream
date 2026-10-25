@@ -86,7 +86,24 @@ def run(binary):
             assert proc.poll() is None, 'rejected batch killed the daemon'
             assert (root / 'logfile').read_text().count('Access granted.') == granted, \
                 'buffered proof authenticated a dropped connection'
+
+            # A packet after AUTH_FAIL must also tear the socket down: a plain local
+            # close raises no lost event, so OnLost would never destroy it.
+            closed = (root / 'logfile').read_text().count('External connection closed.')
+            with socket.create_connection(('127.0.0.1', ports[0]), timeout=10) as peer:
+                challenge(peer)
+                wrong = packet('EC_OP_AUTH_PASSWD', [tag(C['EC_TAG_PASSWD_HASH'], bytes(16), 9)])
+                peer.sendall(wrong + packet('EC_OP_STAT_REQ'))
+                assert receive(peer)[0] == C['EC_OP_AUTH_FAIL']
+                try:
+                    assert peer.recv(1) == b'', 'failed login stayed open'
+                except ConnectionResetError:
+                    pass
+            assert control.call(C['EC_OP_STAT_REQ'])[0] == C['EC_OP_STATS']
+            assert (root / 'logfile').read_text().count('External connection closed.') \
+                == closed + 1, 'packet after AUTH_FAIL left the socket alive'
             print('PASS: rejected EC batch cannot authenticate or register a notifier')
+            print('PASS: packet after AUTH_FAIL closes and releases the connection')
             print('PASS: ordinary notification login and independent EC client still work')
         except BaseException:
             for name in ('logfile', 'console.log'):

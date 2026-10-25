@@ -475,6 +475,11 @@ void CECSocket::OnConnect() {}
 
 void CECSocket::OnInput()
 {
+	// A dispatch stop leaves the parser mid-packet; a later input event must not
+	// parse that stale buffer.
+	if (!IsSocketConnected()) {
+		return;
+	}
 	size_t bytes_rx = 0;
 	do {
 		bytes_rx = m_curr_rx_data->ReadFromSocket(this, m_bytes_needed);
