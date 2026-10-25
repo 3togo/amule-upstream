@@ -10,6 +10,7 @@ worker. All filesystem delays are pipe-controlled; no real mounts are changed.
 """
 import argparse
 import os
+import re
 from pathlib import Path
 import select
 import struct
@@ -47,7 +48,7 @@ def seed_incomplete_part(root, data):
         + struct.pack('<I', len(tags)) + b''.join(tags))
 
 
-def run(binary, fixture, stage):
+def run(binary, fixture, stage, diagnostics=False):
     if stage in ('mapped-copy', 'mapped-fault') and os.getenv('AMULE_TEST_SKIP_MMAP') == '1':
         print(f'{stage}: skipped because mmap support is disabled in this build')
         return
@@ -80,7 +81,9 @@ def run(binary, fixture, stage):
         ec_port, peer_port = free_ports(2, peer_index=1)
         write_amule_conf(root, ec_port, Port=peer_port, UDPEnable=0, FilterLanIPs=0,
                          MaxUpload=3500, SlotAllocation=100, MMapEnabled=int(stage in ('mapped-copy', 'mapped-fault')),
-                         SharedFileReverifyDays=0, IncomingDir=incoming)
+                         SharedFileReverifyDays=0, IncomingDir=incoming,
+                         VerboseDebug=int(diagnostics),
+                         sections={'Debug': {'Cat_FileIO': int(diagnostics)}})
         notify_r, notify_w = os.pipe()
         release_r, release_w = os.pipe()
         arm = root / 'armed'
@@ -298,6 +301,19 @@ def run(binary, fixture, stage):
                 peers[0].close()  # completion must discard a disconnected client's read
                 healthy.request([(2 * BLOCK, 3 * BLOCK)])
                 healthy.receive((2 * BLOCK, 3 * BLOCK), healthy_data)
+                if diagnostics:
+                    # Observe the periodic report while the read is still held:
+                    # completion-only diagnostics would hide a permanent stall.
+                    deadline = time.monotonic() + 40
+                    while True:
+                        text = (root / 'logfile').read_text(errors='replace')
+                        pending = [line for line in text.splitlines() if 'Upload storage: ' in line
+                                   and int(re.search(r'pending=(\d+)', line)[1]) > 0
+                                   and int(re.search(r'oldest_ms=(\d+)', line)[1]) >= 1000]
+                        if pending:
+                            break
+                        assert proc.poll() is None and time.monotonic() < deadline, 'held read missing from periodic diagnostics'
+                        time.sleep(0.05)
                 # Recover the drive. Each remaining request must complete exactly once.
                 for index in range(4):
                     os.write(release_w, b'R')
@@ -321,6 +337,20 @@ def run(binary, fixture, stage):
                 if proc:
                     stop_daemon(proc)
                 os.close(notify_r)
+            if not diagnostics:
+                text = (root / 'logfile').read_text(errors='replace')
+                assert 'Upload storage: ' not in text, 'disabled FileIO emitted storage diagnostics'
+            if diagnostics:
+                text = (root / 'logfile').read_text(errors='replace')
+                summaries = [line.split('Upload storage: ', 1)[1]
+                             for line in text.splitlines() if 'Upload storage: ' in line]
+                assert summaries, 'FileIO diagnostics missing from daemon logfile'
+                assert sum(int(re.search(r'slow_1s=(\d+)', line)[1]) for line in summaries) >= 1, summaries
+                assert max(int(re.search(r'work_ms=\d+/(\d+)', line)[1]) for line in summaries) >= 1000, summaries
+                assert sum(int(re.search(r'denials\(storage\)=(\d+)', line)[1])
+                           for line in summaries) > 0, summaries
+                assert all('bad-' not in line and str(root) not in line for line in summaries), summaries
+                print('diagnostics: controlled storage latency and storage denials recorded without paths')
 
 
 if __name__ == '__main__':
@@ -328,6 +358,7 @@ if __name__ == '__main__':
     parser.add_argument('binary')
     parser.add_argument('fixture')
     parser.add_argument('--stage', choices=('read', 'open', 'session', 'packet-session', 'heap-buffer', 'mapped-copy', 'mapped-fault', 'shutdown', 'fairness', 'discovery', 'open-failure', 'part-file'))
+    parser.add_argument('--diagnostics', action='store_true', help='verify runtime FileIO summaries')
     args = parser.parse_args()
     for stage in ([args.stage] if args.stage else ('read', 'open', 'session', 'packet-session', 'heap-buffer', 'mapped-copy', 'mapped-fault', 'shutdown', 'fairness', 'discovery', 'open-failure', 'part-file')):
-        retry_port_collisions(run, str(Path(args.binary).resolve()), str(Path(args.fixture).resolve()), stage)
+        retry_port_collisions(run, str(Path(args.binary).resolve()), str(Path(args.fixture).resolve()), stage, args.diagnostics)

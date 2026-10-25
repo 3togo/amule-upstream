@@ -148,13 +148,22 @@ void *CUploadDiskIOThread::Entry()
 {
 	try {
 		m_pool = std::make_unique<StorageReadPool<ReadRequest_Struct>>(
-			[](ReadRequest_Struct &req) { req.result = ReadBlock(&req); },
+			[](ReadRequest_Struct &req) {
+				req.timing.Run([&req] { req.result = ReadBlock(&req); }, GetTickCount64);
+			},
 			[this] { NewBlockRequestsAvailable(); });
+		m_lastDiagnostics = GetTickCount64();
 		while (m_bRun) {
 			{
 				wxMutexLocker lock(m_mutex);
 				m_bNewBlocksPending = false;
 				m_bSocketNeedsPending = false;
+			}
+			const bool collect = theLogger.IsEnabled(logFileIO);
+			if (collect != m_collectDiagnostics) {
+				m_collectDiagnostics = collect;
+				m_diagnostics = {};
+				m_lastDiagnostics = GetTickCount64();
 			}
 			DrainCompletions(true);
 			const uint64 now = GetTickCount64();
@@ -164,6 +173,7 @@ void *CUploadDiskIOThread::Entry()
 				// Keep discovery on a bounded worker and use the previous snapshot.
 				auto req = std::make_unique<ReadRequest_Struct>();
 				req->storageMap = std::make_unique<UploadStorageMap>();
+				req->timing.enabled = false;
 #ifdef __WINDOWS__
 				// Publish local identities before consulting any network provider.
 				req->discoverNetwork = m_storageMapReady;
@@ -210,15 +220,24 @@ void *CUploadDiskIOThread::Entry()
 				}
 				auto req = PrepareRead(clientId);
 				if (req) {
-					m_pendingClients.insert(clientId);
+					req->timing.enabled = m_collectDiagnostics;
+					req->timing.submitted = m_collectDiagnostics ? GetTickCount64() : 0;
+					m_pendingClients.emplace(clientId, req->timing.submitted);
 					if (m_pool->Submit(req->storage, req)) {
 						m_lastDispatch[clientId] = ++m_dispatchSequence;
 					} else {
 						m_pendingClients.erase(clientId);
+						if (m_collectDiagnostics) {
+							m_diagnostics.Denied(UploadReadDiagnostics::Storage);
+						}
 					}
 				}
 			}
 			QueueIdleCloses();
+			if (m_collectDiagnostics) {
+				m_diagnostics.EndSweep(GetTickCount64(), !m_pool->HasCapacity());
+			}
+			ReportDiagnostics();
 			wxMutexLocker lock(m_mutex);
 			if (m_bRun && !m_bNewBlocksPending && !m_bSocketNeedsPending) {
 				m_condition.WaitTimeout(500);
@@ -231,6 +250,7 @@ void *CUploadDiskIOThread::Entry()
 	if (m_pool) {
 		m_pool->Stop();
 		DrainCompletions(false);
+		ReportDiagnostics(true);
 		m_pool.reset();
 	}
 	// Shutdown only: no shared lock is held, and workers no longer access handles.
@@ -269,6 +289,14 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 			continue;
 		}
 		auto *req = completed.job.release();
+		if (m_collectDiagnostics && req->timing.enabled) {
+			m_diagnostics.Completed(req->timing,
+				GetTickCount64(),
+				req->closeOnly,
+				completed.error || req->result == READ_FAILED ||
+					req->result == READ_OPEN_FAILED,
+				req->result == READ_DEFERRED);
+		}
 		m_pendingClients.erase(req->clientId);
 		if (deliver && req->result == READ_DEFERRED) {
 			// File completion may briefly park a request. Worker completion wakes must
@@ -291,6 +319,42 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 	}
 }
 
+// Runtime-enabled FileIO output, at most once per 30 seconds plus a final summary.
+// Ages include admitted jobs still queued/running/finished, so a permanently
+// stalled read remains visible without waiting for its completion.
+void CUploadDiskIOThread::ReportDiagnostics(bool final)
+{
+	if (!theLogger.IsEnabled(logFileIO)) {
+		return;
+	}
+	const uint64 now = GetTickCount64();
+	if (!final && now - m_lastDiagnostics < 30000) {
+		return;
+	}
+	[[maybe_unused]] const uint64 interval = now - m_lastDiagnostics;
+	m_lastDiagnostics = now;
+	[[maybe_unused]] const auto stats = m_diagnostics.Take(now);
+	uint64 oldest = 0;
+	for (const auto &pending : m_pendingClients) {
+		if (pending.second != 0) {
+			oldest = std::max(oldest, now - pending.second);
+		}
+	}
+	AddDebugLogLineF(logFileIO,
+		CFormat("Upload storage: interval_ms=%d reads=%d failed=%d deferred=%d "
+			"work_ms=%d/%d slow_1s=%d queue_ms=%d/%d completion_ms=%d/%d "
+			"closes=%d close_ms=%d/%d pending=%d oldest_ms=%d "
+			"denials(storage)=%d "
+			"pressure_ms(storage/workers_full)=%d/%d") %
+			interval % stats.work.count % stats.failed % stats.deferred % stats.work.totalMs %
+			stats.work.maxMs % stats.work.overSecond % stats.queue.totalMs % stats.queue.maxMs %
+			stats.completion.totalMs % stats.completion.maxMs % stats.close.count %
+			stats.close.totalMs % stats.close.maxMs % m_pendingClients.size() % oldest %
+			stats.denials[UploadReadDiagnostics::Storage] %
+			stats.pressureMs[UploadReadDiagnostics::Storage] %
+			stats.pressureMs[UploadReadDiagnostics::Workers]);
+}
+
 void CUploadDiskIOThread::QueueIdleCloses()
 {
 	const uint64 now = GetTickCount64();
@@ -304,6 +368,8 @@ void CUploadDiskIOThread::QueueIdleCloses()
 			req->pFileStruct = file;
 			req->path = file->path;
 			req->storage = file->storage;
+			req->timing.enabled = m_collectDiagnostics;
+			req->timing.submitted = m_collectDiagnostics ? GetTickCount64() : 0;
 			if (m_pool->Submit(req->storage, req)) {
 				it = m_listOpenFiles.erase(it);
 				m_needCacheSlot = false;
@@ -386,6 +452,9 @@ std::unique_ptr<ReadRequest_Struct> CUploadDiskIOThread::PrepareRead(uint32 clie
 				m_storageKeys.emplace(path, m_storageMap.Lookup(path, WINDOWS_STORAGE)).first;
 		}
 		if (!m_pool->CanSubmit(storage->second)) {
+			if (m_collectDiagnostics) {
+				m_diagnostics.Denied(UploadReadDiagnostics::Storage);
+			}
 			return nullptr;
 		}
 		auto req = std::make_unique<ReadRequest_Struct>();
