@@ -496,14 +496,16 @@ void CECSocket::OnInput()
 			} else {
 				CSmartPtr<const CECPacket> packet(ReadPacket());
 				m_curr_rx_data->Rewind();
-				if (packet.get()) {
-					CSmartPtr<const CECPacket> reply(
-						OnPacketReceived(packet.get(), m_curr_packet_len));
-					if (reply.get()) {
-						SendPacket(reply.get());
-					}
-				} else {
-					AddDebugLogLineN(logEC, "OnInput: no packet");
+				if (!packet.get() || !IsSocketConnected()) {
+					return;
+				}
+				CSmartPtr<const CECPacket> reply(
+					OnPacketReceived(packet.get(), m_curr_packet_len));
+				if (reply.get() && IsSocketConnected()) {
+					SendPacket(reply.get());
+				}
+				if (!IsSocketConnected()) {
+					return;
 				}
 				m_bytes_needed = EC_HEADER_SIZE;
 				m_in_header = true;

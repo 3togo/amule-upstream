@@ -829,12 +829,16 @@ const CECPacket *CECServerSocket::OnPacketReceived(const CECPacket *packet, uint
 {
 	packet->DebugPrint(true, trueSize);
 
-	const CECPacket *reply = NULL;
+	const CECPacket *reply = nullptr;
+	if (IsDestroying()) {
+		return nullptr;
+	}
 
 	if (m_conn_state == CONN_FAILED) {
 		// Client didn't close the socket when authentication failed.
 		AddLogLineN(_("Client sent packet after authentication failed."));
 		CloseSocket();
+		return nullptr;
 	}
 
 	if (m_conn_state != CONN_ESTABLISHED) {
@@ -859,6 +863,7 @@ const CECPacket *CECServerSocket::OnPacketReceived(const CECPacket *packet, uint
 
 void CECServerSocket::OnLost()
 {
+	m_conn_state = CONN_FAILED;
 	CancelNotifications();
 	AddLogLineN(_("External connection closed."));
 	theApp->ECServerHandler->m_ec_notifier->Remove_EC_Client(this);
