@@ -77,6 +77,7 @@ class ShutdownTest(unittest.TestCase):
                     server.release.set()
                     stdout, stderr = process.communicate(timeout=10)
                     self.assertEqual(process.returncode, 0, (stdout, stderr))
+                    self.assertNotIn(b'Connection lost', stderr)
                 finally:
                     server.release.set()
                     if process.poll() is None:
