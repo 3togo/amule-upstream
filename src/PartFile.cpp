@@ -4907,6 +4907,10 @@ void CPartFile::SetFileName(const CPath &fileName)
 	}
 	CKnownFile::SetFileName(fileName);
 
+	if (is_shared && thePrefs::IsShareExcluded(fileName.GetPrintable())) {
+		theApp->sharedfiles->RemoveFile(this);
+		is_shared = false;
+	}
 	if (is_shared) {
 		// And of course, we must advertise the new name if the file is shared.
 		theApp->sharedfiles->AddKeywords(this);

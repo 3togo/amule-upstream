@@ -904,6 +904,15 @@ bool CSharedFileList::RefreshMediaMetadata(const CMD4Hash &hash)
 
 void CSharedFileList::SafeAddKFile(CKnownFile *toadd, bool bOnlyAdd)
 {
+	if (thePrefs::IsShareExcluded(toadd->GetFileName().GetPrintable())) {
+		// A partfile can have been shared under an earlier name. Completion and rename
+		// must detach it as well as refusing a fresh insert.
+		if (GetFileByID(toadd->GetFileHash()) == toadd) {
+			RemoveFile(toadd);
+		}
+		return;
+	}
+
 	// Straight insert first. If the hash isn't already in m_Files_map
 	// this succeeds and fires the notifier as before.
 	if (AddFile(toadd)) {
