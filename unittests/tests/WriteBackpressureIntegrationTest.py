@@ -86,10 +86,11 @@ class Source:
                         self.cancelled += 1
                     elif opcode == 0x47:
                         offsets = struct.unpack_from('<6I', data, 16)
+                        self.requested += sum(max(0, end - start)
+                                              for start, end in zip(offsets[:3], offsets[3:]))
                         for start, end in zip(offsets[:3], offsets[3:]):
                             if end <= start:
                                 continue
-                            self.requested += end - start
                             if self.first_start is None:
                                 self.first_start = start
                             while not self.response_gate.wait(0.1):
@@ -150,10 +151,11 @@ def run(binary, shim, compressed, held_sources=False):
         if not held_sources:
             response_gate.set()
         sources = [Source(index, compressed, response_gate)
-                   for index in range(100 if held_sources else 2)]
+                   for index in range(36 if held_sources else 2)]
         ports = free_ports(2, peer_index=1)
         write_amule_conf(root, ports[0], Address=sources[0].address, Port=ports[1], UDPEnable=0,
-                         FilterLanIPs=0, MaxDownload=0, MaxUpload=0)
+                         FilterLanIPs=0, MaxDownload=0, MaxUpload=0,
+                         MaxConnections=1000, MaxConnectionsPerFiveSeconds=1000)
         preload = ':'.join(filter(None, [os.environ.get('AMULE_TEST_PRELOAD_RUNTIME'), shim]))
         env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8',
                    LD_PRELOAD=preload, AMULE_TEST_WRITE_GATE=str(gate), AMULE_TEST_WRITE_ERROR=str(failure))
@@ -163,6 +165,12 @@ def run(binary, shim, compressed, held_sources=False):
                 proc = subprocess.Popen([binary, '-c', str(root), '--disable-fatal'], env=env,
                                         stdout=log, stderr=log)
             ec = connect_daemon(proc, ports[0], root, ports[1])
+            def rss_bytes():
+                for line in Path(f'/proc/{proc.pid}/status').read_text().splitlines():
+                    if line.startswith('VmRSS:'):
+                        return int(line.split()[1]) * 1024
+                raise AssertionError('daemon RSS unavailable')
+            initial_rss = rss_bytes()
             for source in sources:
                 assert add_link(ec, source.link()) == C['EC_OP_NOOP']
                 source.start(ports[1])
@@ -177,6 +185,15 @@ def run(binary, shim, compressed, held_sources=False):
             wait_for(lambda: total() >= LIMIT * 3 // 4, 15, detail)
             settled = wait_for_plateau(total, LIMIT + len(sources) * 24 * BLOCK, detail)
             assert not any(s.cancelled or s.errors for s in sources), detail()
+            # Include all outstanding pipelines plus scratch/metadata headroom.
+            # Sample through a prolonged stall to catch growth after admission stops.
+            rss_bound = initial_rss + LIMIT + len(sources) * 24 * BLOCK + 32 * 1024 * 1024
+            peak_rss = rss_bytes()
+            for _ in range(20):
+                peak_rss = max(peak_rss, rss_bytes())
+                assert peak_rss <= rss_bound, ('RSS exceeded payload envelope', peak_rss, rss_bound)
+                assert total() == settled, ('requests grew during stall', detail())
+                time.sleep(0.1)
             # EC responsiveness proves the writer stall did not block the main thread.
             ec.call(C['EC_OP_GET_DLOAD_QUEUE'])
             # Errors must retain the same dirty payload and prevent new requests.
@@ -185,6 +202,7 @@ def run(binary, shim, compressed, held_sources=False):
             wait_for(lambda: Path(str(failure) + '.observed').exists(), 3, detail)
             time.sleep(0.5)
             assert total() == settled, ('write errors released capacity', detail())
+            assert rss_bytes() <= rss_bound, 'RSS grew beyond the envelope after write failure'
             failure.unlink()
             wait_for(lambda: total() > settled + 6 * BLOCK, 10, detail)
             assert not any(s.errors for s in sources), detail()
@@ -199,7 +217,8 @@ def run(binary, shim, compressed, held_sources=False):
                 return False
             assert has_written_data(), 'drain resumed requests without writing payload'
             print(f'PASS compressed={compressed}: {settled} requested bytes plateau under stalled '
-                  'writes, no source cancellation, automatic resume after drain', flush=True)
+                  f'writes, peak RSS {peak_rss}, bound {rss_bound}, no source cancellation, '
+                  'automatic resume after drain', flush=True)
         finally:
             response_gate.set()
             gate.unlink(missing_ok=True)

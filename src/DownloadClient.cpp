@@ -629,7 +629,7 @@ void CUpDownClient::SendBlockRequests()
 	if (m_PendingBlocks_list.empty()) {
 		if (m_writeBufferBlocked) {
 			// Keep the upload slot. The download tick retries after writes drain;
-			// buffered disk data do not mean the source has no needed parts.
+			// buffered disk data does not mean the source has no needed parts.
 			return;
 		}
 

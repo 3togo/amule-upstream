@@ -3528,6 +3528,11 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 		}
 	}
 
+	// A cancelled or invalidated range must not create new dirty payload.
+	if (std::find(m_requestedblocks_list.begin(), m_requestedblocks_list.end(), block) ==
+		m_requestedblocks_list.end()) {
+		return 0;
+	}
 	// Stamp real accepted reception, rather than periodic flushing.
 	m_nLastBlockReceivedTick = GetTickCount64();
 	m_lastDateChanged = wxDateTime::GetTimeNow();
