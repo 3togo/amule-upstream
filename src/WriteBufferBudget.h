@@ -12,7 +12,7 @@
 
 // Credits cover only buffered, unwritten payload. Already requested responses
 // remain admissible during pressure; each fragment releases its own charge when
-// harvested or discarded. Failed writes keep their charge for retry.
+// written and freed, or discarded. Failed writes keep their charge for retry.
 class WriteBufferBudget
 {
 	struct Account

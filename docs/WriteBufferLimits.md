@@ -7,7 +7,9 @@ or round-trip time when storage keeps up.
 
 Stop selecting new blocks at the budget and resume selection at 50%. Flush
 small buffers early at 12.5%, leaving headroom for arrivals between main-thread
-scheduling ticks. Successful writes return capacity immediately in the worker.
+scheduling ticks. Reception queues early writes immediately, and the periodic
+file tick also checks pressure. Successful writes return capacity immediately
+in the worker.
 Global pressure affects all volumes; local pressure affects only possible
 aliases, including unresolved directory identities. The normal
 file-buffer preference still controls batching below these thresholds.

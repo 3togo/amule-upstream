@@ -3570,7 +3570,10 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 	}
 	block->transferred += buffered;
 
-	if (m_gaplist.IsComplete()) {
+	// Start draining on reception instead of waiting for the periodic file
+	// tick; at high rates that delay alone can fill a healthy volume's budget.
+	if (m_gaplist.IsComplete() ||
+		WriteBufferBudget::Get().ShouldFlush(GetFilePath().GetRaw().ToStdString(wxConvUTF8))) {
 		FlushBuffer();
 	}
 
