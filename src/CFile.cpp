@@ -28,6 +28,11 @@
 #include <common/Path.h> // Needed for CPath
 #include "config.h"      // Needed for HAVE_SYS_PARAM_H
 
+#include <array>
+#include <cstring>
+#ifndef __WXMSW__
+#include <sys/uio.h>
+#endif
 #include <exception> // Needed for std::exception_ptr
 #include <vector>    // Needed for the CopyFile stream buffer
 
@@ -426,6 +431,42 @@ void CFile::DrainWriteBuffer() const
 		total += (size_t)written;
 	}
 	m_writeBufferPending = 0;
+}
+
+void CFile::WriteSegments(const WriteSegment *segments, size_t count)
+{
+	MULE_VALIDATE_PARAMS(
+		segments != nullptr && count > 0 && count <= kMaxWriteSegments, "Invalid scatter write.");
+	MULE_VALIDATE_STATE(IsOpened(), "Cannot write to closed file.");
+	size_t bytes = 0;
+	for (size_t i = 0; i < count; ++i) {
+		MULE_VALIDATE_PARAMS(segments[i].data != nullptr && segments[i].size > 0 &&
+					     segments[i].size <= kMaxWriteBytes - bytes,
+			"Scatter write exceeds its byte bound.");
+		bytes += segments[i].size;
+	}
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
+	DrainWriteBuffer();
+#ifndef __WXMSW__
+	std::array<iovec, kMaxWriteSegments> vectors{};
+	for (size_t i = 0; i < count; ++i) {
+		vectors[i] = { const_cast<void *>(segments[i].data), segments[i].size };
+	}
+	const auto written = ::writev(m_fd, vectors.data(), static_cast<int>(count));
+#else
+	// Windows scatter I/O requires page-aligned buffers and overlapped handles.
+	// Keep ordinary file handles and bound this temporary allocation per writer.
+	auto buffer = std::make_unique<char[]>(bytes);
+	size_t position = 0;
+	for (size_t i = 0; i < count; ++i) {
+		std::memcpy(buffer.get() + position, segments[i].data, segments[i].size);
+		position += segments[i].size;
+	}
+	const auto written = ::write(m_fd, buffer.get(), bytes);
+#endif
+	if (written < 0 || static_cast<size_t>(written) != bytes) {
+		throw CIOFailureException("Incomplete scatter write; retain all buffers for retry.");
+	}
 }
 
 sint64 CFile::doWrite(const void *buffer, size_t nCount)

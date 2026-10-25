@@ -55,3 +55,19 @@ file and is retried; it never becomes a synchronous main-thread write. Immutable
 snapshots of one request remain serialized, including sparse read-modify-write.
 Deletion waits for accepted work and shutdown drains owned jobs. A kernel call
 that never returns can still prevent shutdown; workers are not detached.
+
+
+## Coalescing dense snapshots
+
+Adjacent dense snapshots of one file can share a scatter write, bounded to 16
+ranges and 1 MiB. Sparse snapshots retain their individual read-modify-write path
+so holes and earlier writes survive. Gaps and file boundaries split groups.
+POSIX uses `writev`; Windows assembles a bounded temporary buffer. Short/failed
+writes retain every original area and file pin for retry. Successful groups
+release payload in the worker before main-thread result harvesting.
+
+This reduces small-operation and seek costs when storage is slow. It also adds
+batch bookkeeping and can lengthen an individual I/O operation. Throughput,
+upload gaps, CPU, memory and actual read/write work need comparison under mixed
+load. Fewer syscalls alone do not establish a benefit, durable writes or physical
+HDD performance.

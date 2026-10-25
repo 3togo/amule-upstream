@@ -32,6 +32,7 @@
 #include "Logger.h"
 #include <common/Format.h> // Needed for CFormat
 
+#include <array>
 #include <map>
 #include <set>
 #include <wx/filefn.h>
@@ -253,26 +254,54 @@ void CPartFileWriteThread::DropReferencesTo(const CKnownFile *file)
 void CPartFileWriteThread::WriteBatch(std::vector<ToWrite> &batch)
 {
 	const auto noSpace = FilesWithoutSpace(batch);
-	for (auto &write : batch) {
-		if (write.session->cancelled.load()) {
-			Finish(write, PB_READY);
+	for (size_t first = 0; first < batch.size();) {
+		auto &write = batch[first];
+		if (write.session->cancelled.load() || noSpace.count(write.pFile) != 0) {
+			Finish(write, write.session->cancelled.load() ? PB_READY : PB_NOSPACE);
+			++first;
 			continue;
 		}
-		if (noSpace.count(write.pFile) != 0) {
-			Finish(write, PB_NOSPACE);
-			continue;
+		std::array<CFileArea::WriteRange, CFile::kMaxWriteSegments> ranges{};
+		size_t count = 0, bytes = 0;
+		uint64 next = write.pBuffer->start;
+		while (first + count < batch.size() && count < ranges.size()) {
+			auto &item = batch[first + count];
+			const size_t size = item.pBuffer->end - item.pBuffer->start + 1;
+			if (item.pFile != write.pFile || item.session != write.session ||
+				!item.pBuffer->IsDense() || item.pBuffer->start != next ||
+				size > CFile::kMaxWriteBytes - bytes ||
+				(count > 0 &&
+					(write.pBuffer->area.IsMapped() || item.pBuffer->area.IsMapped()))) {
+				break;
+			}
+			ranges[count++] = { &item.pBuffer->area, next, size };
+			bytes += size;
+			next += size;
+		}
+		const bool scalar = count == 0;
+		if (scalar) {
+			count = 1;
 		}
 		bool ok = true;
 		try {
 			std::lock_guard<std::mutex> lock(write.pFile->m_hpartfileMutex);
-			write.pBuffer->Flush(write.pFile->m_hpartfile);
+			if (scalar) {
+				write.pBuffer->Flush(write.pFile->m_hpartfile);
+			} else {
+				CFileArea::FlushAdjacentAt(write.pFile->m_hpartfile, ranges.data(), count);
+			}
 		} catch (const CIOFailureException &error) {
 			AddDebugLogLineC(logPartFile,
 				CFormat("Write thread: I/O failure on '%s': %s") %
 					write.pFile->GetFileName() % error.what());
 			ok = false;
 		}
-		Finish(write, ok ? PB_WRITTEN : PB_ERROR);
+		// Keep every file pin and credit until the entire scatter write finishes.
+		// On a short write all original areas survive for a full-range retry.
+		for (size_t i = 0; i < count; ++i) {
+			Finish(batch[first + i], ok ? PB_WRITTEN : PB_ERROR);
+		}
+		first += count;
 	}
 }
 // File_checked_for_headers
