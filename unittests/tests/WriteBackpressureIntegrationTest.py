@@ -27,8 +27,10 @@ BLOCK = 184320
 
 
 class Source:
-    def __init__(self, index, compressed, response_gate):
-        self.response_gate = response_gate
+    def __init__(self, index, compressed, response_gate=None):
+        self.response_gate = response_gate or threading.Event()
+        if response_gate is None:
+            self.response_gate.set()
         self.address = local_ipv4()
         self.name = f'write-pressure-{index}.bin'.encode()
         self.hashes = b''.join(hashlib.md5(self.name + bytes([part])).digest() for part in range(7))
@@ -96,22 +98,25 @@ class Source:
                             while not self.response_gate.wait(0.1):
                                 if self.stopped.is_set():
                                     return
-                            if self.compressed:
-                                packed = zlib.compress(b'x' * (end - start))
-                                payload = self.file_hash + struct.pack('<II', start, len(packed)) + packed
-                                peer.sendall(struct.pack('<BIB', 0xc5, len(payload) + 1, 0x40) + payload)
-                            else:
-                                # An overlapping duplicate must not allocate its bytes twice.
-                                first = min(end, start + 4096)
-                                send(peer, 0x46, self.file_hash + struct.pack('<II', start, first)
-                                     + b'x' * (first - start))
-                                for offset in range(start, end, 16384):
-                                    last = min(end, offset + 16384)
-                                    send(peer, 0x46, self.file_hash + struct.pack('<II', offset, last)
-                                         + b'x' * (last - offset))
+                            self.send_block(peer, start, end)
         except (EOFError, OSError) as error:
             if not self.stopped.is_set():
                 self.errors.append(repr(error))
+
+    def send_block(self, peer, start, end):
+        if self.compressed:
+            packed = zlib.compress(b'x' * (end - start))
+            payload = self.file_hash + struct.pack('<II', start, len(packed)) + packed
+            peer.sendall(struct.pack('<BIB', 0xc5, len(payload) + 1, 0x40) + payload)
+        else:
+            # An overlapping duplicate must not allocate its bytes twice.
+            first = min(end, start + 4096)
+            send(peer, 0x46, self.file_hash + struct.pack('<II', start, first)
+                 + b'x' * (first - start))
+            for offset in range(start, end, 16384):
+                last = min(end, offset + 16384)
+                send(peer, 0x46, self.file_hash + struct.pack('<II', offset, last)
+                     + b'x' * (last - offset))
 
 
 def wait_for(condition, timeout, detail):

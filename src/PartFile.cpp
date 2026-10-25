@@ -42,6 +42,7 @@
 #include <wx/utils.h>
 #include <wx/tokenzr.h> // Needed for wxStringTokenizer
 
+#include <set>
 #include <algorithm> // Needed for std::count_if
 
 #ifndef AMULE_DAEMON
@@ -1652,7 +1653,7 @@ uint32 CPartFile::Process(uint8 m_icounter)
 	// Flush on buffer-full, time-limit, or pending hash drain. The HasPendingHashWork()
 	// bypass drains Phase 3 at Process()-tick rate (~100 ms) instead of every 60 s when the
 	// file is idle.
-	if ((m_nTotalBufferData > thePrefs::GetFileBufferSize()) ||
+	if ((m_nTotalBufferData > thePrefs::GetFileBufferSize()) || m_writeQueueDeferred ||
 		(dwCurTick > (m_nLastBufferFlushTime + BUFFER_TIME_LIMIT)) || HasPendingHashWork() ||
 		(m_nTotalBufferData != 0 && WriteBufferBudget::Get().ShouldFlush(
 						    GetFilePath().GetRaw().ToStdString(wxConvUTF8)))) {
@@ -2252,8 +2253,7 @@ bool CPartFile::GetNextRequestedBlock(CUpDownClient *sender,
 		*writeLimited = false;
 	}
 
-	// Only resident dirty payload applies backpressure. Outstanding requests do
-	// not occupy memory and must not constrain a healthy network pipeline.
+	// Only allocated dirty payload applies backpressure; request metadata does not.
 	if (WriteBufferBudget::Get().IsPressured(GetFilePath().GetRaw().ToStdString(wxConvUTF8))) {
 		if (writeLimited != nullptr) {
 			*writeLimited = true;
@@ -2311,6 +2311,17 @@ bool CPartFile::GetNextRequestedBlock(CUpDownClient *sender,
 		if (sender->GetLastPartAsked() != 0xffff) {
 			Requested_Block_Struct *pBlock = new Requested_Block_Struct;
 			if (GetNextEmptyBlockInPart(sender->GetLastPartAsked(), pBlock) == true) {
+				auto credit = WriteBufferBudget::Get().ReserveRequest(
+					GetFilePath().GetRaw().ToStdString(wxConvUTF8),
+					pBlock->EndOffset - pBlock->StartOffset + 1);
+				if (!credit) {
+					if (writeLimited != nullptr) {
+						*writeLimited = true;
+					}
+					delete pBlock;
+					break;
+				}
+				m_writeCredits.emplace(pBlock, std::move(credit));
 				// Keep a track of all pending requested blocks
 				m_requestedblocks_list.push_back(pBlock);
 				// Update list of blocks to return
@@ -2505,6 +2516,7 @@ void CPartFile::RemoveBlockFromList(uint64 start, uint64 end)
 		std::list<Requested_Block_Struct *>::iterator it2 = it++;
 
 		if ((*it2)->StartOffset <= start && (*it2)->EndOffset >= end) {
+			m_writeCredits.erase(*it2);
 			m_requestedblocks_list.erase(it2);
 		}
 	}
@@ -2513,6 +2525,7 @@ void CPartFile::RemoveBlockFromList(uint64 start, uint64 end)
 void CPartFile::RemoveAllRequestedBlocks(void)
 {
 	m_requestedblocks_list.clear();
+	m_writeCredits.clear();
 }
 
 void CPartFile::CompleteFile(bool bIsHashingDone)
@@ -2899,6 +2912,12 @@ bool CPartFile::HasPendingHashWork() const
 {
 	if (m_iWrites > 0) {
 		return false;
+	}
+	if (m_writeQueueDeferred ||
+		std::any_of(m_BufferedData_list.begin(),
+			m_BufferedData_list.end(),
+			[](const PartFileBufferedData *item) { return item->flushed != PB_READY; })) {
+		return true; // reap finished ownership and retry deferred second snapshots promptly
 	}
 	for (bool dirty : m_aChangedPart) {
 		if (dirty) {
@@ -3528,50 +3547,50 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 		}
 	}
 
-	// A cancelled or invalidated range must not create new dirty payload.
-	if (std::find(m_requestedblocks_list.begin(), m_requestedblocks_list.end(), block) ==
-		m_requestedblocks_list.end()) {
-		return 0;
+	const auto credit = m_writeCredits.find(block);
+	if (credit == m_writeCredits.end()) {
+		return 0; // cancelled or invalidated request: no owned write capacity
 	}
 	// Stamp real accepted reception, rather than periodic flushing.
 	m_nLastBlockReceivedTick = GetTickCount64();
 	m_lastDateChanged = wxDateTime::GetTimeNow();
 
-	struct Fragment
-	{
-		uint64 start;
-		uint64 end;
-	};
-	std::vector<Fragment> fragments;
-	for (auto gap = m_gaplist.begin(); gap != m_gaplist.end(); ++gap) {
-		if (gap.start() > end) {
+	PartFileBufferedData *assembly = nullptr;
+	for (auto *item : m_BufferedData_list) {
+		if (item->writeCredit == credit->second && item->flushed == PB_READY) {
+			assembly = item;
 			break;
-		}
-		if (gap.end() >= start) {
-			fragments.push_back({ std::max(start, gap.start()), std::min(end, gap.end()) });
 		}
 	}
 	uint32 buffered = 0;
-	for (const auto &fragment : fragments) {
-		auto *item = new PartFileBufferedData(m_hpartfile,
-			data + fragment.start - start,
-			fragment.start,
-			fragment.end,
-			block,
-			WriteBufferBudget::Get().Charge(GetFilePath().GetRaw().ToStdString(wxConvUTF8),
-				fragment.end - fragment.start + 1));
-		InsertPartFileBufferedWrite(m_BufferedData_list, item);
-		const uint32 bytes = static_cast<uint32>(fragment.end - fragment.start + 1);
+	for (auto gap = m_gaplist.lower_bound(start); gap != m_gaplist.end();) {
+		if (gap.start() > end) {
+			break;
+		}
+		const uint64 first = std::max(start, gap.start());
+		const uint64 last = std::min(end, gap.end());
+		// Filling exactly this intersection can erase/split only the current
+		// map node. Preserve its successor before modifying the gap list.
+		++gap;
+		if (assembly == nullptr) {
+			// Requested_Block_Struct is packed; do not forward references to
+			// its possibly unaligned offset fields through make_unique.
+			const uint64 requestedStart = block->StartOffset;
+			const uint64 requestedEnd = block->EndOffset;
+			auto item = std::make_unique<PartFileBufferedData>(
+				requestedStart, requestedEnd, credit->second);
+			InsertPartFileBufferedWrite(m_BufferedData_list, item.get());
+			assembly = item.release();
+		}
+		const uint32 bytes = assembly->Append(
+			data + (first - start), first, static_cast<size_t>(last - first + 1));
 		m_nTotalBufferData += bytes;
 		buffered += bytes;
-		// Attribute only the bytes actually retained, not overlapping duplicates.
-		m_CorruptionBlackBox->TransferredData(fragment.start, fragment.end, client->GetIP());
-		FillGap(fragment.start, fragment.end);
+		m_CorruptionBlackBox->TransferredData(first, last, client->GetIP());
+		FillGap(first, last);
 	}
 	block->transferred += buffered;
 
-	// Start draining on reception instead of waiting for the periodic file
-	// tick; at high rates that delay alone can fill a healthy volume's budget.
 	if (m_gaplist.IsComplete() ||
 		WriteBufferBudget::Get().ShouldFlush(GetFilePath().GetRaw().ToStdString(wxConvUTF8))) {
 		FlushBuffer();
@@ -3603,18 +3622,35 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 	CPartFileWriteThread *pThread = theApp->partFileWriteThread;
 	const bool threaded = pThread && pThread->IsRunning();
 	const bool refused = PutBackRefusedWrites();
-	if (!m_BufferedData_list.empty() && (threaded ? refused : !CheckFreeDiskSpace(m_nTotalBufferData))) {
+	uint64 spaceBytes = 0;
+	if (!threaded) {
+		for (const auto *item : m_BufferedData_list) {
+			spaceBytes += item->Span();
+		}
+	}
+	if (!m_BufferedData_list.empty() && (threaded ? refused : !CheckFreeDiskSpace(spaceBytes))) {
 		PauseForSpace();
 		return;
 	}
 
 	// eMule ref: PartFile.cpp:4102-4127 -- Phase 1: queue PB_READY items to the write thread
+	m_writeQueueDeferred = false;
 	if (threaded) {
+		std::set<const WriteBufferBudget::Lease *> owned;
+		for (const auto *item : m_BufferedData_list) {
+			if (item->flushed != PB_READY) {
+				owned.insert(item->writeCredit.get());
+			}
+		}
 		for (std::list<PartFileBufferedData *>::iterator it = m_BufferedData_list.begin();
 			it != m_BufferedData_list.end();
 			++it) {
 			PartFileBufferedData *item = *it;
 			if (item->flushed == PB_READY) {
+				if (owned.count(item->writeCredit.get()) != 0) {
+					m_writeQueueDeferred = true;
+					continue;
+				}
 				item->flushed = PB_PENDING;
 				++m_iWrites;
 				pThread->QueueWrite(this,
@@ -3622,6 +3658,7 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 					GetFilePath(),
 					thePrefs::IsCheckDiskspaceEnabled(),
 					thePrefs::GetMinFreeDiskSpace());
+				owned.insert(item->writeCredit.get());
 			}
 		}
 	}
@@ -3638,7 +3675,7 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 			// Write thread not running -- fall back to synchronous write
 			{
 				wxASSERT((item->end - item->start) < 0xFFFFFFFF);
-				uint32 lenData = (uint32)(item->end - item->start + 1);
+				uint32 lenData = item->Bytes();
 				for (uint32 curpart = (item->start / PARTSIZE);
 					curpart <= (item->end / PARTSIZE);
 					++curpart) {
@@ -3649,7 +3686,7 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 					{
 						// Defensive lock vs hash thread; see m_hpartfileMutex.
 						std::lock_guard<std::mutex> lock(m_hpartfileMutex);
-						item->area.FlushAt(m_hpartfile, item->start, lenData);
+						item->Flush(m_hpartfile);
 					}
 					m_nTotalBufferData -= lenData;
 				} catch (const CIOFailureException &e) {
@@ -3679,6 +3716,7 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 			continue;
 
 		case PB_ERROR:
+			m_writeQueueDeferred = true;
 			// Write thread reported error -- retry next time
 			failed = true;
 			item->flushed = PB_READY;
@@ -3689,7 +3727,7 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 		case PB_WRITTEN:
 			// Successfully written by the write thread -- harvest
 			{
-				uint32 lenData = (uint32)(item->end - item->start + 1);
+				uint32 lenData = item->Bytes();
 				for (uint32 curpart = (item->start / PARTSIZE);
 					curpart <= (item->end / PARTSIZE);
 					++curpart) {
@@ -3785,7 +3823,10 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 	// Check each part of the file. Skip hash verification if writes are still in flight --
 	// data is not on disk yet. Hashing runs on the next FlushBuffer() call once all writes
 	// complete.
-	if (m_iWrites > 0) {
+	if (m_iWrites > 0 ||
+		std::any_of(m_BufferedData_list.begin(),
+			m_BufferedData_list.end(),
+			[](const PartFileBufferedData *item) { return item->flushed != PB_WRITTEN; })) {
 		return;
 	}
 
@@ -3862,7 +3903,7 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 		it != m_BufferedData_list.end();) {
 		PartFileBufferedData *item = *it;
 		if (item->flushed == PB_WRITTEN) {
-			uint32 lenData = (uint32)(item->end - item->start + 1);
+			uint32 lenData = item->Bytes();
 			for (uint32 curpart = (item->start / PARTSIZE); curpart <= (item->end / PARTSIZE);
 				++curpart) {
 				wxASSERT(curpart < partCount);

@@ -3,7 +3,6 @@
 #include <muleunit/test.h>
 #include "WriteBufferBudget.h"
 #include <atomic>
-#include <cstdlib>
 #include <limits>
 #include <thread>
 #include <vector>
@@ -11,109 +10,167 @@
 using namespace muleunit;
 DECLARE_SIMPLE(WriteBufferBudget)
 
-TEST(WriteBufferBudget, OnlyReceivedFragmentsConsumeCapacity)
+TEST(WriteBufferBudget, OutstandingRequestsDoNotConstrainTheNetworkPipeline)
 {
-	WriteBufferBudget budget(100, 20);
-	budget.Identify("a", "disk1");
-	budget.Identify("alias", "disk1");
-	budget.Identify("b", "disk2");
-	// Selecting arbitrarily many network requests creates no leases.
+	WriteBufferBudget budget(100, 50);
+	std::vector<WriteBufferBudget::Credit> requests;
+	for (unsigned i = 0; i < 2400; ++i) {
+		requests.push_back(budget.ReserveRequest("a", 40));
+		ASSERT_TRUE(requests.back() != nullptr);
+	}
 	ASSERT_EQUALS(uint64_t{ 0 }, budget.Used());
 	ASSERT_FALSE(budget.IsPressured("a"));
-	auto headroom = budget.Charge("a", 3);
-	ASSERT_TRUE(budget.ShouldFlush("alias"));
-	ASSERT_FALSE(budget.IsPressured("alias"));
-	headroom.reset();
-	auto fragment = budget.Charge("a", 20);
-	ASSERT_TRUE(budget.IsPressured("alias"));
-	ASSERT_FALSE(budget.IsPressured("b"));
-	// Already requested data remains admissible above the threshold.
-	auto inFlight = budget.Charge("alias", 10);
-	ASSERT_EQUALS(uint64_t{ 30 }, budget.Used());
-	fragment.reset();
-	ASSERT_EQUALS(uint64_t{ 10 }, budget.Used());
-	ASSERT_FALSE(budget.IsPressured("a"));
+	requests.clear();
+	ASSERT_EQUALS(size_t{ 0 }, budget.Accounts());
+	ASSERT_EQUALS(size_t{ 0 }, budget.Volumes());
 }
 
-TEST(WriteBufferBudget, FailedFragmentKeepsOnlyItsOwnPayload)
+TEST(WriteBufferBudget, MemoryIsChargedOnlyUntilTheLastBufferedOwnerDrains)
 {
-	WriteBufferBudget budget(100, 20);
-	auto written = budget.Charge("path", 16);
-	auto failed = budget.Charge("path", 4);
-	ASSERT_TRUE(budget.IsPressured("path"));
-	written.reset();
-	ASSERT_EQUALS(uint64_t{ 4 }, budget.Used());
-	ASSERT_FALSE(budget.IsPressured("path"));
-	ASSERT_TRUE(budget.Identify("path", "disk1"));
-	ASSERT_FALSE(budget.Identify("path", "disk2"));
-	failed.reset();
-	ASSERT_TRUE(budget.Identify("path", "disk2"));
+	WriteBufferBudget budget(100, 100);
+	auto request = budget.ReserveRequest("a", 64);
 	ASSERT_EQUALS(uint64_t{ 0 }, budget.Used());
-}
-
-TEST(WriteBufferBudget, PressureFlushesSmallFilesAndClearsAfterDrain)
-{
-	WriteBufferBudget budget(100, 20);
-	budget.Identify("a", "disk1");
-	budget.Identify("b", "disk1");
-	auto first = budget.Charge("a", 12);
-	auto second = budget.Charge("b", 8);
-	ASSERT_TRUE(budget.IsPressured("a"));
+	auto first = request->Payload();
+	first[0] = 0x37;
+	auto second = request->Payload();
+	ASSERT_TRUE(first.get() == second.get());
+	ASSERT_EQUALS(uint64_t{ 64 }, budget.Used());
 	first.reset();
-	ASSERT_FALSE(budget.IsPressured("a"));
+	ASSERT_EQUALS(0x37, static_cast<int>(second[0]));
 	second.reset();
+	ASSERT_EQUALS(uint64_t{ 0 }, budget.Used());
+	ASSERT_EQUALS(uint64_t{ 1 }, budget.Requests());
+	// The rest of this request is still in flight. A later fragment gets a
+	// fresh charged buffer; already written bytes need not stay in memory.
+	auto later = request->Payload();
+	ASSERT_EQUALS(uint64_t{ 64 }, budget.Used());
+	request.reset();
+	ASSERT_EQUALS(uint64_t{ 1 }, budget.Requests());
+	later.reset();
+	ASSERT_EQUALS(uint64_t{ 0 }, budget.Used());
+	ASSERT_EQUALS(uint64_t{ 0 }, budget.Requests());
+}
+
+TEST(WriteBufferBudget, AlreadyRequestedDataCanArriveAfterBytePressureStopsNewRequests)
+{
+	WriteBufferBudget budget(100, 50);
+	std::vector<WriteBufferBudget::Credit> requests;
+	for (int i = 0; i < 3; ++i) {
+		requests.push_back(budget.ReserveRequest("a", 50, "disk"));
+		ASSERT_TRUE(requests.back() != nullptr);
+	}
+	std::vector<std::shared_ptr<uint8_t[]>> payloads;
+	payloads.push_back(requests[0]->Payload());
+	ASSERT_TRUE(budget.IsPressured("a"));
+	ASSERT_TRUE(budget.ReserveRequest("b", 40, "disk") != nullptr);
+	payloads.push_back(requests[1]->Payload());
+	payloads.push_back(requests[2]->Payload());
+	ASSERT_EQUALS(uint64_t{ 150 }, budget.Used());
+	ASSERT_TRUE(budget.ReserveRequest("independent", 40, "other") != nullptr);
+	payloads.clear();
+	ASSERT_EQUALS(uint64_t{ 0 }, budget.Used());
 	ASSERT_FALSE(budget.IsPressured("a"));
+	ASSERT_TRUE(budget.ReserveRequest("b", 40, "disk") != nullptr);
 }
 
-TEST(WriteBufferBudget, LocalPressureDoesNotFlushIndependentVolumes)
+TEST(WriteBufferBudget, CancellationRetainsAllocatedPayloadUntilItsOwnersDrain)
 {
-	WriteBufferBudget budget(100, 20);
-	budget.Identify("hot", "disk1");
-	budget.Identify("alias", "disk1");
-	budget.Identify("healthy", "disk2");
-	auto hot = budget.Charge("hot", 11);
-	auto extra = budget.Charge("hot", 9);
-	auto healthy = budget.Charge("healthy", 2);
-	ASSERT_TRUE(budget.IsPressured("hot"));
-	ASSERT_TRUE(budget.IsPressured("alias"));
-	ASSERT_FALSE(budget.IsPressured("healthy"));
-	extra.reset();
-	ASSERT_TRUE(budget.IsPressured("hot")); // 55% retains the pressure latch
-	hot.reset();
-	ASSERT_FALSE(budget.IsPressured("hot"));
-	ASSERT_FALSE(budget.IsPressured("healthy"));
+	WriteBufferBudget budget(100, 50);
+	std::vector<WriteBufferBudget::Credit> requests;
+	for (int i = 0; i < 8; ++i) {
+		requests.push_back(budget.ReserveRequest("a", 50, "disk"));
+		ASSERT_TRUE(requests.back() != nullptr);
+	}
+	ASSERT_TRUE(budget.ReserveRequest("a", 1, "disk") != nullptr);
+	std::vector<std::shared_ptr<uint8_t[]>> payloads;
+	for (const auto &request : requests) {
+		payloads.push_back(request->Payload());
+	}
+	ASSERT_EQUALS(uint64_t{ 400 }, budget.Used());
+	requests.clear(); // cancellation cannot release buffered allocations
+	ASSERT_EQUALS(uint64_t{ 8 }, budget.Requests());
+	payloads.clear();
+	ASSERT_EQUALS(uint64_t{ 0 }, budget.Used());
+	ASSERT_EQUALS(uint64_t{ 0 }, budget.Requests());
 }
 
-TEST(WriteBufferBudget, UnknownPressureCountsOnlyPossibleAliasingDebt)
+TEST(WriteBufferBudget, PressureIsLocalUnlessUnknownDataOrTheGlobalTotalOverlaps)
 {
-	WriteBufferBudget budget(100, 20);
-	budget.Identify("hot", "disk1");
-	budget.Identify("healthy", "disk2");
-	auto hot = budget.Charge("hot", 3);
-	auto healthy = budget.Charge("healthy", 2);
-	auto unknown = budget.Charge("unknown", 17);
+	WriteBufferBudget budget(1000, 50);
+	auto hot = budget.ReserveRequest("hot", 50, "a");
+	auto healthy = budget.ReserveRequest("healthy", 8, "b");
+	auto unresolved = budget.ReserveRequest("unknown", 10);
+	auto hotData = hot->Payload();
+	auto healthyData = healthy->Payload();
+	auto unknownData = unresolved->Payload();
 	ASSERT_TRUE(budget.IsPressured("hot"));
+	ASSERT_FALSE(budget.IsPressured("healthy"));
 	ASSERT_TRUE(budget.IsPressured("unknown"));
+	ASSERT_TRUE(budget.ReserveRequest("other-b", 8, "b") != nullptr);
+	ASSERT_TRUE(budget.Identify("unknown", "b"));
+	ASSERT_FALSE(budget.Identify("unknown", "a"));
 	ASSERT_FALSE(budget.IsPressured("healthy"));
-	unknown.reset();
+	hotData.reset();
 	ASSERT_FALSE(budget.IsPressured("hot"));
-	ASSERT_FALSE(budget.IsPressured("unknown"));
 }
 
-TEST(WriteBufferBudget, GlobalPressureFlushesAllVolumesWithHysteresis)
+TEST(WriteBufferBudget, AtMostTwoSnapshotsRetainOwnershipAfterCancellation)
 {
-	WriteBufferBudget budget(100, 40);
-	budget.Identify("a", "disk1");
-	budget.Identify("b", "disk2");
-	budget.Identify("c", "disk3");
-	budget.Identify("idle", "disk4");
-	auto a = budget.Charge("a", 34);
-	auto b = budget.Charge("b", 34);
-	auto c = budget.Charge("c", 34);
-	ASSERT_TRUE(budget.IsPressured("idle"));
-	c.reset(); // 68% retains global pressure
-	ASSERT_TRUE(budget.IsPressured("idle"));
-	b.reset(); // 34% clears global pressure
-	ASSERT_FALSE(budget.IsPressured("idle"));
-	ASSERT_FALSE(budget.IsPressured("a"));
+	WriteBufferBudget budget;
+	auto request = budget.ReserveRequest("a", 4096, "disk");
+	std::shared_ptr<uint8_t[]> payload;
+	{
+		WriteBufferBudget::Fragment first(request), second(request), third(request);
+		ASSERT_TRUE(static_cast<bool>(first));
+		ASSERT_TRUE(static_cast<bool>(second));
+		ASSERT_FALSE(static_cast<bool>(third));
+		payload = request->Payload();
+		request.reset();
+		ASSERT_EQUALS(uint64_t{ 2 }, budget.Fragments());
+		ASSERT_EQUALS(uint64_t{ 4096 }, budget.Used());
+	}
+	ASSERT_EQUALS(uint64_t{ 0 }, budget.Fragments());
+	ASSERT_EQUALS(uint64_t{ 1 }, budget.Requests());
+	payload.reset();
+	ASSERT_EQUALS(size_t{ 0 }, budget.Accounts());
+	ASSERT_EQUALS(size_t{ 0 }, budget.Volumes());
+}
+
+TEST(WriteBufferBudget, InvalidRequestSizesNeverAllocateOrCreateAccounts)
+{
+	WriteBufferBudget budget;
+	ASSERT_TRUE(budget.ReserveRequest("a", 0) == nullptr);
+	ASSERT_TRUE(budget.ReserveRequest("a", WriteBufferBudget::kMaxRequestBytes + 1) == nullptr);
+	ASSERT_TRUE(budget.ReserveRequest("a", std::numeric_limits<uint64_t>::max()) == nullptr);
+	ASSERT_EQUALS(size_t{ 0 }, budget.Accounts());
+	ASSERT_FALSE(budget.Identify("retired", "disk"));
+}
+
+TEST(WriteBufferBudget, ConcurrentBufferReleaseDoesNotLeakAccountsOrVolumeTotals)
+{
+	WriteBufferBudget budget;
+	std::atomic<bool> failed{ false };
+	std::vector<std::thread> workers;
+	for (int i = 0; i < 4; ++i) {
+		workers.emplace_back([&budget, &failed]() {
+			for (int n = 0; n < 256; ++n) {
+				auto request = budget.ReserveRequest("same", 32, "disk");
+				if (!request) {
+					failed = true;
+					return;
+				}
+				auto payload = request->Payload();
+				payload[0] = 0x42;
+				request.reset();
+			}
+		});
+	}
+	for (auto &worker : workers) {
+		worker.join();
+	}
+	ASSERT_FALSE(failed.load());
+	ASSERT_EQUALS(uint64_t{ 0 }, budget.Used());
+	ASSERT_EQUALS(uint64_t{ 0 }, budget.Requests());
+	ASSERT_EQUALS(size_t{ 0 }, budget.Accounts());
+	ASSERT_EQUALS(size_t{ 0 }, budget.Volumes());
 }

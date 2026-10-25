@@ -3245,3 +3245,10 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Li
 			$<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
 	set_tests_properties (WriteBackpressureIntegrationTest PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
 endif ()
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND Python3_Interpreter_FOUND AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test (NAME TinyFragmentWriteIntegrationTest
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/TinyFragmentWriteIntegrationTest.py
+            $<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
+    set_tests_properties (TinyFragmentWriteIntegrationTest PROPERTIES TIMEOUT 90 LABELS integration)
+endif ()

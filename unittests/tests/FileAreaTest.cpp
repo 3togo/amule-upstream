@@ -10,6 +10,17 @@
 #include <atomic>
 #include <cerrno>
 #include <cstring>
+#include "WriteBufferBudget.h"
+#include "BufferedWriteBlock.h"
+#ifdef AMULE_TEST_WRAP_MSYNC
+#include <unistd.h>
+static bool shortScalarWrite = false;
+extern "C" ssize_t __real_write(int fd, const void *data, size_t size);
+extern "C" ssize_t __wrap_write(int fd, const void *data, size_t size)
+{
+	return __real_write(fd, data, shortScalarWrite && size > 1 ? size - 1 : size);
+}
+#endif
 
 std::atomic<uint32> TheTime{ 0 };
 
@@ -63,6 +74,9 @@ void setUp()
 }
 void tearDown()
 {
+#ifdef AMULE_TEST_WRAP_MSYNC
+	shortScalarWrite = false;
+#endif
 #if defined(AMULE_TEST_WRAP_MSYNC) && defined(MMAP_SUPPORTED)
 	failSync = false;
 	truncateOnFailure = -1;
@@ -198,3 +212,70 @@ TEST(FileArea, MappedSyncFailureSurvivesLostPages)
 	} // ~CFileArea must not rethrow the SIGBUS from the copy
 }
 #endif
+
+TEST(FileArea, TinyFragmentsShareOnePayloadAndTwoImmutableValiditySnapshots)
+{
+	WriteBufferBudget budget;
+	auto credit = budget.ReserveRequest("block", 4096, "disk");
+	{
+		BufferedWriteBlock first(17, 4112, credit), second(17, 4112, credit);
+		ASSERT_TRUE(first.area.GetBuffer() == second.area.GetBuffer());
+		ASSERT_RAISES(CIOFailureException, BufferedWriteBlock(17, 4112, credit));
+		const uint8_t a = 0x31, b = 0x42;
+		for (size_t i = 0; i < 4096; ++i) {
+			(i % 2 == 0 ? first : second).Append(i % 2 == 0 ? &a : &b, 17 + i, 1);
+		}
+		ASSERT_EQUALS(uint32{ 2048 }, first.Bytes());
+		ASSERT_EQUALS(uint32{ 2048 }, second.Bytes());
+		ASSERT_EQUALS(uint64_t{ 2 }, budget.Fragments());
+		credit.reset(); // cancellation cannot release live write payload
+		ASSERT_EQUALS(uint64_t{ 4096 }, budget.Used());
+		CFileAutoClose file(TestFile(), CFile::read_write);
+#ifdef AMULE_TEST_WRAP_MSYNC
+		shortScalarWrite = true;
+		ASSERT_RAISES(CIOFailureException, first.Flush(file));
+		ASSERT_TRUE(first.area.GetBuffer() != nullptr);
+		ASSERT_EQUALS(uint32{ 2048 }, first.Bytes());
+		shortScalarWrite = false;
+#endif
+		first.Flush(file);
+		ASSERT_TRUE(first.area.GetBuffer() == nullptr);
+		std::array<uint8_t, 4096> data{};
+		file.ReadAt(data.data(), 17, data.size());
+		for (size_t i = 0; i < data.size(); ++i) {
+			ASSERT_EQUALS(i % 2 == 0 ? 0x31 : 0, static_cast<int>(data[i]));
+		}
+		// The first snapshot must not publish bytes received by the second,
+		// even though they share the payload allocation. The later merge must
+		// also preserve the first snapshot's previously written bytes.
+		second.Flush(file);
+		file.ReadAt(data.data(), 17, data.size());
+		for (size_t i = 0; i < data.size(); ++i) {
+			ASSERT_EQUALS(i % 2 == 0 ? 0x31 : 0x42, static_cast<int>(data[i]));
+		}
+	}
+	ASSERT_EQUALS(uint64_t{ 0 }, budget.Used());
+	ASSERT_EQUALS(uint64_t{ 0 }, budget.Fragments());
+	ASSERT_EQUALS(size_t{ 0 }, budget.Accounts());
+}
+TEST(FileArea, SparseAssemblyPreservesExistingFileDataAndUninitializedTailStaysZero)
+{
+	WriteBufferBudget budget;
+	CFileAutoClose file(TestFile(), CFile::read_write);
+	std::array<uint8_t, 8192> old;
+	old.fill(0x7A);
+	file.WriteAt(old.data(), 0, old.size());
+	auto credit = budget.ReserveRequest("block", 4096, "disk");
+	BufferedWriteBlock partial(7000, 11095, credit);
+	const uint8_t received = 0x31;
+	partial.Append(&received, 7017, 1);
+	partial.Append(&received, 11095, 1);
+	partial.Flush(file);
+	std::array<uint8_t, 4096> data{};
+	file.ReadAt(data.data(), 7000, data.size());
+	for (size_t i = 0; i < data.size(); ++i) {
+		ASSERT_EQUALS(i == 17 || i == data.size() - 1 ? 0x31 : (i < 1192 ? 0x7A : 0),
+			static_cast<int>(data[i]));
+	}
+	ASSERT_EQUALS(uint32{ 2 }, partial.Bytes());
+}

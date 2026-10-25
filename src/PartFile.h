@@ -29,6 +29,7 @@
 #include "KnownFile.h"     // Needed for CKnownFile
 #include "FileAutoClose.h" // Needed for CFileAutoClose
 #include "WriteBufferBudget.h"
+#include "BufferedWriteBlock.h"
 #include "FileArea.h" // Needed for CFileArea (PartFileBufferedData)
 #include <array>      // Needed for std::array (m_ecTickState)
 #include <atomic>     // Needed for std::atomic (m_iWrites, flushed)
@@ -78,32 +79,15 @@ public:
 
 typedef std::map<uint32, SourcenameItem> SourcenameItemMap;
 
-class PartFileBufferedData
+class PartFileBufferedData : public BufferedWriteBlock
 {
 public:
-	WriteBufferBudget::Credit writeCredit;
-	CFileArea area;                // File area to be written
-	uint64 start;                  // This is the start offset of the data
-	uint64 end;                    // This is the end offset of the data
-	Requested_Block_Struct *block; // This is the requested block that this data relates to
-	// eMule ref: 0=ready 1=pending 2=error 3=written. Atomic: the write thread publishes the
-	// result, and the main thread frees the area once it reads PB_WRITTEN.
-	std::atomic<uint8> flushed;
-
-	PartFileBufferedData(CFileAutoClose &file,
-		uint8_t *data,
-		uint64 _start,
-		uint64 _end,
-		Requested_Block_Struct *_block,
-		WriteBufferBudget::Credit credit)
-	: writeCredit(std::move(credit))
-	, start(_start)
-	, end(_end)
-	, block(_block)
-	, flushed(0)
+	// Worker snapshots are immutable while pending. The owner publishes later
+	// fragments into a second READY assembly sharing the original request credit.
+	std::atomic<uint8> flushed{ 0 };
+	PartFileBufferedData(uint64 first, uint64 last, WriteBufferBudget::Credit credit)
+	: BufferedWriteBlock(first, last, std::move(credit))
 	{
-		area.StartWriteAt(file, start, end - start + 1);
-		memcpy(area.GetBuffer(), data, end - start + 1);
 	}
 };
 
@@ -443,6 +427,7 @@ private:
 	uint64 m_LastNoNeededCheck;
 	CGapList m_gaplist;
 	CReqBlockPtrList m_requestedblocks_list;
+	std::map<Requested_Block_Struct *, WriteBufferBudget::Credit> m_writeCredits;
 	double percentcompleted;
 	std::list<uint16> m_corrupted_list;
 	uint16 m_availablePartsCount;
@@ -468,6 +453,7 @@ private:
 	std::list<class PartFileBufferedData *> m_BufferedData_list;
 
 	uint32 m_nTotalBufferData;
+	bool m_writeQueueDeferred = false;
 	uint64 m_nLastBufferFlushTime;
 	std::atomic<int32> m_iWrites; // eMule ref: count of items queued to write thread (not yet PB_WRITTEN)
 	std::vector<bool> m_aChangedPart; // eMule ref: persistent tracking of parts needing hash verification

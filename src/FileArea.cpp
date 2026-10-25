@@ -232,20 +232,24 @@ CFileArea::~CFileArea()
 
 bool CFileArea::Close()
 {
-	if (m_buffer != NULL && m_mmap_buffer == NULL) {
-		delete[] m_buffer;
-		m_buffer = NULL;
+	if (m_buffer != nullptr && m_mmap_buffer == nullptr) {
+		if (m_sharedBuffer) {
+			m_sharedBuffer.reset();
+		} else {
+			delete[] m_buffer;
+		}
+		m_buffer = nullptr;
 	}
 #ifdef MMAP_SUPPORTED
 	if (m_mmap_buffer) {
 		munmap(m_mmap_buffer, m_length);
 		// remove from list
 		CFileAreaSigHandler::Remove(*this);
-		m_buffer = NULL;
-		m_mmap_buffer = NULL;
+		m_buffer = nullptr;
+		m_mmap_buffer = nullptr;
 		if (m_file) {
 			m_file->Unlock();
-			m_file = NULL;
+			m_file = nullptr;
 		}
 	}
 #endif
@@ -318,6 +322,13 @@ void CFileArea::StartWriteAt(CFileAutoClose &, uint64, size_t count)
 	m_buffer = new uint8_t[count];
 }
 #endif
+
+void CFileArea::ShareWriteBuffer(std::shared_ptr<uint8_t[]> buffer)
+{
+	Close();
+	m_sharedBuffer = std::move(buffer);
+	m_buffer = m_sharedBuffer.get();
+}
 
 void CFileArea::FlushAt(CFileAutoClose &file, uint64 offset, size_t count)
 {
