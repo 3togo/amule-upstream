@@ -43,6 +43,7 @@
 #include "ExternalConn.h"        // Interface declarations
 #include <stdexcept>
 #include "libs/ec/cpp/ECSRP.h"
+#include "libs/ec/cpp/ECSRPConfig.h"
 #include "ECFullResponseCache.h" // Needed for s_ec*FullCache
 #include "updownclient.h"        // Needed for CUpDownClient
 #include "Server.h"              // Needed for CServer
@@ -4199,10 +4200,21 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		break;
 	case EC_OP_SET_PREFERENCES: {
 		bool changesPassword = false;
+		unsigned remoteGroups = 0;
 		for (const auto &group : *request) {
-			if (group.GetTagName() == EC_TAG_PREFS_REMOTECTRL &&
-				group.GetTagByName(EC_TAG_EXTERNALCONN_PASSWD))
-				changesPassword = true;
+			if (group.GetTagName() == EC_TAG_PREFS_REMOTECTRL) {
+				++remoteGroups;
+				if (group.GetTagByName(EC_TAG_EXTERNALCONN_PASSWD))
+					changesPassword = true;
+			}
+		}
+		// GetTagByName below reads only the first group, so a request carrying a
+		// second one would authorize against one group and apply the other.
+		if (remoteGroups > 1) {
+			response = new CECPacket(EC_OP_FAILED);
+			response->AddTag(CECTag(EC_TAG_STRING,
+				wxTRANSLATE("Duplicate remote-control preference groups are not allowed.")));
+			break;
 		}
 		if (changesPassword && m_srpCredential != ECSRP::Password) {
 			response = new CECPacket(EC_OP_FAILED);
@@ -4216,6 +4228,7 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		const auto *remote = request->GetTagByName(EC_TAG_PREFS_REMOTECTRL);
 		const auto *password = remote ? remote->GetTagByName(EC_TAG_EXTERNALCONN_PASSWD) : nullptr;
 		wxString nextPassword;
+		wxString preparedVerifier;
 		if (password) {
 			if (!password->IsMD4() || password->GetTagCount() != 0 ||
 				!ECSRP::IsPasswordDigest(
@@ -4226,6 +4239,16 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 				break;
 			}
 			nextPassword = password->GetMD4Data().Encode();
+			// Derive the verifier before Apply() touches anything, so a
+			// generation failure rejects the whole edit with nothing applied.
+			try {
+				preparedVerifier = ECSRP::PrepareCredential(nextPassword);
+			} catch (const std::exception &) {
+				response = new CECPacket(EC_OP_FAILED);
+				response->AddTag(CECTag(EC_TAG_STRING,
+					wxTRANSLATE("Could not update EC password verifier.")));
+				break;
+			}
 		}
 		const bool ed2kWasEnabled = thePrefs::GetNetworkED2K();
 		const bool kadWasEnabled = thePrefs::GetNetworkKademlia();
@@ -4298,7 +4321,7 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		AdvertisedIPv6ForPeers();
 #endif
 		if (password && !portRebindFailed) {
-			if (!thePrefs::SetECPass(nextPassword)) {
+			if (!thePrefs::SetECPasswordVerifier(preparedVerifier)) {
 				response = new CECPacket(EC_OP_FAILED);
 				response->AddTag(CECTag(EC_TAG_STRING,
 					wxTRANSLATE("Could not update EC password verifier.")));
@@ -4309,6 +4332,11 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		const bool dirsRefused = !refusedDirs.IsEmpty();
 		response = new CECPacket((portRebindFailed || dirsRefused) ? EC_OP_FAILED : EC_OP_NOOP);
 		if (portRebindFailed) {
+			if (password) {
+				// The rotation was skipped; say so, or the client keeps resending
+				// the digest behind later OKs while believing it was applied.
+				networkMessage += _("The EC password was not changed.");
+			}
 			response->AddTag(CECTag(EC_TAG_STRING, networkMessage));
 		}
 		if (dirsRefused) {
