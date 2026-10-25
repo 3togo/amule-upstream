@@ -31,6 +31,7 @@
 
 #include <vector>
 
+#include "DownloadCommand.h"
 #include "Types.h"
 #include "ChatSessionStore.h" // CChatTarget: hash locally, legacy projection in amulegui
 #include "Constants.h"
@@ -195,6 +196,8 @@ void ConvertRetryJob(unsigned id);
 void ConvertReaddAllJobs();
 
 // GUI -> core notification
+
+void Download_Execute(CDownloadTarget target, DownloadCommand command);
 
 void PartFile_Swap_A4AF(CPartFile *file);
 void PartFile_Swap_A4AF_Auto(CPartFile *file);

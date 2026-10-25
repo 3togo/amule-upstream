@@ -493,7 +493,7 @@ public:
 	void AutoPrio(CPartFile *file, bool flag);
 	void Category(CPartFile *file, uint8 cat);
 
-	void SendFileCommand(CPartFile *file, ec_tagname_t cmd);
+	void SendFileCommand(CPartFile *file, ec_tagname_t cmd, uint32 expectedId = 0);
 	// Actions
 	void StopUDPRequests() {}
 	void AddFileLinkToDownload(CED2KFileLink *, uint8);

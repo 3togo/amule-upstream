@@ -1003,6 +1003,60 @@ void ConvertReaddAllJobs()
 
 #endif // #ifndef CLIENT_GUI
 
+// Values must be copied into MuleNotify's queued functor.
+// NOLINTBEGIN(performance-unnecessary-value-param)
+void Download_Execute(CDownloadTarget target, DownloadCommand command)
+// NOLINTEND(performance-unnecessary-value-param)
+{
+	ApplyDownloadCommand(
+		target,
+		command,
+		[](const CDownloadTarget &selected) -> CPartFile * {
+#ifdef CLIENT_GUI
+			auto it = theApp->downloadqueue->find(selected.ecid);
+			return it == theApp->downloadqueue->end() ? nullptr : it->second;
+#else
+			return theApp->downloadqueue->GetFileByID(selected.hash);
+#endif
+		},
+		[&target](CPartFile *file, DownloadCommand action) {
+#ifdef CLIENT_GUI
+			ec_tagname_t op = EC_OP_PARTFILE_PAUSE;
+			switch (action) {
+			case DownloadCommand::Pause:
+				op = EC_OP_PARTFILE_PAUSE;
+				break;
+			case DownloadCommand::Resume:
+				op = EC_OP_PARTFILE_RESUME;
+				break;
+			case DownloadCommand::Stop:
+				op = EC_OP_PARTFILE_STOP;
+				break;
+			case DownloadCommand::Cancel:
+				op = EC_OP_PARTFILE_DELETE;
+				break;
+			}
+			theApp->downloadqueue->SendFileCommand(file, op, target.ecid);
+#else
+			(void)target;
+			switch (action) {
+			case DownloadCommand::Pause:
+				PartFile_Pause(file);
+				break;
+			case DownloadCommand::Resume:
+				PartFile_Resume(file);
+				break;
+			case DownloadCommand::Stop:
+				PartFile_Stop(file);
+				break;
+			case DownloadCommand::Cancel:
+				PartFile_Delete(file);
+				break;
+			}
+#endif
+		});
+}
+
 // MuleNotify stores notification arguments by value; a reference would not match the queued
 // callback signature.
 // NOLINTBEGIN(performance-unnecessary-value-param)

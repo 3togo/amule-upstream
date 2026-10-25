@@ -3579,10 +3579,14 @@ void CKnownFilesRem::ProcessItemUpdatePartfile(const CEC_PartFile_Tag *tag, CPar
 	}
 }
 
-void CDownQueueRem::SendFileCommand(CPartFile *file, ec_tagname_t cmd)
+void CDownQueueRem::SendFileCommand(CPartFile *file, ec_tagname_t cmd, uint32 expectedId)
 {
 	CECPacket req(cmd);
-	req.AddTag(CECTag(EC_TAG_PARTFILE, file->GetFileHash()));
+	CECTag target(EC_TAG_PARTFILE, file->GetFileHash());
+	if (expectedId != 0) {
+		target.AddTag(CECTag(EC_TAG_ECID, expectedId));
+	}
+	req.AddTag(target);
 
 	m_conn->SendPacket(&req);
 }
