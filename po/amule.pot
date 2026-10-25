@@ -180,6 +180,10 @@ msgstr ""
 msgid "Later"
 msgstr ""
 
+#: src/GuiEvents.cpp src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr ""
+
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
 msgstr ""
@@ -2388,10 +2392,6 @@ msgstr ""
 #: src/ExternalConn.cpp
 #, c-format
 msgid "FileHash not found: %s"
-msgstr ""
-
-#: src/ExternalConn.cpp
-msgid "The selected download has changed. Refresh and try again."
 msgstr ""
 
 #: src/ExternalConn.cpp

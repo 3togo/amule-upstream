@@ -2346,10 +2346,9 @@ static CECPacket *Get_EC_Response_PartFile_Cmd(const CECPacket *request)
 			}
 		} break;
 		case EC_OP_PARTFILE_DELETE: {
-			// Legacy multi-file cancel skips finished entries and still cancels
-			// active entries later in the same packet.
-			if (pfile->IsCompleted() || pfile->GetStatus() == PS_COMPLETING ||
-				(expectedId && !CanCancelDownload(pfile->GetStatus()))) {
+			// Legacy multi-file cancel skips finished and hashing entries and still
+			// cancels active entries later in the same packet.
+			if (pfile->IsCompleted() || !CanCancelDownload(pfile->GetStatus())) {
 				if (!response) {
 					response = new CECPacket(EC_OP_FAILED);
 					response->AddTag(CECTag(EC_TAG_STRING,

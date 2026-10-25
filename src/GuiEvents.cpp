@@ -1024,7 +1024,7 @@ void Download_Execute(CDownloadTarget target, DownloadCommand command)
 	const uint64 generation = 0;
 	const bool connected = true;
 #endif
-	ApplyDownloadCommand(
+	const bool applied = ApplyDownloadCommand(
 		target,
 		command,
 		[](const CDownloadTarget &selected) -> CPartFile * {
@@ -1073,6 +1073,9 @@ void Download_Execute(CDownloadTarget target, DownloadCommand command)
 		},
 		generation,
 		connected);
+	if (!applied) {
+		AddLogLineN(_("The selected download has changed. Refresh and try again."));
+	}
 }
 
 // MuleNotify stores notification arguments by value; a reference would not match the queued
