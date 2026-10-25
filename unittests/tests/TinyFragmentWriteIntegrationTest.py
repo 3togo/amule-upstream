@@ -26,6 +26,7 @@ class TinySource(Source):
         self.hashes = b''
         self.prefix_sent = threading.Event()
         self.send_tail = threading.Event()
+        self.sent_ranges = {}
 
     def link(self):
         return (f'ed2k://|file|{self.name.decode()}|{self.size}|{self.file_hash.hex()}|'
@@ -46,6 +47,11 @@ class TinySource(Source):
         # Resending the prefix also checks that overlap does not change its
         # immutable snapshot or create another payload allocation.
         send(peer, 0x46, self.file_hash + struct.pack('<II', start, end) + b'x' * (end - start))
+        self.sent_ranges[start] = end
+        if sum(last - first for first, last in self.sent_ranges.items()) == self.size:
+            # A reply on this same socket proves the core processed preceding
+            # payload packets while its first disk write is still held.
+            send(peer, 0x58, self.file_hash)
 
 
 def run(binary, shim):
@@ -77,6 +83,8 @@ def run(binary, shim):
             assert not source.cancelled and not source.errors, detail()
             source.send_tail.set()
             wait_for(lambda: source.requested == source.size, 5, detail)
+            wait_for(lambda: any(op in source.opcodes for op in ('0x59', '0x48')), 8,
+                     lambda: ('tail packets were not processed while the writer was held', detail()))
             ec.call(C['EC_OP_GET_DLOAD_QUEUE'])
             gate.unlink()
             completed = root / 'Incoming' / source.name.decode()
