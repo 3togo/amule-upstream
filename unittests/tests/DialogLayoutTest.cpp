@@ -85,7 +85,7 @@ void TestWrappingText(const wxString &message, bool scrolled, bool largerFont)
 			content->Layout();
 		}
 	});
-	dialog.SetClientSize(dialog.FromDIP(wxSize(1100, 500)));
+	dialog.SetClientSize(dialog.FromDIP(wxSize(680, 500)));
 	dialog.Show();
 	wxTheApp->Yield();
 	if (largerFont) {
@@ -95,7 +95,9 @@ void TestWrappingText(const wxString &message, bool scrolled, bool largerFont)
 	}
 	wxClientDC dc(label);
 	dc.SetFont(label->GetFont());
-	const int wide = wxMax(1100, dialog.ToDIP(dc.GetMultiLineTextExtent(message).x) + 160);
+	// Wrap() measures the mnemonic-escaped label, including doubled ampersands.
+	const int wide = wxMax(
+		680, dialog.ToDIP(dc.GetMultiLineTextExtent(wxControl::EscapeMnemonics(message)).x) + 160);
 	auto resize = [&](int width) {
 		dialog.SetClientSize(dialog.FromDIP(wxSize(width, 500)));
 		dialog.SendSizeEvent();
@@ -128,6 +130,12 @@ void TestWrappingText(const wxString &message, bool scrolled, bool largerFont)
 	Check(label->GetLabelText() == narrow && callbacks == settledCallbacks,
 		"Same-width layout changed wrapping or scheduled another layout");
 	resize(wide);
+	if (label->GetLabelText() != message) {
+		std::cerr << "Widening: scrolled=" << scrolled << ", largerFont=" << largerFont
+			  << ", dialog=" << dialog.GetClientSize().x << ", label=" << label->GetSize().x
+			  << ", text=" << dc.GetMultiLineTextExtent(message).x << '\n'
+			  << label->GetLabelText().ToUTF8().data() << '\n';
+	}
 	Check(label->GetLabelText() == message, "Widening lost original text, ampersands or blank lines");
 	Check(label->GetSize().y < narrowHeight, "Widening did not reclaim the wrapped height");
 	resize(400);
