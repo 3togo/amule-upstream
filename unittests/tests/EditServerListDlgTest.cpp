@@ -90,16 +90,20 @@ void CheckLayout(EditServerListDlg &dialog)
 	wxClientDC dc(label);
 	dc.SetFont(label->GetFont());
 	const wxSize text = dc.GetMultiLineTextExtent(label->GetLabelText());
-	if (text.x > label->GetClientSize().x || text.y > label->GetClientSize().y) {
+	// Native controls can use different line spacing from wxDC (notably Cocoa).
+	// Recompute the label's required height instead of assuming wxDC's spacing.
+	label->InvalidateBestSize();
+	const wxSize required = label->GetBestSize();
+	if (text.x > label->GetClientSize().x || required.y > label->GetClientSize().y) {
 		std::cerr << "Message geometry: dialog=" << dialog.GetClientSize().x << 'x'
 			  << dialog.GetClientSize().y << ", label=" << label->GetClientSize().x << 'x'
 			  << label->GetClientSize().y << ", text=" << text.x << 'x' << text.y
-			  << ", native best=" << label->GetBestSize().x << 'x' << label->GetBestSize().y
+			  << ", native best=" << required.x << 'x' << required.y
 			  << ", font=" << label->GetFont().GetPointSize() << "pt\n"
 			  << label->GetLabelText().ToUTF8().data() << '\n';
 	}
 	Check(text.x <= label->GetClientSize().x, "Message is clipped horizontally");
-	Check(text.y <= label->GetClientSize().y, "Wrapped message is clipped vertically");
+	Check(required.y <= label->GetClientSize().y, "Wrapped message is clipped vertically");
 	Check(label->GetRect().GetBottom() < editor->GetRect().GetTop(),
 		"Wrapped message overlaps the URL editor");
 	const wxRect client(wxPoint(0, 0), dialog.GetClientSize());
