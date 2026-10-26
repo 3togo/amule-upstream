@@ -26,7 +26,10 @@
 #ifndef EDITSERVERLISTDLG_H
 #define EDITSERVERLISTDLG_H
 
+#include <wx/dialog.h>
+
 class wxTextCtrl;
+class wxStaticText;
 
 void EditServerListSources(wxWindow *parent);
 
@@ -40,6 +43,8 @@ public:
 
 	virtual ~EditServerListDlg();
 
+	bool Layout() override;
+
 	void OnOK(wxCommandEvent &event);
 
 protected:
@@ -47,6 +52,9 @@ protected:
 	wxString m_file;
 
 private:
+	wxStaticText *m_message = nullptr;
+	const wxString m_messageText;
+
 	wxDECLARE_EVENT_TABLE();
 };
 
