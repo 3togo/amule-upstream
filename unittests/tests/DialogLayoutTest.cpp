@@ -66,12 +66,22 @@ void TestWrappingText(const wxString &message, bool scrolled, bool largerFont)
 	if (scrolled) {
 		ConfigureDialogScrolling(static_cast<wxScrolledWindow *>(content));
 	}
-	auto *label = new WrappingStaticText(content, wxID_ANY, message);
-	auto *following = new wxTextCtrl(content, wxID_ANY, "Keep this text");
+	wxWindow *labelParent = scrolled ? new wxPanel(content) : content;
+	auto *label = new WrappingStaticText(labelParent, wxID_ANY, message);
+	auto *following = new wxTextCtrl(labelParent, wxID_ANY, "Keep this text");
+	if (scrolled) {
+		// Preferences rows can keep the virtual page wider than the viewport.
+		following->SetMinSize(dialog.FromDIP(wxSize(560, -1)));
+	}
 	auto *fields = new wxBoxSizer(wxVERTICAL);
 	fields->Add(label, wxSizerFlags().Expand().Border(wxALL, 10));
 	fields->Add(following, wxSizerFlags().Expand().Border(wxALL, 10));
-	content->SetSizer(fields);
+	labelParent->SetSizer(fields);
+	if (scrolled) {
+		auto *pageSizer = new wxBoxSizer(wxVERTICAL);
+		pageSizer->Add(labelParent, wxSizerFlags().Expand().Border(wxLEFT, 12));
+		content->SetSizer(pageSizer);
+	}
 	auto *row = new wxBoxSizer(wxHORIZONTAL);
 	row->Add(dialog.FromDIP(80), 1);
 	row->Add(content, wxSizerFlags(1).Expand().Border(wxALL, 10));
@@ -96,8 +106,10 @@ void TestWrappingText(const wxString &message, bool scrolled, bool largerFont)
 	wxClientDC dc(label);
 	dc.SetFont(label->GetFont());
 	// Wrap() measures the mnemonic-escaped label, including doubled ampersands.
-	const int wide = wxMax(
-		680, dialog.ToDIP(dc.GetMultiLineTextExtent(wxControl::EscapeMnemonics(message)).x) + 160);
+	const int unwrappedWidth = dc.GetMultiLineTextExtent(wxControl::EscapeMnemonics(message)).x;
+	const int displayWidth =
+		dialog.ToDIP(dialog.WindowToClientSize(wxDisplay(&dialog).GetClientArea().GetSize())).x;
+	const int wide = wxMin(displayWidth, wxMax(680, dialog.ToDIP(unwrappedWidth) + 160));
 	auto resize = [&](int width) {
 		dialog.SetClientSize(dialog.FromDIP(wxSize(width, 500)));
 		dialog.SendSizeEvent();
@@ -114,12 +126,10 @@ void TestWrappingText(const wxString &message, bool scrolled, bool largerFont)
 			"Wrapped text is clipped vertically");
 		Check(label->GetRect().GetBottom() < following->GetRect().GetTop(),
 			"Wrapped text overlaps the next control");
-		Check(label->GetSize().x < dialog.GetClientSize().x - dialog.FromDIP(80),
-			"Wrapping ignored the nested container's allocated width");
-		if (scrolled) {
-			Check(content->GetVirtualSize().x <= content->GetClientSize().x,
-				"Wrapping forced unnecessary horizontal scrolling");
-		}
+		const int left =
+			label->ClientToScreen(wxPoint(0, 0)).x - content->ClientToScreen(wxPoint(0, 0)).x;
+		Check(dc.GetMultiLineTextExtent(label->GetLabelText()).x <= content->GetClientSize().x - left,
+			"Hint extends past the visible viewport");
 	};
 	resize(400);
 	const wxString narrow = label->GetLabelText();
@@ -129,15 +139,23 @@ void TestWrappingText(const wxString &message, bool scrolled, bool largerFont)
 	resize(400);
 	Check(label->GetLabelText() == narrow && callbacks == settledCallbacks,
 		"Same-width layout changed wrapping or scheduled another layout");
-	resize(wide);
-	if (label->GetLabelText() != message) {
-		std::cerr << "Widening: scrolled=" << scrolled << ", largerFont=" << largerFont
-			  << ", dialog=" << dialog.GetClientSize().x << ", label=" << label->GetSize().x
-			  << ", text=" << dc.GetMultiLineTextExtent(message).x << '\n'
-			  << label->GetLabelText().ToUTF8().data() << '\n';
+	if (scrolled) {
+		const int virtualLabelWidth = label->GetSize().x;
+		resize(340);
+		Check(label->GetSize().x == virtualLabelWidth,
+			"Viewport test must keep the label at the page's minimum content width");
+		resize(400);
 	}
-	Check(label->GetLabelText() == message, "Widening lost original text, ampersands or blank lines");
-	Check(label->GetSize().y < narrowHeight, "Widening did not reclaim the wrapped height");
+	resize(wide);
+	// A small desktop may not have enough room to display the whole translation.
+	const int visibleWidth = wxMin(label->GetClientSize().x,
+		content->GetClientSize().x -
+			(label->ClientToScreen(wxPoint(0, 0)).x - content->ClientToScreen(wxPoint(0, 0)).x));
+	if (unwrappedWidth <= visibleWidth) {
+		Check(label->GetLabelText() == message,
+			"Widening lost original text, ampersands or blank lines");
+		Check(label->GetSize().y < narrowHeight, "Widening did not reclaim the wrapped height");
+	}
 	resize(400);
 	if (label->GetLabelText() != narrow || label->GetSize().y != narrowHeight) {
 		std::cerr << "Wrapping changed: scrolled=" << scrolled << ", largerFont=" << largerFont
@@ -170,11 +188,14 @@ void TestWrappingControls()
 	}
 	// A dialog can close before the deferred height adjustment is delivered.
 	wxDialog dialog(nullptr, wxID_ANY, "Pending wrapping layout");
-	auto *label = new WrappingStaticText(&dialog, wxID_ANY, english);
+	auto *page = new wxScrolledWindow(&dialog);
+	auto *label = new WrappingStaticText(page, wxID_ANY, english);
 	bool called = false;
 	label->SetLayoutCallback([&] { called = true; });
 	label->SetSize(wxSize(100, 100));
 	delete label;
+	page->SetSize(wxSize(200, 200));
+	page->SendSizeEvent();
 	wxTheApp->ProcessPendingEvents();
 	Check(!called, "Destroyed control retained a pending layout callback");
 }

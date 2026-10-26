@@ -47,10 +47,21 @@ public:
 		SetLabelText(m_text);
 		// The original translation must not dictate the container's minimum width.
 		SetMinSize(wxSize(FromDIP(20), -1));
-		Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
-			Rewrap();
-			event.Skip();
-		});
+		Bind(wxEVT_SIZE, &WrappingStaticText::OnSize, this);
+		for (wxWindow *ancestor = parent; ancestor; ancestor = ancestor->GetParent()) {
+			if (auto *page = dynamic_cast<wxScrolledWindow *>(ancestor)) {
+				m_viewport = page;
+				page->Bind(wxEVT_SIZE, &WrappingStaticText::OnSize, this);
+				break;
+			}
+		}
+	}
+
+	~WrappingStaticText() override
+	{
+		if (m_viewport) {
+			m_viewport->Unbind(wxEVT_SIZE, &WrappingStaticText::OnSize, this);
+		}
 	}
 
 	void SetLayoutCallback(std::function<void()> callback) { m_layoutCallback = std::move(callback); }
@@ -66,9 +77,24 @@ public:
 	}
 
 private:
+	void OnSize(wxSizeEvent &event)
+	{
+		Rewrap();
+		event.Skip();
+	}
+
 	void Rewrap()
 	{
-		const int width = GetClientSize().x;
+		int width = GetClientSize().x;
+		if (m_viewport) {
+			// Other fields may keep the virtual page wider than its viewport.
+			// Client-relative positions also work before the dialog is shown.
+			int left = 0;
+			for (wxWindow *window = this; window != m_viewport; window = window->GetParent()) {
+				left += window->GetPosition().x + window->GetClientAreaOrigin().x;
+			}
+			width = wxMin(width, m_viewport->GetClientSize().x - wxMax(0, left));
+		}
 		if (width <= 0 || width == m_wrapWidth) {
 			return;
 		}
@@ -84,6 +110,7 @@ private:
 			// Queue on the control so destruction also discards the pending callback.
 			CallAfter([this] {
 				m_layoutPending = false;
+				InvalidateBestSize();
 				if (m_layoutCallback) {
 					m_layoutCallback();
 				} else {
@@ -97,6 +124,7 @@ private:
 	int m_wrapWidth = -1;
 	bool m_layoutPending = false;
 	std::function<void()> m_layoutCallback;
+	wxScrolledWindow *m_viewport = nullptr;
 };
 
 // Horizontal scroll units must be exact pixels: larger units round the range
