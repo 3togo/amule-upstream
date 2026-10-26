@@ -80,8 +80,8 @@ env:
     libwxgtk3.2-dev \
     locales \
     pkg-config \
-    po4a \
     python3-cryptography \
+    po4a \
     xvfb \
     xauth \
     wx3.2-headers
@@ -92,10 +92,10 @@ env:
     cryptopp \
     gd \
     gettext \
-    python3-cryptography \
     libmediainfo libmaxminddb \
     libupnp \
     pkg-config \
+    python3-cryptography \
     wxwidgets
 
   # CLANG64, not MINGW64: wxWidgets 3.3 is not packaged for the latter, and
