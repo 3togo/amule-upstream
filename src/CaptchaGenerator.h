@@ -31,6 +31,9 @@
 #include <wx/mstream.h>
 #include "Types.h"
 
+// Keep the existing case-insensitive suffix reply handling and accept visual equivalents.
+bool MatchesChatCaptchaAnswer(const wxString &challenge, const wxString &answer);
+
 class CCaptchaGenerator
 {
 public:

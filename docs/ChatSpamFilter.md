@@ -14,6 +14,7 @@ who writes first must solve a challenge before the original message reaches
 the transcript. Friends and peers we have already written to bypass this
 challenge. A correct answer submits the original message to the spam filter;
 unsolicited links and repeated unanswered messages remain blocked.
+Answers ignore letter case and accept `S/5`, `Z/2`, `G/6`, and `B/8` as equivalent.
 Incorrect answers allow at most three challenges. Peers without CAPTCHA support
 receive a single explanation and cannot start a conversation.
 

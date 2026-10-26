@@ -31,9 +31,10 @@
 
 namespace
 {
-// Original 5 x 7 block glyphs, in the same order as the protocol's alphabet.
+// Original 5 x 7 block glyphs. Omit digits 2, 5, 6 and 8, which resemble Z, S, G and B.
+// Answers are checked locally; the alphabet is not part of the wire format.
 // No system fonts, image handlers or wx GUI initialization are needed.
-constexpr char alphabet[] = "ABCDEFGHJKLMNPQRSTUVWXYZ123456789";
+constexpr char alphabet[] = "ABCDEFGHJKLMNPQRSTUVWXYZ13479";
 constexpr unsigned char glyphs[][7] = {
 	{ 14, 17, 17, 31, 17, 17, 17 }, // A
 	{ 30, 17, 17, 30, 17, 17, 30 }, // B
@@ -60,13 +61,9 @@ constexpr unsigned char glyphs[][7] = {
 	{ 17, 17, 10, 4, 4, 4, 4 },     // Y
 	{ 31, 1, 2, 4, 8, 16, 31 },     // Z
 	{ 4, 12, 4, 4, 4, 4, 14 },      // 1
-	{ 14, 17, 1, 2, 4, 8, 31 },     // 2
 	{ 30, 1, 1, 14, 1, 1, 30 },     // 3
 	{ 2, 6, 10, 18, 31, 2, 2 },     // 4
-	{ 31, 16, 16, 30, 1, 1, 30 },   // 5
-	{ 14, 16, 16, 30, 17, 17, 14 }, // 6
 	{ 31, 1, 2, 4, 8, 8, 8 },       // 7
-	{ 14, 17, 17, 14, 17, 17, 14 }, // 8
 	{ 14, 17, 17, 15, 1, 1, 14 },   // 9
 };
 static_assert(
@@ -75,6 +72,38 @@ constexpr unsigned height = 48;
 constexpr unsigned letterSpacing = 22;
 constexpr unsigned pixelOffset = 62; // BITMAPFILEHEADER, BITMAPINFOHEADER, two palette entries
 } // namespace
+
+bool MatchesChatCaptchaAnswer(const wxString &challenge, const wxString &answer)
+{
+	const wxString expected = challenge.Upper();
+	wxString supplied = answer.Upper();
+	supplied.Trim();
+	if (expected.IsEmpty() || supplied.Length() < expected.Length()) {
+		return false;
+	}
+	// Peers may prefix the answer with explanatory text; keep the existing suffix behavior.
+	supplied = supplied.Right(expected.Length());
+	const auto canonical = [](wxUniChar character) {
+		switch (character.GetValue()) {
+		case '2':
+			return wxUniChar('Z');
+		case '5':
+			return wxUniChar('S');
+		case '6':
+			return wxUniChar('G');
+		case '8':
+			return wxUniChar('B');
+		default:
+			return character;
+		}
+	};
+	for (size_t i = 0; i < expected.Length(); ++i) {
+		if (canonical(supplied[i]) != canonical(expected[i])) {
+			return false;
+		}
+	}
+	return true;
+}
 
 CCaptchaGenerator::CCaptchaGenerator(uint32 nLetterCount)
 {
@@ -137,20 +166,6 @@ void CCaptchaGenerator::ReGenerateCaptcha(uint32 nLetterCount)
 					m_image[pixelOffset + (height - 1 - y) * stride + x / 8] |=
 						static_cast<unsigned char>(0x80U >> (x % 8));
 				}
-			}
-		}
-	}
-	// At most one crossing line, with the same three-pixel thickness as glyph strokes.
-	// Keep its ends away from the middle so it cannot erase a whole row of counters.
-	if (GetRandomUint16() % 2) {
-		const int startY = 13 + GetRandomUint16() % 4;
-		const int endY = 32 + GetRandomUint16() % 4;
-		for (unsigned x = 4; x < width - 4; ++x) {
-			const unsigned centerY = startY + (endY - startY) * static_cast<int>(x - 4) /
-								  static_cast<int>(width - 9);
-			for (unsigned y = centerY - 1; y <= centerY + 1; ++y) {
-				m_image[pixelOffset + (height - 1 - y) * stride + x / 8] |=
-					static_cast<unsigned char>(0x80U >> (x % 8));
 			}
 		}
 	}

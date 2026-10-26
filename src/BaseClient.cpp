@@ -3736,8 +3736,7 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 				// this message must be the answer to the captcha request we sent him, let's
 				// verify
 				wxASSERT(!m_strCaptchaChallenge.IsEmpty());
-				if (m_strCaptchaChallenge.CmpNoCase(message.Trim().Right(std::min(
-					    message.Length(), m_strCaptchaChallenge.Length()))) == 0) {
+				if (MatchesChatCaptchaAnswer(m_strCaptchaChallenge, message)) {
 					// allright
 					AddDebugLogLineN(logClient,
 						CFormat("Captcha solved, showing withheld message (%s)") %

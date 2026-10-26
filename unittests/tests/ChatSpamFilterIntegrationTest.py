@@ -166,7 +166,10 @@ def run(binary, debug):
                     logged = (root / 'logfile').read_text()
                     answers = re.findall(r'sent Captcha ([A-Z1-9]{4}) \(', logged)
                     assert answers, logged[-3000:]
-                    replies = message('  ' + answers[-1].lower() + '  ')
+                    # Exercise the real answer path with visual substitutions; the unit
+                    # test covers every pair deterministically.
+                    answer = answers[-1].translate(str.maketrans('SZGB', '5268'))
+                    replies = message('  ' + answer.lower() + '  ')
                     assert (0xc5, 0xa6, b'\0') in replies, replies
                     assert latest(ec, peer_hash) == text
                     assert not message('another greeting')
