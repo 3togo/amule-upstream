@@ -35,14 +35,19 @@ DECLARE_SIMPLE(ChatCaptchaGenerator)
 
 namespace
 {
-std::array<uint16_t, 7> randomValues{};
+std::array<uint16_t, 6> randomValues{};
 unsigned randomCursor = 0;
+bool crossingLine = false;
 } // namespace
 
 // Deterministically exercise every glyph at the extreme supported transforms.
 uint16_t GetRandomUint16()
 {
-	return randomValues[randomCursor++ % randomValues.size()];
+	const unsigned position = randomCursor++;
+	if (position < 4 * randomValues.size()) {
+		return randomValues[position % randomValues.size()];
+	}
+	return position == 4 * randomValues.size() && crossingLine ? 1 : 0;
 }
 
 TEST(ChatCaptchaGenerator, EveryGlyphAndExtremeTransformIsAValidHeadlessBitmap)
@@ -50,45 +55,76 @@ TEST(ChatCaptchaGenerator, EveryGlyphAndExtremeTransformIsAValidHeadlessBitmap)
 	const wxString alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ123456789";
 	for (unsigned glyph = 0; glyph < alphabet.length(); ++glyph) {
 		for (uint16_t size : { 0, 100 }) {
-			for (uint16_t angle : { 0, 30, 60 }) {
-				for (uint16_t offset : { 0, 2 }) {
-					randomValues = { static_cast<uint16_t>(glyph),
-						size,
-						size,
-						offset,
-						offset,
-						angle,
-						angle };
-					randomCursor = 0;
-					CCaptchaGenerator captcha;
-					ASSERT_EQUALS(wxString(alphabet[glyph], 4), captcha.GetCaptchaText());
-					wxMemoryOutputStream stream;
-					ASSERT_TRUE(captcha.WriteCaptchaImage(stream));
-					const auto *bytes = static_cast<const unsigned char *>(
-						stream.GetOutputStreamBuffer()->GetBufferStart());
-					ASSERT_TRUE(IsValidChatCaptcha(bytes, stream.GetLength()));
-					ASSERT_EQUALS(static_cast<size_t>(638), stream.GetLength());
-					ASSERT_EQUALS(static_cast<unsigned char>(1), bytes[28]);
-					// Each character must have visible ink, including narrow glyphs
-					// (1/J/T).
-					for (unsigned letter = 0; letter < 4; ++letter) {
-						unsigned ink = 0;
-						for (unsigned y = 0; y < 48; ++y) {
-							for (unsigned x = 16 + letter * 16;
-								x < 32 + letter * 16;
-								++x) {
-								ink += (bytes[62 + y * 12 + x / 8] >>
-									       (7 - x % 8)) &
-								       1U;
+			for (uint16_t angle : { 0, 10, 20 }) {
+				for (uint16_t shear : { 0, 10, 20 }) {
+					for (uint16_t offset : { 0, 4 }) {
+						randomValues = { static_cast<uint16_t>(glyph),
+							size,
+							size,
+							offset,
+							angle,
+							shear };
+						randomCursor = 0;
+						crossingLine = false;
+						CCaptchaGenerator captcha;
+						ASSERT_EQUALS(wxString(alphabet[glyph], 4),
+							captcha.GetCaptchaText());
+						wxMemoryOutputStream stream;
+						ASSERT_TRUE(captcha.WriteCaptchaImage(stream));
+						const auto *bytes = static_cast<const unsigned char *>(
+							stream.GetOutputStreamBuffer()->GetBufferStart());
+						ASSERT_TRUE(IsValidChatCaptcha(bytes, stream.GetLength()));
+						ASSERT_EQUALS(static_cast<size_t>(638), stream.GetLength());
+						ASSERT_EQUALS(static_cast<unsigned char>(1), bytes[28]);
+						// Each character must have visible ink, including narrow
+						// glyphs (1/J/T).
+						for (unsigned letter = 0; letter < 4; ++letter) {
+							unsigned ink = 0;
+							for (unsigned y = 0; y < 48; ++y) {
+								for (unsigned x = 4 + letter * 22;
+									x < 26 + letter * 22;
+									++x) {
+									ink += (bytes[62 + y * 12 + x / 8] >>
+										       (7 - x % 8)) &
+									       1U;
+								}
+							}
+							ASSERT_TRUE(ink > 40);
+							ASSERT_TRUE(ink < 650);
+							// No glyph reaches its neighbor, even at opposite
+							// shear/rotation extremes.
+							const unsigned boundary = 4 + letter * 22;
+							for (unsigned y = 0; y < 48; ++y) {
+								ASSERT_EQUALS(0U,
+									(bytes[62 + y * 12 + boundary / 8] >>
+										(7 - boundary % 8)) &
+										1U);
 							}
 						}
-						ASSERT_TRUE(ink > 40);
-						ASSERT_TRUE(ink < 650);
 					}
 				}
 			}
 		}
 	}
+}
+
+TEST(ChatCaptchaGenerator, CrossingLineUsesGlyphStrokeThickness)
+{
+	randomValues = { 0, 0, 0, 2, 10, 10 };
+	randomCursor = 0;
+	crossingLine = true;
+	CCaptchaGenerator captcha;
+	wxMemoryOutputStream stream;
+	ASSERT_TRUE(captcha.WriteCaptchaImage(stream));
+	const auto *bytes =
+		static_cast<const unsigned char *>(stream.GetOutputStreamBuffer()->GetBufferStart());
+	// The first cell boundary has no glyph ink. A single three-pixel line crosses it.
+	unsigned ink = 0;
+	for (unsigned y = 0; y < 48; ++y) {
+		ink += (bytes[62 + y * 12] >> 3) & 1U;
+	}
+	ASSERT_EQUALS(3U, ink);
+	crossingLine = false;
 }
 
 TEST(ChatCaptchaGenerator, BoundsRegenerationAndAppendingToTheWireStream)
