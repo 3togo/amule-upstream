@@ -85,8 +85,11 @@ bool EditServerListDlg::Layout()
 		const int width =
 			GetClientSize().GetWidth() - 2 * GetSizer()->GetItem(m_message)->GetBorder();
 		if (width > 0) {
-			// Wrap() only adds line breaks. Restore the original message so it can
-			// also unwrap when the dialog grows, preserving intentional newlines.
+			// Recent wxWidgets versions cache the wrap width even after SetLabel().
+			// Clear it so repeated layouts at the same width still wrap the text.
+			m_message->Wrap(-1);
+			// Older Wrap() implementations only add line breaks. Restore the original
+			// message to unwrap when growing, preserving intentional newlines.
 			m_message->SetLabelText(m_messageText);
 			m_message->Wrap(width);
 			// wxST_NO_AUTORESIZE leaves the cached best size unchanged.
