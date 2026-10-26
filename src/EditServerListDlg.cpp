@@ -45,26 +45,37 @@ wxEND_EVENT_TABLE()
 
 EditServerListDlg::EditServerListDlg(
 	wxWindow *parent, const wxString &caption, const wxString &message, const wxString &filename)
-: wxDialog(parent, -1, caption, wxDefaultPosition, wxSize(400, 200), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+: wxDialog(parent, -1, caption, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
 	m_file = filename;
 
 	wxBeginBusyCursor();
 
+	// A short dialog scrolls the instructions and the editor rather than squeezing the editor out.
+	auto *content = new wxScrolledWindow(this);
+	ConfigureDialogScrolling(content);
+	content->SetMinSize(FromDIP(wxSize(160, 100)));
+	wxBoxSizer *fields = new wxBoxSizer(wxVERTICAL);
+
+	auto *messageText = new WrappingStaticText(content, wxID_ANY, message);
+	messageText->SetLayoutCallback([content] {
+		content->FitInside();
+		content->Layout();
+	});
+	fields->Add(messageText, wxSizerFlags().Expand().Border(wxALL, 10));
+
+	m_textctrl = new wxTextCtrl(content, -1, "", wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
+	m_textctrl->SetMinSize(wxSize(-1, m_textctrl->GetCharHeight() * 4 + FromDIP(10)));
+	fields->Add(m_textctrl, wxSizerFlags(1).Expand().Border(wxLEFT | wxRIGHT, 15));
+	content->SetSizer(fields);
+
 	wxBoxSizer *topsizer = new wxBoxSizer(wxVERTICAL);
-
-	auto *messageText = new WrappingStaticText(this, wxID_ANY, message);
-	topsizer->Add(messageText, wxSizerFlags().Expand().Border(wxALL, 10));
-
-	m_textctrl = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
-	topsizer->Add(m_textctrl, wxSizerFlags(1).Expand().Border(wxLEFT | wxRIGHT, 15));
-
+	topsizer->Add(content, wxSizerFlags(1).Expand());
 	topsizer->Add(CreateButtonSizer(wxOK | wxCANCEL), wxSizerFlags().Center().Border(wxALL, 10));
-
-	SetAutoLayout(TRUE);
 	SetSizer(topsizer);
-	Layout();
 
+	FitDialogToDisplay(this, FromDIP(wxSize(400, 260)));
+	content->FitInside();
 	Centre(wxBOTH);
 
 	if (!filename.empty() && wxFile::Exists(filename))
