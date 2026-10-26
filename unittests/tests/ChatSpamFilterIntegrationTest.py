@@ -99,7 +99,9 @@ def latest(ec, peer_hash):
 
 
 def close(ec, peer_hash):
-    ec.call(C['EC_OP_CHAT_CLOSE_SESSION'], [tag(C['EC_TAG_CHAT_PEER_HASH'], peer_hash, 9)])
+    assert ec.call(C['EC_OP_CHAT_CLOSE_SESSION'],
+                   [tag(C['EC_TAG_CHAT_PEER_HASH'], peer_hash, 9)])[0] == C['EC_OP_NOOP']
+    assert latest(ec, peer_hash) is None
 
 
 def challenge(replies):

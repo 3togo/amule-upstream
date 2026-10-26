@@ -14,7 +14,7 @@ who writes first must solve a challenge before the original message reaches
 the transcript. Friends and peers we have already written to bypass this
 challenge. A correct answer submits the original message to the spam filter;
 unsolicited links and repeated unanswered messages remain blocked.
-incorrect answers allow at most three challenges. Peers without CAPTCHA support
+Incorrect answers allow at most three challenges. Peers without CAPTCHA support
 receive a single explanation and cannot start a conversation.
 
 Pending messages stay hidden. Creating transcript entries for every blocked
