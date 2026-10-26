@@ -25,6 +25,7 @@
 #include "GuiTestDiagnostics.h"
 
 #include <wx/wx.h>
+#include <wx/evtloop.h>
 
 #include "DialogLayout.h"
 #include "FileRenameDialog.h"
@@ -47,6 +48,127 @@ void Check(bool condition, const char *message)
 	if (!condition) {
 		throw std::runtime_error(message);
 	}
+}
+
+void TestWrappingText(const wxString &message, bool scrolled, bool largerFont)
+{
+	wxEventLoop loop;
+	wxEventLoopActivator active(&loop);
+	wxDialog dialog(nullptr,
+		wxID_ANY,
+		"Wrapping label test",
+		wxDefaultPosition,
+		wxDefaultSize,
+		wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+	wxWindow *content = scrolled ? static_cast<wxWindow *>(new wxScrolledWindow(&dialog))
+				     : static_cast<wxWindow *>(new wxPanel(&dialog));
+	content->SetMinSize(dialog.FromDIP(wxSize(20, 20)));
+	if (scrolled) {
+		ConfigureDialogScrolling(static_cast<wxScrolledWindow *>(content));
+	}
+	auto *label = new WrappingStaticText(content, wxID_ANY, message);
+	auto *following = new wxTextCtrl(content, wxID_ANY, "Keep this text");
+	auto *fields = new wxBoxSizer(wxVERTICAL);
+	fields->Add(label, wxSizerFlags().Expand().Border(wxALL, 10));
+	fields->Add(following, wxSizerFlags().Expand().Border(wxALL, 10));
+	content->SetSizer(fields);
+	auto *row = new wxBoxSizer(wxHORIZONTAL);
+	row->Add(dialog.FromDIP(80), 1);
+	row->Add(content, wxSizerFlags(1).Expand().Border(wxALL, 10));
+	dialog.SetSizer(row);
+	int callbacks = 0;
+	label->SetLayoutCallback([&] {
+		Check(++callbacks < 100, "Wrapping repeatedly schedules layout without settling");
+		if (scrolled) {
+			static_cast<wxScrolledWindow *>(content)->FitInside();
+		} else {
+			content->Layout();
+		}
+	});
+	dialog.SetClientSize(dialog.FromDIP(wxSize(1100, 500)));
+	dialog.Show();
+	wxTheApp->Yield();
+	if (largerFont) {
+		wxFont font = label->GetFont();
+		font.SetPointSize(font.GetPointSize() + 4);
+		label->SetFont(font);
+	}
+	wxClientDC dc(label);
+	dc.SetFont(label->GetFont());
+	const int wide = wxMax(1100, dialog.ToDIP(dc.GetMultiLineTextExtent(message).x) + 160);
+	auto resize = [&](int width) {
+		dialog.SetClientSize(dialog.FromDIP(wxSize(width, 500)));
+		dialog.SendSizeEvent();
+		// Drain deferred layouts, including a scrollbar-induced size change.
+		for (int pass = 0; pass < 3; ++pass) {
+			wxTheApp->Yield();
+		}
+		Check(dialog.GetClientSize() == dialog.FromDIP(wxSize(width, 500)),
+			"Translation prevented resizing the dialog");
+		label->InvalidateBestSize();
+		Check(dc.GetMultiLineTextExtent(label->GetLabelText()).x <= label->GetClientSize().x,
+			"Wrapped text is clipped horizontally");
+		Check(label->GetBestSize().y <= label->GetClientSize().y,
+			"Wrapped text is clipped vertically");
+		Check(label->GetRect().GetBottom() < following->GetRect().GetTop(),
+			"Wrapped text overlaps the next control");
+		Check(label->GetSize().x < dialog.GetClientSize().x - dialog.FromDIP(80),
+			"Wrapping ignored the nested container's allocated width");
+		if (scrolled) {
+			Check(content->GetVirtualSize().x <= content->GetClientSize().x,
+				"Wrapping forced unnecessary horizontal scrolling");
+		}
+	};
+	resize(400);
+	const wxString narrow = label->GetLabelText();
+	const int narrowHeight = label->GetSize().y;
+	Check(narrow.Freq('\n') > message.Freq('\n'), "Narrow control did not wrap");
+	const int settledCallbacks = callbacks;
+	resize(400);
+	Check(label->GetLabelText() == narrow && callbacks == settledCallbacks,
+		"Same-width layout changed wrapping or scheduled another layout");
+	resize(wide);
+	Check(label->GetLabelText() == message, "Widening lost original text, ampersands or blank lines");
+	Check(label->GetSize().y < narrowHeight, "Widening did not reclaim the wrapped height");
+	resize(400);
+	if (label->GetLabelText() != narrow || label->GetSize().y != narrowHeight) {
+		std::cerr << "Wrapping changed: scrolled=" << scrolled << ", largerFont=" << largerFont
+			  << ", height=" << label->GetSize().y << ", previous=" << narrowHeight
+			  << ", width=" << label->GetSize().x << '\n'
+			  << narrow.ToUTF8().data() << "\n---\n"
+			  << label->GetLabelText().ToUTF8().data() << '\n';
+	}
+	Check(label->GetLabelText() == narrow && label->GetSize().y == narrowHeight,
+		"Repeated resizing accumulated line breaks or changed height");
+	Check(label->GetMinSize().x == label->FromDIP(20), "Translation enlarged minimum width");
+	Check(following->GetValue() == "Keep this text", "Wrapping changed neighboring content");
+}
+
+void TestWrappingControls()
+{
+	const wxString english = "Enter one server.met URL per line.\nSaving replaces the "
+				 "source list and removes comment lines.";
+	const wxString russian =
+		wxString::FromUTF8("Введите по одному URL-адресу server.met на строку.\n"
+				   "Сохранение заменяет список источников и удаляет строки комментариев.");
+	const wxString literal = "Addresses & sources && URLs must remain readable when resized.\n\n"
+				 "Keep intentional blank lines and a trailing newline.\n";
+	for (bool scrolled : { false, true }) {
+		for (bool largerFont : { false, true }) {
+			for (const wxString &message : { english, russian, literal }) {
+				TestWrappingText(message, scrolled, largerFont);
+			}
+		}
+	}
+	// A dialog can close before the deferred height adjustment is delivered.
+	wxDialog dialog(nullptr, wxID_ANY, "Pending wrapping layout");
+	auto *label = new WrappingStaticText(&dialog, wxID_ANY, english);
+	bool called = false;
+	label->SetLayoutCallback([&] { called = true; });
+	label->SetSize(wxSize(100, 100));
+	delete label;
+	wxTheApp->ProcessPendingEvents();
+	Check(!called, "Destroyed control retained a pending layout callback");
 }
 
 // Drive the actual text control and button handlers, including wxWidgets' transfer
@@ -393,6 +515,7 @@ int main(int argc, char **argv)
 		result = 1;
 	} else {
 		try {
+			TestWrappingControls();
 			TestFileRenameDialog();
 			TestScrollableContent();
 			TestSmallContent();

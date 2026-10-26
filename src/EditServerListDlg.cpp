@@ -27,7 +27,7 @@
 #include <wx/sizer.h>  // Needed for wxBoxSizer
 #include <wx/file.h>   // Needed for wxFile
 #include <wx/log.h>    // Needed for wxLogSysError
-#include <wx/stattext.h>
+#include "DialogLayout.h"
 #include <wx/textctrl.h>
 #include <wx/tokenzr.h>
 #include <wx/msgdlg.h>
@@ -46,7 +46,6 @@ wxEND_EVENT_TABLE()
 EditServerListDlg::EditServerListDlg(
 	wxWindow *parent, const wxString &caption, const wxString &message, const wxString &filename)
 : wxDialog(parent, -1, caption, wxDefaultPosition, wxSize(400, 200), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
-, m_messageText(message)
 {
 	m_file = filename;
 
@@ -54,9 +53,8 @@ EditServerListDlg::EditServerListDlg(
 
 	wxBoxSizer *topsizer = new wxBoxSizer(wxVERTICAL);
 
-	m_message = new wxStaticText(
-		this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxST_NO_AUTORESIZE);
-	topsizer->Add(m_message, wxSizerFlags().Expand().Border(wxALL, 10));
+	auto *messageText = new WrappingStaticText(this, wxID_ANY, message);
+	topsizer->Add(messageText, wxSizerFlags().Expand().Border(wxALL, 10));
 
 	m_textctrl = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
 	topsizer->Add(m_textctrl, wxSizerFlags(1).Expand().Border(wxLEFT | wxRIGHT, 15));
@@ -78,26 +76,6 @@ EditServerListDlg::EditServerListDlg(
 }
 
 EditServerListDlg::~EditServerListDlg() = default;
-
-bool EditServerListDlg::Layout()
-{
-	if (GetSizer()) {
-		const int width =
-			GetClientSize().GetWidth() - 2 * GetSizer()->GetItem(m_message)->GetBorder();
-		if (width > 0) {
-			// Recent wxWidgets versions cache the wrap width even after SetLabel().
-			// Clear it so repeated layouts at the same width still wrap the text.
-			m_message->Wrap(-1);
-			// Older Wrap() implementations only add line breaks. Restore the original
-			// message to unwrap when growing, preserving intentional newlines.
-			m_message->SetLabelText(m_messageText);
-			m_message->Wrap(width);
-			// wxST_NO_AUTORESIZE leaves the cached best size unchanged.
-			m_message->InvalidateBestSize();
-		}
-	}
-	return wxDialog::Layout();
-}
 
 void EditServerListDlg::OnOK(wxCommandEvent &WXUNUSED(event))
 {
