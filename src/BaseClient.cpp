@@ -3779,7 +3779,7 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 	if (thePrefs::IsAdvancedSpamfilterEnabled() &&
 		!IsFriend()) { // friends are never spammer... (but what if two spammers are friends :P )
 		bool bIsSpam = m_fIsSpammer;
-		if (!bIsSpam && GetChatCaptchaState() != CA_CAPTCHASOLVED) {
+		if (!bIsSpam) {
 			// First fixed criteria: a client that sends an URL in its first message before I
 			// respond has a 99.9% chance of being some poor guy advertising his leech mod, or
 			// selling you something.
@@ -3806,12 +3806,7 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 			AddDebugLogLineN(
 				logClient, CFormat("'%s' has been marked as spammer") % GetUserName());
 			SetSpammer(true);
-			const auto peer = GetChatPeer();
-			if (theApp->chatsessions) {
-				theApp->chatsessions->CloseSession(peer);
-			}
-			SetChatState(MS_NONE);
-			Notify_Chat_SessionRemoved(peer);
+			theApp->clientlist->CloseChatSession(GetChatPeer());
 			return;
 		}
 	}

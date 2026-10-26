@@ -1381,15 +1381,9 @@ void CPreferences::BuildItemList(const wxString &appdir)
 		IDC_MSGFILTER_WORD, (new Cfg_Bool("/eMule/FilterWordMessages", s_FilterSomeMessages, false)));
 	NewCfgItem(IDC_MSGWORD, (new Cfg_Str("/eMule/MessageFilter", s_MessageFilterString, "")));
 	NewCfgItem(IDC_MSGLOG, (new Cfg_Bool("/eMule/ShowMessagesInLog", s_ShowMessagesInLog, true)));
-#ifdef AMULE_DAEMON
-	const bool chatSpamDefault = false;
-#else
-	const bool chatSpamDefault = true;
-#endif
 	NewCfgItem(IDC_MSGADVSPAM,
-		(new Cfg_Bool("/eMule/AdvancedSpamFilter", s_IsAdvancedSpamfilterEnabled, chatSpamDefault)));
-	NewCfgItem(IDC_MSGCAPTCHA,
-		(new Cfg_Bool("/eMule/MessageUseCaptchas", s_IsChatCaptchaEnabled, chatSpamDefault)));
+		(new Cfg_Bool("/eMule/AdvancedSpamFilter", s_IsAdvancedSpamfilterEnabled, true)));
+	NewCfgItem(IDC_MSGCAPTCHA, (new Cfg_Bool("/eMule/MessageUseCaptchas", s_IsChatCaptchaEnabled, true)));
 	s_MiscList.push_back(
 		new Cfg_Bool("/GUI/AppImageIntegrationDeclined", s_appimageIntegrationDeclined, false));
 	s_MiscList.push_back(new Cfg_Bool("/eMule/FirstRunWizardDone", s_firstRunWizardDone, false));

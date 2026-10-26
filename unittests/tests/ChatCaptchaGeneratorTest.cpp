@@ -35,7 +35,7 @@ DECLARE_SIMPLE(ChatCaptchaGenerator)
 
 namespace
 {
-std::array<uint16_t, 6> randomValues{};
+std::array<uint16_t, 7> randomValues{};
 unsigned randomCursor = 0;
 } // namespace
 
@@ -49,12 +49,16 @@ TEST(ChatCaptchaGenerator, EveryGlyphAndExtremeTransformIsAValidHeadlessBitmap)
 {
 	const wxString alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ123456789";
 	for (unsigned glyph = 0; glyph < alphabet.length(); ++glyph) {
-		for (uint16_t size = 0; size < 2; ++size) {
-			for (uint16_t angle : { 0, 15, 30 }) {
-				for (uint16_t offset : { 0, 4 }) {
-					randomValues = {
-						static_cast<uint16_t>(glyph), size, size, 0, offset, angle
-					};
+		for (uint16_t size : { 0, 100 }) {
+			for (uint16_t angle : { 0, 30, 60 }) {
+				for (uint16_t offset : { 0, 2 }) {
+					randomValues = { static_cast<uint16_t>(glyph),
+						size,
+						size,
+						offset,
+						offset,
+						angle,
+						angle };
 					randomCursor = 0;
 					CCaptchaGenerator captcha;
 					ASSERT_EQUALS(wxString(alphabet[glyph], 4), captcha.GetCaptchaText());
@@ -69,17 +73,17 @@ TEST(ChatCaptchaGenerator, EveryGlyphAndExtremeTransformIsAValidHeadlessBitmap)
 					// (1/J/T).
 					for (unsigned letter = 0; letter < 4; ++letter) {
 						unsigned ink = 0;
-						for (unsigned y = 0; y < 36; ++y) {
-							for (unsigned x = 6 + letter * 23;
-								x < 26 + letter * 23;
+						for (unsigned y = 0; y < 48; ++y) {
+							for (unsigned x = 16 + letter * 16;
+								x < 32 + letter * 16;
 								++x) {
-								ink += (bytes[62 + y * 16 + x / 8] >>
+								ink += (bytes[62 + y * 12 + x / 8] >>
 									       (7 - x % 8)) &
 								       1U;
 							}
 						}
 						ASSERT_TRUE(ink > 40);
-						ASSERT_TRUE(ink < 400);
+						ASSERT_TRUE(ink < 650);
 					}
 				}
 			}

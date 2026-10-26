@@ -4,6 +4,14 @@ The history of every aMule release. Versions are listed newest first.
 
 ---
 
+## Version 3.1.1 (unreleased)
+
+- **Daemon chat protection.** amuled now enforces the advanced spam filter and
+  CAPTCHA settings, both enabled by default as in amule. Saved values remain
+  unchanged. Older daemons may have saved these settings as enabled without
+  enforcing them; review Preferences → Filters when upgrading. Disabling the
+  advanced filter also bypasses CAPTCHA.
+
 ## Version 3.1.0 - "Three versions in a year! Can we have some REST?"
 2026-09-21
 

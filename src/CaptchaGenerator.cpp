@@ -71,8 +71,8 @@ constexpr unsigned char glyphs[][7] = {
 };
 static_assert(
 	sizeof(glyphs) / sizeof(glyphs[0]) == sizeof(alphabet) - 1, "Every CAPTCHA character needs a glyph");
-constexpr unsigned height = 36;
-constexpr unsigned letterSpacing = 23;
+constexpr unsigned height = 48;
+constexpr unsigned letterSpacing = 16;
 constexpr unsigned pixelOffset = 62; // BITMAPFILEHEADER, BITMAPINFOHEADER, two palette entries
 } // namespace
 
@@ -85,7 +85,7 @@ void CCaptchaGenerator::ReGenerateCaptcha(uint32 nLetterCount)
 {
 	// Keep every generated image within the peer validator's 10 < width < 150 bounds.
 	const unsigned count = std::max(1U, std::min(nLetterCount, 6U));
-	const unsigned width = 32 + (count - 1) * letterSpacing;
+	const unsigned width = 48 + (count - 1) * letterSpacing;
 	const unsigned stride = ((width + 31) / 32) * 4;
 	m_image.assign(pixelOffset + stride * height, 0);
 	const auto write32 = [this](unsigned offset, unsigned value) {
@@ -110,13 +110,14 @@ void CCaptchaGenerator::ReGenerateCaptcha(uint32 nLetterCount)
 	for (unsigned letter = 0; letter < count; ++letter) {
 		const unsigned index = GetRandomUint16() % (sizeof(alphabet) - 1);
 		m_strCaptchaText += static_cast<wxChar>(alphabet[index]);
-		const int scaleX = 2 + GetRandomUint16() % 2;
-		const int scaleY = 3 + GetRandomUint16() % 2;
-		const int centerX = 16 + static_cast<int>(letter * letterSpacing) +
+		const double scaleX = 2.8 + (GetRandomUint16() % 101) * 0.014;
+		const double scaleY = 2.5 + (GetRandomUint16() % 101) * 0.018;
+		const int centerX = 24 + static_cast<int>(letter * letterSpacing) +
 				    static_cast<int>(GetRandomUint16() % 3) - 1;
-		const int centerY = 18 + static_cast<int>(GetRandomUint16() % 5) - 2;
+		const int centerY = 24 + static_cast<int>(GetRandomUint16() % 3) - 1;
 		const double angle =
-			(static_cast<int>(GetRandomUint16() % 31) - 15) * 3.14159265358979323846 / 180.0;
+			(static_cast<int>(GetRandomUint16() % 61) - 30) * 3.14159265358979323846 / 180.0;
+		const double shear = (static_cast<int>(GetRandomUint16() % 61) - 30) / 100.0;
 		const double cosine = std::cos(angle);
 		const double sine = std::sin(angle);
 		// Inverse-map destination pixels so enlarged and rotated strokes have no holes.
@@ -124,8 +125,10 @@ void CCaptchaGenerator::ReGenerateCaptcha(uint32 nLetterCount)
 			for (unsigned x = 0; x < width; ++x) {
 				const double dx = static_cast<double>(x) - centerX;
 				const double dy = static_cast<double>(y) - centerY;
-				const int column = static_cast<int>(
-					std::floor((dx * cosine + dy * sine) / scaleX + 2.5));
+				const int column = static_cast<int>(std::floor(
+					(dx * cosine + dy * sine - shear * (-dx * sine + dy * cosine)) /
+						scaleX +
+					2.5));
 				const int row = static_cast<int>(
 					std::floor((-dx * sine + dy * cosine) / scaleY + 3.5));
 				if (column >= 0 && column < 5 && row >= 0 && row < 7 &&
@@ -136,8 +139,19 @@ void CCaptchaGenerator::ReGenerateCaptcha(uint32 nLetterCount)
 			}
 		}
 	}
-	// Sparse speckles make clean template matching harder without obscuring the
-	// small block glyphs. Keep much less noise than the larger eMule GDI image.
+	// Crossing strokes connect neighboring glyphs and frustrate column segmentation.
+	const unsigned lines = 1 + GetRandomUint16() % 2;
+	for (unsigned line = 0; line < lines; ++line) {
+		const int startY = 16 + GetRandomUint16() % 17;
+		const int endY = 16 + GetRandomUint16() % 17;
+		for (unsigned x = 4; x < width - 4; ++x) {
+			const unsigned y = startY + (endY - startY) * static_cast<int>(x - 4) /
+							    static_cast<int>(width - 9);
+			m_image[pixelOffset + (height - 1 - y) * stride + x / 8] |=
+				static_cast<unsigned char>(0x80U >> (x % 8));
+		}
+	}
+	// Sparse background noise supplements the overlapping, sheared glyphs.
 	for (unsigned dot = 0; dot < width * height / 32; ++dot) {
 		const unsigned x = GetRandomUint16() % width;
 		const unsigned y = GetRandomUint16() % height;

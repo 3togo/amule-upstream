@@ -109,7 +109,7 @@ def challenge(replies):
     assert data[0] == 0 and data[1:3] == b'BM'
     assert len(data) == 639, len(data)
     assert struct.unpack_from('<I', data, 3)[0] == len(data) - 1
-    assert struct.unpack_from('<iiHHI', data, 19) == (101, 36, 1, 1, 0)
+    assert struct.unpack_from('<iiHHI', data, 19) == (96, 48, 1, 1, 0)
 
 
 def run(binary, debug):
@@ -129,14 +129,12 @@ def run(binary, debug):
         try:
             ec = connect_daemon(proc, ports[0], root, ports[1], None)
             prefs = preferences(ec)
-            assert prefs[C['EC_TAG_MSGFILTER_ADVANCED']][0] == 0
-            assert prefs[C['EC_TAG_MSGFILTER_CAPTCHA']][0] == 0
-            with sender(ports[1], 'default-off') as (peer_hash, message):
-                assert not message('http://example.com default')
-                assert latest(ec, peer_hash) == 'http://example.com default'
-                close(ec, peer_hash)
+            assert prefs[C['EC_TAG_MSGFILTER_ADVANCED']][0] == 1
+            assert prefs[C['EC_TAG_MSGFILTER_CAPTCHA']][0] == 1
+            with sender(ports[1], 'default-on') as (peer_hash, message):
+                challenge(message('hello'))
+                assert latest(ec, peer_hash) is None
 
-            settings(ec, 1, 1)
             # An old GUI saves this whole group without the two new tags.
             for detail in (C['EC_DETAIL_CMD'], C['EC_DETAIL_FULL']):
                 old_group = tag(C['EC_TAG_PREFS_MESSAGEFILTER'], children=[
@@ -159,7 +157,7 @@ def run(binary, debug):
 
             if debug:
                 with sender(ports[1], 'challenge-success') as (peer_hash, message):
-                    text = 'http://example.com released after solving'
+                    text = 'hello after solving'
                     challenge(message(text))
                     # This diagnostic exists only in Debug builds. The production
                     # RNG and network handler still generate and verify the answer.
@@ -169,20 +167,39 @@ def run(binary, debug):
                     replies = message('  ' + answers[-1].lower() + '  ')
                     assert (0xc5, 0xa6, b'\0') in replies, replies
                     assert latest(ec, peer_hash) == text
-                    assert not message('another http://example.com')
-                    assert latest(ec, peer_hash) == 'another http://example.com'
-                    # Solving a CAPTCHA bypasses heuristics, but does not grant
-                    # immunity after the plain keyword filter marks a spammer.
+                    assert not message('another greeting')
+                    assert latest(ec, peer_hash) == 'another greeting'
+                    # Explicit spam marks still apply after a successful challenge.
                     filtered = tag(C['EC_TAG_PREFS_MESSAGEFILTER'], children=[
                         integer(C['EC_TAG_MSGFILTER_ENABLED'], 1),
                         integer(C['EC_TAG_MSGFILTER_BY_KEYWORD'], 1),
                         string(C['EC_TAG_MSGFILTER_KEYWORDS'], 'forbidden')])
                     assert ec.call(C['EC_OP_SET_PREFERENCES'], [filtered])[0] == C['EC_OP_NOOP']
                     assert not message('forbidden')
-                    assert latest(ec, peer_hash) == 'another http://example.com'
+                    assert latest(ec, peer_hash) == 'another greeting'
                     assert not message('benign after being marked as spam')
                     assert latest(ec, peer_hash) is None
                 settings(ec, 1, 1)
+                for scenario in ('pending-url', 'later-url', 'unanswered'):
+                    with sender(ports[1], scenario) as (peer_hash, message):
+                        text = 'http://example.com' if scenario == 'pending-url' else 'hello'
+                        challenge(message(text))
+                        answers = re.findall(r'sent Captcha ([A-Z1-9]{4}) \(',
+                                             (root / 'logfile').read_text())
+                        assert answers
+                        assert (0xc5, 0xa6, b'\0') in message(answers[-1])
+                        if scenario == 'pending-url':
+                            assert latest(ec, peer_hash) is None
+                        else:
+                            assert latest(ec, peer_hash) == text
+                            if scenario == 'later-url':
+                                assert not message('http://example.com')
+                            else:
+                                for n in range(3):
+                                    assert not message(f'unanswered {n}')
+                                    assert latest(ec, peer_hash) == f'unanswered {n}'
+                                assert not message('fifth message')
+                            assert latest(ec, peer_hash) is None
 
             with sender(ports[1], 'unsupported', captcha=False) as (peer_hash, message):
                 replies = message('hello')
@@ -236,7 +253,8 @@ def run(binary, debug):
                 assert latest(ec, peer_hash) == 'http://example.com reply'
                 close(ec, peer_hash)
 
-            # The settings are saved to disk and explicit values survive restart.
+            # Explicit opt-out values survive restart.
+            settings(ec, 0, 0)
             ec.sock.close()
             ec = None
             stop_daemon(proc)
@@ -245,11 +263,11 @@ def run(binary, debug):
                                         stdout=log, stderr=log, env=env)
             ec = connect_daemon(proc, ports[0])
             prefs = preferences(ec)
-            assert prefs[C['EC_TAG_MSGFILTER_ADVANCED']][0] == 1
-            assert prefs[C['EC_TAG_MSGFILTER_CAPTCHA']][0] == 1
+            assert prefs[C['EC_TAG_MSGFILTER_ADVANCED']][0] == 0
+            assert prefs[C['EC_TAG_MSGFILTER_CAPTCHA']][0] == 0
             print('PASS: daemon defaults, explicit EC preferences, old clients, challenge/retry/exhaustion, '
                   'unsupported peers, parent toggle, URL/unanswered spam, initiated chats, persistence'
-                  + (', correct solution and withheld URL delivery' if debug else ''))
+                  + (', correct solution and post-solve spam filtering' if debug else ''))
         except BaseException:
             print((root / 'console.log').read_text()[-6000:])
             raise

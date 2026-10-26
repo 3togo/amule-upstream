@@ -14,7 +14,6 @@ on:
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
       - '.github/apt-ci.conf'
-      - 'scripts/ci-install-ubuntu-deps.sh'
   pull_request:
     branches: [ "**" ]
     paths:
@@ -28,7 +27,6 @@ on:
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
       - '.github/apt-ci.conf'
-      - 'scripts/ci-install-ubuntu-deps.sh'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/master' && github.sha || '' }}
@@ -195,7 +193,9 @@ jobs:
         id: ubuntu-deps
         timeout-minutes: 15
         run: |
-          sudo bash scripts/ci-install-ubuntu-deps.sh ${{ env.cmake_ubuntu_deps }}
+          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
+          sudo apt-get update
+          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
           # Exercise grouped numbers and decimal commas in the calculator tests.
           sudo localedef -i en_US -f UTF-8 en_US.UTF-8
           sudo localedef -i it_IT -f UTF-8 it_IT.UTF-8
@@ -314,7 +314,9 @@ jobs:
         id: ubuntu-deps
         timeout-minutes: 15
         run: |
-          sudo bash scripts/ci-install-ubuntu-deps.sh ${{ env.cmake_ubuntu_deps }}
+          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
+          sudo apt-get update
+          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
           # Exercise grouped numbers and decimal commas in the calculator tests.
           sudo localedef -i en_US -f UTF-8 en_US.UTF-8
           sudo localedef -i it_IT -f UTF-8 it_IT.UTF-8
@@ -369,7 +371,9 @@ jobs:
       - name: install deps
         timeout-minutes: 15
         run: |
-          sudo bash scripts/ci-install-ubuntu-deps.sh ${{ env.cmake_ubuntu_deps }}
+          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
+          sudo apt-get update
+          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
       - uses: ./.github/actions/ngtcp2
       - name: fetch CMake ${{ env.CMAKE_MIN }}
         run: |
