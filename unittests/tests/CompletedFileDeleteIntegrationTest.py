@@ -135,13 +135,19 @@ FIXTURES = [
     (b'The quick brown fox jumps over the lazy dog', '1bee69a46ba811185c194762abaeae90'),
     (b'The quick brown fox jumps over the lazy dog.', '2812c6c7136898c51f6f6739ad08750e'),
     (b'ab', 'ec388dd78999dfc7cf4632465693b6bf'),
+    # Completes into a name the share filter excludes. Seeded with EXCLUDED_NAME below so the
+    # exclusion only matches once the download is complete; the partfile itself is shared like
+    # every other download.
+    (b'The quick brown fox jumps over the lazy dog!', '087bccb2b4007ab7d394dbfacc111c34'),
 ]
+# Matches ExcludeSharePatterns below, so the last fixture is the one that becomes excluded.
+EXCLUDED_NAME = 'completed-9.docx'
 
 
-def seed_part(root, number, content, file_hash):
+def seed_part(root, number, content, file_hash, name=None):
     part = root / 'Temp' / f'{number:03}.part'
     part.write_bytes(content)
-    filename = f'completed-{number}.txt'.encode()
+    filename = (name or f'completed-{number}.txt').encode()
     tags = (b'\x02\x01\x00\x01' + struct.pack('<H', len(filename)) + filename +
             b'\x03\x01\x00\x02' + struct.pack('<I', len(content)))
     part.with_suffix('.part.met').write_bytes(
@@ -159,12 +165,14 @@ def run(daemon, api):
         incoming.mkdir()
         (root / 'Temp').mkdir()
         for number, (content, file_hash) in enumerate(FIXTURES, 1):
-            seed_part(root, number, content, file_hash)
+            seed_part(root, number, content, file_hash,
+                      EXCLUDED_NAME if number == len(FIXTURES) else None)
         # A complete shared file which was never a download.
         shared_hash = '043f8582f241db351ce627e153e7f0e4'  # MD4(ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789)
         (incoming / 'shared.txt').write_bytes(b'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789')
         ec_port, peer_port, udp_port = free_ports(3, udp_indices=(2,), peer_index=1)
-        write_amule_conf(root, ec_port, Port=peer_port, UDPPort=udp_port)
+        write_amule_conf(root, ec_port, Port=peer_port, UDPPort=udp_port,
+                         ExcludeSharePatterns='*.docx')
         env = dict(os.environ, HOME=tmp, XDG_CONFIG_HOME=tmp+'/xdg', LC_ALL='C.UTF-8')
         processes = []
         ec = None
@@ -185,6 +193,14 @@ def run(daemon, api):
                 # Malformed input, active files, stale identity/path must never unlink.
                 assert ec.call('EC_OP_KNOWNFILE_DELETE')[0] == C['EC_OP_FAILED']
                 first = FIXTURES[0][1]
+                # A file that only becomes excluded on completion must not stay shared: it was
+                # shared as a partfile under its old name, and the completion is what renames it
+                # to a name the filter matches. Absence is asserted with eventually() because
+                # the detach lags the status change by one EC round.
+                excluded_hash = FIXTURES[-1][1]
+                assert (incoming / EXCLUDED_NAME).exists()
+                eventually(lambda: excluded_hash not in ec.files(True))
+                assert first in ec.files(True)
                 original = ec.target(first)
                 # A stale active cancel must never call delete-this on a completed row.
                 assert ec.call('EC_OP_PARTFILE_DELETE', [tag(C['EC_TAG_PARTFILE'], bytes.fromhex(first), 9)])[0] == C['EC_OP_FAILED']
