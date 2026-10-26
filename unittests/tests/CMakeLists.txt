@@ -2741,6 +2741,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 					$<TARGET_FILE:amuled> --seconds 3 --compress
 			)
 		endif()
+		add_test (NAME ShareExcludeDefaultsIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/ShareExcludeDefaultsIntegrationTest.py $<TARGET_FILE:amuled>
+		)
 		add_test (NAME PathDefaultsIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/PathDefaultsIntegrationTest.py $<TARGET_FILE:amuled>

@@ -334,7 +334,9 @@ def run(daemon, api):
                 old_path = incoming / 'completed-6.txt'
                 old_path.rename(root / 'saved-sixth.txt')
                 (incoming / 'alternate-sixth.txt').write_bytes(FIXTURES[5][0])
-                eventually(lambda: sixth in ec.files(True) and ec.files(True)[sixth][0] != old_id)
+                # One shared-list lookup per attempt: a record can vanish between a
+                # membership test and the read that follows it when tests run in parallel.
+                eventually(lambda: sixth in (shared := ec.files(True)) and shared[sixth][0] != old_id)
                 canonical_id = ec.files(True)[sixth][0]
                 assert ec.call('EC_OP_KNOWNFILE_DELETE', old_target)[0] == C['EC_OP_NOOP']
                 assert ec.files(True)[sixth][0] == canonical_id
@@ -350,15 +352,16 @@ def run(daemon, api):
                 replacement.rename(root / 'saved-seventh.txt')
                 other_copy = incoming / 'alternate-seventh.txt'
                 other_copy.write_bytes(FIXTURES[6][0])
-                eventually(lambda: seventh in ec.files(True) and ec.files(True)[seventh][0] != completed_id)
+                eventually(lambda: seventh in (shared := ec.files(True)) and shared[seventh][0] != completed_id)
                 assert ec.call('EC_OP_KNOWNFILE_DELETE', ec.target(seventh, True))[0] == C['EC_OP_NOOP']
                 assert not other_copy.exists() and ec.files()[seventh][0] == completed_id
                 assert (root / 'saved-seventh.txt').read_bytes() == FIXTURES[6][0]
                 replacement.write_bytes(FIXTURES[6][0])
                 os.utime(replacement, (changed_time, changed_time))
-                eventually(lambda: seventh in ec.files(True) and ec.files(True)[seventh][0] != completed_id)
+                eventually(lambda: seventh in (shared := ec.files(True)) and shared[seventh][0] != completed_id)
                 assert ec.files()[seventh][0] == completed_id
-                eventually(lambda: http(base, '/shared/'+seventh, admin)[1].get('ecid') == ec.files(True)[seventh][0])
+                eventually(lambda: seventh in (shared := ec.files(True)) and
+                           http(base, '/shared/'+seventh, admin)[1].get('ecid') == shared[seventh][0])
                 shared_detail = http(base, '/shared/'+seventh, admin)[1]
                 target = {k: shared_detail[k] for k in ('ecid', 'name', 'directory', 'incomplete')}
                 assert http(base, '/shared/'+seventh, admin, 'DELETE', {'confirmed_target': target})[0] == 204
@@ -410,8 +413,8 @@ def run(daemon, api):
                 stale_path = incoming / 'completed-8.txt'
                 stale_path.rename(root / 'saved-eighth.txt')
                 stale_path.write_bytes(FIXTURES[0][0])
-                eventually(lambda: first in ec.files(True) and
-                    field(ec.files(True)[first][1], 'EC_TAG_PARTFILE_NAME').rstrip(b'\0') == b'completed-8.txt')
+                eventually(lambda: first in (shared := ec.files(True)) and
+                    field(shared[first][1], 'EC_TAG_PARTFILE_NAME').rstrip(b'\0') == b'completed-8.txt')
                 assert ec.call('EC_OP_KNOWNFILE_DELETE', old_target)[0] == C['EC_OP_FAILED'], 'stale completed target deleted a different-hash replacement'
                 assert stale_path.read_bytes() == FIXTURES[0][0]
                 status, result = http(base, '/downloads/'+eighth, admin, 'DELETE', {'confirmed_target': old_confirmation})

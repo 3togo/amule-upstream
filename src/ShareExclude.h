@@ -62,9 +62,7 @@ namespace ShareExclude
 
 typedef std::vector<CPath> PathList;
 
-// The shipped default for ExcludeSharePatterns: OS-generated metadata junk plus the office
-// formats listed in Preferences.cpp. Lives next to the filter so the default the daemon uses
-// and the one the unit test pins cannot drift apart.
+// Default filename globs for OS metadata and office documents.
 constexpr const char *kDefaultPatterns = ".DS_Store|._*|.Spotlight-V100|.Trashes|.fseventsd|"
 					 ".DocumentRevisions-V100|.TemporaryItems|.apdisk|"
 					 "Thumbs.db|ehthumbs.db|desktop.ini|.directory|"

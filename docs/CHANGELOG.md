@@ -4,6 +4,18 @@ The history of every aMule release. Versions are listed newest first.
 
 ---
 
+## Unreleased
+
+- The default **Exclude share patterns** now includes office documents, alongside OS metadata.
+  New profiles and profiles without an `ExcludeSharePatterns` value receive the new default.
+  Saved values, including an empty list, are preserved. Downloads remain shared while incomplete.
+  To apply the office exclusions to an existing wildcard list, append the following patterns,
+  separated from the existing list with `|` (do not paste wildcard globs into regex mode):
+
+  ```text
+  *.doc|*.docx|*.docm|*.dot|*.dotx|*.dotm|*.xls|*.xlsx|*.xlsm|*.xlsb|*.xlt|*.xltx|*.xltm|*.xlam|*.ppt|*.pptx|*.pptm|*.pot|*.potx|*.potm|*.pps|*.ppsx|*.ppsm|*.odt|*.ott|*.ods|*.ots|*.odp|*.otp|*.odg|*.otg|*.odf|*.odb|*.rtf|*.csv|*.tsv
+  ```
+
 ## Version 3.1.0 - "Three versions in a year! Can we have some REST?"
 2026-09-21
 

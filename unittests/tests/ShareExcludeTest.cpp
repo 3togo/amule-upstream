@@ -199,15 +199,35 @@ TEST(ShareExclude, OfficeDocumentGlobsMatchExactExtensions)
 	const char *blocked[] = { "Letter.DOC",
 		"letter.docx",
 		"macro.DoCm",
+		"template.dot",
+		"template.dotx",
 		"template.dotm",
+		"budget.xls",
 		"budget.xlsx",
 		"macro.xlsm",
 		"book.xlsb",
+		"template.xlt",
+		"template.xltx",
+		"template.xltm",
+		"addin.xlam",
+		"slides.ppt",
 		"slides.PPTX",
 		"macro.pptm",
+		"template.pot",
+		"template.potx",
+		"template.potm",
+		"show.pps",
+		"show.ppsx",
+		"show.ppsm",
 		"report.odt",
+		"template.ott",
 		"sheet.ods",
+		"template.ots",
 		"slides.odp",
+		"template.otp",
+		"drawing.odg",
+		"template.otg",
+		"formula.odf",
 		"database.odb",
 		"notes.rtf",
 		"contacts.csv",
@@ -223,6 +243,36 @@ TEST(ShareExclude, OfficeDocumentGlobsMatchExactExtensions)
 		"photo.jpeg",
 		"README",
 		"report.docx.exe" };
+	for (const char *name : allowed) {
+		ASSERT_TRUE_M(!filter.Matches(name), name);
+	}
+}
+
+TEST(ShareExclude, DefaultMetadataPatternsRemainExcluded)
+{
+	CShareExcludeFilter filter;
+	filter.Compile(ShareExclude::kDefaultPatterns, false);
+	const char *blocked[] = { ".DS_Store",
+		"._photo.jpg",
+		".Spotlight-V100",
+		".Trashes",
+		".fseventsd",
+		".DocumentRevisions-V100",
+		".TemporaryItems",
+		".apdisk",
+		"Thumbs.db",
+		"ehthumbs.db",
+		"desktop.ini",
+		".directory" };
+	for (const char *name : blocked) {
+		ASSERT_TRUE_M(filter.Matches(name), name);
+	}
+	const char *allowed[] = { "download.part",
+		"download.tmp",
+		"download.!ut",
+		"INCOMPLETE.bin",
+		"report.docx.bak",
+		"Thumbs.db.backup" };
 	for (const char *name : allowed) {
 		ASSERT_TRUE_M(!filter.Matches(name), name);
 	}
