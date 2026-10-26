@@ -62,7 +62,9 @@ namespace ShareExclude
 
 typedef std::vector<CPath> PathList;
 
-// Default filename globs for OS metadata and office documents.
+// Default filename globs: OS folder metadata no peer wants, and office documents, which often
+// hold private data. Broad download-temp globs (*.part, *.tmp, *.!ut, *INCOMPLETE*) are left
+// out on purpose: they can match real user files.
 constexpr const char *kDefaultPatterns = ".DS_Store|._*|.Spotlight-V100|.Trashes|.fseventsd|"
 					 ".DocumentRevisions-V100|.TemporaryItems|.apdisk|"
 					 "Thumbs.db|ehthumbs.db|desktop.ini|.directory|"
