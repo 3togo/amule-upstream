@@ -1061,6 +1061,11 @@ add_test (NAME GlobalSourceQueueTest COMMAND GlobalSourceQueueTest)
 target_include_directories (GlobalSourceQueueTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
 target_link_libraries (GlobalSourceQueueTest muleunit mulecommon)
 
+add_executable (RefillTest RefillTest.cpp)
+add_test (NAME RefillTest COMMAND RefillTest)
+target_include_directories (RefillTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
+target_link_libraries (RefillTest muleunit mulecommon)
+
 # Which address an OP_FOUNDSOURCES / OP_FOUNDSOURCES_OBFU sentinel source is contacted on, without
 # the application.
 add_executable (ServerIPv6SourcePolicyTest
@@ -2733,6 +2738,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 			add_test (NAME ShortBlockPacketIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/ShortBlockPacketIntegrationTest.py $<TARGET_FILE:amuled>
+			)
+			add_test (NAME TinyBlockPacketIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/TinyBlockPacketIntegrationTest.py $<TARGET_FILE:amuled>
 			)
 			add_test (NAME CallbackCooldownIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
