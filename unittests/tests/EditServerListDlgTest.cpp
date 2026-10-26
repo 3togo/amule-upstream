@@ -90,6 +90,14 @@ void CheckLayout(EditServerListDlg &dialog)
 	wxClientDC dc(label);
 	dc.SetFont(label->GetFont());
 	const wxSize text = dc.GetMultiLineTextExtent(label->GetLabelText());
+	if (text.x > label->GetClientSize().x || text.y > label->GetClientSize().y) {
+		std::cerr << "Message geometry: dialog=" << dialog.GetClientSize().x << 'x'
+			  << dialog.GetClientSize().y << ", label=" << label->GetClientSize().x << 'x'
+			  << label->GetClientSize().y << ", text=" << text.x << 'x' << text.y
+			  << ", native best=" << label->GetBestSize().x << 'x' << label->GetBestSize().y
+			  << ", font=" << label->GetFont().GetPointSize() << "pt\n"
+			  << label->GetLabelText().ToUTF8().data() << '\n';
+	}
 	Check(text.x <= label->GetClientSize().x, "Message is clipped horizontally");
 	Check(text.y <= label->GetClientSize().y, "Wrapped message is clipped vertically");
 	Check(label->GetRect().GetBottom() < editor->GetRect().GetTop(),
@@ -119,6 +127,11 @@ void TestResize(const wxString &message, bool largerFont)
 	dc.SetFont(label->GetFont());
 	// The unwrapped translation must fit even with larger platform fonts.
 	const int wideWidth = std::max(680, dialog.ToDIP(dc.GetMultiLineTextExtent(message).x) + 40);
+	// Native widgets must be realized before measuring their layout. In particular,
+	// wxGTK 3.2 applies a changed font to the native label when it is shown.
+	dialog.SetClientSize(dialog.FromDIP(wxSize(wideWidth, 300)));
+	dialog.Show();
+	wxTheApp->Yield();
 	const wxString urls = "https://example.org/server.met?one=1&two=2\nhttps://example.net/list";
 	dialog.SetText(urls);
 	editor->SetSelection(3, 12);
@@ -154,16 +167,20 @@ void TestInitialLayout()
 		"Enter one server list address on each line. "
 		"These addresses are used to download server.met files.\nKeep each URL on its own line.";
 	EditServerListDlg dialog(nullptr, "Initial layout test", message, wxEmptyString);
+	dialog.Show();
+	wxTheApp->Yield();
 	CheckLayout(dialog);
 	wxStaticText *label = FindControl<wxStaticText>(dialog);
 	Check(label->GetLabelText().Freq('\n') > message.Freq('\n'),
-		"Initial message was not wrapped before showing the dialog");
+		"Initial message was not wrapped when showing the dialog");
 }
 
 void TestLiteralText()
 {
 	const wxString message = "Addresses & sources && URLs\n\nOne URL per line.\n";
 	EditServerListDlg dialog(nullptr, "Literal text test", message, wxEmptyString);
+	dialog.Show();
+	wxTheApp->Yield();
 	Resize(dialog, 680);
 	Check(FindControl<wxStaticText>(dialog)->GetLabelText() == message,
 		"Literal ampersands or intentional blank lines were lost");
