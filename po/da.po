@@ -10,7 +10,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-07 16:23+0000\n"
+"PO-Revision-Date: 2026-10-25 09:57+0000\n"
 "Last-Translator: Alex Thomsen Leth <alexl@stofanet.dk>\n"
 "Language-Team: aMule Team <https://github.com/amule-org/amule>\n"
 "Language: da\n"
@@ -21,9 +21,8 @@ msgstr ""
 "X-Generator: Poedit 2.3\n"
 
 #: src/AboutDialog.cpp
-#, fuzzy
 msgid "About aMule"
-msgstr "Omking wxCas"
+msgstr "Om aMule"
 
 #: src/AboutDialog.cpp
 msgid "aMule remote control "
@@ -196,6 +195,10 @@ msgstr "Genstart nu"
 #: src/AppImageIntegration.cpp
 msgid "Later"
 msgstr "Senere"
+
+#: src/GuiEvents.cpp src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr ""
 
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
@@ -2467,7 +2470,7 @@ msgstr "FileHash ikke fundet: %s"
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
-msgid "Cannot cancel a finished download: %s"
+msgid "Cannot cancel a hashing or finished download: %s"
 msgstr "Færdig med at downloade: %s"
 
 #: src/ExternalConn.cpp
@@ -9433,6 +9436,16 @@ msgstr "Fjern kategori"
 #, c-format
 msgid "Hashset requested for unknown file: %s"
 msgstr "Hashsæt anmodet om for ukendt fil: %s"
+
+#: src/UploadDiskIOThread.cpp
+#, fuzzy, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Kunne ikke starte en Kad-søgning"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr ""
 
 #: src/UploadDiskIOThread.cpp
 #, c-format

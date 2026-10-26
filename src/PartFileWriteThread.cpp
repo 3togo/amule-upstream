@@ -192,6 +192,9 @@ void *CPartFileWriteThread::Entry()
 			try {
 				std::lock_guard<std::mutex> lock(it->pFile->m_hpartfileMutex);
 				pBuffer->area.FlushAt(it->pFile->m_hpartfile, pBuffer->start, lenData);
+				// FlushAt has released the payload. Return capacity now, rather
+				// than charging an empty buffer until the main thread harvests it.
+				pBuffer->writeCredit.reset();
 			} catch (const CIOFailureException &e) {
 				AddDebugLogLineC(logPartFile,
 					CFormat("Write thread: I/O failure on '%s' at offset %llu (%u "

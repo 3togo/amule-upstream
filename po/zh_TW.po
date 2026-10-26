@@ -202,6 +202,10 @@ msgstr "立即重新啟動"
 msgid "Later"
 msgstr "稍後"
 
+#: src/GuiEvents.cpp src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr ""
+
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
 msgstr ""
@@ -2462,7 +2466,7 @@ msgstr "找不到檔案 hash 值：%s "
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
-msgid "Cannot cancel a finished download: %s"
+msgid "Cannot cancel a hashing or finished download: %s"
 msgstr "下載完成：%s"
 
 #: src/ExternalConn.cpp
@@ -9399,6 +9403,16 @@ msgstr "移除分類"
 #, c-format
 msgid "Hashset requested for unknown file: %s"
 msgstr "要求不明檔案 %s 的 hash 值組"
+
+#: src/UploadDiskIOThread.cpp
+#, fuzzy, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "無法開始 Kad 搜尋"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr ""
 
 #: src/UploadDiskIOThread.cpp
 #, fuzzy, c-format

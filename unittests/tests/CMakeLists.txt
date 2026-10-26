@@ -491,7 +491,7 @@ target_link_libraries (UtpSocketTransportTest
 
 add_executable (LibSocketTransportTest
 	LibSocketTransportTest.cpp
-	# The test includes LibSocket.cpp so it can drain the process-global io_context
+	# The test includes LibSocket.cpp so it can drain the process-global io_context pool
 	# after joining CAsioService, including completions that intentionally queue no event.
 	# Same reason NetworkFunctionsTest compiles it: LibSocket.cpp includes
 	# LibSocketAsio.cpp, whose Windows interface-resolution path calls
@@ -1060,6 +1060,11 @@ add_executable (GlobalSourceQueueTest GlobalSourceQueueTest.cpp)
 add_test (NAME GlobalSourceQueueTest COMMAND GlobalSourceQueueTest)
 target_include_directories (GlobalSourceQueueTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
 target_link_libraries (GlobalSourceQueueTest muleunit mulecommon)
+
+add_executable (RefillTest RefillTest.cpp)
+add_test (NAME RefillTest COMMAND RefillTest)
+target_include_directories (RefillTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
+target_link_libraries (RefillTest muleunit mulecommon)
 
 # Which address an OP_FOUNDSOURCES / OP_FOUNDSOURCES_OBFU sentinel source is contacted on, without
 # the application.
@@ -2693,6 +2698,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND Python3_Interpreter_FOUND)
 endif ()
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 	if (Python3_Interpreter_FOUND)
+		add_test (NAME ECDisconnectIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/ECDisconnectIntegrationTest.py $<TARGET_FILE:amuled>
+		)
 		add_test (NAME KadDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled>)
 		add_test (NAME KadPopulatedDistributionECTest COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadDistributionECTest.py $<TARGET_FILE:amuled> --populated)
 		set_tests_properties (KadPopulatedDistributionECTest PROPERTIES SKIP_RETURN_CODE 77)
@@ -2721,6 +2730,10 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/ShortBlockPacketIntegrationTest.py $<TARGET_FILE:amuled>
 			)
+			add_test (NAME TinyBlockPacketIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/TinyBlockPacketIntegrationTest.py $<TARGET_FILE:amuled>
+			)
 			add_test (NAME CallbackCooldownIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/CallbackCooldownIntegrationTest.py $<TARGET_FILE:amuled>
@@ -2739,6 +2752,11 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/UploadRefillIntegrationTest.py
 					$<TARGET_FILE:amuled> --seconds 3 --compress
+			)
+			# Two loopback peer addresses (127.0.0.2, 127.0.0.3) need Linux.
+			add_test (NAME UploadSlotScopeIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u
+					${CMAKE_CURRENT_SOURCE_DIR}/UploadSlotScopeIntegrationTest.py $<TARGET_FILE:amuled>
 			)
 		endif()
 		add_test (NAME ShareExcludeDefaultsIntegrationTest
@@ -2877,6 +2895,13 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 			)
 		endif ()
 	endif ()
+endif ()
+
+# Verify shutdown reaches the core before the text client exits.
+if (BUILD_AMULECMD AND Python3_Interpreter_FOUND)
+	add_test (NAME AmulecmdShutdownTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/AmulecmdShutdownTest.py
+			$<TARGET_FILE:amulecmd>)
 endif ()
 
 # Exercise native scrolling/sizer behavior without starting the aMule application.
@@ -3149,6 +3174,11 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND UNIX AND NO
 				$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
 		)
 		set_tests_properties (CompletedFileDeleteIntegrationTest PROPERTIES SKIP_RETURN_CODE 77)
+		add_test (NAME HashingCancelIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/HashingCancelIntegrationTest.py
+				$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
+		)
 		add_test (NAME CompletedFileDeleteCapabilityTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/CompletedFileDeleteCapabilityTest.py
@@ -3235,3 +3265,23 @@ if (TARGET wxWidgets::CORE)
 	set_tests_properties (BandwidthRateInputEnglishTest BandwidthRateInputItalianTest
 		PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
 endif()
+
+# Selection identities remain valid values when the underlying download is removed.
+add_executable (DownloadCommandTest DownloadCommandTest.cpp)
+add_test (NAME DownloadCommandTest COMMAND DownloadCommandTest)
+target_include_directories (DownloadCommandTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (DownloadCommandTest muleunit mulecommon)
+
+add_executable (WriteBufferBudgetTest WriteBufferBudgetTest.cpp)
+add_test (NAME WriteBufferBudgetTest COMMAND WriteBufferBudgetTest)
+target_include_directories (WriteBufferBudgetTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (WriteBufferBudgetTest muleunit mulecommon)
+
+if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	add_library (WriteBufferStall SHARED WriteBufferStall.cpp)
+	target_link_libraries (WriteBufferStall PRIVATE ${CMAKE_DL_LIBS})
+	add_test (NAME WriteBackpressureIntegrationTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/WriteBackpressureIntegrationTest.py
+			$<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
+	set_tests_properties (WriteBackpressureIntegrationTest PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
+endif ()

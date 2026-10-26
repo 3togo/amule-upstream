@@ -227,8 +227,6 @@ void CUpDownClient::Init()
 	m_bUnicodeSupport = false;
 
 	m_fSentOutOfPartReqs = 0;
-	m_nCurQueueSessionPayloadUp = 0;
-	m_addedPayloadQueueSession = 0;
 	m_nUpDatarate = 0;
 	m_nSumForAvgUpDataRate = 0;
 
@@ -1406,6 +1404,7 @@ void CUpDownClient::ProcessMuleCommentPacket(const uint8_t *pachPacket, uint32 n
 
 void CUpDownClient::ClearDownloadBlockRequests()
 {
+	m_writeBufferBlocked = false;
 	{
 		std::list<Requested_Block_Struct *>::iterator it = m_DownloadBlocks_list.begin();
 		for (; it != m_DownloadBlocks_list.end(); ++it) {
@@ -3261,6 +3260,10 @@ float CUpDownClient::TickDownloadAndMeasure()
 	// lfroen: in daemon it actually can happen
 	wxASSERT(m_socket);
 
+	if (m_writeBufferBlocked && m_PendingBlocks_list.empty() && m_DownloadBlocks_list.empty() &&
+		GetDownloadState() == DS_DOWNLOADING) {
+		SendBlockRequests();
+	}
 	float kBpsClient = CalculateKBpsDown();
 
 	if (m_socket) {

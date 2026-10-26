@@ -10,7 +10,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-07 16:30+0000\n"
+"PO-Revision-Date: 2026-10-25 09:58+0000\n"
 "Last-Translator: Oleksandr Kovalenko <alx.kovalenko@gmail.com>\n"
 "Language-Team: Ukrainian <translation@linux.org.ua>\n"
 "Language: uk\n"
@@ -197,14 +197,17 @@ msgstr "Перезапустити зараз"
 msgid "Later"
 msgstr "Пізніше"
 
+#: src/GuiEvents.cpp src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr ""
+
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
 msgstr ""
 
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
-#, fuzzy
 msgid "Delete from disk"
-msgstr "Отримати з Kad"
+msgstr "Видалити з диска"
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -2486,7 +2489,7 @@ msgstr "Хеш файлу не знайдений: %s"
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
-msgid "Cannot cancel a finished download: %s"
+msgid "Cannot cancel a hashing or finished download: %s"
 msgstr "Завершене звантаження: %s"
 
 #: src/ExternalConn.cpp
@@ -9512,6 +9515,16 @@ msgstr "Видалити категорію"
 #, c-format
 msgid "Hashset requested for unknown file: %s"
 msgstr "Запитано набір хешів для невідомого файлу: %s"
+
+#: src/UploadDiskIOThread.cpp
+#, fuzzy, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Не вдалося розпочати пошук у Kad"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr ""
 
 #: src/UploadDiskIOThread.cpp
 #, fuzzy, c-format
