@@ -904,10 +904,19 @@ bool CSharedFileList::RefreshMediaMetadata(const CMD4Hash &hash)
 
 void CSharedFileList::SafeAddKFile(CKnownFile *toadd, bool bOnlyAdd)
 {
-	if (thePrefs::IsShareExcluded(toadd->GetFileName().GetPrintable())) {
-		// A partfile can have been shared under an earlier name. Completion and rename
-		// must detach it as well as refusing a fresh insert.
+	// A file that only becomes excluded on completion has to be detached, not just refused:
+	// it was shared as a partfile under its old name, and completion is what renames it to a
+	// name the filter matches. Partfiles are deliberately left shared -- their content came
+	// off the network, so the exclusion must never stop a download. Any other caller either
+	// shares from a directory walk that already filtered excluded names, or hands over a file
+	// that cannot become excluded by a rename (shared files have no rename path).
+	if (!toadd->IsPartFile() && thePrefs::IsShareExcluded(toadd->GetFileName().GetPrintable())) {
 		if (GetFileByID(toadd->GetFileHash()) == toadd) {
+			// Completion moves the file out of Temp, so the path index still holds the key it
+			// was shared under, and RemoveFile() walks that index to detach it. Re-key to the
+			// current location first, or the stale entry survives pointing at a file that is
+			// no longer shared.
+			RefreshPathIndex(toadd);
 			RemoveFile(toadd);
 		}
 		return;
