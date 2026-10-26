@@ -128,7 +128,9 @@ void TestWrappingText(const wxString &message, bool scrolled, bool largerFont)
 			"Wrapped text overlaps the next control");
 		const int left =
 			label->ClientToScreen(wxPoint(0, 0)).x - content->ClientToScreen(wxPoint(0, 0)).x;
-		Check(dc.GetMultiLineTextExtent(label->GetLabelText()).x <= content->GetClientSize().x - left,
+		// wxOSX measures a wrapped line up to 1 px wider here than Wrap() did.
+		Check(dc.GetMultiLineTextExtent(label->GetLabelText()).x <=
+				content->GetClientSize().x - left + 1,
 			"Hint extends past the visible viewport");
 	};
 	resize(400);
@@ -198,6 +200,32 @@ void TestWrappingControls()
 	page->SendSizeEvent();
 	wxTheApp->ProcessPendingEvents();
 	Check(!called, "Destroyed control retained a pending layout callback");
+}
+
+// Preferences measures each page right after building it, before the dialog is shown.
+void TestWrappingMeasuredBeforeShown()
+{
+	wxDialog dialog(nullptr, wxID_ANY, "Wrapping before show");
+	auto *page = new wxScrolledWindow(&dialog);
+	ConfigureDialogScrolling(page);
+	auto *label = new WrappingStaticText(page,
+		wxID_ANY,
+		"When the connected core's files live on a different machine, map a path prefix it "
+		"reports to where that filesystem is reachable from here (a network share, say) so "
+		"\"Open\" and \"Show in folder\" work.");
+	auto *following = new wxTextCtrl(page, wxID_ANY, wxEmptyString);
+	following->SetMinSize(dialog.FromDIP(wxSize(560, -1)));
+	auto *fields = new wxBoxSizer(wxVERTICAL);
+	fields->Add(label, wxSizerFlags().Expand());
+	fields->Add(following, wxSizerFlags().Expand());
+	page->SetSizer(fields);
+	// The default size of a new window on wxOSX.
+	page->SetSize(dialog.FromDIP(wxSize(20, 20)));
+	page->FitInside();
+	label->SendSizeEvent();
+	page->SendSizeEvent();
+	Check(label->GetLabelText().Freq('\n') < 4,
+		"A page measured before showing wrapped its hint to the default page width");
 }
 
 // Drive the actual text control and button handlers, including wxWidgets' transfer
@@ -545,6 +573,7 @@ int main(int argc, char **argv)
 	} else {
 		try {
 			TestWrappingControls();
+			TestWrappingMeasuredBeforeShown();
 			TestFileRenameDialog();
 			TestScrollableContent();
 			TestSmallContent();

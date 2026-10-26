@@ -86,9 +86,10 @@ private:
 	void Rewrap()
 	{
 		int width = GetClientSize().x;
-		if (m_viewport) {
+		// A page measured before it is shown still has its default size (about 20 px on
+		// wxOSX), which would wrap one word per line and inflate its minimum height.
+		if (m_viewport && m_viewport->IsShownOnScreen()) {
 			// Other fields may keep the virtual page wider than its viewport.
-			// Client-relative positions also work before the dialog is shown.
 			int left = 0;
 			for (wxWindow *window = this; window != m_viewport; window = window->GetParent()) {
 				left += window->GetPosition().x + window->GetClientAreaOrigin().x;
