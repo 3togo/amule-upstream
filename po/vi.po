@@ -193,6 +193,10 @@ msgstr "Khởi động lại ngay"
 msgid "Later"
 msgstr "Để sau"
 
+#: src/GuiEvents.cpp src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr ""
+
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
 msgstr ""
@@ -2430,7 +2434,7 @@ msgstr "Không tìm thấy FileHash: %s"
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
-msgid "Cannot cancel a finished download: %s"
+msgid "Cannot cancel a hashing or finished download: %s"
 msgstr "Đã tải xuống xong: %s"
 
 #: src/ExternalConn.cpp
@@ -9321,6 +9325,16 @@ msgstr "Xóa danh mục"
 #, c-format
 msgid "Hashset requested for unknown file: %s"
 msgstr "Yêu cầu hashset cho tệp không xác định: %s"
+
+#: src/UploadDiskIOThread.cpp
+#, fuzzy, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Không thể bắt đầu tìm kiếm Kad"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr ""
 
 #: src/UploadDiskIOThread.cpp
 #, c-format

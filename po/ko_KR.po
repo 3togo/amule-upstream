@@ -198,6 +198,10 @@ msgstr "지금 다시 시작"
 msgid "Later"
 msgstr "나중에"
 
+#: src/GuiEvents.cpp src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr ""
+
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
 msgstr ""
@@ -2467,7 +2471,7 @@ msgstr "파일해시를 찾을 수 없음: %s"
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
-msgid "Cannot cancel a finished download: %s"
+msgid "Cannot cancel a hashing or finished download: %s"
 msgstr "내려받기 완료: %s"
 
 #: src/ExternalConn.cpp
@@ -9436,6 +9440,16 @@ msgstr "분류 삭제"
 #, c-format
 msgid "Hashset requested for unknown file: %s"
 msgstr "알수 없는 파일의 해시설정이 요청되었습니다: %s"
+
+#: src/UploadDiskIOThread.cpp
+#, fuzzy, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Kad 검색을 시작할 수 없습니다"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr ""
 
 #: src/UploadDiskIOThread.cpp
 #, fuzzy, c-format

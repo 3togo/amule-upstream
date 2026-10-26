@@ -197,6 +197,10 @@ msgstr "Reaniciar agora"
 msgid "Later"
 msgstr "Dempués"
 
+#: src/GuiEvents.cpp src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr ""
+
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
 msgstr ""
@@ -2468,7 +2472,7 @@ msgstr "Hash de ficheru non alcontráu: %s"
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
-msgid "Cannot cancel a finished download: %s"
+msgid "Cannot cancel a hashing or finished download: %s"
 msgstr "Descarga finada: %s"
 
 #: src/ExternalConn.cpp
@@ -9431,6 +9435,16 @@ msgstr "Desaniciar categoría"
 #, c-format
 msgid "Hashset requested for unknown file: %s"
 msgstr "Hashset solicitáu de ficheru desconocíu: %s"
+
+#: src/UploadDiskIOThread.cpp
+#, fuzzy, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Nun se pudo aniciar una gueta Kad"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr ""
 
 #: src/UploadDiskIOThread.cpp
 #, fuzzy, c-format
