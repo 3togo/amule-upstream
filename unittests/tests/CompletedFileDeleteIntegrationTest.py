@@ -135,9 +135,7 @@ FIXTURES = [
     (b'The quick brown fox jumps over the lazy dog', '1bee69a46ba811185c194762abaeae90'),
     (b'The quick brown fox jumps over the lazy dog.', '2812c6c7136898c51f6f6739ad08750e'),
     (b'ab', 'ec388dd78999dfc7cf4632465693b6bf'),
-    # Completes into a name the share filter excludes. Seeded with EXCLUDED_NAME below so the
-    # exclusion only matches once the download is complete; the partfile itself is shared like
-    # every other download.
+    # Completes into an excluded name. Incomplete downloads are exempt from the filter.
     (b'The quick brown fox jumps over the lazy dog!', '087bccb2b4007ab7d394dbfacc111c34'),
 ]
 # Matches ExcludeSharePatterns below, so the last fixture is the one that becomes excluded.
@@ -187,16 +185,13 @@ def run(daemon, api):
                     except ConnectionRefusedError:
                         return None
                 ec = eventually(connect)
-                eventually(lambda: len(ec.files()) == len(FIXTURES) and
-                           all(field(row[1], 'EC_TAG_PARTFILE_STATUS') == 9 for row in ec.files().values()))
+                eventually(lambda: len(rows := ec.files()) == len(FIXTURES) and
+                           all(field(row[1], 'EC_TAG_PARTFILE_STATUS') == 9 for row in rows.values()))
                 eventually(lambda: shared_hash in ec.files(True))
                 # Malformed input, active files, stale identity/path must never unlink.
                 assert ec.call('EC_OP_KNOWNFILE_DELETE')[0] == C['EC_OP_FAILED']
                 first = FIXTURES[0][1]
-                # A file that only becomes excluded on completion must not stay shared: it was
-                # shared as a partfile under its old name, and the completion is what renames it
-                # to a name the filter matches. Absence is asserted with eventually() because
-                # the detach lags the status change by one EC round.
+                # Completion must leave the excluded file on disk but out of the shared list.
                 excluded_hash = FIXTURES[-1][1]
                 assert (incoming / EXCLUDED_NAME).exists()
                 eventually(lambda: excluded_hash not in ec.files(True))
