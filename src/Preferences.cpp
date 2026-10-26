@@ -1425,22 +1425,12 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	 * globs (*.part, *.tmp, *.!ut, *INCOMPLETE*) -- those can match real user files,
 	 * so they are left for the user to add.
 	 *
-	 * The office part is plain globs, not a separate preference, so the user can see
-	 * and edit exactly what is excluded in the same field. A profile that already has
-	 * a saved ExcludeSharePatterns keeps its own list and does not gain these globs;
-	 * that is covered by the release notes rather than by rewriting a saved choice.
+	 * A saved list is kept, so existing profiles do not gain the office globs.
 	 */
 	NewCfgItem(IDC_EXCLUDE_SHARE_PATTERNS,
 		(new Cfg_Str("/eMule/ExcludeSharePatterns",
 			s_ExcludeSharePatterns,
-			".DS_Store|._*|.Spotlight-V100|.Trashes|.fseventsd|"
-			".DocumentRevisions-V100|.TemporaryItems|.apdisk|"
-			"Thumbs.db|ehthumbs.db|desktop.ini|.directory|"
-			"*.doc|*.docx|*.docm|*.dot|*.dotx|*.dotm|"
-			"*.xls|*.xlsx|*.xlsm|*.xlsb|*.xlt|*.xltx|*.xltm|*.xlam|"
-			"*.ppt|*.pptx|*.pptm|*.pot|*.potx|*.potm|*.pps|*.ppsx|*.ppsm|"
-			"*.odt|*.ott|*.ods|*.ots|*.odp|*.otp|*.odg|*.otg|*.odf|*.odb|"
-			"*.rtf|*.csv|*.tsv")));
+			ShareExclude::kDefaultPatterns)));
 	NewCfgItem(IDC_EXCLUDE_SHARE_REGEX,
 		(new Cfg_Bool("/eMule/ExcludeSharePatternsUseRegex", s_ExcludeSharePatternsUseRegex, false)));
 

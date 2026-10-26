@@ -188,16 +188,12 @@ TEST(ShareExclude, ExpansionCapsSeenNames)
 }
 
 // Office documents are excluded as plain globs inside the default ExcludeSharePatterns, so the
-// user sees and edits them in the same field as every other pattern. This is that glob list.
+// user sees and edits them in the same field as every other pattern. The globs are pinned
+// against the shipped default itself, so the two cannot drift apart.
 TEST(ShareExclude, OfficeDocumentGlobsMatchExactExtensions)
 {
 	CShareExcludeFilter filter;
-	filter.Compile("*.doc|*.docx|*.docm|*.dot|*.dotx|*.dotm|"
-		       "*.xls|*.xlsx|*.xlsm|*.xlsb|*.xlt|*.xltx|*.xltm|*.xlam|"
-		       "*.ppt|*.pptx|*.pptm|*.pot|*.potx|*.potm|*.pps|*.ppsx|*.ppsm|"
-		       "*.odt|*.ott|*.ods|*.ots|*.odp|*.otp|*.odg|*.otg|*.odf|*.odb|"
-		       "*.rtf|*.csv|*.tsv",
-		false);
+	filter.Compile(ShareExclude::kDefaultPatterns, false);
 	ASSERT_TRUE(filter.IsValid());
 
 	const char *blocked[] = { "Letter.DOC",
