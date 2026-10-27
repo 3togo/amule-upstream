@@ -1285,6 +1285,10 @@ msgstr ""
 msgid "The connected daemon does not support All searches."
 msgstr ""
 
+#: src/amule-remote-gui.cpp
+msgid "The connected daemon does not support media search filters."
+msgstr ""
+
 #: src/BaseClient.cpp
 msgid "Searching buddy for lowid connection"
 msgstr ""
@@ -4568,19 +4572,23 @@ msgstr ""
 msgid "Bitrate"
 msgstr ""
 
-#: src/muuli_wdr.cpp src/SearchListCtrl.cpp src/SharedFilesCtrl.cpp
+#: src/muuli_wdr.cpp src/SearchMetadataPanel.cpp src/SearchListCtrl.cpp
+#: src/SharedFilesCtrl.cpp
 msgid "Codec"
 msgstr ""
 
-#: src/muuli_wdr.cpp src/SearchListCtrl.cpp src/SharedFilesCtrl.cpp
+#: src/muuli_wdr.cpp src/SearchMetadataPanel.cpp src/SearchListCtrl.cpp
+#: src/SharedFilesCtrl.cpp
 msgid "Artist"
 msgstr ""
 
-#: src/muuli_wdr.cpp src/SearchListCtrl.cpp src/SharedFilesCtrl.cpp
+#: src/muuli_wdr.cpp src/SearchMetadataPanel.cpp src/SearchListCtrl.cpp
+#: src/SharedFilesCtrl.cpp
 msgid "Album"
 msgstr ""
 
-#: src/muuli_wdr.cpp src/SearchListCtrl.cpp src/SharedFilesCtrl.cpp
+#: src/muuli_wdr.cpp src/SearchMetadataPanel.cpp src/SearchListCtrl.cpp
+#: src/SharedFilesCtrl.cpp
 msgid "Title"
 msgstr ""
 
@@ -7207,6 +7215,54 @@ msgstr ""
 
 #: src/SearchDlg.cpp src/SearchListCtrl.cpp
 msgid "Main"
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "Minimum duration"
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "Minimum bitrate (kbps)"
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "seconds or h:mm:ss"
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "Minimum playing time, up to 24:00:00. Empty or 0 means any duration."
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "Minimum bitrate in kbps, up to 1000000. Empty or 0 means any bitrate. Effective on Kad; eD2k servers may ignore it."
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "Media metadata, separate from the filename query. Empty means any value."
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "Kad cannot run two searches for the same keyword. Stop the existing search before changing its filters."
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "Minimum bitrate must be a whole number between 0 and 1000000 kbps."
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "Minimum duration must be seconds or h:mm:ss, up to 24:00:00."
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "Media filters must not contain NUL characters."
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "Minimum bitrate is effective on Kad; eD2k servers may ignore media filters."
+msgstr ""
+
+#: src/SearchMetadataPanel.cpp
+msgid "The connected daemon does not support media filters. Update the daemon to use these fields."
 msgstr ""
 
 #: src/SearchList.cpp

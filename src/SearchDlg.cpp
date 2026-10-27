@@ -42,6 +42,8 @@
 #include "SearchDlg.h" // Interface declarations.
 #include "SearchModeIcons.h"
 #include "SearchTypeChoices.h"
+#include "SearchMetadataPanel.h"
+#include <ec/cpp/SearchMetadata.h>
 #include "SearchHistory.h"  // Needed for ApplySearchHistoryEntry
 #include "SearchListCtrl.h" // Needed for CSearchListCtrl
 #include "muuli_wdr.h"      // Needed for IDC_STARTS
@@ -132,6 +134,14 @@ CSearchDlg::CSearchDlg(wxWindow *pParent)
 
 	m_notebook->SetCloseIconWidth(SearchModeCloseWidth(m_notebook));
 	m_notebook->AssignImageList(CreateSearchModeImages(m_notebook).release());
+
+	m_metadataFields = new CSearchMetadataPanel(FindWindow(IDC_EDITSEARCHEXTENSION)->GetParent());
+	s_extended_sizer->Add(m_metadataFields, wxSizerFlags().Expand().Border(wxALL, 5));
+	m_metadataFields->Bind(wxEVT_TEXT, [this](wxCommandEvent &event) {
+		OnFieldChanged(event);
+		event.Skip();
+	});
+	m_metadataFields->Bind(wxEVT_TEXT_ENTER, &CSearchDlg::OnBnClickedStart, this);
 
 	FixSearchTypes();
 
@@ -506,6 +516,8 @@ void CSearchDlg::FixSearchTypes()
 	bool supportsAll = true;
 #ifdef CLIENT_GUI
 	supportsAll = theApp->m_connect && theApp->m_connect->ServerSupportsSearchAll();
+	m_metadataFields->SetSupported(
+		theApp->m_connect && theApp->m_connect->ServerSupportsSearchMetadata());
 #endif
 	long savedType = 0;
 	wxConfigBase::Get()->Read("/eMule/DefaultSearchType", &savedType, 0);
@@ -966,7 +978,7 @@ void CSearchDlg::OnBnClickedStart(wxCommandEvent &WXUNUSED(evt))
 	uint64 now = GetTickCount64();
 	if ((now - m_last_search_time) > 500) {
 		m_last_search_time = now;
-		const auto params = ReadSearchParams(false);
+		auto params = ReadSearchParams(true);
 		if (params.searchString.IsEmpty() || TryReuseSearch(params)) {
 			return;
 		}
@@ -992,7 +1004,7 @@ void CSearchDlg::OnBnClickedStart(wxCommandEvent &WXUNUSED(evt))
 			}
 		}
 
-		StartNewSearch();
+		StartNewSearch(params);
 	}
 }
 
@@ -1047,7 +1059,7 @@ void CSearchDlg::ClearSearchRequests()
 
 void CSearchDlg::OnFieldChanged(wxEvent &WXUNUSED(evt))
 {
-	bool enable = false;
+	bool enable = m_metadataFields->HasValues();
 
 	// These are the IDs of the search-fields
 	int textfields[] = { IDC_SEARCHNAME, IDC_EDITSEARCHEXTENSION };
@@ -1431,6 +1443,25 @@ CSearchList::CSearchParams CSearchDlg::ReadSearchParams(bool showWarning)
 	}
 
 	if (CastChild(IDC_EXTENDEDSEARCHCHECK, wxCheckBox)->GetValue()) {
+		CSearchMetadata metadata;
+		wxString error;
+		wxWindow *invalidField = nullptr;
+		if (!m_metadataFields->Read(metadata, error, invalidField)) {
+			if (showWarning) {
+				wxMessageBox(error, _("Search error"), wxOK | wxICON_ERROR, this);
+				if (invalidField)
+					invalidField->SetFocus();
+			}
+			params.searchString.clear();
+			return params;
+		}
+		params.minBitrateKbps = static_cast<uint32_t>(metadata.minBitrateKbps);
+		params.minLength = static_cast<uint32_t>(metadata.minLength);
+		params.artist = metadata.artist;
+		params.album = metadata.album;
+		params.title = metadata.title;
+		params.codec = metadata.codec;
+
 		params.extension = CastChild(IDC_EDITSEARCHEXTENSION, wxTextCtrl)->GetValue();
 
 		uint32 sizemin = GetTypeSize((uint8)CastChild(IDC_SEARCHMINSIZE, wxChoice)->GetSelection());
@@ -1497,6 +1528,11 @@ CSearchList::CSearchParams CSearchDlg::ReadSearchParams(bool showWarning)
 void CSearchDlg::StartNewSearch()
 {
 	auto params = ReadSearchParams(true);
+	StartNewSearch(params);
+}
+
+void CSearchDlg::StartNewSearch(CSearchList::CSearchParams &params)
+{
 	if (params.searchString.IsEmpty()) {
 		return;
 	}
@@ -1622,6 +1658,7 @@ void CSearchDlg::OnBnClickedReset(wxCommandEvent &WXUNUSED(evt))
 	// #697 reported. SetValue() only touches the text.
 	CastChild(IDC_SEARCHNAME, wxTextEntry)->SetValue(wxEmptyString);
 	CastChild(IDC_EDITSEARCHEXTENSION, wxTextCtrl)->Clear();
+	m_metadataFields->Reset();
 	CastChild(IDC_SPINSEARCHMIN, wxSpinCtrl)->SetValue(0);
 	CastChild(IDC_SEARCHMINSIZE, wxChoice)->SetSelection(2);
 	CastChild(IDC_SPINSEARCHMAX, wxSpinCtrl)->SetValue(0);
