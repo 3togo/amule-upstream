@@ -1399,6 +1399,7 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 				response->AddTag(CECEmptyTag(EC_TAG_CAN_SEARCH_LIST));
 				response->AddTag(CECEmptyTag(EC_TAG_CAN_KAD_LOOKUPS));
 				response->AddTag(CECEmptyTag(EC_TAG_CAN_SEARCH_ALL));
+				response->AddTag(CECEmptyTag(EC_TAG_CAN_SEARCH_METADATA));
 			} else {
 				wxString err;
 				if (passwd) {
@@ -3049,6 +3050,14 @@ static CECPacket *Get_EC_Response_Search_List()
 			entry.AddTag(EC_TAG_SEARCH_MIN_SIZE, static_cast<uint64_t>(params->minSize));
 			entry.AddTag(EC_TAG_SEARCH_MAX_SIZE, static_cast<uint64_t>(params->maxSize));
 			entry.AddTag(EC_TAG_SEARCH_AVAILABILITY, static_cast<uint32_t>(params->availability));
+			CSearchMetadata metadata;
+			metadata.minBitrateKbps = params->minBitrateKbps;
+			metadata.minLength = params->minLength;
+			metadata.codec = params->codec;
+			metadata.title = params->title;
+			metadata.album = params->album;
+			metadata.artist = params->artist;
+			metadata.WriteTo(entry, true);
 		}
 		// A browse also carries the peer it is listing: without it a remote GUI cannot
 		// build a browse tab at all, since a tab with no ecid is by definition not a
@@ -3322,6 +3331,19 @@ static CECPacket *Get_EC_Response_Search(const CECPacket *request, bool multiSea
 	params.minSize = search_request->MinSize();
 	params.maxSize = search_request->MaxSize();
 	params.availability = search_request->Avail();
+	CSearchMetadata metadata;
+	std::string metadataError;
+	if (!metadata.ReadFrom(*search_request, metadataError)) {
+		auto *reply = new CECPacket(EC_OP_FAILED);
+		reply->AddTag(CECTag(EC_TAG_STRING, wxString::FromUTF8(metadataError.c_str())));
+		return reply;
+	}
+	params.minBitrateKbps = static_cast<uint32_t>(metadata.minBitrateKbps);
+	params.minLength = static_cast<uint32_t>(metadata.minLength);
+	params.codec = metadata.codec;
+	params.title = metadata.title;
+	params.album = metadata.album;
+	params.artist = metadata.artist;
 
 	EC_SEARCH_TYPE search_type = search_request->SearchType();
 	uint32 op = EC_OP_FAILED;

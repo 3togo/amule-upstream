@@ -2995,6 +2995,11 @@ The start parameters a search was submitted with ride along on its row, in the s
 
 They describe the form the search was **actually started from**, as the daemon recorded it, so a search adopted from another client shows that client's filters, not this one's. Only a search the daemon started from a form carries them: a `"browse"` has none, and neither does one restored from a `StoredSearches.met` without a parameter block (one written before this feature existed), or reported by an older daemon. For those, `file_type` and `extension` are omitted, and the three numeric keys read `null` — which keeps "the form had no cap" (`0`) distinguishable from "there is no form" (`null`). The numeric keys are always present so a row's shape does not depend on which daemon produced it.
 
+Supporting daemons also report `min_bitrate_kbps`, `min_length` (integer seconds),
+`codec`, `title`, `album` and `artist`. These six fields are omitted when metadata
+parameters are unavailable; otherwise zero and empty strings mean no filter.
+See [the POST fields below](#post-apiv1search) for their units and network limits.
+
 On disk the parameters ride in a trailing block after the 0x01 records the file already held, keyed by search id. An older daemon reads exactly the records it knows and ignores the block, so downgrading keeps every search and result and loses only the filters; the older daemon's next save drops the block. The block is additive — each search's filters are a named tag list, so a future filter is another tag, never a format change.
 
 amuled only tracks multiple concurrent searches for clients that advertise multi-search support; `amuleapi` does, so this always reflects the full live set. `searches` is an empty array when amuled holds no searches, never an error.
@@ -3022,6 +3027,46 @@ Kicks off a new search. amuleapi supports **several concurrent searches** — a 
 ```
 
 Only `query` is required. `type` defaults to `"global"`; valid values are `"local"`, `"global"`, `"kad"`, `"all"`. `"all"` searches eD2k and Kad together, falling back to the available network if the other cannot start. It requires the daemon to advertise `EC_TAG_CAN_SEARCH_ALL`; otherwise the API returns `503 ec_unsupported` before sending a search request. `GET /status` exposes this capability as `search_all_supported` (boolean), which the WebUI uses to offer All. This additive value keeps `/api/v1` compatible. `file_type` filters by category and takes the same tokens the result rows report: `"audio"`, `"video"`, `"picture"`, `"text"`, `"program"`, `"archive"`, `"disc_image"`. Omit it, or send `""`, for any type; anything else is `400 bad_request`, `"unknown"` included, since no ed2k category corresponds to it. `extension` filters by filename extension as the user typed it (e.g. `"iso"`); omit it, or send `""`, for any extension. `min_size_bytes`, `max_size_bytes` and `min_source_count` are integers: a fractional value is a `400` rather than being truncated, so a client that computed a size cannot half-apply a filter it thinks it set. A `"global"`/`"local"` (ed2k) search and a `"kad"` search run independently and can be in flight at the same time; starting one never disturbs the other.
+
+The following optional fields add media metadata filters:
+
+| Field | Input | Meaning |
+|---|---|---|
+| `min_bitrate_kbps` | Integer, 0–1,000,000 | Inclusive minimum bitrate in kilobits per second. `0` disables it. |
+| `min_length` | Integer seconds, decimal seconds string, or `h:mm:ss`; 0–86,400 seconds | Inclusive minimum duration. For example, `3723`, `"3723"` and `"1:02:03"` are equivalent. `0` disables it. |
+| `codec` | String | Codec metadata term, for example `"FLAC"`. |
+| `title` | String | Media title metadata term. |
+| `album` | String | Album metadata term. |
+| `artist` | String | Artist metadata term. |
+
+Strings default to empty (no filter). Text terms are sent as metadata constraints,
+separately from the filename query. They do not use the filename query's Boolean
+expression syntax. Duration strings require two-digit minutes and seconds, each
+between `00` and `59`; `"24:00:00"` is the largest accepted duration. Invalid types,
+fractions, negative or oversized values, malformed durations and strings containing
+NUL or invalid UTF-8 return `400 bad_request` before starting a search. Values are rejected rather
+than clamped or silently ignored.
+
+For example:
+
+```json
+{"query":"concert","type":"kad","min_bitrate_kbps":320,"min_length":"1:02:03","codec":"FLAC","artist":"Example Artist"}
+```
+
+A non-default media filter requires the connected daemon to advertise
+`EC_TAG_CAN_SEARCH_METADATA`. The API returns `503 ec_unsupported` if that
+capability is absent, or `503 ec_unavailable` if EC is disconnected. Requests
+without media filters retain their existing compatibility with older daemons.
+The `202` response and `GET /search` rows from a supporting daemon include all six
+fields; `min_length` is normalized to integer seconds. Rows without recorded
+parameters, and rows from older daemons, omit these fields. Recorded filters also
+survive daemon restarts when search history is enabled.
+
+**Network limits:** Kad minimum-bitrate filtering has been verified live. The
+tested eD2k servers ignored it, so sending a filter does not guarantee that an
+eD2k server applies it. Other metadata terms are encoded for both networks but
+still need live interoperability testing. The API does not filter returned
+results locally or infer missing metadata.
 
 **Response:** `202 Accepted`, with a `Location: /api/v1/search/{search_id}` header and the created search as the body -- the same row [`GET /search`](#get-apiv1search) lists, so it can go straight into a collection the client already keeps:
 

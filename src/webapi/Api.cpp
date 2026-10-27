@@ -3160,6 +3160,8 @@ struct SearchListRow
 	std::uint64_t max_size = 0;
 	bool has_min_source_count = false;
 	std::uint32_t min_source_count = 0;
+	bool has_metadata = false;
+	CSearchMetadata metadata;
 };
 
 void WriteSearchListRow(CJsonWriter &w, const SearchListRow &row)
@@ -3200,6 +3202,20 @@ void WriteSearchListRow(CJsonWriter &w, const SearchListRow &row)
 	WriteIntOrNull(w, "max_size_bytes", row.has_max_size, static_cast<int64_t>(row.max_size));
 	WriteIntOrNull(
 		w, "min_source_count", row.has_min_source_count, static_cast<int64_t>(row.min_source_count));
+	if (row.has_metadata) {
+		w.Key("min_bitrate_kbps");
+		w.ValueInt(static_cast<int64_t>(row.metadata.minBitrateKbps));
+		w.Key("min_length");
+		w.ValueInt(static_cast<int64_t>(row.metadata.minLength));
+		w.Key("codec");
+		w.ValueString(row.metadata.codec);
+		w.Key("title");
+		w.ValueString(row.metadata.title);
+		w.Key("album");
+		w.ValueString(row.metadata.album);
+		w.Key("artist");
+		w.ValueString(row.metadata.artist);
+	}
 	w.EndObject();
 }
 
@@ -7835,6 +7851,10 @@ CHttpServer::Response CApiDispatcher::HandleSearchList(const CHttpServer::Reques
 			row.has_min_source_count = true;
 			row.min_source_count = static_cast<std::uint32_t>(tag->GetInt());
 		}
+		if (entry.GetTagByName(EC_TAG_SEARCH_MIN_BITRATE)) {
+			std::string error;
+			row.has_metadata = row.metadata.ReadFrom(entry, error);
+		}
 		rows.push_back(std::move(row));
 	}
 	delete ec_resp;
@@ -10772,6 +10792,68 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 		}
 	}
 
+	CSearchMetadata metadata;
+	for (const auto &field : { std::make_pair("codec", &metadata.codec),
+		     std::make_pair("title", &metadata.title),
+		     std::make_pair("album", &metadata.album),
+		     std::make_pair("artist", &metadata.artist) }) {
+		const auto it = obj.find(field.first);
+		if (it == obj.end())
+			continue;
+		if (!it->second.is<std::string>() ||
+			it->second.get<std::string>().find('\0') != std::string::npos) {
+			const std::string error =
+				std::string("`") + field.first + "` must be a string without NUL characters";
+			return ErrorResponse(400, "bad_request", error.c_str());
+		}
+		const std::string &text = it->second.get<std::string>();
+		*field.second = wxString::FromUTF8(text.c_str());
+		if (!text.empty() && field.second->empty()) {
+			const std::string error =
+				std::string("`") + field.first + "` must contain valid UTF-8";
+			return ErrorResponse(400, "bad_request", error.c_str());
+		}
+	}
+	for (const auto &field : { std::make_pair("min_bitrate_kbps", &metadata.minBitrateKbps),
+		     std::make_pair("min_length", &metadata.minLength) }) {
+		const auto it = obj.find(field.first);
+		if (it == obj.end())
+			continue;
+		if (field.second == &metadata.minLength && it->second.is<std::string>()) {
+			if (!CSearchMetadata::ParseLength(
+				    it->second.get<std::string>(), metadata.minLength)) {
+				return ErrorResponse(400,
+					"bad_request",
+					"`min_length` must be seconds or h:mm:ss, between 0 and 86400 "
+					"seconds");
+			}
+		} else {
+			const uint64_t limit = field.second == &metadata.minLength
+						       ? CSearchMetadata::MaxLengthSeconds
+						       : CSearchMetadata::MaxBitrateKbps;
+			if (!it->second.is<double>() || !IsIntegralJsonNumber(it->second.get<double>()) ||
+				it->second.get<double>() < 0 ||
+				it->second.get<double>() > static_cast<double>(limit)) {
+				const std::string error =
+					std::string("`") + field.first +
+					"` must be a non-negative integer within the documented range";
+				return ErrorResponse(400, "bad_request", error.c_str());
+			}
+			*field.second = static_cast<uint64_t>(it->second.get<double>());
+		}
+	}
+	std::string metadataError;
+	if (!metadata.Validate(metadataError)) {
+		return ErrorResponse(400, "bad_request", metadataError.c_str());
+	}
+	if (!metadata.Empty() && !m_state.EcConnected()) {
+		return ErrorResponse(503, "ec_unavailable", "the EC connection is unavailable");
+	}
+	if (!metadata.Empty() && !m_app.IsServerSearchMetadataActive()) {
+		return ErrorResponse(
+			503, "ec_unsupported", "the connected amuled does not support media search filters");
+	}
+
 	if (search_type == EC_SEARCH_ALL && !m_state.EcConnected()) {
 		return ErrorResponse(503, "ec_unavailable", "the EC connection is unavailable");
 	}
@@ -10787,7 +10869,8 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 		wxString::FromUTF8(extension.c_str()),
 		min_avail,
 		min_size,
-		max_size));
+		max_size,
+		metadata));
 
 	const CECPacket *ec_resp = m_app.SendRecvSerialized(ec_req.get());
 	if (!ec_resp) {
@@ -10838,6 +10921,8 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 	row.max_size = max_size;
 	row.has_min_source_count = true;
 	row.min_source_count = min_avail;
+	row.has_metadata = m_app.IsServerSearchMetadataActive();
+	row.metadata = metadata;
 
 	CHttpServer::Response r;
 	r.status = 202;

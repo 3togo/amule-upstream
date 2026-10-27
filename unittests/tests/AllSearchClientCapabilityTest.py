@@ -72,6 +72,12 @@ def run(api, cmd):
                     status, result=http(url+'/search', {'query':'legacyguard','type':'all'}, token)
                     assert status==503 and result['error']['code']=='ec_unsupported', (status, result)
                     print('PASS: API returns 503 ec_unsupported without All capability')
+                    for filters in ({'min_bitrate_kbps': 128}, {'min_length': '1:02:03'},
+                                    {'codec': 'FLAC'}, {'title': 'Title'}, {'album': 'Album'},
+                                    {'artist': 'Artist'}):
+                        status, result = http(url+'/search', {'query': 'legacyguard', 'type': 'kad', **filters}, token)
+                        assert status == 503 and result['error']['code'] == 'ec_unsupported', (status, result)
+                    print('PASS: metadata filters rejected without daemon capability')
                     status, result=http(url+'/status', token=token)
                     assert status==200 and result['search_all_supported'] is False, (status,result)
                     print('PASS: REST reports absent All capability as false')

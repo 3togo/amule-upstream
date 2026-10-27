@@ -2650,6 +2650,24 @@ target_link_libraries (ECClientCapabilitiesTest
 	mulecommon
 )
 
+# Media filter validation and the real EC search-request constructor.
+add_executable (SearchMetadataTest
+	SearchMetadataTest.cpp
+	${CMAKE_SOURCE_DIR}/src/OtherFunctions.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+)
+add_test (NAME SearchMetadataTest COMMAND SearchMetadataTest)
+target_include_directories (SearchMetadataTest PRIVATE
+	${CMAKE_BINARY_DIR}
+	${CMAKE_SOURCE_DIR}/src
+	${CMAKE_SOURCE_DIR}/src/include
+	${CMAKE_SOURCE_DIR}/src/libs
+	${CMAKE_BINARY_DIR}/src/libs
+	${CMAKE_BINARY_DIR}/src/libs/ec/cpp
+)
+target_link_libraries (SearchMetadataTest muleunit ec mulecommon mulesocket)
+
 # Duplicate-search identity and lifecycle eligibility, without a GUI or network.
 add_executable (SearchRequestTest SearchRequestTest.cpp)
 add_test (NAME SearchRequestTest COMMAND SearchRequestTest)
@@ -2952,6 +2970,15 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				COMMAND ${Python3_EXECUTABLE}
 					${CMAKE_CURRENT_SOURCE_DIR}/RemoteConfPermissionsTest.py $<TARGET_FILE:amulecmd>
 			)
+		endif ()
+		if (BUILD_AMULEAPI)
+			add_test (NAME SearchMetadataApiIntegrationTest
+				COMMAND ${Python3_EXECUTABLE}
+					${CMAKE_CURRENT_SOURCE_DIR}/AllSearchApiSmoke.py
+					$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>
+					${CMAKE_CURRENT_SOURCE_DIR}/../curl-tests/amuleapi/48-search-metadata.sh
+			)
+			set_tests_properties (SearchMetadataApiIntegrationTest PROPERTIES LABELS "integration" TIMEOUT 120)
 		endif ()
 		if (BUILD_AMULEAPI AND BUILD_AMULECMD)
 			add_test (NAME AllSearchClientCapabilityTest

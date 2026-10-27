@@ -74,7 +74,8 @@ CEC_Search_Tag::CEC_Search_Tag(const wxString &name,
 	const wxString &extension,
 	uint32 avail,
 	uint64 min_size,
-	uint64 max_size)
+	uint64 max_size,
+	const CSearchMetadata &metadata)
 : CECTag(EC_TAG_SEARCH_TYPE, (uint32)search_type)
 {
 	AddTag(CECTag(EC_TAG_SEARCH_NAME, name));
@@ -91,6 +92,7 @@ CEC_Search_Tag::CEC_Search_Tag(const wxString &name,
 	if (max_size != 0) {
 		AddTag(CECTag(EC_TAG_SEARCH_MAX_SIZE, max_size));
 	}
+	metadata.WriteTo(*this);
 }
 
 static void FormatValue(CFormat &format, const CECTag *tag)

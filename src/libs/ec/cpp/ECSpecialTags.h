@@ -34,6 +34,7 @@
 #include "../../../kademlia/utils/UInt128.h"
 
 #include <map>
+#include "SearchMetadata.h"
 
 /*
  * Specific tags for specific requests.
@@ -736,7 +737,8 @@ public:
 		const wxString &extension,
 		uint32 avail,
 		uint64 min_size,
-		uint64 max_size);
+		uint64 max_size,
+		const CSearchMetadata &metadata = CSearchMetadata());
 
 	wxString SearchText() const { return GetTagByNameSafe(EC_TAG_SEARCH_NAME)->GetStringData(); }
 	EC_SEARCH_TYPE SearchType() const { return (EC_SEARCH_TYPE)GetInt(); }
