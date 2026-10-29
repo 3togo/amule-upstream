@@ -321,6 +321,12 @@ add_test (NAME KadPublishPolicyTest COMMAND KadPublishPolicyTest)
 target_include_directories (KadPublishPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (KadPublishPolicyTest muleunit mulecommon)
 
+# Deterministic source retry eligibility and dead-source expiry policy.
+add_executable (SourceRetryPolicyTest SourceRetryPolicyTest.cpp)
+target_include_directories (SourceRetryPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
+target_link_libraries (SourceRetryPolicyTest muleunit mulecommon)
+add_test (NAME SourceRetryPolicyTest COMMAND SourceRetryPolicyTest)
+
 add_executable (AdvertisedIPv6Test AdvertisedIPv6Test.cpp)
 add_test (NAME AdvertisedIPv6Test COMMAND AdvertisedIPv6Test)
 target_include_directories (AdvertisedIPv6Test PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -3718,9 +3724,3 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Li
 			$<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
 	set_tests_properties (WriteBackpressureIntegrationTest PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
 endif ()
-
-# Deterministic source retry eligibility and dead-source expiry policy.
-add_executable (SourceRetryPolicyTest SourceRetryPolicyTest.cpp)
-target_include_directories (SourceRetryPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
-target_link_libraries (SourceRetryPolicyTest muleunit mulecommon)
-add_test (NAME SourceRetryPolicyTest COMMAND SourceRetryPolicyTest)
