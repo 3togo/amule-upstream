@@ -273,7 +273,8 @@ def fake_core_checks(binary, root):
                 assert request(base, '/metrics')[0] == 404
                 assert request(base, '/api/v1/health')[0] == 200
                 diagnostic = (root / 'invalid-token' / 'api.log').read_text()
-                assert 'metrics disabled' in diagnostic and 'bad token' not in diagnostic
+                assert 'amuleapi: WARN invalid [Metrics]/Token' in diagnostic
+                assert 'bad token' not in diagnostic
                 print('PASS: malformed optional credential disables metrics without stopping API')
             with api_fixture(binary, root / 'reverse', core.server_address[1]) as (base, _):
                 eventually(lambda: 'amule_ec_connected 1\n' in request(base, token=TOKEN)[2])
@@ -291,7 +292,9 @@ def fake_core_checks(binary, root):
                 assert request(base, '/metrics')[0] == 404
                 assert request(base, '/amule/metrics', TOKEN)[0] == 404
                 assert request(base, '/api/v1/health')[0] == 200
-                print('PASS: enabled without a token starts normally and exposes no metrics')
+                diagnostic = (root / 'unconfigured' / 'api.log').read_text()
+                assert 'amuleapi: WARN [Metrics]/Enabled=1 but [Metrics]/Token is empty' in diagnostic
+                print('PASS: enabled without a token starts normally, warns and exposes no metrics')
         finally:
             core.release.set()
             core.shutdown()

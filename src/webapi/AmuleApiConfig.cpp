@@ -315,12 +315,16 @@ bool CAmuleApiConfig::LoadAmuleapiConf(const wxString &path)
 				std::string::npos ||
 			(end != std::string::npos &&
 				token.find_first_not_of('=', end) != std::string::npos)) {
-			std::fputs("amuleapi: invalid [Metrics]/Token (expected 32-256 bearer-token "
+			std::fputs("amuleapi: WARN invalid [Metrics]/Token (expected 32-256 bearer-token "
 				   "characters); metrics disabled\n",
 				stderr);
 			m_metrics.enabled = false;
 			m_metrics.token.clear();
 		}
+	} else if (m_metrics.enabled) {
+		std::fputs("amuleapi: WARN [Metrics]/Enabled=1 but [Metrics]/Token is empty; "
+			   "metrics disabled\n",
+			stderr);
 	}
 
 	// `[Streaming]/EventBusRingCapacity`. Anything below the CEventBus floor is

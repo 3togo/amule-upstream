@@ -3576,10 +3576,11 @@ add_test (NAME MetricsTest COMMAND MetricsTest)
 target_include_directories (MetricsTest PRIVATE ${CMAKE_SOURCE_DIR}/src/webapi)
 target_link_libraries (MetricsTest muleunit mulecommon)
 
-if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Interpreter_FOUND AND UNIX AND NOT APPLE)
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Interpreter_FOUND AND UNIX)
 	add_test (NAME MetricsIntegrationTest
 		COMMAND ${Python3_EXECUTABLE} -u ${CMAKE_CURRENT_SOURCE_DIR}/MetricsIntegrationTest.py
 			$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>)
+	set_tests_properties (MetricsIntegrationTest PROPERTIES LABELS "integration")
 endif ()
 
 # Selection identities remain valid values when the underlying download is removed.

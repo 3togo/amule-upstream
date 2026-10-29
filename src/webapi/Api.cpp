@@ -780,8 +780,7 @@ CHttpServer::Response CApiDispatcher::Dispatch(const CHttpServer::Request &req)
 	// answered -- as the static path did, since it clears the body for HEAD so only
 	// the GET reached the hashing branch.
 	const bool handler_set_etag = (resp.headers.find("ETag") != resp.headers.end());
-	if ((resp.headers.find("Cache-Control") == resp.headers.end() ||
-		    resp.headers.at("Cache-Control") != "no-store") &&
+	if (resp.etag &&
 		webapi::ShouldStampEtag(is_safe_method, handler_set_etag, resp.status, resp.body.empty())) {
 		// Skip the MD5 over a multi-MB body when nothing has changed. The key is
 		// (target, snapshot revision): a revision advances on every eligible write,
@@ -1869,6 +1868,7 @@ CHttpServer::Response CApiDispatcher::HandleMetrics(const CHttpServer::Request &
 	response.status = 200;
 	response.content_type = "text/plain; version=0.0.4; charset=utf-8";
 	response.headers["Cache-Control"] = "no-store";
+	response.etag = false;
 	response.body =
 		webapi::SerializeMetrics(m_state.Metrics(), std::string(GetShortMuleVersion().utf8_str()));
 	return response;

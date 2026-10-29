@@ -383,8 +383,8 @@ Token=REPLACE_WITH_YOUR_RANDOM_64_CHARACTER_HEX_TOKEN
 
 Without a token, amuleapi starts normally and `/metrics` returns 404; no metrics
 aggregation runs. Set `Enabled=1` with a valid token to opt in; `Enabled=0` disables
-metrics even with a token. A malformed token logs an error and leaves metrics off
-while the API starts normally.
+metrics even with a token. With `Enabled=1`, an empty or malformed token logs a
+warning and leaves metrics off while the API starts normally.
 This setting is local to amuleapi: other EC clients do not request or enable metrics.
 
 An active endpoint requires a 32–256 character bearer token. Keep the config and
