@@ -851,8 +851,16 @@ ProbeOutcome Probe(const wxString &helperPath,
 		return ProbeOutcome::Cancelled;
 	if (helperPath.empty())
 		return ProbeOutcome::Unavailable;
-	if (!file.FileExists())
+	if (!file.FileExists()) {
+		AddDebugLogLineN(logMediaProbe,
+			CFormat(wxT("MediaProbe: %s vanished before probing, skipping")) %
+				file.GetPrintable());
+		if (logFailure) {
+			AddLogLineN(CFormat(_("Media metadata: %s is gone, nothing to extract")) %
+				    file.GetPrintable());
+		}
 		return ProbeOutcome::Vanished;
+	}
 	if (!bulk)
 		AddLogLineN(CFormat(_("Extracting media metadata: %s")) % file.GetPrintable());
 	wxArrayString args, lines;

@@ -3980,6 +3980,11 @@ msgstr ""
 
 #: src/MediaProbe.cpp
 #, c-format
+msgid "Media metadata: %s is gone, nothing to extract"
+msgstr ""
+
+#: src/MediaProbe.cpp
+#, c-format
 msgid "Extracting media metadata: %s"
 msgstr ""
 
