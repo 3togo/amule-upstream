@@ -9,8 +9,6 @@ import { api, apiUrl } from "./api.js";
 import { Icon } from "./icons.js";
 import { magnetLink } from "./links.js";
 
-export { magnetLink } from "./links.js";
-
 // --- presentational components -----------------------------------------
 
 // Horizontal progress bar (0..100).
