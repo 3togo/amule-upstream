@@ -335,6 +335,7 @@ if (BUILD_ED2K)
 	target_compile_definitions (ed2k
 		PRIVATE "USE_STD_STRING"
 	)
+	target_include_directories (ed2k PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 	if (WIN32)
 		target_link_libraries (ed2k

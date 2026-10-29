@@ -66,7 +66,7 @@ protected:
 
 // Parsed metadata is separate from serialization and from download side effects.
 // Source hints remain opaque and untrusted; retaining them does not enable HTTP
-// downloads or authenticate any advertised source. Fields retain URI escaping.
+// downloads or authenticate any advertised source. Names and source hints retain URI escaping.
 struct CMagnetED2KImport
 {
 	enum class Error
@@ -75,7 +75,8 @@ struct CMagnetED2KImport
 		MissingED2KHash,
 		InvalidED2KHash,
 		MissingSize,
-		InvalidSize
+		InvalidSize,
+		InvalidName
 	};
 	Error error = Error::MissingED2KHash;
 	STRING name;

@@ -11,6 +11,7 @@ import tempfile
 
 
 def check(binary):
+    print(f"Checking console logger: {binary}", flush=True)
     result = subprocess.run([str(binary)], check=True, capture_output=True, text=True,
                             timeout=15)
     lines = result.stdout.splitlines()

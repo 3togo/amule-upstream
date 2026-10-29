@@ -393,7 +393,10 @@ int main(int argc, char *argv[])
 	string config_path;
 	string category = "";
 	for (int i = 1; i < argc; i++) {
-		string arg = strip(Unescape(string(argv[i])));
+		const string input = strip(string(argv[i]));
+		// Decode magnet fields after splitting the query. A whole-URI decode
+		// turns %26 in a filename into a new field and %7C into an ed2k delimiter.
+		string arg = CMagnetURI::IsMagnet(input) ? input : strip(Unescape(input));
 
 		if (CMagnetURI::IsMagnet(arg)) {
 			const auto imported = CMagnetED2KConverter(arg).Parse();

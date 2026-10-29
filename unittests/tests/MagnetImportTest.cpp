@@ -41,7 +41,8 @@ TEST(MagnetImport, StructuredImportRejectsMalformedIdentityAndLength)
 		ASSERT_TRUE(result.error == CMagnetED2KImport::Error::InvalidED2KHash);
 		ASSERT_TRUE(result.GetED2KLink().empty());
 	}
-	for (const auto *size : { "", "0", "-1", "42junk", "18446744073709551616" }) {
+	for (const auto *size :
+		{ "", "0", "-1", "42junk", "274877906945", "18446744073709551615", "18446744073709551616" }) {
 		const auto result =
 			CMagnetED2KConverter(STRING("magnet:?xt=urn:ed2k:") + ED2K_HASH + "&xl=" + size)
 				.Parse();
@@ -49,8 +50,7 @@ TEST(MagnetImport, StructuredImportRejectsMalformedIdentityAndLength)
 		ASSERT_TRUE(result.GetED2KLink().empty());
 	}
 	const auto largest =
-		CMagnetED2KConverter(STRING("magnet:?xt=urn:ed2k:") + ED2K_HASH + "&xl=18446744073709551615")
-			.Parse();
+		CMagnetED2KConverter(STRING("magnet:?xt=urn:ed2k:") + ED2K_HASH + "&xl=274877906944").Parse();
 	ASSERT_TRUE(largest.IsValid());
 }
 
@@ -68,4 +68,42 @@ TEST(MagnetImport, BothModesKeepAichAndLegacyConverterBehavior)
 	const CMagnetED2KConverter invalid("magnet:?xt=urn:ed2k:bad&xl=42");
 	ASSERT_FALSE(invalid.CanConvertToED2K());
 	ASSERT_TRUE(invalid.GetED2KLink().empty());
+}
+
+TEST(MagnetImport, DisplayNameCannotInjectNativeLinkFieldsOrRecords)
+{
+	for (const auto *name : { "",
+		     "name|42|00000000000000000000000000000000",
+		     "line\nbreak",
+		     "line\rbreak",
+		     "nul\x01",
+		     "encoded%0Aline",
+		     "nul%00",
+		     "del%7F" }) {
+		const auto result =
+			CMagnetED2KConverter(STRING("magnet:?xt=urn:ed2k:") + ED2K_HASH + "&xl=42&dn=" + name)
+				.Parse();
+		ASSERT_TRUE(result.error == CMagnetED2KImport::Error::InvalidName);
+		ASSERT_TRUE(result.GetED2KLink().empty());
+	}
+	// Do not decode escaped delimiters into the ed2k field grammar.
+	const auto escaped = CMagnetED2KConverter(
+		STRING("magnet:?xt=urn:ed2k:") + ED2K_HASH + "&xl=42&dn=caf%C3%A9%7Cfile.bin")
+				     .Parse();
+	ASSERT_TRUE(escaped.IsValid());
+	ASSERT_TRUE(escaped.GetED2KLink().find("caf%C3%A9%7Cfile.bin|42|") != STRING::npos);
+}
+
+TEST(MagnetImport, DecodesIdentityAndLengthWithoutDecodingFilenameDelimiters)
+{
+	const auto result = CMagnetED2KConverter(
+		STRING("magnet:?xt=urn%3Aed2k%3A") + ED2K_HASH + "&xl=%34%32&dn=name%26xl%3D999%7Cfile.bin")
+				    .Parse();
+	ASSERT_TRUE(result.IsValid());
+	ASSERT_TRUE(result.size == "42");
+	ASSERT_TRUE(result.hash == ED2K_HASH);
+	ASSERT_TRUE(result.GetED2KLink().find("name%26xl%3D999%7Cfile.bin|42|") != STRING::npos);
+	const auto invalid =
+		CMagnetED2KConverter(STRING("magnet:?xt=urn:ed2k:") + ED2K_HASH + "&xl=%00").Parse();
+	ASSERT_TRUE(invalid.error == CMagnetED2KImport::Error::InvalidSize);
 }

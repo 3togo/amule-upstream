@@ -80,6 +80,9 @@ if (Python3_Interpreter_FOUND)
 		COMMAND ${Python3_EXECUTABLE}
 			${CMAKE_CURRENT_SOURCE_DIR}/ConsoleLoggerIdentityTest.py $<TARGET_FILE:ConsoleLoggerProbe>
 	)
+	# Starts the probe twice (three times on Unix), with a 15 s child deadline
+	# each time, plus Python startup and executable copy/rename work.
+	set_tests_properties (ConsoleLoggerIdentityTest PROPERTIES LABELS "slow")
 	add_test (NAME IntegrationFixtureUnitTest
 		COMMAND ${Python3_EXECUTABLE} -u ${CMAKE_CURRENT_SOURCE_DIR}/IntegrationFixtureUnitTest.py -v
 	)
@@ -1863,7 +1866,7 @@ target_link_libraries (MagnetURITest
 # Share one import contract across the GUI/daemon and standalone link handler.
 foreach (_magnet_mode IN ITEMS MagnetImportTest MagnetImportStdTest)
 	add_executable (${_magnet_mode} MagnetImportTest.cpp ${CMAKE_SOURCE_DIR}/src/MagnetURI.cpp)
-	target_include_directories (${_magnet_mode} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+	target_include_directories (${_magnet_mode} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
 	target_link_libraries (${_magnet_mode} muleunit mulecommon)
 	add_test (NAME ${_magnet_mode} COMMAND ${_magnet_mode})
 endforeach ()

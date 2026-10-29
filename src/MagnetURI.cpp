@@ -24,6 +24,8 @@
 //
 
 #include "MagnetURI.h"
+#include "Types.h"
+#include <protocol/ed2k/Constants.h> // MAX_FILE_SIZE, shared with the native link parser
 #include <cstdint>
 #include <limits>
 
@@ -72,6 +74,36 @@ bool StartsWithNoCase(const STRING &s, const char *lowerPrefix)
 		}
 	}
 	return true;
+}
+
+// Decode identity/length fields only. The name stays escaped when embedded in
+// an ed2k link so an escaped pipe cannot become a structural field separator.
+STRING DecodeAsciiEscapes(const STRING &value)
+{
+	STRING decoded;
+	const auto hex = [](unsigned c) -> int {
+		c = AsciiLower(c);
+		if (c >= '0' && c <= '9') {
+			return static_cast<int>(c - '0');
+		}
+		if (c >= 'a' && c <= 'f') {
+			return static_cast<int>(c - 'a' + 10);
+		}
+		return -1;
+	};
+	for (size_t i = 0; i < value.length(); ++i) {
+		if (value[i] == _C('%') && value.length() - i > 2) {
+			const int high = hex(CharCode(value[i + 1]));
+			const int low = hex(CharCode(value[i + 2]));
+			if (high >= 0 && low >= 0 && high < 8) {
+				decoded.append(1, static_cast<char>(high * 16 + low));
+				i += 2;
+				continue;
+			}
+		}
+		decoded.append(1, value[i]);
+	}
+	return decoded;
 }
 
 } // namespace
@@ -163,9 +195,10 @@ CMagnetED2KImport CMagnetED2KConverter::Parse() const
 	result.name = names.empty() ? STRING(_T("FileName.ext")) : names.front();
 	const auto sizes = GetField(_T("xl"));
 	if (!sizes.empty()) {
-		result.size = sizes.front();
+		result.size = DecodeAsciiEscapes(sizes.front());
 	}
-	for (const auto &urn : GetField(_T("xt"))) {
+	for (const auto &encoded : GetField(_T("xt"))) {
+		const STRING urn = DecodeAsciiEscapes(encoded);
 		if (result.hash.empty() && StartsWithNoCase(urn, "urn:ed2k:")) {
 			result.hash = urn.substr(9);
 		} else if (result.hash.empty() && StartsWithNoCase(urn, "urn:ed2khash:")) {
@@ -227,8 +260,24 @@ CMagnetED2KImport CMagnetED2KConverter::Parse() const
 		}
 		size = size * 10 + (code - '0');
 	}
-	result.error = validSize && size != 0 ? CMagnetED2KImport::Error::None
-					      : CMagnetED2KImport::Error::InvalidSize;
+	result.error = validSize && size != 0 && size <= MAX_FILE_SIZE
+			       ? CMagnetED2KImport::Error::None
+			       : CMagnetED2KImport::Error::InvalidSize;
+	if (result.IsValid()) {
+		// A raw separator would change the identity/size fields when serialized
+		// to ed2k. URI-escaped characters remain escaped until the native parser.
+		if (result.name.empty() || result.name.find(_C('|')) != STRING::npos) {
+			result.error = CMagnetED2KImport::Error::InvalidName;
+		}
+		const STRING readName = DecodeAsciiEscapes(result.name);
+		for (const auto c : readName) {
+			const unsigned code = CharCode(c);
+			if (code < 32 || code == 127) {
+				result.error = CMagnetED2KImport::Error::InvalidName;
+				break;
+			}
+		}
+	}
 	return result;
 }
 
@@ -244,7 +293,9 @@ const char *CMagnetED2KImport::GetErrorMessage() const
 	case Error::MissingSize:
 		return "missing exact length (xl)";
 	case Error::InvalidSize:
-		return "exact length must be a positive 64-bit decimal integer";
+		return "exact length must be a positive decimal integer within the supported file-size limit";
+	case Error::InvalidName:
+		return "display name must be nonempty and contain no raw separators or control characters";
 	}
 	return "invalid magnet";
 }
