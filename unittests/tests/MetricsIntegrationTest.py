@@ -178,7 +178,7 @@ def fake_core_checks(binary, root):
                 core.release.set()
                 eventually(lambda: 'amule_ec_connected 1\n' in request(base, token=TOKEN)[2])
                 text = request(base, token=TOKEN)[2]
-                assert 'amule_transferred_bytes_alltime' not in text, text
+                assert 'amule_lifetime_transferred_bytes_total' not in text, text
                 assert 'amule_transferred_bytes_total' not in text, text
                 assert 'amule_uptime_seconds' not in text, text
                 assert 'amule_active_connections' not in text, text
@@ -314,8 +314,8 @@ def real_daemon_checks(daemon, binary, root):
             with api_fixture(binary, root / 'real-api', ec) as (base, _):
                 eventually(lambda: 'amule_ec_connected 1\n' in request(base, token=TOKEN)[2])
                 code, _, text = request(base, token=TOKEN)
-                for expected in ('amule_transferred_bytes_alltime{direction="upload"}',
-                                 'amule_transferred_bytes_alltime{direction="download"}',
+                for expected in ('amule_lifetime_transferred_bytes_total{direction="upload"}',
+                                 'amule_lifetime_transferred_bytes_total{direction="download"}',
                                  'amule_transferred_bytes_total{direction="upload"} 0\n',
                                  'amule_transferred_bytes_total{direction="download"} 0\n',
                                  'amule_active_connections 0\n', 'amule_uptime_seconds ',
@@ -334,11 +334,8 @@ def real_daemon_checks(daemon, binary, root):
                                    text=True, check=True, capture_output=True)
                     lint = subprocess.run([promtool, 'check', 'metrics'], input=text,
                                           text=True, capture_output=True)
-                    # The proposal deliberately reserves _total for session counters.
-                    expected_lint = 'amule_transferred_bytes_alltime counter metrics should have \"_total\" suffix'
-                    assert lint.returncode == 3, (lint.returncode, lint.stdout, lint.stderr)
-                    assert (lint.stdout + lint.stderr).strip() == expected_lint, (lint.stdout, lint.stderr)
-                    print('PASS: promtool parses real-daemon output; only the specified alltime suffix lint remains')
+                    assert lint.returncode == 0, (lint.returncode, lint.stdout, lint.stderr)
+                    print('PASS: promtool parses and lints real-daemon output cleanly')
                 else:
                     print('LIMITATION: promtool unavailable; exposition validator not run')
                 print('PASS: existing real-daemon EC statistics without joining public networks')

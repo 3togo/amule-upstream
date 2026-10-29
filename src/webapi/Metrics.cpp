@@ -136,15 +136,15 @@ std::string SerializeMetrics(const MetricsSnapshot &snapshot, const std::string 
 				"{direction=\"download\"}");
 	}
 	if (s.total_sent_bytes.present || s.total_received_bytes.present) {
-		w.Family("transferred_bytes_alltime",
+		w.Family("lifetime_transferred_bytes_total",
 			"Persisted lifetime transferred bytes; may reset when daemon statistics are reset.",
 			"counter");
 		if (s.total_sent_bytes.present)
-			w.Sample("transferred_bytes_alltime",
+			w.Sample("lifetime_transferred_bytes_total",
 				s.total_sent_bytes.value,
 				"{direction=\"upload\"}");
 		if (s.total_received_bytes.present)
-			w.Sample("transferred_bytes_alltime",
+			w.Sample("lifetime_transferred_bytes_total",
 				s.total_received_bytes.value,
 				"{direction=\"download\"}");
 	}

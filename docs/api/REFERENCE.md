@@ -3513,7 +3513,7 @@ Each scrape reads a compact snapshot that amuleapi publishes after a successful 
 | `amule_kad_firewalled` | gauge, `protocol="tcp\|udp"` | Firewall verdict, only when available |
 | `amule_transfer_rate_bytes_per_second` | gauge, `direction="upload\|download"`, `kind="data\|overhead"` | Data and additional overhead rates |
 | `amule_speed_limit_bytes_per_second` | gauge, `direction` | Configured limit; zero means unlimited |
-| `amule_transferred_bytes_alltime` | counter, `direction` | Persisted lifetime bytes from `statistics.dat` |
+| `amule_lifetime_transferred_bytes_total` | counter, `direction` | Persisted lifetime bytes from `statistics.dat` |
 | `amule_transferred_bytes_total` | counter, `direction` | Exact session bytes; resets on daemon restart |
 | `amule_active_uploads` | gauge | Cached clients whose upload state is uploading |
 | `amule_active_connections` | gauge | Active daemon connections; omitted on older daemons |
@@ -3532,7 +3532,7 @@ Each scrape reads a compact snapshot that amuleapi publishes after a successful 
 | `amule_kad_indexed` | gauge, `type="sources\|keywords\|notes"` | Locally indexed item counts |
 | `amule_kad_index_load` | gauge | Daemon-reported index load, separate from item counts |
 
-Download status labels are `downloading`, `waiting`, `hashing`, `erroneous`, `insufficient_disk`, `paused`, `allocating`, `stopped`, `completing`, `completed` and `unknown`. Every status appears, also with a zero count; a status amuleapi does not know counts as `unknown`. An older daemon that does not send a value gets no series for it, while a real zero stays zero. Lifetime counters can go down after a statistics reset or a profile change; `rate()` handles such resets. `promtool check metrics` reports the counter-suffix warning for `amule_transferred_bytes_alltime`, because `_total` is kept for the session counters.
+Download status labels are `downloading`, `waiting`, `hashing`, `erroneous`, `insufficient_disk`, `paused`, `allocating`, `stopped`, `completing`, `completed` and `unknown`. Every status appears, also with a zero count; a status amuleapi does not know counts as `unknown`. An older daemon that does not send a value gets no series for it, while a real zero stays zero. Lifetime counters can go down after a statistics reset or a profile change; `rate()` handles such resets.
 
 Before the first successful refresh, the output holds only `amule_build_info` and `amule_ec_connected 0`. After a failed refresh it also keeps the last snapshot timestamp, but leaves out all daemon measurements. A statistics, file-update or preferences request answered with `EC_OP_FAILED` counts as a failed refresh, even if the EC connection stays open. These responses are still HTTP 200: Prometheus `up` shows the health of the scrape, while `amule_ec_connected` and `time() - amule_snapshot_timestamp_seconds` show the health and age of the refresh. A refresh that hangs keeps the last published state, so monitor the age as well as the connection. When the EC connection drops, amuleapi exits as before, and the scrape itself fails.
 

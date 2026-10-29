@@ -59,8 +59,9 @@ TEST(Metrics, EscapesLabelsAndIgnoresGlobalNumberLocale)
 	ASSERT_TRUE(text.find("amule_build_info{version=\"version\\\\\\\"\\nnext\",daemon_version="
 			      "\"daemon\\\\\\\"\\nnext\"} 1\n") != std::string::npos);
 	ASSERT_TRUE(text.find("amule_snapshot_timestamp_seconds 1234567\n") != std::string::npos);
-	ASSERT_TRUE(text.find("amule_transferred_bytes_alltime{direction=\"upload\"} 123456789012345\n") !=
-		    std::string::npos);
+	ASSERT_TRUE(
+		text.find("amule_lifetime_transferred_bytes_total{direction=\"upload\"} 123456789012345\n") !=
+		std::string::npos);
 	ASSERT_EQUALS('\n', text.back());
 }
 
@@ -73,14 +74,14 @@ TEST(Metrics, OmitsUnavailableMeasurementsButRetainsRealZero)
 	ASSERT_TRUE(missing.find("amule_disk_free_bytes") == std::string::npos);
 	ASSERT_TRUE(missing.find("amule_kad_network_users") == std::string::npos);
 	ASSERT_TRUE(missing.find("amule_ed2k_high_id") == std::string::npos);
-	ASSERT_TRUE(missing.find("amule_transferred_bytes_alltime") == std::string::npos);
+	ASSERT_TRUE(missing.find("amule_lifetime_transferred_bytes_total") == std::string::npos);
 	ASSERT_TRUE(missing.find("amule_shared_files") == std::string::npos);
 	s.status.temp_free_bytes = 0;
 	s.status.total_received_bytes = { 0, true };
 	s.status.download_limit_bytes_per_second = { 0, true };
 	const auto zero = SerializeMetrics(s, "test");
 	ASSERT_TRUE(zero.find("amule_disk_free_bytes{dir=\"temp\"} 0\n") != std::string::npos);
-	ASSERT_TRUE(zero.find("amule_transferred_bytes_alltime{direction=\"download\"} 0\n") !=
+	ASSERT_TRUE(zero.find("amule_lifetime_transferred_bytes_total{direction=\"download\"} 0\n") !=
 		    std::string::npos);
 	ASSERT_TRUE(zero.find("amule_speed_limit_bytes_per_second{direction=\"download\"} 0\n") !=
 		    std::string::npos);
@@ -225,8 +226,9 @@ TEST(Metrics, SessionStatisticsAreOptionalAndSeparateFromLifetimeTotals)
 		    std::string::npos);
 	ASSERT_TRUE(
 		text.find("amule_transferred_bytes_total{direction=\"download\"} 0\n") != std::string::npos);
-	ASSERT_TRUE(text.find("amule_transferred_bytes_alltime{direction=\"upload\"} 9999999999999\n") !=
-		    std::string::npos);
+	ASSERT_TRUE(
+		text.find("amule_lifetime_transferred_bytes_total{direction=\"upload\"} 9999999999999\n") !=
+		std::string::npos);
 	ASSERT_TRUE(text.find("amule_active_connections 0\n") != std::string::npos);
 	ASSERT_TRUE(text.find("amule_uptime_seconds 42\n") != std::string::npos);
 }
