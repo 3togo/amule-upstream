@@ -377,8 +377,8 @@ CEC_Prefs_Packet::CEC_Prefs_Packet(
 		}
 		srv_prefs.AddTag(CECTag(EC_TAG_SERVERS_UPDATE_URL, urls.empty() ? wxString() : urls[0]));
 		// By value: a client that predates the tag leaves the setting unchanged.
-		srv_prefs.AddTag(CECTag(
-			EC_TAG_SERVERS_ED2K_ACCELERATED_PUBLICATION, thePrefs::GetED2KAcceleratedPublication()));
+		srv_prefs.AddTag(CECTag(EC_TAG_SERVERS_ED2K_ACCELERATED_PUBLICATION,
+			thePrefs::GetED2KAcceleratedPublication()));
 		AddTag(srv_prefs);
 	}
 

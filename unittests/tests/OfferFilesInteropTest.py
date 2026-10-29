@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 aMule Team
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Controlled interoperability with the published ed2k-server v0.9.85 binary.
+"""Controlled interoperability with ed2k-server (verified with v0.9.85).
 
 Never connects to a public server. Checks the server's source index via its
 loopback admin API, and records the actual client frames through a local relay.
-The optional large-library run uses the same path as the smaller fixtures.
+
+Build the server from its release tag (Rust 1.88 or newer), then run:
+
+    python3 unittests/tests/OfferFilesInteropTest.py AMULED ED2K_SERVER \\
+        [--case NAME] [--large-library 60000] [--queue-samples] [--output FILE]
+
+or configure with -DENABLE_INTEGRATION_TESTS=ON -DOFFERFILES_INTEROP_SERVER=PATH
+and run `ctest -R OfferFilesInteropTest`. Needs a libcrypto with MD4 for the
+known.met fixtures. --queue-samples needs a Debug amuled.
 """
 import argparse
 import base64

@@ -131,8 +131,7 @@ TEST(ECPrefsDiff, ValueFlagSwitchedOffCarriesFalse)
 		return packet;
 	};
 	const std::unique_ptr<CECPacket> diff = MakePrefsDiffPacket(prefs(true), prefs(false));
-	const CECTag *flag =
-		Find(*diff, EC_TAG_PREFS_SERVERS, EC_TAG_SERVERS_ED2K_ACCELERATED_PUBLICATION);
+	const CECTag *flag = Find(*diff, EC_TAG_PREFS_SERVERS, EC_TAG_SERVERS_ED2K_ACCELERATED_PUBLICATION);
 	ASSERT_TRUE(flag != nullptr);
 	ASSERT_EQUALS(0u, flag->GetInt());
 	ASSERT_EQUALS(0u, MakePrefsDiffPacket(prefs(true), prefs(true))->GetTagCount());
