@@ -91,7 +91,8 @@ int main()
 		while (lines.HasMoreTokens()) {
 			const wxString line = lines.GetNextToken();
 			if (line.Contains(flags + (general ? "[General] " : "")) &&
-				line.Contains("[General] ") == general && line.EndsWith("runtime-category-test")) {
+				line.Contains("[General] ") == general &&
+				line.EndsWith("runtime-category-test")) {
 				return true;
 			}
 		}
