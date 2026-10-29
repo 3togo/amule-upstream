@@ -25,6 +25,7 @@
 #ifndef BLOCKRESERVATION_H
 #define BLOCKRESERVATION_H
 
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 
@@ -69,6 +70,51 @@ std::optional<CBlockRange> FindUnreservedBlock(
 			return CBlockRange{ candidate.start, end };
 		}
 	}
+}
+
+// Select within a source's chosen part, retaining the part-relative block grid.
+// Gaps must be ordered and disjoint, as in CGapList. Iterator adapters let the
+// policy read existing gap/reservation storage without copying or owning it.
+// Inspired by Shareaza's wanted/available/requested range separation; aMule's
+// part ranking and inclusive offsets remain unchanged.
+template <typename GapIterator, typename ReadGap, typename Reservations, typename ReadReservation>
+std::optional<CBlockRange> FindNextDownloadBlock(CBlockRange part,
+	uint64_t blockSize,
+	GapIterator gap,
+	GapIterator gapsEnd,
+	ReadGap readGap,
+	const Reservations &reservations,
+	ReadReservation readReservation)
+{
+	if (part.start > part.end || blockSize == 0) {
+		return std::nullopt;
+	}
+	for (; gap != gapsEnd; ++gap) {
+		const CBlockRange missing = readGap(gap);
+		if (missing.start > missing.end || missing.end < part.start) {
+			continue;
+		}
+		if (missing.start > part.end) {
+			break;
+		}
+		uint64_t start = std::max(part.start, missing.start);
+		const uint64_t limit = std::min(part.end, missing.end);
+		for (;;) {
+			// Subtraction first keeps the inclusive end safe even at UINT64_MAX.
+			const uint64_t remaining = blockSize - 1 - (start - part.start) % blockSize;
+			const uint64_t end = start + std::min(remaining, limit - start);
+			const auto available =
+				FindUnreservedBlock(CBlockRange{ start, end }, reservations, readReservation);
+			if (available) {
+				return available;
+			}
+			if (end == limit) {
+				break;
+			}
+			start = end + 1;
+		}
+	}
+	return std::nullopt;
 }
 
 #endif // BLOCKRESERVATION_H

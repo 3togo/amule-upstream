@@ -149,3 +149,97 @@ TEST(BlockReservation, OverlappingIntervalsMatchFirstFreeRunOracle)
 		}
 	}
 }
+
+namespace
+{
+std::optional<CBlockRange> Select(CBlockRange part,
+	uint64_t blockSize,
+	const std::vector<CBlockRange> &gaps,
+	const std::vector<CBlockRange> &reservations)
+{
+	return FindNextDownloadBlock(
+		part,
+		blockSize,
+		gaps.begin(),
+		gaps.end(),
+		[](const auto &gap) { return *gap; },
+		reservations,
+		[](CBlockRange range) { return range; });
+}
+} // namespace
+
+TEST(BlockReservation, SelectionClipsGapsToPartAndBlockGrid)
+{
+	const auto first = Select({ 100, 126 }, 10, { { 0, 99 }, { 103, 199 } }, {});
+	ASSERT_TRUE(first.has_value());
+	ASSERT_EQUALS(103u, first->start);
+	ASSERT_EQUALS(109u, first->end);
+	const auto last = Select({ 100, 126 }, 10, { { 103, 199 } }, { { 100, 119 } });
+	ASSERT_TRUE(last.has_value());
+	ASSERT_EQUALS(120u, last->start);
+	ASSERT_EQUALS(126u, last->end);
+}
+
+TEST(BlockReservation, SelectionSkipsReservedBlocksAndPreservesHoles)
+{
+	const auto result =
+		Select({ 0, 29 }, 10, { { 2, 14 }, { 18, 29 } }, { { 18, 19 }, { 0, 9 }, { 10, 12 } });
+	ASSERT_TRUE(result.has_value());
+	ASSERT_EQUALS(13u, result->start);
+	ASSERT_EQUALS(14u, result->end);
+	ASSERT_FALSE(Select({ 0, 29 }, 10, { { 2, 14 }, { 18, 29 } }, { { 0, 29 } }));
+	ASSERT_FALSE(Select({ 0, 29 }, 10, {}, {}));
+	ASSERT_FALSE(Select({ 1, 0 }, 10, { { 0, 29 } }, {}));
+	ASSERT_FALSE(Select({ 0, 29 }, 0, { { 0, 29 } }, {}));
+}
+
+TEST(BlockReservation, SelectionHandlesLastByteWithoutOverflow)
+{
+	const uint64_t maximum = std::numeric_limits<uint64_t>::max();
+	const auto last = Select(
+		{ maximum - 9, maximum }, 6, { { maximum - 9, maximum } }, { { maximum - 9, maximum - 1 } });
+	ASSERT_TRUE(last.has_value());
+	ASSERT_EQUALS(maximum, last->start);
+	ASSERT_EQUALS(maximum, last->end);
+	ASSERT_FALSE(Select({ maximum, maximum }, 1, { { maximum, maximum } }, { { maximum, maximum } }));
+}
+
+TEST(BlockReservation, SelectionMatchesByteOracleAcrossGapsAndReservations)
+{
+	for (unsigned missing = 0; missing < 256; ++missing) {
+		std::vector<CBlockRange> gaps;
+		for (unsigned bit = 0; bit < 8; ++bit) {
+			if (missing & (1u << bit)) {
+				if (!gaps.empty() && gaps.back().end + 1 == bit) {
+					gaps.back().end = bit;
+				} else {
+					gaps.push_back({ bit, bit });
+				}
+			}
+		}
+		for (unsigned busy = 0; busy < 256; ++busy) {
+			std::vector<CBlockRange> reservations;
+			for (unsigned bit = 0; bit < 8; ++bit) {
+				if (busy & (1u << bit)) {
+					reservations.push_back({ bit, bit });
+				}
+			}
+			std::reverse(reservations.begin(), reservations.end());
+			const auto result = Select({ 1, 6 }, 3, gaps, reservations);
+			unsigned start = 1;
+			const auto free = [&](unsigned bit) { return (missing & ~busy & (1u << bit)) != 0; };
+			while (start <= 6 && !free(start)) {
+				++start;
+			}
+			ASSERT_EQUALS(start <= 6, result.has_value());
+			if (result) {
+				unsigned end = start;
+				while (end < 6 && (end - 1) / 3 == (end + 1 - 1) / 3 && free(end + 1)) {
+					++end;
+				}
+				ASSERT_EQUALS(start, result->start);
+				ASSERT_EQUALS(end, result->end);
+			}
+		}
+	}
+}
