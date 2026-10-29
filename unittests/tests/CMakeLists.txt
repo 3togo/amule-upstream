@@ -2,6 +2,53 @@
 # 10 s, "slow" 60 s, "integration" 300 s, and "reverify" runs in a step of its own. Label a
 # test next to its add_test, so adding one never touches the workflow.
 
+# Shared log rendering and the wx event envelope, without a running daemon.
+add_executable (LogRecordTest
+	LogRecordTest.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+)
+target_include_directories (LogRecordTest PRIVATE
+	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+)
+target_link_libraries (LogRecordTest muleunit mulecommon)
+add_test (NAME LogRecordTest COMMAND LogRecordTest)
+
+# Exercise the actual file writer and EC reader without starting a daemon.
+add_executable (LogFileReplayTest
+	LogFileReplayTest.cpp
+	${CMAKE_SOURCE_DIR}/src/Logger.cpp
+)
+target_compile_definitions (LogFileReplayTest PRIVATE AMULE_DAEMON)
+target_include_directories (LogFileReplayTest PRIVATE
+	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+)
+target_link_libraries (LogFileReplayTest muleunit mulecommon)
+add_test (NAME LogFileReplayTest COMMAND LogFileReplayTest)
+
+# Test the real logging macros in both build types, without MULEUNIT replacements.
+foreach (logger_test IN ITEMS LoggerRuntimeTest LoggerConsoleRuntimeTest)
+	if (logger_test STREQUAL "LoggerRuntimeTest")
+		set (logger_source Logger.cpp)
+	else ()
+		set (logger_source LoggerConsole.cpp)
+	endif ()
+	add_executable (${logger_test}
+		LoggerRuntimeTest.cpp
+		${CMAKE_SOURCE_DIR}/src/${logger_source}
+	)
+	target_compile_definitions (${logger_test} PRIVATE AMULE_DAEMON wxUSE_GUI=0)
+	if (logger_test STREQUAL "LoggerConsoleRuntimeTest")
+		target_compile_definitions (${logger_test} PRIVATE LOGGER_CONSOLE_TEST)
+	endif ()
+	target_include_directories (${logger_test} PRIVATE
+		${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+		${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs
+		${CMAKE_BINARY_DIR}/src/libs/ec/cpp
+	)
+	target_link_libraries (${logger_test} PRIVATE mulecommon wxWidgets::BASE)
+	add_test (NAME ${logger_test} COMMAND ${logger_test})
+endforeach ()
+
 # Shared application anchors for headless tests that link production core code.
 function (add_application_test_stubs target)
 	target_sources (${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationTestStubs.cpp)
@@ -13,8 +60,26 @@ function (add_application_test_stubs target)
 endfunction()
 
 find_package (Python3 QUIET COMPONENTS Interpreter)
+if (BUILD_FILEVIEW AND Python3_Interpreter_FOUND)
+	add_test (NAME FileViewLoggingRegressionTest
+		COMMAND ${Python3_EXECUTABLE}
+			${CMAKE_CURRENT_SOURCE_DIR}/FileViewLoggingRegressionTest.py $<TARGET_FILE:fileview>
+	)
+endif ()
 
 if (Python3_Interpreter_FOUND)
+	add_executable (ConsoleLoggerProbe
+		ConsoleLoggerProbe.cpp
+		${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+	)
+	target_include_directories (ConsoleLoggerProbe PRIVATE
+		${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs
+	)
+	target_link_libraries (ConsoleLoggerProbe mulecommon)
+	add_test (NAME ConsoleLoggerIdentityTest
+		COMMAND ${Python3_EXECUTABLE}
+			${CMAKE_CURRENT_SOURCE_DIR}/ConsoleLoggerIdentityTest.py $<TARGET_FILE:ConsoleLoggerProbe>
+	)
 	add_test (NAME IntegrationFixtureUnitTest
 		COMMAND ${Python3_EXECUTABLE} -u ${CMAKE_CURRENT_SOURCE_DIR}/IntegrationFixtureUnitTest.py -v
 	)
@@ -2205,8 +2270,7 @@ if (LIBATOMIC)
 endif()
 
 # amuleapi log tee: CRotatingLog's size cap, line stamping and the tee itself.
-# LogTee.cpp is plain POSIX/std (no wx), so only muleunit + mulecommon are
-# needed for the harness.
+# The tee shares the wx-based log formatter, linked through mulecommon.
 add_executable (LogTeeTest
 	LogTeeTest.cpp
 	${CMAKE_SOURCE_DIR}/src/webapi/LogTee.cpp
@@ -2999,6 +3063,18 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				${CMAKE_CURRENT_SOURCE_DIR}/PathDefaultsIntegrationTest.py $<TARGET_FILE:amuled>
 		)
 		set_tests_properties (PathDefaultsIntegrationTest PROPERTIES LABELS "integration")
+		set (logging_format_command ${Python3_EXECUTABLE}
+			${CMAKE_CURRENT_SOURCE_DIR}/LoggingFormatIntegrationTest.py $<TARGET_FILE:amuled>)
+		if (BUILD_AMULECMD)
+			list (APPEND logging_format_command --amulecmd $<TARGET_FILE:amulecmd>)
+		endif ()
+		add_test (NAME LoggingFormatIntegrationTest COMMAND ${logging_format_command})
+		set_tests_properties (LoggingFormatIntegrationTest PROPERTIES LABELS "integration")
+		add_test (NAME LoggerRuntimeIntegrationTest
+			COMMAND ${Python3_EXECUTABLE}
+				${CMAKE_CURRENT_SOURCE_DIR}/LoggerRuntimeIntegrationTest.py $<TARGET_FILE:amuled>
+		)
+		set_tests_properties (LoggerRuntimeIntegrationTest PROPERTIES LABELS "integration")
 		add_test (NAME LogfilePathIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/LogfilePathIntegrationTest.py $<TARGET_FILE:amuled>

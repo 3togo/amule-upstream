@@ -3974,14 +3974,6 @@ msgstr ""
 msgid "ERROR: Could not listen to TCP port."
 msgstr ""
 
-#: src/Logger.cpp
-msgid "ERROR: "
-msgstr ""
-
-#: src/Logger.cpp
-msgid "WARNING: "
-msgstr ""
-
 #: src/MediaProbe.cpp
 msgid "Media metadata: bundled amule-media-probe helper is unavailable."
 msgstr ""
