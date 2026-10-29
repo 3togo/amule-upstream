@@ -92,8 +92,10 @@ ctest --test-dir /tmp/media-helper --output-on-failure
 The helper installs MediaInfoLib, ZenLib, aes-gladman and tinyxml2 notices under
 `share/licenses/amule-media-probe`; macOS places them in the app's Resources.
 See `docs/THIRDPARTY.md`. Update the source pins in `packaging/linux/versions.env`,
-render the Flatpak template with `packaging/linux/build.sh render-flatpak-manifest`,
-and resolve the matching values in the Flathub manifest. Keep the exact sources
+render the Flatpak template with `packaging/linux/build.sh render-flatpak-manifest`.
+The Flathub manifest remains pinned to 3.2.0, which uses ffprobe; add the media
+modules with resolved pins when updating it to the first release with this helper.
+Keep the exact sources
 and build recipes with redistributed bundles.
 Windows/macOS packaging, Flatpak runtime and the fully static Alpine image need
 validation on their respective platforms.

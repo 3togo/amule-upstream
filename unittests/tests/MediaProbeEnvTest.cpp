@@ -42,6 +42,34 @@ using namespace muleunit;
 
 DECLARE_SIMPLE(MediaProbeEnv)
 
+TEST(MediaProbeEnv, NativeHelperFailuresRespectHeaderAndOutputBudget)
+{
+	const wxString path = wxFileName::CreateTempFileName(wxT("amule-native-exit"));
+	const std::atomic<bool> running(true);
+	for (const char mode : { 's', 'e', 'c', 'o' }) {
+		wxFFile input(path, wxT("wb"));
+		ASSERT_TRUE(input.IsOpened());
+		ASSERT_EQUALS(size_t(1), input.Write(&mode, 1));
+		input.Close();
+		MediaInfo info;
+		const auto outcome = MediaProbe::Probe(wxString::FromUTF8(AMULE_MEDIA_EXIT_FIXTURE),
+			CPath(path),
+			info,
+			5000,
+			running,
+			true,
+			false);
+		if (mode == 'c') {
+			ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::UnreadableFile);
+			ASSERT_TRUE(MediaProbe::IsFileVerdict(outcome));
+		} else {
+			ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Unavailable);
+			ASSERT_FALSE(MediaProbe::IsFileVerdict(outcome));
+		}
+	}
+	wxRemoveFile(path);
+}
+
 // The bundled helper inherits AppImage library paths. The stand-in returns
 // LD_LIBRARY_PATH as a title so the test reads the actual child environment.
 #ifndef __WXMSW__

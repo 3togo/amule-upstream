@@ -1059,7 +1059,12 @@ bool CamuleApp::OnInit()
 	partFileWriteThread = new CPartFileWriteThread();
 	partFileHashThread = new CPartFileHashThread();
 	partMetWriter = new CPartMetWriter();
-	// Dedicated worker for ffprobe metadata, isolated from the shared
+	// Detect at startup even when there are no media files to schedule, so an
+	// enabled feature with a missing helper is reported once.
+	if (thePrefs::GetMediaMetadataEnabled()) {
+		thePrefs::IsMediaMetadataAvailable();
+	}
+	// Dedicated worker for media metadata, isolated from the shared
 	// CThreadScheduler so a slow or hung probe can never stall completions.
 	mediaProbeThread = new CMediaProbeThread();
 	// Dedicated worker for the free-space probe, isolated for the same reason: statvfs()

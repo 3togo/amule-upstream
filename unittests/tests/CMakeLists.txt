@@ -2164,6 +2164,9 @@ add_executable (MediaProbeEnvTest
 	${CMAKE_SOURCE_DIR}/src/AppImageEnv.cpp
 )
 add_test (NAME MediaProbeEnvTest COMMAND MediaProbeEnvTest)
+add_executable (MediaProbeExitFixture MediaProbeExitFixture.cpp)
+add_dependencies (MediaProbeEnvTest MediaProbeExitFixture)
+target_compile_definitions (MediaProbeEnvTest PRIVATE AMULE_MEDIA_EXIT_FIXTURE="$<TARGET_FILE:MediaProbeExitFixture>")
 if(TARGET amule-media-probe)
     add_dependencies(MediaProbeEnvTest amule-media-probe)
     target_compile_definitions(MediaProbeEnvTest PRIVATE AMULE_MEDIA_HELPER_TEST="$<TARGET_FILE:amule-media-probe>")

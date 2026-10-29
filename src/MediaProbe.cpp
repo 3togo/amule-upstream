@@ -250,11 +250,12 @@ int RunBoundedHelper(const wxString &exe,
 	for (;;) {
 		if (::WaitForSingleObject(pi.hProcess, 25) == WAIT_OBJECT_0) {
 			DWORD code = 0;
-			::GetExitCodeProcess(pi.hProcess, &code);
-			// Anything but the helper's own codes is a crash or a loader failure.
-			exitCode = code == 0 || code == 10 || code == 11 || code == 12
-					   ? static_cast<int>(code)
-					   : kCrashed;
+			if (::GetExitCodeProcess(pi.hProcess, &code)) {
+				// Unhandled Windows exceptions use NTSTATUS codes with the high bit
+				// set. Ordinary, undocumented error exits must remain retryable, just
+				// as on POSIX, even if the helper already printed its header.
+				exitCode = code >= 0x80000000UL ? kCrashed : static_cast<int>(code);
+			}
 			break;
 		}
 		const bool oversized = outputTooLarge();
@@ -372,6 +373,11 @@ int RunBoundedHelper(const wxString &exe,
 	// truncated.
 	// The helper prints its header once it has started. A crash before that is a broken
 	// install, which must not mark every file; a crash after it is this file's doing.
+	// A fast exit can beat the polling limit, including a crash after excessive
+	// output. Enforce the same budget before interpreting any exit as a verdict.
+	if (outputTooLarge()) {
+		exitCode = kOutputTooLarge;
+	}
 	if (exitCode == kCrashed) {
 		wxFFile f(tmpPath, wxT("rb"));
 		char header[7] = {};
