@@ -28,7 +28,9 @@
 #include <cstddef>
 #include <initializer_list>
 #include <wx/datetime.h>
+#include <wx/log.h>
 #include <wx/string.h>
+#include <wx/time.h>
 #include <wx/tokenzr.h>
 
 // Severity is independent of category, status-bar visibility and EC replay eligibility.
@@ -83,19 +85,55 @@ struct CLogRecord
 	wxDateTime timestamp;
 };
 
+// A wx log call keeps its native severity and the emission time wx captured.
+inline CLogRecord RecordFromWx(
+	wxLogLevel level, const wxString &category, const wxString &message, const wxLogRecordInfo &info)
+{
+	LogLevel severity = LogLevel::Info;
+	if (level == wxLOG_Error || level == wxLOG_FatalError) {
+		severity = LogLevel::Error;
+	} else if (level == wxLOG_Warning) {
+		severity = LogLevel::Warning;
+	} else if (level == wxLOG_Debug) {
+		severity = LogLevel::Debug;
+	} else if (level == wxLOG_Trace) {
+		severity = LogLevel::Trace;
+	}
+	wxDateTime timestamp;
+	timestamp.Set(static_cast<time_t>(info.timestampMS / 1000));
+	timestamp.SetMillisecond(static_cast<wxDateTime::wxDateTime_t>(info.timestampMS % 1000));
+	return CLogRecord(severity, category, message, timestamp);
+}
+
 inline char LegacyLogMarker(bool toStatusBar, bool toGUI)
 {
 	return !toGUI ? '.' : (toStatusBar ? '!' : ' ');
 }
 
+// RFC 3339 offset such as "+05:30". Computed from the C runtime's broken-down times, not
+// strftime's %z, whose output varies between runtimes and would break the fixed header width.
+inline wxString FormatUtcOffset(const wxDateTime &time)
+{
+	const time_t ticks = time.GetTicks();
+	struct tm local;
+	struct tm utc;
+	if (!wxLocaltime_r(&ticks, &local) || !wxGmtime_r(&ticks, &utc)) {
+		return "+00:00";
+	}
+	// The two views are at most a day apart, including across a year boundary.
+	const long days = local.tm_year != utc.tm_year ? (local.tm_year > utc.tm_year ? 1 : -1)
+						       : local.tm_yday - utc.tm_yday;
+	long minutes = days * 1440 + (local.tm_hour - utc.tm_hour) * 60L + (local.tm_min - utc.tm_min);
+	const char sign = minutes < 0 ? '-' : '+';
+	minutes = minutes < 0 ? -minutes : minutes;
+	return wxString::Format("%c%02ld:%02ld", sign, minutes / 60, minutes % 60);
+}
+
 inline wxString FormatLogPrefix(const CLogRecord &record)
 {
-	// wx returns the basic numeric offset; RFC 3339 uses a colon between hours and minutes.
-	wxString offset = record.timestamp.Format("%z");
-	offset.insert(3, ":");
 	return record.timestamp.Format("%Y-%m-%dT%H:%M:%S") +
-	       wxString::Format(".%03u", static_cast<unsigned>(record.timestamp.GetMillisecond())) + offset +
-	       " " + LogLevelName(record.level) + " " +
+	       wxString::Format(".%03u", static_cast<unsigned>(record.timestamp.GetMillisecond())) +
+	       FormatUtcOffset(record.timestamp) + " " + LogLevelName(record.level) + " " +
 	       (record.category.IsEmpty() ? wxString() : "[" + record.category + "] ");
 }
 

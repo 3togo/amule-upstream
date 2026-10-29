@@ -373,12 +373,6 @@ public:
  * the preferences. AddLogLineMS also always prints to stdout.
  */
 #ifdef MULEUNIT
-#define AddLogLineWarning(...) \
-	do { \
-	} while (false)
-#define AddLogLineError(...) \
-	do { \
-	} while (false)
 #define AddDebugLogLineN(...) \
 	do { \
 	} while (false)
@@ -404,9 +398,6 @@ public:
 	do { \
 	} while (false)
 #else
-// New call sites can express severity without requesting a status-bar update.
-#define AddLogLineWarning(string) theLogger.Log(LogLevel::Warning, "", string)
-#define AddLogLineError(string) theLogger.Log(LogLevel::Error, "", string)
 // Macros for 'N'on critical logging
 #ifdef __DEBUG__
 #define AddDebugLogLineN(type, string) \

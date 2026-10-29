@@ -321,20 +321,7 @@ void CLoggerTarget::DoLogRecord(wxLogLevel level, const wxString &msg, const wxL
 		return;
 	}
 	recursion = true;
-	LogLevel severity = LogLevel::Info;
-	if (level == wxLOG_Error || level == wxLOG_FatalError) {
-		severity = LogLevel::Error;
-	} else if (level == wxLOG_Warning) {
-		severity = LogLevel::Warning;
-	} else if (level == wxLOG_Debug) {
-		severity = LogLevel::Debug;
-	} else if (level == wxLOG_Trace) {
-		severity = LogLevel::Trace;
-	}
-	wxDateTime timestamp;
-	timestamp.Set(static_cast<time_t>(info.timestampMS / 1000));
-	timestamp.SetMillisecond(static_cast<wxDateTime::wxDateTime_t>(info.timestampMS % 1000));
-	theLogger.Log(CLogRecord(severity, "wx", msg, timestamp),
+	theLogger.Log(RecordFromWx(level, "wx", msg, info),
 		level == wxLOG_Error || level == wxLOG_FatalError || level == wxLOG_Warning);
 	recursion = false;
 }

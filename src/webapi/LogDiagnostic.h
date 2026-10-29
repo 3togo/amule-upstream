@@ -50,20 +50,7 @@ class CApiLogTarget : public wxLog
 protected:
 	void DoLogRecord(wxLogLevel level, const wxString &message, const wxLogRecordInfo &info) override
 	{
-		LogLevel severity = LogLevel::Info;
-		if (level == wxLOG_Error || level == wxLOG_FatalError) {
-			severity = LogLevel::Error;
-		} else if (level == wxLOG_Warning) {
-			severity = LogLevel::Warning;
-		} else if (level == wxLOG_Debug) {
-			severity = LogLevel::Debug;
-		} else if (level == wxLOG_Trace) {
-			severity = LogLevel::Trace;
-		}
-		wxDateTime timestamp;
-		timestamp.Set(static_cast<time_t>(info.timestampMS / 1000));
-		timestamp.SetMillisecond(static_cast<wxDateTime::wxDateTime_t>(info.timestampMS % 1000));
-		WriteDiagnostic(CLogRecord(severity, "amuleapi", message, timestamp));
+		WriteDiagnostic(RecordFromWx(level, "amuleapi", message, info));
 	}
 };
 
@@ -72,14 +59,15 @@ protected:
 class CLogDiagnostic
 {
 public:
-	explicit CLogDiagnostic(LogLevel level)
+	explicit CLogDiagnostic(LogLevel level, const char *category = "amuleapi")
 	: m_level(level)
+	, m_category(category)
 	{
 	}
 	~CLogDiagnostic()
 	{
 		WriteDiagnostic(CLogRecord(
-			m_level, "amuleapi", wxString::FromUTF8(m_message.str().c_str()), m_timestamp));
+			m_level, m_category, wxString::FromUTF8(m_message.str().c_str()), m_timestamp));
 	}
 
 	template <typename T> CLogDiagnostic &operator<<(const T &value)
@@ -90,6 +78,7 @@ public:
 
 private:
 	LogLevel m_level;
+	const char *m_category;
 	wxDateTime m_timestamp = wxDateTime::UNow();
 	std::ostringstream m_message;
 };

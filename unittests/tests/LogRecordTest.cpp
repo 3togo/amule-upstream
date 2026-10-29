@@ -28,6 +28,8 @@
 #undef MULEUNIT
 #include "Logger.h"
 #include "LogText.h"
+#include <cstdlib>
+#include <ctime>
 #include <memory>
 
 using namespace muleunit;
@@ -48,10 +50,61 @@ std::string Text(const wxString &text)
 }
 std::string Stamp()
 {
-	return Text(FixedTime().Format("%Y-%m-%dT%H:%M:%S")) + ".123" +
-	       Text(FixedTime().Format("%z")).insert(3, ":") + " ";
+	return Text(FixedTime().Format("%Y-%m-%dT%H:%M:%S")) + ".123" + Text(FormatUtcOffset(FixedTime())) +
+	       " ";
 }
+
+// POSIX TZ strings carry their own rules, so the test needs no time zone database.
+class TimeZoneGuard
+{
+public:
+	explicit TimeZoneGuard(const char *zone)
+	{
+		if (const char *previous = std::getenv("TZ")) {
+			m_previous = previous;
+			m_hadPrevious = true;
+		}
+		Set(zone);
+	}
+	~TimeZoneGuard() { Set(m_hadPrevious ? m_previous.c_str() : nullptr); }
+
+private:
+	static void Set(const char *zone)
+	{
+#ifdef _WIN32
+		_putenv_s("TZ", zone ? zone : "");
+		_tzset();
+#else
+		if (zone) {
+			setenv("TZ", zone, 1);
+		} else {
+			unsetenv("TZ");
+		}
+		tzset();
+#endif
+	}
+	std::string m_previous;
+	bool m_hadPrevious = false;
+};
 } // namespace
+
+TEST(LogRecord, UtcOffsetUsesRfc3339FormInEveryZone)
+{
+	const struct
+	{
+		const char *zone;
+		const char *offset;
+	} cases[] = { { "UTC0", "+00:00" },
+		{ "IST-5:30", "+05:30" },
+		{ "NST3:30", "-03:30" },
+		{ "LHI-10:30", "+10:30" } };
+	for (const auto &c : cases) {
+		const TimeZoneGuard guard(c.zone);
+		ASSERT_EQUALS(std::string(c.offset), Text(FormatUtcOffset(FixedTime())));
+		const wxString line = FormatLogLines(CLogRecord(LogLevel::Info, "", "message", FixedTime()));
+		ASSERT_TRUE(HasLogRecordHeader(line));
+	}
+}
 
 TEST(LogRecord, FormatsLocalMillisecondsAndUtf8)
 {

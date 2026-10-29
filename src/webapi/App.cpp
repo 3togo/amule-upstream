@@ -337,7 +337,7 @@ bool CamuleapiApp::OnInit()
 		}
 #endif
 		if (toFile) {
-			Show(CFormat(_("amuleapi: logging to %s\n")) % logPath);
+			Show(CFormat(_("logging to %s\n")) % logPath);
 		}
 	} else {
 		m_logTee.reset();
@@ -370,7 +370,7 @@ bool CamuleapiApp::LoadAmuleapiConfig()
 	const wxString config_dir = m_cliConfigDirOverride.IsEmpty() ? m_configDir : m_cliConfigDirOverride;
 
 	if (!m_apiConfig.Load(config_dir) || !m_apiConfig.ValidateEcPassword()) {
-		Show(CFormat("amuleapi: failed to load config: %s\n") %
+		Show(CFormat("failed to load config: %s\n") %
 			wxString::FromUTF8(m_apiConfig.LastError().c_str()));
 		return false;
 	}
@@ -417,7 +417,7 @@ bool CamuleapiApp::LoadAmuleapiConfig()
 			m_password.Decode(wxString::FromUTF8(token.c_str()));
 			// Worth one line: it tells an operator which credential this instance is
 			// using, and is what the "no token left on disk" check looks for.
-			Show("amuleapi: using the ephemeral EC token from the core.\n");
+			Show("using the ephemeral EC token from the core.\n");
 		}
 	}
 
@@ -428,11 +428,11 @@ int CamuleapiApp::RunSetAdminPass()
 {
 	const wxString hashed = MD5Sum(m_cliSetAdminPass).GetHash();
 	if (!m_apiConfig.SetPassword(webcommon::kAdminCredential, std::string(hashed.Lower().utf8_str()))) {
-		Show(CFormat("amuleapi: --set-admin-pass failed: %s\n") %
+		Show(CFormat("--set-admin-pass failed: %s\n") %
 			wxString::FromUTF8(m_apiConfig.LastError().c_str()));
 		return 1;
 	}
-	Show(_("amuleapi: admin password updated.\n"));
+	Show(_("admin password updated.\n"));
 	return 0;
 }
 
@@ -445,12 +445,11 @@ int CamuleapiApp::RunSetGuestPass()
 		digest = std::string(MD5Sum(m_cliSetGuestPass).GetHash().Lower().utf8_str());
 	}
 	if (!m_apiConfig.SetPassword(webcommon::kGuestCredential, digest)) {
-		Show(CFormat("amuleapi: --set-guest-pass failed: %s\n") %
+		Show(CFormat("--set-guest-pass failed: %s\n") %
 			wxString::FromUTF8(m_apiConfig.LastError().c_str()));
 		return 1;
 	}
-	Show(digest.empty() ? _("amuleapi: guest access disabled.\n")
-			    : _("amuleapi: guest password updated.\n"));
+	Show(digest.empty() ? _("guest access disabled.\n") : _("guest password updated.\n"));
 	return 0;
 }
 
@@ -462,7 +461,7 @@ int CamuleapiApp::RunSetEcPass()
 			<< "--set-ec-pass-stdin failed: " << m_apiConfig.LastError() << '\n';
 		return 1;
 	}
-	Show("amuleapi: EC PasswordMD5 updated; plaintext Password removed.\n");
+	Show("EC PasswordMD5 updated; plaintext Password removed.\n");
 	return 0;
 }
 
@@ -556,7 +555,7 @@ void CamuleapiApp::TextShell(const wxString & /*prompt*/)
 	// the first-run flow IS "start on loopback, then run --set-admin-pass".
 	const bool non_loopback = (bind != "127.0.0.1" && bind != "::1" && bind != "localhost");
 	if (non_loopback && !m_apiConfig.HasAnyCredential()) {
-		Show(CFormat(_("amuleapi: refusing to start with BindAddress=%s and no "
+		Show(CFormat(_("refusing to start with BindAddress=%s and no "
 			       "admin/guest password configured - this would expose the "
 			       "REST surface to anyone reachable on that interface. "
 			       "Either bind to 127.0.0.1, or run "
@@ -627,15 +626,15 @@ void CamuleapiApp::TextShell(const wxString & /*prompt*/)
 		    streaming_preflight,
 		    cors_stamper,
 		    m_apiConfig.ServerCfg().base_path)) {
-		Show(CFormat("amuleapi: HTTP server failed to start: %s\n") %
+		Show(CFormat("HTTP server failed to start: %s\n") %
 			wxString::FromUTF8(m_http->LastError().c_str()));
 		return;
 	}
 
-	Show(CFormat(_("amuleapi: listening on http://%s:%d/\n")) % wxString::FromUTF8(bind.c_str()) %
+	Show(CFormat(_("listening on http://%s:%d/\n")) % wxString::FromUTF8(bind.c_str()) %
 		static_cast<int>(port));
-	Show(CFormat(_("amuleapi: config dir %s\n")) % m_apiConfig.ConfigDir());
-	Show(CFormat(_("amuleapi: aMule version %s; api v1\n")) % wxString::FromAscii(VERSION));
+	Show(CFormat(_("config dir %s\n")) % m_apiConfig.ConfigDir());
+	Show(CFormat(_("aMule version %s; api v1\n")) % wxString::FromAscii(VERSION));
 
 	// Refresher loop. One tick per second; HTTP threads read State concurrently. EC roundtrips
 	// run on this thread but go through `SendRecvSerialized` so HTTP-thread mutations can also
@@ -768,7 +767,7 @@ void CamuleapiApp::TextShell(const wxString & /*prompt*/)
 		}
 	}
 
-	Show(_("amuleapi: shutdown signal received; stopping...\n"));
+	Show(_("shutdown signal received; stopping...\n"));
 }
 
 const CECPacket *CamuleapiApp::SendRecvSerialized(const CECPacket *request)
