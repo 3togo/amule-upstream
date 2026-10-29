@@ -3830,6 +3830,7 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 		const auto candidate = FindNextPartToVerify(
 			GetFileSize(),
 			PARTSIZE,
+			partCount,
 			0,
 			[this](uint64 part) { return m_aChangedPart[part]; },
 			[this](uint64 part) { return IsComplete(static_cast<uint16>(part)); },

@@ -35,6 +35,7 @@ TEST(PartVerification, SkipsCleanIncompleteAndPendingParts)
 		return FindNextPartToVerify(
 			35,
 			10,
+			4,
 			start,
 			[&](uint64_t part) { return dirty[part]; },
 			[&](uint64_t part) { return complete[part]; },
@@ -57,6 +58,7 @@ TEST(PartVerification, DoesNotInspectWriteStateForUnhashableParts)
 	const auto result = FindNextPartToVerify(
 		30,
 		10,
+		3,
 		0,
 		[](uint64_t part) { return part != 0; },
 		[](uint64_t part) { return part == 2; },
@@ -74,9 +76,9 @@ TEST(PartVerification, LastByteAndEmptyFileTerminateWithoutOverflow)
 	const auto dirty = [](uint64_t) { return true; };
 	const auto complete = [](uint64_t) { return true; };
 	const auto pending = [](const CPartVerificationRange &) { return true; };
-	ASSERT_FALSE(FindNextPartToVerify(maximum, 1, maximum - 1, dirty, complete, pending));
-	ASSERT_FALSE(FindNextPartToVerify(0, 1, 0, dirty, complete, pending));
-	ASSERT_FALSE(FindNextPartToVerify(10, 0, 0, dirty, complete, pending));
+	ASSERT_FALSE(FindNextPartToVerify(maximum, 1, maximum, maximum - 1, dirty, complete, pending));
+	ASSERT_FALSE(FindNextPartToVerify(0, 1, 0, 0, dirty, complete, pending));
+	ASSERT_FALSE(FindNextPartToVerify(10, 0, 0, 0, dirty, complete, pending));
 }
 
 TEST(PartVerification, ExactPartMultiplesNeverInspectAnEmptySyntheticPart)
@@ -87,6 +89,7 @@ TEST(PartVerification, ExactPartMultiplesNeverInspectAnEmptySyntheticPart)
 		const auto result = FindNextPartToVerify(
 			size,
 			10,
+			count,
 			0,
 			[&](uint64_t part) {
 				ASSERT_TRUE(part < count);
@@ -115,6 +118,7 @@ TEST(PartVerification, EligibilityMatchesAnIndependentStateMaskOracle)
 				const auto result = FindNextPartToVerify(
 					31,
 					10,
+					4,
 					0,
 					[&](uint64_t part) {
 						ASSERT_TRUE(part < 4);
@@ -137,4 +141,32 @@ TEST(PartVerification, EligibilityMatchesAnIndependentStateMaskOracle)
 			}
 		}
 	}
+}
+
+TEST(PartVerification, InconsistentMetadataCannotIndexPastTrackedState)
+{
+	const std::vector<bool> dirty{ false, false };
+	uint64_t inspected = 0;
+	const auto result = FindNextPartToVerify(
+		std::numeric_limits<uint64_t>::max(),
+		10,
+		dirty.size(),
+		0,
+		[&](uint64_t part) {
+			ASSERT_TRUE(part < dirty.size());
+			++inspected;
+			return dirty[part];
+		},
+		[](uint64_t) { return true; },
+		[](const CPartVerificationRange &) { return false; });
+	ASSERT_FALSE(result);
+	ASSERT_EQUALS(uint64_t{ 2 }, inspected);
+	const auto untouched = [&](uint64_t) {
+		ASSERT_TRUE(false);
+		return false;
+	};
+	ASSERT_FALSE(FindNextPartToVerify(
+		100, 10, 0, 0, untouched, untouched, [](const CPartVerificationRange &) { return false; }));
+	ASSERT_FALSE(FindNextPartToVerify(
+		100, 10, 2, 2, untouched, untouched, [](const CPartVerificationRange &) { return false; }));
 }

@@ -29,16 +29,18 @@ inline std::optional<CPartVerificationRange> PartVerificationRange(
 // Like Shareaza's verification-range interface, this selects a range without
 // reading the file. Callers supply live dirty/completeness/write state.
 // In particular, gap completeness alone does not establish disk-write completion.
+// The tracked count bounds callbacks even if metadata and state arrays disagree.
 template <typename NeedsHash, typename IsComplete, typename HasPendingWrite>
 std::optional<CPartVerificationRange> FindNextPartToVerify(uint64_t fileSize,
 	uint64_t partSize,
+	uint64_t trackedPartCount,
 	uint64_t firstPart,
 	NeedsHash needsHash,
 	IsComplete isComplete,
 	HasPendingWrite hasPendingWrite)
 {
 	auto range = PartVerificationRange(firstPart, fileSize, partSize);
-	while (range) {
+	while (range && range->part < trackedPartCount) {
 		if (needsHash(range->part) && isComplete(range->part) && !hasPendingWrite(*range)) {
 			return range;
 		}
