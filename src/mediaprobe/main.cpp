@@ -453,7 +453,7 @@ int main(int argc, char **argv)
 		return 12;
 	if (!json) {
 		// Before parsing: a crash after this line is the file's doing, not a broken install.
-		std::cout << "AMMP 1" << std::endl;
+		std::cout << "AMMP 1\n" << std::flush;
 	}
 	Result r;
 	int rc = 12;

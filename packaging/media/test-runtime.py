@@ -158,7 +158,8 @@ def run(args, root):
             reply = subprocess.run(helper, stdin=source, env=child_env,
                                    capture_output=True, timeout=30)
         assert reply.returncode in (10, 11), (reply.returncode, reply.stderr)
-        assert not reply.stdout, reply.stdout
+        # The header precedes parsing; a rejected file adds nothing after it.
+        assert reply.stdout == b'AMMP 1\n', reply.stdout
     print('PASS packaged helper rejects empty and malformed media', flush=True)
     # A native Windows config uses backslashes; wxFileConfig treats them as
     # escapes. Forward slashes are accepted on every platform.
