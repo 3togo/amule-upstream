@@ -68,7 +68,6 @@ and reset use the selected file too.
 For `amulegui`, the setting is in `remote.conf` and controls its local log, whose
 default filename is `remotelogfile`.
 
-
 See [Logging format](LOGGING.md) for the timestamp and severity of each record, and
 for the flags the logfile keeps for remote GUIs.
 
@@ -100,7 +99,6 @@ with `--verbose` or `VerboseDebug=1` in the core configuration.
 
 Some diagnostics require Debug-only bookkeeping and remain available only in Debug
 builds. Ordinary messages and critical status messages keep their existing behavior.
-
 
 ## First-run checklist
 
