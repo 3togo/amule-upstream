@@ -507,11 +507,8 @@ void CDownloadListCtrl::OnItemRightClicked(wxDataViewEvent &event)
 	AppendMenuIcon(m_menu, MP_SHOWINFOLDER, _("Show in file manager"), MenuIcon::Folder);
 	AppendMenuIcon(m_menu, MP_METINFO, _("Show file &details"), MenuIcon::Info);
 	AppendMenuIcon(m_menu, MP_VIEWFILECOMMENTS, _("Show all comments"), MenuIcon::Comments);
-	const wxString commentLabel = file->GetFileComment().IsEmpty() && !file->GetFileRating()
-					      ? _("Add Comment/Rating")
-					      : _("Edit Comment/Rating");
-	AppendMenuIcon(m_menu, MP_CMT, commentLabel, MenuIcon::Comments);
-	m_menu->Enable(MP_CMT, selected.size() == 1 && file->IsCompleted());
+	AppendMenuIcon(m_menu, MP_CMT, CCommentDialog::MenuLabel(*file), MenuIcon::Comments);
+	m_menu->Enable(MP_CMT, selected.size() == 1 && CCommentDialog::CanEdit(*file));
 	m_menu->AppendSeparator();
 	AppendMenuIcon(m_menu, MP_GETMAGNETLINK, _("Copy magnet URI to clipboard"), MenuIcon::Link);
 	AppendMenuIcon(m_menu, MP_GETED2KLINK, _("Copy eD2k &link to clipboard"), MenuIcon::Link);
@@ -789,7 +786,7 @@ void CDownloadListCtrl::OnEditComment(wxCommandEvent &WXUNUSED(event))
 	// PopupMenu runs a nested event loop: the clicked file may have been removed.
 	if (m_menuItem != 0 && HasItemData(m_menuItem)) {
 		CPartFile *file = reinterpret_cast<CPartFile *>(m_menuItem);
-		if (file->IsCompleted()) {
+		if (CCommentDialog::CanEdit(*file)) {
 			CCommentDialog dialog(this, file);
 			dialog.ShowModal();
 		}

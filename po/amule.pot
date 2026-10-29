@@ -1788,6 +1788,14 @@ msgstr ""
 msgid "File Comments"
 msgstr ""
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr ""
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr ""
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr ""
@@ -2133,14 +2141,6 @@ msgstr ""
 
 #: src/DownloadListCtrl.cpp src/muuli_wdr.cpp src/SearchListCtrl.cpp
 msgid "Show all comments"
-msgstr ""
-
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr ""
-
-#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
 msgstr ""
 
 #: src/DownloadListCtrl.cpp

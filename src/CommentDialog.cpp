@@ -26,6 +26,11 @@
 #include "CommentDialog.h" // Interface declarations
 #include "GuiEvents.h"
 #include "KnownFile.h" // Needed for CKnownFile
+#include "PartFile.h"  // Needed for CPartFile
+#ifndef CLIENT_GUI
+#include "amule.h"          // Needed for theApp
+#include "SharedFileList.h" // Needed for CSharedFileList
+#endif
 #include "muuli_wdr.h" // Needed for commentDlg
 
 #include <set>
@@ -62,6 +67,23 @@ CCommentDialog::CCommentDialog(wxWindow *parent, CKnownFile *file)
 CCommentDialog::~CCommentDialog()
 {
 	OpenInstances().erase(this);
+}
+
+wxString CCommentDialog::MenuLabel(const CKnownFile &file)
+{
+	return file.GetFileComment().IsEmpty() && !file.GetFileRating() ? _("Add Comment/Rating")
+									: _("Edit Comment/Rating");
+}
+
+bool CCommentDialog::CanEdit(const CKnownFile &file)
+{
+#ifdef CLIENT_GUI
+	// Completed transfer rows can still be CPartFile proxies, including after unsharing.
+	const auto *partFile = dynamic_cast<const CPartFile *>(&file);
+	return partFile == nullptr || partFile->IsShared();
+#else
+	return theApp->sharedfiles->GetFileByID(file.GetFileHash()) != nullptr;
+#endif
 }
 
 void CCommentDialog::DropReferencesTo(const CKnownFile *file)
