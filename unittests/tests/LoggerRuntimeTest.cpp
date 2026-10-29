@@ -10,6 +10,7 @@
 #include <thread>
 #include <wx/init.h>
 #include <wx/filename.h>
+#include <wx/tokenzr.h>
 
 namespace
 {
@@ -84,10 +85,22 @@ int main()
 
 #ifndef LOGGER_CONSOLE_TEST
 	const wxString log = theLogger.GetUnwrittenLog();
-	Check(log.Contains("[General] runtime-category-test"), "debug category name was lost");
-	Check(log.Contains("[log status=0 replay=0] [General]"), "file-only flags were lost");
-	Check(log.Contains("[log status=1 replay=1] [General]"), "critical flags were lost");
-	Check(log.Contains("[log status=0 replay=1] runtime-category-test"), "normal flags were lost");
+	// Debug builds put the source location between the header fields and the message.
+	auto hasRecord = [&log](const wxString &flags, bool general) {
+		wxStringTokenizer lines(log, "\n");
+		while (lines.HasMoreTokens()) {
+			const wxString line = lines.GetNextToken();
+			if (line.Contains(flags + (general ? "[General] " : "")) &&
+				line.Contains("[General] ") == general && line.EndsWith("runtime-category-test")) {
+				return true;
+			}
+		}
+		return false;
+	};
+	Check(hasRecord("[log status=0 replay=1] ", true), "debug category name was lost");
+	Check(hasRecord("[log status=0 replay=0] ", true), "file-only flags were lost");
+	Check(hasRecord("[log status=1 replay=1] ", true), "critical flags were lost");
+	Check(hasRecord("[log status=0 replay=1] ", false), "normal flags were lost");
 	Check(theLogger.GetDebugCategory(logGeneral).IsEnabled(), "verbose off cleared selection");
 
 	const wxString path = wxFileName::CreateTempFileName("amule-runtime-log");
