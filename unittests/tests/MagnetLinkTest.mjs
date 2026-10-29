@@ -1,4 +1,4 @@
-// Run with: node --test unittests/browser-tests/magnet-links.test.mjs
+// Run the production magnet-link builder without a browser or a daemon.
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
