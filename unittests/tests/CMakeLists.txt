@@ -3283,33 +3283,23 @@ target_link_libraries (OfferFilesPolicyTest muleunit mulecommon)
 add_test (NAME OfferFilesPolicyTest COMMAND OfferFilesPolicyTest)
 
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE AND Python3_Interpreter_FOUND)
-	set (offerfiles_scheduling_args)
-	if (NOT ENABLE_ED2K_OFFERFILES_V1)
-		list (APPEND offerfiles_scheduling_args --legacy-only)
-	endif ()
 	add_test (NAME OfferFilesLiveLimitsTest
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/OfferFilesLiveLimitsTest.py
-			$<TARGET_FILE:amuled> ${offerfiles_scheduling_args})
+			$<TARGET_FILE:amuled>)
+	set_tests_properties (OfferFilesLiveLimitsTest PROPERTIES LABELS "integration")
 endif ()
 
 # External interoperability is opt-in and uses only a loopback server built from
 # the documented release. Do not download or connect to a public server in CTest.
-set (OFFERFILES_INTEROP_SERVER "" CACHE FILEPATH "ed2k-server v0.9.82 binary for local OFFERFILES interoperability")
+set (OFFERFILES_INTEROP_SERVER "" CACHE FILEPATH "ed2k-server v0.9.85 binary for local OFFERFILES interoperability")
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND OFFERFILES_INTEROP_SERVER)
-	if (ENABLE_ED2K_OFFERFILES_V1)
-		set (offerfiles_interop_test OfferFilesInteropTest)
-		set (offerfiles_interop_args)
-	else()
-		set (offerfiles_interop_test OfferFilesCompiledOutInteropTest)
-		set (offerfiles_interop_args --compiled-out)
-	endif()
 	find_package (Python3 REQUIRED COMPONENTS Interpreter)
-	add_test (NAME ${offerfiles_interop_test}
+	add_test (NAME OfferFilesInteropTest
 		COMMAND ${Python3_EXECUTABLE}
 			${CMAKE_CURRENT_SOURCE_DIR}/OfferFilesInteropTest.py
-			$<TARGET_FILE:amuled> ${OFFERFILES_INTEROP_SERVER} ${offerfiles_interop_args}
+			$<TARGET_FILE:amuled> ${OFFERFILES_INTEROP_SERVER}
 	)
-	set_tests_properties (${offerfiles_interop_test} PROPERTIES TIMEOUT 360 LABELS "integration")
+	set_tests_properties (OfferFilesInteropTest PROPERTIES LABELS "integration")
 endif()
 
 add_executable (ContactDistributionTest ContactDistributionTest.cpp)

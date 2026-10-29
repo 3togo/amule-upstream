@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 aMule Team
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Controlled interoperability with the published ed2k-server v0.9.82 binary.
+"""Controlled interoperability with the published ed2k-server v0.9.85 binary.
 
 Never connects to a public server. Checks the server's source index via its
 loopback admin API, and records the actual client frames through a local relay.
@@ -59,7 +59,8 @@ def stop(process):
 
 
 class Relay:
-    def __init__(self, port, plain=False, coalesce=False, unsolicited=False, delay_ident=0, ident_before_id=False):
+    def __init__(self, port, plain=False, coalesce=False, unsolicited=False, delay_ident=0, ident_before_id=False,
+                 drop_ident=False, late_ident=0):
         self.listener = socket.socket()
         self.listener.bind(('127.0.0.1', 0))
         self.listener.listen(8)
@@ -70,6 +71,8 @@ class Relay:
         self.unsolicited = unsolicited
         self.delay_ident = delay_ident
         self.ident_before_id = ident_before_id
+        self.drop_ident = drop_ident
+        self.late_ident = late_ident
         self.ident_forwarded_at = None
         self.offers = []
         self.offer_payloads = []
@@ -104,6 +107,8 @@ class Relay:
                 if not outgoing and body[0] == 0x40 and self.ident_before_id and not pending_id:
                     pending_id = header + body
                     continue
+                if not outgoing and body[0] == 0x41 and self.drop_ident:
+                    continue  # Lugdunum sends no SERVERIDENT at login.
                 if not outgoing and body[0] == 0x41:  # OP_SERVERIDENT
                     if self.unsolicited:
                         payload = zlib.decompress(body[1:]) if protocol == 0xd4 else body[1:]
@@ -116,8 +121,8 @@ class Relay:
                         body = (b'\x41' + payload[:22] + struct.pack('<I', len(fields))
                                 + b''.join(uint32_tag(name, value) for name, value in fields))
                         header = struct.pack('<BI', 0xe3, len(body))
-                    if self.delay_ident:
-                        time.sleep(self.delay_ident)
+                    if self.delay_ident or self.late_ident:
+                        time.sleep(self.delay_ident or self.late_ident)
                     self.ident_forwarded_at = time.monotonic()
                     if pending_id:
                         dest.sendall(header + body + pending_id)
@@ -204,7 +209,7 @@ def daemon(binary, root, count, seed, enabled, prepare=None, sections=None):
     write_amule_conf(root, ec_port, Nick=seed, Port=peer_port, UDPPort=udp_port,
                      ConnectToED2K=1, FilterLanIPs=0, GeoIPAutoUpdate=0,
                      GeoIPSource='custom', GeoIPCustomUrl='', VerboseDebug=1,
-                     VerboseDebugLogfile=1, ExperimentalED2KPublication=int(enabled),
+                     VerboseDebugLogfile=1, ED2KAcceleratedPublication=int(enabled),
                      sections=config_sections)
     (root / 'nodes.dat').write_bytes(struct.pack('<III', 0, 1, 0))
     log = (root / 'stdout.log').open('w')
@@ -236,7 +241,7 @@ def scenario(args, root, name, *, enabled=True, client_enabled=True, plain=False
              coalesce=False, soft=100000, batch=200, ceiling=0, clients=1,
              records=1200, reconnect=False, republish=False, completion=False,
              unsolicited=False, delay_ident=0, idle_before_connect=0, ident_before_id=False,
-             hard=201, seed_legacy_limits=False):
+             hard=201, seed_legacy_limits=False, drop_ident=False, late_ident=0):
     root = root / name
     root.mkdir()
     port, admin = free_ports(2)
@@ -301,7 +306,7 @@ level="info"
             except OSError:
                 return None
         wait_for(ready)
-        relay = Relay(port, plain, coalesce, unsolicited, delay_ident, ident_before_id)
+        relay = Relay(port, plain, coalesce, unsolicited, delay_ident, ident_before_id, drop_ident, late_ident)
         def prepare(client_root):
             nonlocal download
             if completion:
@@ -314,22 +319,25 @@ level="info"
                 record = bytes(4) + struct.pack('<HI', relay.port, 3) + tags
                 (client_root / 'server.met').write_bytes(b'\xe0' + struct.pack('<I', 1) + record)
         for i in range(clients):
-            process, stream, ec = daemon(args.daemon, root / f'client-{i}', records, f'{name}-{i}', client_enabled or args.compiled_out,
+            process, stream, ec = daemon(args.daemon, root / f'client-{i}', records, f'{name}-{i}', client_enabled,
                                          prepare if completion or seed_legacy_limits else None)
             daemons.append((process, stream, ec))
             if idle_before_connect:
                 # Let the legacy minute timer become due during the delayed identity.
                 end = time.monotonic() + idle_before_connect
                 wait_for(lambda: time.monotonic() >= end, timeout=idle_before_connect + 2)
+            connected_at = time.monotonic()
             connect(ec, relay.port, seed_legacy_limits)
-        capable = enabled and client_enabled and batch < hard
+        capable = enabled and client_enabled and batch < hard and not drop_ident
         expected = min(records + int(completion), soft) if capable else min(records, 200, hard - 1 if seed_legacy_limits else 200)
         def indexed():
             assert not relay.errors, relay.errors
             if relay.offers:
                 assert all(n < hard for _, n, _ in relay.offers), 'publication reached the exclusive hard boundary'
-            if capable and relay.offers:
-                assert all(n <= min(batch, 200) for _, n, _ in relay.offers), \
+            # A late identity follows one legacy batch, which the server skips as oversized.
+            negotiated = relay.offers[1:] if late_ident else relay.offers
+            if capable and negotiated:
+                assert all(n <= min(batch, 200) for _, n, _ in negotiated), \
                     'publication preceded the negotiated packet limit'
             if unsolicited and relay.offers:
                 assert all(n == 200 for _, n, _ in relay.offers), \
@@ -345,6 +353,10 @@ level="info"
         if not capable:
             time.sleep(1.3)
             assert len(relay.offers) == clients, relay.offers
+        if drop_ident:
+            # Without an identity, the first offer waits only briefly after the ID.
+            delay = relay.offers[0][0] - connected_at
+            assert 4.5 <= delay <= 15, delay
             if unsolicited:
                 for client in root.glob('client-*'):
                     text = (client / 'logfile').read_text(errors='replace')
@@ -429,7 +441,7 @@ level="info"
             for login in relay.logins), relay.logins
         assert all(0 < n <= 200 and n < hard for _, n, _ in relay.offers), relay.offers
         if capable:
-            assert stats['offer_v1']['oversized'] == 0, stats
+            assert stats['offer_v1']['oversized'] == (1 if late_ident else 0), stats
             assert stats['offer_over_hard_packets'] == 0, stats
             assert stats['offer_over_soft_records'] == 0, stats
             assert stats['offer_v1']['records'] == expected * clients * (2 if reconnect else 1) + refresh_records, stats
@@ -493,11 +505,7 @@ def main():
     parser.add_argument('--large-library', type=int, default=0)
     parser.add_argument('--queue-samples', action='store_true', help='require Debug daemon queue diagnostics')
     parser.add_argument('--case', action='append', help='run only named scenarios')
-    parser.add_argument('--compiled-out', action='store_true',
-                        help='verify legacy publication with a saved opt-in on a build without v1')
     args = parser.parse_args()
-    if args.compiled_out and (args.large_library or args.queue_samples):
-        parser.error("--compiled-out cannot use accelerated library or queue diagnostics")
     with tempfile.TemporaryDirectory(prefix='amule-offerfiles-interop-') as tmp:
         root = Path(tmp)
         results = []
@@ -513,14 +521,13 @@ def main():
                  ('unsolicited-advertisement', {'client_enabled': False, 'unsolicited': True}),
                  ('identity-before-id', {'batch': 50, 'records': 305, 'ident_before_id': True}),
                  ('delayed-advertisement', {'batch': 50, 'records': 305, 'delay_ident': 1.6}),
+                 ('no-identity', {'drop_ident': True}),
+                 ('late-advertisement', {'batch': 50, 'records': 305, 'late_ident': 8}),
                  ('legacy-hard-boundary', {'enabled': False, 'client_enabled': False, 'hard': 3,
                                            'seed_legacy_limits': True, 'records': 6}),
                  ('invalid-policy', {'batch': 201}),
                  ('global-ceiling', {'ceiling': 200}),
                  ('reconnect-wave', {'clients': 4, 'records': 600, 'ceiling': 400, 'reconnect': True})]
-        if args.compiled_out:
-            cases = [(name, options) for name, options in cases
-                     if name in ('client-disabled', 'unsolicited-advertisement', 'legacy-hard-boundary')]
         if args.large_library:
             cases.append(('large-library', {'records': args.large_library}))
         if args.case:

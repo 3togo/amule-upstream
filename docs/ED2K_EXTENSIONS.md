@@ -1,30 +1,25 @@
 # ED2K extension conventions: OFFERFILES v1
 
-Accelerated publication is experimental and **disabled by default**. Normal users
-are discouraged from testing it: controlled loopback interoperability is tested,
-but production server-load validation remains incomplete and accelerated offers
-may cause server disconnections.
+OFFERFILES v1 lets a server tell the client how fast it may publish its shared
+files. aMule requests it at login and follows the pace the server advertises.
+A server that advertises nothing, Lugdunum included, gets the standard pace.
 
-The extension is compiled only with `-DENABLE_ED2K_OFFERFILES_V1=ON`
-(default OFF), or `-DENABLE_ALL_EXPERIMENTAL=ON`. Default builds omit the v1
-policy, login opt-in, advertisement handling, and accelerated scheduler; they
-also omit the checkbox and ignore any saved `ExperimentalED2KPublication` value.
-Experimental CI builds and tests the extension through the shared switch list.
-The policy unit tests also run with the switch off, compiling the policy only
-into the test executable.
-
-For controlled testing with a compatible server, first enable the build switch,
-then enable **Advanced → Experimental
-→ Enable experimental ED2K accelerated file publication**. Daemon users can set
-`ExperimentalED2KPublication=1` in the `[eMule]` section of `amule.conf`; the remote
-GUI does not configure this option. Resetting Advanced preferences disables it.
+The setting is on by default: **Preferences → Server → Publish shared files
+faster on servers that allow it**. amulegui, amuleapi
+(`servers.accelerated_publication_enabled`) and the Web UI set it on a daemon,
+or set `ED2KAcceleratedPublication=0` in the `[eMule]` section of `amule.conf`.
+A change applies from the next server connection.
 
 When enabled, the client requests v1 in its login and permits acceleration only
 after a valid v1 advertisement on the current connection. Unsolicited capability
 advertisements on a connection whose login did not request v1 are ignored.
 A requested connection waits for the first SERVERIDENT before sizing its first
-publication packet; if no identity arrives, legacy publication becomes eligible
-after a one-minute grace period measured from the login request. The requested
+publication packet; if no identity arrives within 5 seconds of the ID
+assignment, legacy publication becomes eligible. ed2k-server sends the identity
+in the same login batch as the ID; Lugdunum sends none at login. An identity
+that arrives after the wait still binds the connection. The server skipped any
+earlier batch larger than its advertised batch limit, so aMule then offers the
+files of this connection again, within the new limits. The requested
 identity may precede ID assignment in the welcome sequence; its policy remains
 binding when login completes. A missing or malformed
 first advertisement uses legacy pacing. A later advertisement is ignored and
@@ -58,7 +53,7 @@ rest of the connection. Unchanged limits do not trigger new scans.
 Negotiated pacing is never persisted in `server.met`.
 
 Republication refreshes source metadata; it does not guarantee that a server
-replaces the searchable filename. On ed2k-server v0.9.82, a re-offer updates
+replaces the searchable filename. On ed2k-server v0.9.85, a re-offer updates
 the source's complete/partial status but retains the filename and keywords from
 the first indexing. A renamed file becomes searchable under its new name only
 after all sources leave the index and the file is offered again. This is
@@ -95,7 +90,7 @@ The implementation request and reusable-conventions discussion are in
 
 ## Request and advertisement
 
-With the experimental setting enabled, `OP_LOGINREQUEST` contains one additional
+With the setting enabled, `OP_LOGINREQUEST` contains one additional
 tag, `offerfiles_v = 1`, after the four standard login tags. It is a string-named
 uint32 tag: type `0x03`, a uint16 name length, the case-sensitive name, and a
 uint32 value. The login tag count is five before other optional extensions
@@ -129,22 +124,21 @@ The policy calculation bounds every batch by the advertised batch, hard minus
 one, and local cap of 200. Within that packet, only previously unseen hashes
 consume the remaining soft candidate budget; refreshes may fill the other slots.
 The interval is at least the advertised interval and 500 ms. This gives at most
-400 records/second without a burst entitlement. These are experimental local
-ceilings, not a production load recommendation.
+400 records/second without a burst entitlement. These are local ceilings, not a
+production load recommendation.
 
 ## Server verification and remaining validation
 
 Controlled interoperability tests use the companion server implementation,
 including coalesced TCP frames, disconnects, overload backpressure, concurrent
 publishers, and reconnect waves. The published companion implementation is
-[ed2k-server 0.9.82 source](https://github.com/andrey23127/ed2k-server/tree/48496f4e95d5b601a1dd120d279b625c8b1fa1e7),
-commit `48496f4e95d5b601a1dd120d279b625c8b1fa1e7`.
+[ed2k-server 0.9.85 source](https://github.com/andrey23127/ed2k-server/tree/878fc830f60dde3907811baede83bb2ece42e19b),
+commit `878fc830f60dde3907811baede83bb2ece42e19b`.
 Its source includes the opt-in request, advertisement, snapshot, pacing and
 overload acceptance tests from issue #19.
 The server maintainer [confirmed that v1 is settled](https://github.com/andrey23127/ed2k-server/issues/19#issuecomment-6170221378);
 incompatible changes require a new requested capability version.
-This opt-in and controlled local measurements do not establish production
-readiness. Acknowledgements, automatic retries after indexing
+Controlled local measurements do not replace production load data. Acknowledgements, automatic retries after indexing
 failures, and dynamic policy renegotiation remain separate extensions.
 
 ## Reproducing local interoperability
@@ -178,8 +172,9 @@ A local relay observes actual OFFERFILES frames and can remove the compression
 flag or cluster two frames. Assertions use the server's independent indexed
 source counts and publication counters, not the client's published markers.
 
-Cases also cover an unsolicited valid advertisement to an opted-out client and a
-delayed advertisement spanning a due legacy publication tick. The former must
+Cases also cover an unsolicited valid advertisement to an opted-out client, a
+delayed advertisement spanning a due legacy publication tick, and a server that
+sends no identity at login, as Lugdunum does. The former must
 retain legacy limits; the latter must not queue an offer before receiving the
 negotiated packet limit. Further cases reorder identity before ID assignment and
 seed a small legacy hard limit in server.met, verifying that both negotiated and
@@ -197,17 +192,14 @@ Large libraries receive a longer startup allowance because loading the fixture
 precedes the publication measurements.
 
 For the smaller suite through CTest, configure with
-`-DENABLE_ED2K_OFFERFILES_V1=ON -DENABLE_INTEGRATION_TESTS=ON -DOFFERFILES_INTEROP_SERVER=/absolute/path/to/ed2k-server`
+`-DENABLE_INTEGRATION_TESTS=ON -DOFFERFILES_INTEROP_SERVER=/absolute/path/to/ed2k-server`
 and run `ctest --test-dir build --output-on-failure -R OfferFilesInteropTest`.
-With the build switch off and the same server path, CTest instead registers
-`OfferFilesCompiledOutInteropTest`: it verifies legacy publication, unsolicited
-advertisements, and the hard boundary with a saved runtime opt-in set to 1.
 The external test is not registered without that explicit binary path.
 
 Queue sampling requires a Debug daemon with `VerboseDebug=1` and
 `VerboseDebugLogfile=1` in `[eMule]`, and `Cat_Servers=1` in `[Debug]`.
 During a negotiated session the Servers debug category records the monotonic
-`tick_ms` and `pending_control_packets` on publication ticks, including idle ticks.
+`tick_ms` and `pending_control_packets` once a second, including idle seconds.
 The count includes the partially sent control packet; it excludes bytes already
 accepted by Asio or the OS and includes other server control packets. Logging is
 optional and does not impose a queue limit.
@@ -241,5 +233,5 @@ python3 unittests/tests/OfferFilesLiveLimitsTest.py /absolute/path/to/amuled
 ```
 
 It verifies resumption after a live UDP soft limit is raised and prompt legacy
-publication after an empty library gains a file. Use `--legacy-only` for a
-compiled-out daemon. CTest registers this test when integration tests are enabled.
+publication after an empty library gains a file. CTest registers this test when
+integration tests are enabled.

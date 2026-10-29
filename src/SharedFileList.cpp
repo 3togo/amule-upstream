@@ -1539,6 +1539,19 @@ void CSharedFileList::ClearED2KPublishInfo()
 	Notify_SharedFilesEndBulkUpdate();
 }
 
+void CSharedFileList::RepublishOffered(const COfferFilesPublication &publication)
+{
+	m_lastPublishED2KFlag = true;
+	wxMutexLocker lock(list_mut);
+	Notify_SharedFilesBeginBulkUpdate();
+	for (const auto &entry : m_Files_map) {
+		if (publication.Contains(entry.first)) {
+			entry.second->SetPublishedED2K(false);
+		}
+	}
+	Notify_SharedFilesEndBulkUpdate();
+}
+
 void CSharedFileList::ClearKadSourcePublishInfo()
 {
 	wxMutexLocker lock(list_mut);
@@ -1556,10 +1569,8 @@ void CSharedFileList::RepublishFile(CKnownFile *pFile)
 		return;
 	}
 	bool canRepublish = server->GetTCPFlags() & SRV_TCPFLG_COMPRESSION;
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 	const CServerSocket *socket = theApp->serverconnect->GetConnectedSocket();
 	canRepublish = canRepublish || (socket && socket->GetOfferFilesAdvertisement());
-#endif
 	if (canRepublish) {
 		m_lastPublishED2KFlag = true;
 		pFile->SetPublishedED2K(false); // FIXME: this creates a wrong 'No' for the ed2k shared info
@@ -1596,7 +1607,6 @@ bool CSharedFileList::SendListToServer()
 		return false;
 	}
 	CServerSocket *socket = theApp->serverconnect->GetConnectedSocket();
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 	if (!socket || !socket->CanPublishOfferFiles(GetTickCount64())) {
 		return false;
 	}
@@ -1604,7 +1614,7 @@ bool CSharedFileList::SendListToServer()
 	const auto *policy = socket->GetOfferFilesAdvertisement();
 	if (policy && !publication.Due(GetTickCount64(),
 			      policy->PublicationIntervalMs(
-				      thePrefs::GetExperimentalED2KPublication(), ED2KREPUBLISHTIME))) {
+				      thePrefs::GetED2KAcceleratedPublication(), ED2KREPUBLISHTIME))) {
 		return false;
 	}
 	// Packet capacity applies to every record; the distinct-candidate budget
@@ -1630,19 +1640,6 @@ bool CSharedFileList::SendListToServer()
 		limit = std::min(
 			limit, COfferFilesAdvertisement::LegacyPacketLimit(0, listed->GetHardFiles()));
 	}
-#else
-	// Preserve the legacy packet heuristic without compiling the v1 policy.
-	uint32 limit = server->GetSoftFiles() ? std::min(server->GetSoftFiles(), uint32(200)) : 200;
-	if (server->GetHardFiles()) {
-		limit = std::min(limit, server->GetHardFiles() - 1);
-	}
-	if (const CServer *listed =
-			theApp->serverlist->GetServerByAddress(server->GetAddress(), server->GetPort())) {
-		if (listed->GetHardFiles()) {
-			limit = std::min(limit, listed->GetHardFiles() - 1);
-		}
-	}
-#endif
 	if (!limit) {
 		return false;
 	}
@@ -1660,11 +1657,8 @@ bool CSharedFileList::SendListToServer()
 
 		CKnownFileMap::iterator it = m_Files_map.begin();
 		for (; it != m_Files_map.end(); ++it) {
-			if (
-#ifdef ENABLE_ED2K_OFFERFILES_V1
-				(!policy || newCandidateLimit ||
-					publication.Contains(it->second->GetFileHash())) &&
-#endif
+			if ((!policy || newCandidateLimit ||
+				    publication.Contains(it->second->GetFileHash())) &&
 				!it->second->GetPublishedED2K() &&
 				(!it->second->IsLargeFile() || server->SupportsLargeFilesTCP())) {
 				SortedList.push_back(it->second);
@@ -1696,25 +1690,19 @@ bool CSharedFileList::SendListToServer()
 	std::vector<CKnownFile *> offered;
 	offered.reserve(limit);
 	uint32 count = 0;
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 	uint32 newCandidates = 0;
-#endif
 	// Add to packet
 	std::vector<CKnownFile *>::iterator sorted_it = SortedList.begin();
 	for (; (sorted_it != SortedList.end()) && (count < limit); ++sorted_it) {
 		CKnownFile *file = *sorted_it;
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 		const bool newCandidate = !publication.Contains(file->GetFileHash());
 		if (policy && newCandidate && newCandidates >= newCandidateLimit) {
 			continue;
 		}
-#endif
 		if (!file->IsLargeFile() || server->SupportsLargeFilesTCP()) {
 			file->CreateOfferedFilePacket(&files, server, NULL);
 			offered.push_back(file);
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 			newCandidates += newCandidate;
-#endif
 			++count;
 		}
 	}
@@ -1743,15 +1731,14 @@ bool CSharedFileList::SendListToServer()
 	// Published means offered to the connection, not acknowledged as indexed.
 	// Only mark records when ServerConnect accepts the packet for this connection.
 	if (theApp->serverconnect->SendPacket(packet, true, socket)) {
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 		publication.Sent(GetTickCount64());
-#endif
+		if (socket->AwaitingOfferFilesAdvertisement()) {
+			publication.SentBeforeAdvertisement(count);
+		}
 		for (CKnownFile *file : offered) {
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 			if (socket->RequestedOfferFilesV1()) {
 				publication.Record(file->GetFileHash());
 			}
-#endif
 			file->SetPublishedED2K(true);
 		}
 		return true;
@@ -1800,11 +1787,10 @@ void CSharedFileList::ProcessED2K(bool acceleratedOnly)
 	if (!theApp->IsConnectedED2K()) {
 		return;
 	}
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 	CServerSocket *socket = theApp->serverconnect->GetConnectedSocket();
 	const auto *policy = socket ? socket->GetOfferFilesAdvertisement() : nullptr;
 	// The fast core-tick path must not change legacy maintenance scheduling.
-	if (acceleratedOnly && (!policy || !thePrefs::GetExperimentalED2KPublication())) {
+	if (acceleratedOnly && (!policy || !thePrefs::GetED2KAcceleratedPublication())) {
 		return;
 	}
 	const uint64 now = ::GetTickCount64();
@@ -1823,7 +1809,8 @@ void CSharedFileList::ProcessED2K(bool acceleratedOnly)
 			m_lastPublishED2KFlag = true;
 		}
 	}
-	if (policy && theLogger.IsEnabled(logServer)) {
+	// Once a second, from Process(); the core tick runs ten times as often.
+	if (policy && !acceleratedOnly && theLogger.IsEnabled(logServer)) {
 		AddDebugLogLineN(logServer,
 			CFormat("OFFERFILES queue: tick_ms=%llu pending_control_packets=%llu") % now %
 				static_cast<unsigned long long>(socket->GetPendingControlPacketCount()));
@@ -1833,14 +1820,8 @@ void CSharedFileList::ProcessED2K(bool acceleratedOnly)
 	const bool due =
 		policy ? socket->GetOfferFilesPublication().Due(now,
 				 policy->PublicationIntervalMs(
-					 thePrefs::GetExperimentalED2KPublication(), ED2KREPUBLISHTIME))
+					 thePrefs::GetED2KAcceleratedPublication(), ED2KREPUBLISHTIME))
 		       : now - m_lastPublishED2K >= ED2KREPUBLISHTIME;
-#else
-	if (acceleratedOnly) {
-		return;
-	}
-	const bool due = ::GetTickCount64() - m_lastPublishED2K >= ED2KREPUBLISHTIME;
-#endif
 	if (!m_lastPublishED2KFlag || !due) {
 		return;
 	}

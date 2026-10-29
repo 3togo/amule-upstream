@@ -39,6 +39,7 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		KnownFileList.cpp
 		ListenSocket.cpp
 		MuleUDPSocket.cpp
+		OfferFilesPolicy.cpp
 		SearchFile.cpp
 		SearchList.cpp
 		SearchPacket.cpp
@@ -70,11 +71,6 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 	endif()
 	if (ENABLE_QUIC)
 		list (APPEND CORE_SOURCES QuicContext.cpp QuicGnuTlsSession.cpp QuicNgtcp2Adapter.cpp QuicSocketTransport.cpp QuicStreamAcceptor.cpp)
-	endif()
-
-	# Policy tests compile this source directly even when the core omits it.
-	if (ENABLE_ED2K_OFFERFILES_V1)
-		list (APPEND CORE_SOURCES OfferFilesPolicy.cpp)
 	endif()
 
 	# Only compiled in when the switch is on. Every call site is behind the

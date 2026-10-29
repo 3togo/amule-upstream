@@ -48,6 +48,7 @@ class CKnownFile;
 class CMemFile;
 class CMD4Hash;
 class CServer;
+class COfferFilesPublication;
 class CPublishKeywordList;
 class CPath;
 class CAICHHash;
@@ -153,6 +154,8 @@ public:
 	void GetSharedFilesByDirectory(const wxString &directory, CKnownFilePtrList &list);
 	void ClearED2KPublishInfo();
 	void RepublishFile(CKnownFile *pFile);
+	// Offer this connection's files again, after the server skipped a batch.
+	void RepublishOffered(const COfferFilesPublication &publication);
 	void Process();
 	// Called on each core tick; negotiated intervals need sub-second scheduling.
 	void ProcessED2K(bool acceleratedOnly = false);

@@ -324,6 +324,7 @@ wxSizer *PreferencesConnectionTab(wxWindow *parent, bool call_fit = TRUE, bool s
 #define IDC_SAFESERVERCONNECT 10155
 #define IDC_AUTOCONNECTSTATICONLY 10156
 #define IDC_MANUALSERVERHIGHPRIO 10157
+#define IDC_ED2K_ACCELERATED_PUBLICATION 10528
 wxSizer *PreferencesServerTab(wxWindow *parent, bool call_fit = TRUE, bool set_sizer = TRUE);
 
 #define IDC_ICH 10158
@@ -442,7 +443,6 @@ wxSizer *PreferencesStatisticsTab(wxWindow *parent, bool call_fit = TRUE, bool s
 #define IDC_KADSTRICTAICHPUBLISHERS 10435
 #define IDC_SOURCEREASKTIME 10432
 #define IDC_TWEAKS_RESET 10433
-#define IDC_EXPERIMENTAL_ED2K_PUBLICATION 10528
 wxSizer *PreferencesaMuleTweaksTab(wxWindow *parent, bool call_fit = TRUE, bool set_sizer = TRUE);
 
 #define IDC_SKIN 10199

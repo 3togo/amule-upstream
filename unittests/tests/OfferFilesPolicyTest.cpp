@@ -171,7 +171,7 @@ TEST(OfferFilesPolicy, WireIntegerWidthsMustBeExactlyUint32)
 TEST(OfferFilesPolicy, ConnectionSnapshotFailsClosedAndResets)
 {
 	COfferFilesConnectionPolicy state;
-	state.BeginLogin(true, 0);
+	state.BeginLogin(true);
 	ASSERT_TRUE(state.Get() == nullptr);
 	state.Commit(Valid()); // Cannot commit without beginning a packet.
 	ASSERT_TRUE(state.Get() == nullptr);
@@ -186,12 +186,12 @@ TEST(OfferFilesPolicy, ConnectionSnapshotFailsClosedAndResets)
 	state.Commit(Valid());
 	ASSERT_EQUALS(uint32(60000), state.Get()->SoftLimit());
 	state.Reset();
-	state.BeginLogin(true, 0); // Disconnect/new server.
+	state.BeginLogin(true); // Disconnect/new server.
 	ASSERT_TRUE(state.BeginAdvertisement());
 	state.Commit(Valid(10));
 	ASSERT_EQUALS(uint32(10), state.Get()->SoftLimit());
 	state.Reset();
-	state.BeginLogin(true, 0);
+	state.BeginLogin(true);
 	ASSERT_TRUE(state.BeginAdvertisement());
 	state.Commit(COfferFilesAdvertisement());
 	ASSERT_TRUE(state.Get() == nullptr);
@@ -200,7 +200,7 @@ TEST(OfferFilesPolicy, ConnectionSnapshotFailsClosedAndResets)
 TEST(OfferFilesPolicy, UndecodableAdvertisementInvalidatesAndCannotBeRepaired)
 {
 	COfferFilesConnectionPolicy state;
-	state.BeginLogin(true, 0);
+	state.BeginLogin(true);
 	ASSERT_TRUE(state.BeginAdvertisement());
 	state.Commit(Valid());
 	ASSERT_TRUE(state.Get() != nullptr);
@@ -213,13 +213,13 @@ TEST(OfferFilesPolicy, UndecodableAdvertisementInvalidatesAndCannotBeRepaired)
 	ASSERT_EQUALS(uint32(60000), state.Get()->SoftLimit());
 
 	state.Reset();
-	state.BeginLogin(true, 0);
+	state.BeginLogin(true);
 	state.RejectAdvertisement(); // Even an undecodable first packet consumes negotiation.
 	ASSERT_FALSE(state.BeginAdvertisement());
 	state.Commit(Valid());
 	ASSERT_TRUE(state.Get() == nullptr);
 	state.Reset();
-	state.BeginLogin(true, 0);
+	state.BeginLogin(true);
 	ASSERT_TRUE(state.BeginAdvertisement());
 	state.Commit(Valid());
 	ASSERT_TRUE(state.Get() != nullptr);
@@ -232,7 +232,7 @@ TEST(OfferFilesPolicy, TruncatedWireCannotCommitPartialAdvertisement)
 	CTagInt32("offerfiles_batch_max", 200).WriteTagToFile(&complete);
 	CMemFile truncated(complete.GetRawBuffer(), complete.GetLength() - 1);
 	COfferFilesConnectionPolicy state;
-	state.BeginLogin(true, 0);
+	state.BeginLogin(true);
 	ASSERT_TRUE(state.BeginAdvertisement());
 	bool rejected = false;
 	try {
@@ -303,13 +303,13 @@ TEST(OfferFilesPolicy, LiveLimitsRestrictWithoutExpandingNegotiatedBudget)
 TEST(OfferFilesPolicy, ValidSnapshotStaysBindingUntilDisconnect)
 {
 	COfferFilesConnectionPolicy state;
-	state.BeginLogin(true, 0);
+	state.BeginLogin(true);
 	ASSERT_TRUE(state.Get() == nullptr); // Support unknown.
 	ASSERT_TRUE(state.BeginAdvertisement());
 	state.Commit(COfferFilesAdvertisement()); // Legacy or incomplete advertisement.
 	ASSERT_TRUE(state.Get() == nullptr);
 	state.Reset();
-	state.BeginLogin(true, 0);
+	state.BeginLogin(true);
 	ASSERT_TRUE(state.BeginAdvertisement());
 	state.Commit(Valid(100, 1000, 2, 120000));
 	ASSERT_TRUE(state.Get() != nullptr); // Turning acceleration off cannot relax server limits.
@@ -321,7 +321,7 @@ TEST(OfferFilesPolicy, ValidSnapshotStaysBindingUntilDisconnect)
 	state.Commit(Valid());
 	ASSERT_EQUALS(uint32(2), state.Get()->BatchLimit(0));
 	state.Reset();
-	state.BeginLogin(true, 0);
+	state.BeginLogin(true);
 	ASSERT_TRUE(state.Get() == nullptr); // Support cannot carry to a new socket.
 }
 
@@ -350,13 +350,13 @@ TEST(OfferFilesPolicy, RefreshesKeepPacketCapacityAfterCandidateBudgetIsFull)
 TEST(OfferFilesPolicy, UnrequestedAdvertisementCannotActivateConnectionPolicy)
 {
 	COfferFilesConnectionPolicy state;
-	state.BeginLogin(false, 1000);
+	state.BeginLogin(false);
 	ASSERT_FALSE(state.Requested());
 	ASSERT_TRUE(state.CanPublish(1000));
 	ASSERT_FALSE(state.BeginAdvertisement());
 	state.Commit(Valid());
 	ASSERT_TRUE(state.Get() == nullptr);
-	state.BeginLogin(true, 2000);
+	state.BeginLogin(true);
 	ASSERT_TRUE(state.Requested());
 	ASSERT_TRUE(state.BeginAdvertisement());
 	state.Commit(Valid());
@@ -370,8 +370,9 @@ TEST(OfferFilesPolicy, UnrequestedAdvertisementCannotActivateConnectionPolicy)
 TEST(OfferFilesPolicy, FirstPublicationWaitsForTheRequestedPacketLimit)
 {
 	COfferFilesConnectionPolicy state;
-	state.BeginLogin(true, 1000);
+	state.BeginLogin(true);
 	ASSERT_FALSE(state.CanPublish(1000));
+	state.IdAssigned(1000);
 	ASSERT_FALSE(state.CanPublish(2600));
 	ASSERT_TRUE(state.BeginAdvertisement());
 	ASSERT_FALSE(state.CanPublish(2600));
@@ -384,16 +385,39 @@ TEST(OfferFilesPolicy, FirstPublicationWaitsForTheRequestedPacketLimit)
 TEST(OfferFilesPolicy, AbsentOrInvalidFirstAdvertisementEventuallyUsesLegacy)
 {
 	COfferFilesConnectionPolicy state;
-	state.BeginLogin(true, 1000);
+	state.BeginLogin(true);
+	ASSERT_FALSE(state.CanPublish(61000)); // The wait starts at ID assignment.
+	state.IdAssigned(1000);
 	ASSERT_FALSE(state.CanPublish(999)); // No unsigned underflow for a backwards clock.
-	ASSERT_FALSE(state.CanPublish(60999));
-	ASSERT_TRUE(state.CanPublish(61000));
+	ASSERT_FALSE(state.CanPublish(5999));
+	ASSERT_TRUE(state.CanPublish(6000));
+	state.IdAssigned(5000); // A repeated ID keeps the first time.
+	ASSERT_TRUE(state.CanPublish(6000));
 	ASSERT_TRUE(state.Get() == nullptr);
-	state.BeginLogin(true, 1000);
+	state.BeginLogin(true);
 	ASSERT_TRUE(state.BeginAdvertisement());
 	state.Commit(COfferFilesAdvertisement());
 	ASSERT_TRUE(state.CanPublish(1000));
 	ASSERT_TRUE(state.Get() == nullptr);
+}
+
+TEST(OfferFilesPolicy, LateAdvertisementFindsTheSkippedEarlyBatch)
+{
+	COfferFilesConnectionPolicy state;
+	state.BeginLogin(true);
+	ASSERT_TRUE(state.AwaitingAdvertisement());
+	COfferFilesPublication publication;
+	ASSERT_FALSE(publication.EarlyBatchExceeds(0));
+	publication.SentBeforeAdvertisement(200);
+	publication.SentBeforeAdvertisement(105);
+	ASSERT_TRUE(publication.EarlyBatchExceeds(50));
+	ASSERT_FALSE(publication.EarlyBatchExceeds(200));
+	ASSERT_TRUE(state.BeginAdvertisement());
+	ASSERT_FALSE(state.AwaitingAdvertisement());
+	publication.Reset();
+	ASSERT_FALSE(publication.EarlyBatchExceeds(0));
+	state.BeginLogin(false);
+	ASSERT_FALSE(state.AwaitingAdvertisement()); // Nothing to wait for without a request.
 }
 
 TEST(OfferFilesPolicy, LegacyPacketsKeepTheExclusiveKnownHardBoundary)

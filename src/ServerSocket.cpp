@@ -47,6 +47,7 @@
 #include "Logger.h"
 #include <common/Format.h>
 #include "IPFilter.h"
+#include "SharedFileList.h"   // Needed for CSharedFileList
 #include "NetworkFunctions.h" // Needed for IsGoodIP
 #include "GuiEvents.h"        // Needed for Notify_*
 #ifdef ENABLE_NATT_SERVER_COORDINATION
@@ -569,21 +570,17 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 		// Cleaned.
 		case OP_SERVERIDENT: {
 			AddDebugLogLineN(logServer, "Server: OP_SERVERIDENT");
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 			const bool firstIdent =
 				(connectionstate == CS_CONNECTED || connectionstate == CS_WAITFORLOGIN) &&
 				m_offerFilesPolicy.BeginAdvertisement();
 			COfferFilesAdvertisement offerFiles;
-#endif
 
 			theStats::AddDownOverheadServer(size);
 			if (size < 38) {
 				AddLogLineN(_("Unknown server info received! - too short"));
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 				if (firstIdent) {
 					m_offerFilesPolicy.RejectAdvertisement();
 				}
-#endif
 				// throw wxString("Unknown server info received!");
 				break;
 			}
@@ -616,9 +613,7 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 					// "name correct on first display, garbled a few seconds
 					// later" regression (#831).
 					CTag tag(data, true, false);
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 					offerFiles.AddTag(tag);
-#endif
 					if (update && tag.GetNameID() == ST_SERVERNAME) {
 						update->SetListName(tag.GetStr());
 					} else if (update && tag.GetNameID() == ST_DESCRIPTION) {
@@ -626,13 +621,17 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 					} // No more known tags from server
 				}
 
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 				if (firstIdent) {
 					m_offerFilesPolicy.Commit(data.GetPosition() == data.GetLength()
 									  ? offerFiles
 									  : COfferFilesAdvertisement());
 				}
 				if (firstIdent && m_offerFilesPolicy.Get()) {
+					if (m_offerFilesPublication.EarlyBatchExceeds(
+						    offerFiles.AdvertisedBatchLimit())) {
+						theApp->sharedfiles->RepublishOffered(
+							m_offerFilesPublication);
+					}
 					// Commit the connection's limits only after the complete
 					// advertisement validates. Cached UDP metadata must not hide the
 					// login snapshot.
@@ -653,7 +652,7 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 							offerFiles.BatchLimit(
 								m_offerFilesPublication.Count()) %
 							offerFiles.IntervalMs() %
-							(thePrefs::GetExperimentalED2KPublication()
+							(thePrefs::GetED2KAcceleratedPublication()
 									? "enabled (experimental)"
 									: "disabled"));
 				} else if (firstIdent) {
@@ -661,7 +660,6 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 						"OFFERFILES: legacy pacing (absent or invalid "
 						"advertisement)");
 				}
-#endif
 				if (update) {
 					theApp->ShowConnectionState();
 					Notify_ServerRefresh(update);
@@ -831,9 +829,7 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 		AddLogLineN(CFormat(_("Unhandled error while processing packet from server: %s")) % error);
 	}
 	if (opcode == OP_SERVERIDENT) {
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 		m_offerFilesPolicy.RejectAdvertisement();
-#endif
 		return true;
 	}
 
@@ -904,12 +900,10 @@ bool CServerSocket::PacketReceived(CPacket *packet)
 
 	if (packet->GetProtocol() == OP_PACKEDPROT) {
 		if (!packet->UnPackPacket(250000)) {
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 			if (packet->GetOpCode() == OP_SERVERIDENT &&
 				(connectionstate == CS_CONNECTED || connectionstate == CS_WAITFORLOGIN)) {
 				m_offerFilesPolicy.RejectAdvertisement();
 			}
-#endif
 			AddDebugLogLineN(logZLib,
 				CFormat("Failed to decompress server TCP packet: protocol=0x%02x  "
 					"opcode=0x%02x  size=%u") %
@@ -955,12 +949,12 @@ void CServerSocket::OnClose(int WXUNUSED(nErrorCode))
 
 void CServerSocket::SetConnectionState(sint8 newstate)
 {
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 	if (newstate != CS_CONNECTED) {
 		m_offerFilesPolicy.Reset();
 		m_offerFilesPublication.Reset();
+	} else {
+		m_offerFilesPolicy.IdAssigned(GetTickCount64());
 	}
-#endif
 	connectionstate = newstate;
 	if (newstate < CS_CONNECTING) {
 		serverconnect->ConnectionFailed(this);

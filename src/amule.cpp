@@ -2445,9 +2445,7 @@ void CamuleApp::OnCoreTimer(CTimerEvent &WXUNUSED(evt))
 
 	uploadqueue->Process();
 	downloadqueue->Process();
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 	sharedfiles->ProcessED2K(true);
-#endif
 	// theApp->clientcredits->Process();
 	theStats::CalculateRates();
 

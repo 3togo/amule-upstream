@@ -230,10 +230,8 @@ def known_file_after_idle(binary, enabled):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('daemon')
-    parser.add_argument('--legacy-only', action='store_true')
     args = parser.parse_args()
-    if not args.legacy_only:
-        live_limits(args.daemon)
-        known_file_after_idle(args.daemon, True)
+    live_limits(args.daemon)
+    known_file_after_idle(args.daemon, True)
     empty_library(args.daemon)
     known_file_after_idle(args.daemon, False)

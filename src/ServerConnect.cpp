@@ -291,13 +291,11 @@ void CServerConnect::ConnectionEstablished(CServerSocket *sender)
 			tagcount++;
 		}
 #endif
-#ifdef ENABLE_ED2K_OFFERFILES_V1
-		const bool requestOfferFilesV1 = thePrefs::GetExperimentalED2KPublication();
-		sender->m_offerFilesPolicy.BeginLogin(requestOfferFilesV1, GetTickCount64());
+		const bool requestOfferFilesV1 = thePrefs::GetED2KAcceleratedPublication();
+		sender->m_offerFilesPolicy.BeginLogin(requestOfferFilesV1);
 		if (requestOfferFilesV1) {
 			tagcount++;
 		}
-#endif
 		data.WriteUInt32(tagcount);
 
 		// Kry - Server doesn't support VBT tags afaik.
@@ -366,11 +364,9 @@ void CServerConnect::ConnectionEstablished(CServerSocket *sender)
 		}
 #endif
 
-#ifdef ENABLE_ED2K_OFFERFILES_V1
 		if (requestOfferFilesV1) {
 			CTagInt32("offerfiles_v", 1).WriteTagToFile(&data);
 		}
-#endif
 
 		CPacket *packet = new CPacket(data, OP_EDONKEYPROT, OP_LOGINREQUEST);
 #ifdef DEBUG_CLIENT_PROTOCOL

@@ -27,6 +27,7 @@
 #define OFFERFILESPOLICY_H
 
 #include "MD4Hash.h"
+#include <algorithm>
 #include <set>
 #include <array>
 #include <cstdint>
@@ -69,6 +70,13 @@ public:
 		m_sent = true;
 		m_lastSent = now;
 	}
+	// A late advertisement binds the connection from login, so the server skipped
+	// any earlier batch larger than its advertised limit.
+	void SentBeforeAdvertisement(uint32_t records)
+	{
+		m_largestEarlyBatch = std::max(m_largestEarlyBatch, records);
+	}
+	bool EarlyBatchExceeds(uint32_t batchLimit) const { return m_largestEarlyBatch > batchLimit; }
 	// Live UDP metadata may change while publication is idle. Recheck work once
 	// when limits change, without rescanning the library on every core tick.
 	bool UpdateLimits(uint32_t soft, uint32_t hard, uint32_t listedSoft, uint32_t listedHard)
@@ -89,6 +97,7 @@ private:
 	std::set<CMD4Hash> m_offered;
 	uint64_t m_lastSent = 0;
 	bool m_sent = false;
+	uint32_t m_largestEarlyBatch = 0;
 };
 
 // Socket-owned snapshot. Begin before decoding so a malformed first packet
@@ -98,20 +107,30 @@ private:
 class COfferFilesConnectionPolicy
 {
 public:
-	void BeginLogin(bool requestV1, uint64_t now)
+	// A v1 server sends SERVERIDENT in the same login batch as the ID. Lugdunum
+	// sends none at login, so wait only briefly for it.
+	static constexpr uint64_t kIdentWaitMs = 5000;
+
+	void BeginLogin(bool requestV1)
 	{
 		Reset();
 		m_requested = requestV1;
-		m_loginAt = now;
+	}
+	void IdAssigned(uint64_t now)
+	{
+		if (!m_idAssigned) {
+			m_idAssigned = true;
+			m_idAt = now;
+		}
 	}
 	// Wait for the requested post-login snapshot before sizing the first packet.
-	// A server that never identifies itself falls back after one legacy interval.
 	bool CanPublish(uint64_t now) const
 	{
 		return !m_requested || (m_seen && !m_pending) ||
-		       (!m_seen && now >= m_loginAt && now - m_loginAt >= 60000);
+		       (!m_seen && m_idAssigned && now >= m_idAt && now - m_idAt >= kIdentWaitMs);
 	}
 	bool Requested() const { return m_requested; }
+	bool AwaitingAdvertisement() const { return m_requested && !m_seen; }
 	bool BeginAdvertisement();
 	void RejectAdvertisement();
 	void Commit(const COfferFilesAdvertisement &advertisement);
@@ -121,7 +140,8 @@ public:
 private:
 	COfferFilesAdvertisement m_snapshot;
 	bool m_requested = false;
-	uint64_t m_loginAt = 0;
+	bool m_idAssigned = false;
+	uint64_t m_idAt = 0;
 	bool m_seen = false;
 	bool m_pending = false;
 	bool m_valid = false;

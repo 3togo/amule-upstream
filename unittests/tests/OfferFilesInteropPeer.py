@@ -91,7 +91,8 @@ class SearchObserver:
         login = (b'\x77' * 16 + struct.pack('<IHI', 0, 0, 1)
                  + b'\x82\x01' + struct.pack('<H', len(name)) + name)
         send(self.sock, 0x01, login)
-        while receive(self.sock)[0] != 0x41:  # OP_SERVERIDENT
+        # A legacy login gets no SERVERIDENT from ed2k-server 0.9.83 on; IDCHANGE ends it.
+        while receive(self.sock)[0] != 0x40:  # OP_IDCHANGE
             pass
 
     def search(self, term):
