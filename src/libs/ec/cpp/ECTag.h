@@ -229,9 +229,13 @@ public:
 protected:
 	uint8_t GetType() const { return m_dataType; }
 
-	bool ReadFromSocket(CECSocket &socket);
+	// Deepest tag level accepted below a packet. Real trees, the recursive
+	// statistics tree included, stay a few levels deep.
+	static constexpr unsigned MAX_READ_DEPTH = 64;
+
+	bool ReadFromSocket(CECSocket &socket, unsigned depth = 0);
 	bool WriteTag(CECSocket &socket) const;
-	bool ReadChildren(CECSocket &socket);
+	bool ReadChildren(CECSocket &socket, unsigned depth = 0);
 	bool WriteChildren(CECSocket &socket) const;
 
 private:
@@ -242,7 +246,12 @@ private:
 	ec_tagtype_t m_dataType;
 	ec_taglen_t m_dataLen;
 	char *m_tagData;
-	void NewData() { m_tagData = new char[m_dataLen]; }
+	// One spare NUL, so string and double data read from a socket always ends.
+	void NewData()
+	{
+		m_tagData = new char[m_dataLen + 1];
+		m_tagData[m_dataLen] = 0;
+	}
 
 	typedef std::list<CECTag> TagList;
 	TagList m_tagList;

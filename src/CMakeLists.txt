@@ -355,7 +355,6 @@ if (BUILD_MONOLITHIC)
 		${CORE_SOURCES}
 		${GUI_SOURCES}
 		CaptchaDialog.cpp
-		CaptchaGenerator.cpp
 		PartFileConvert.cpp
 		PartFileConvertDlg.cpp
 		# Not in GUI_SOURCES: amulegui shares that list; startup and
@@ -435,8 +434,10 @@ if (BUILD_MONOLITHIC)
 		)
 
 		set (AMULE_ICNS "${CMAKE_SOURCE_DIR}/platforms/MacOSX/amule.icns")
-		target_sources (amule PRIVATE ${AMULE_ICNS} "${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md")
-		set_source_files_properties (${AMULE_ICNS} "${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md" PROPERTIES
+		target_sources (amule PRIVATE ${AMULE_ICNS} "${CMAKE_SOURCE_DIR}/LICENSE.md"
+			"${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md")
+		set_source_files_properties (${AMULE_ICNS} "${CMAKE_SOURCE_DIR}/LICENSE.md"
+			"${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md" PROPERTIES
 			MACOSX_PACKAGE_LOCATION "Resources"
 		)
 
@@ -685,8 +686,10 @@ if (BUILD_REMOTEGUI)
 		)
 
 		set (AMULEGUI_ICNS "${CMAKE_SOURCE_DIR}/platforms/MacOSX/amule.icns")
-		target_sources (amulegui PRIVATE ${AMULEGUI_ICNS} "${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md")
-		set_source_files_properties (${AMULEGUI_ICNS} "${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md" PROPERTIES
+		target_sources (amulegui PRIVATE ${AMULEGUI_ICNS} "${CMAKE_SOURCE_DIR}/LICENSE.md"
+			"${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md")
+		set_source_files_properties (${AMULEGUI_ICNS} "${CMAKE_SOURCE_DIR}/LICENSE.md"
+			"${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md" PROPERTIES
 			MACOSX_PACKAGE_LOCATION "Resources"
 		)
 

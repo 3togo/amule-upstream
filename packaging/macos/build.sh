@@ -60,7 +60,9 @@ build() {
     # can find Homebrew headers.
     export CPATH="${BREW_PREFIX}/include"
     export LIBRARY_PATH="${BREW_PREFIX}/lib"
-    export PKG_CONFIG_PATH="${BREW_PREFIX}/lib/pkgconfig:$(brew --prefix gd)/lib/pkgconfig:$(brew --prefix libupnp)/lib/pkgconfig:$(brew --prefix gettext)/lib/pkgconfig"
+    # LIBGD_PREFIX: a libgd built without Homebrew's codec dependencies (see
+    # packaging.yml); local builds use the gd keg.
+    export PKG_CONFIG_PATH="${BREW_PREFIX}/lib/pkgconfig:${LIBGD_PREFIX:-$(brew --prefix gd)}/lib/pkgconfig:$(brew --prefix libupnp)/lib/pkgconfig:$(brew --prefix gettext)/lib/pkgconfig"
     export PATH="$(brew --prefix gettext)/bin:${PATH}"
 
     # MACOS_ARCHITECTURES empty → native arch (whatever Homebrew
@@ -141,6 +143,15 @@ build() {
                 -p "@executable_path/../libs/" >/dev/null
         fi
     done
+    # cas's default casrc points at its image and HTML template here.
+    if [[ -x "${APP_BUNDLE}/Contents/MacOS/cas" ]]; then
+        mkdir -p "${APP_BUNDLE}/Contents/Resources/cas"
+        cp -f "${REPO_ROOT}/src/utils/cas/stat.png" "${REPO_ROOT}/src/utils/cas/tmp.html" \
+            "${APP_BUNDLE}/Contents/Resources/cas/"
+    fi
+
+    collect_licenses "${APP_BUNDLE}"
+    [[ -d "${GUI_BUNDLE}" ]] && collect_licenses "${GUI_BUNDLE}"
 
     echo "==> Producing .dmg"
     make_dmg
@@ -157,6 +168,57 @@ bundle_dylibs() {
         -x "${main}" \
         -d "${app}/Contents/libs/" \
         -p "@executable_path/../libs/"
+}
+
+# Copy the license files Homebrew keeps in each keg root into
+# Contents/Resources/licenses/<formula>: one per bundled dylib, plus the
+# formulae built in statically or header-only.
+collect_licenses() {
+    local app="$1"
+    local dest="${app}/Contents/Resources/licenses"
+    rm -rf "${dest}"
+    mkdir -p "${dest}"
+
+    local formulae=(boost cryptopp) lib keg
+    for lib in "${app}"/Contents/libs/*.dylib; do
+        if [[ -n "${LIBGD_PREFIX:-}" && -e "${LIBGD_PREFIX}/lib/$(basename "${lib}")" ]]; then
+            mkdir -p "${dest}/libgd"
+            cp -f "${LIBGD_PREFIX}"/share/licenses/libgd/* "${dest}/libgd/"
+            continue
+        fi
+        keg=$(find "${BREW_PREFIX}/Cellar" -path "*/lib/$(basename "${lib}")" -print -quit)
+        if [[ -z "${keg}" ]]; then
+            echo "warning: no keg holds $(basename "${lib}")" >&2
+            continue
+        fi
+        keg=${keg#"${BREW_PREFIX}/Cellar/"}
+        formulae+=("${keg%%/*}")
+    done
+
+    local formula root file missing=()
+    for formula in $(printf '%s\n' "${formulae[@]}" | sort -u); do
+        root=$(brew --prefix "${formula}")
+        local files=()
+        shopt -s nocaseglob
+        for file in "${root}"/{LICENSE,LICENCE,COPYING,COPYRIGHT,NOTICE}*; do
+            [[ -f "${file}" ]] && files+=("${file}")
+        done
+        shopt -u nocaseglob
+        # Some kegs keep no license file; use the copy in packaging/licenses.
+        if [[ ${#files[@]} -eq 0 && -d "${REPO_ROOT}/packaging/licenses/${formula}" ]]; then
+            files=("${REPO_ROOT}/packaging/licenses/${formula}"/*)
+        fi
+        if [[ ${#files[@]} -eq 0 ]]; then
+            missing+=("${formula}")
+            continue
+        fi
+        mkdir -p "${dest}/${formula}"
+        cp -f "${files[@]}" "${dest}/${formula}/"
+    done
+    echo "==> Collected licenses for $(ls "${dest}" | wc -l | tr -d ' ') formulae in $(basename "${app}")"
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo "warning: no license files in the kegs of: ${missing[*]}" >&2
+    fi
 }
 
 make_dmg() {

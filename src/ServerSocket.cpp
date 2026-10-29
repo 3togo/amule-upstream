@@ -89,6 +89,9 @@ void HandleLowIdHolePunchInfo(
 	const bool requester = info.peerId.has_value() &&
 			       serverconnect->LowIdHolePunchPendingRequests().Take(*info.peerId, now);
 	serverconnect->LowIdHolePunchExpectedEndpoints().Register(info.peerIP, info.tcpPort, now);
+#ifdef AMULE_QUIC_TRANSPORT
+	theApp->clientudp->ExpectNatTPeer(peerIP, info.udpPort, &info.userHash);
+#endif
 	CPacket *punch = new CPacket(OP_HOLEPUNCH, 0, OP_EMULEPROT);
 	theStats::AddUpOverheadOther(punch->GetPacketSize());
 	theApp->clientudp->SendPacket(punch, peerIP, info.udpPort, false, nullptr, false, 0);
@@ -96,7 +99,8 @@ void HandleLowIdHolePunchInfo(
 		CFormat("Client UDP socket: OP_HOLEPUNCH to %s") %
 			Uint32_16toStringIP_Port(peerIP, info.udpPort));
 	if (requester) {
-		if (theApp->clientudp->DialLowIdHolePunchPeer(peerIP, info.tcpPort, info.udpPort)) {
+		if (theApp->clientudp->DialLowIdHolePunchPeer(
+			    peerIP, info.tcpPort, info.udpPort, info.userHash)) {
 			serverconnect->LowIdHolePunchExpectedEndpoints().NoteDialled(
 				info.peerIP, info.udpPort);
 		}

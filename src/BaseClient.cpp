@@ -28,6 +28,8 @@
 #include <wx/mstream.h>
 #include <wx/tokenzr.h>
 
+#include <array>
+
 #include "updownclient.h"   // Needed for CUpDownClient
 #include "SharedFileList.h" // Needed for CSharedFileList
 
@@ -67,11 +69,11 @@
 #include "ClientList.h"       // Needed for CClientList
 #include "ChatSessionStore.h" // Needed for CChatSessionStore
 #include "ChatCaptcha.h"
+#include "CaptchaGenerator.h"
 #ifndef AMULE_DAEMON
 #include "amuleDlg.h"      // Needed for CamuleDlg
 #include "CaptchaDialog.h" // Needed for CCaptchaDialog
-#include "CaptchaGenerator.h"
-#include "ChatWnd.h" // Needed for CChatWnd
+#include "ChatWnd.h"       // Needed for CChatWnd
 #endif
 #include "BrowseManager.h"
 #include "amule.h"           // Needed for theApp
@@ -219,6 +221,7 @@ void CUpDownClient::Init()
 	m_nUserPort = 0;
 	m_nPartCount = 0;
 	m_dwLastAskedTime = 0;
+	m_lastPacedRequest = 0;
 	m_nDownloadState = DS_NONE;
 	m_dwUploadTime = 0;
 	m_nTransferredDown = 0;
@@ -1628,6 +1631,35 @@ bool CUpDownClient::Disconnected(const wxString &DEBUG_ONLY(strReason), bool bFr
 	return bDelete;
 }
 
+void CUpDownClient::QuicDialFailed()
+{
+	// Temporary clients created for server-vouched LowID rendezvous have no TCP fallback:
+	// continue through the existing uTP path, with QUIC suppressed.
+#if defined(ENABLE_NATT_SERVER_COORDINATION) && defined(AMULE_UTP_TRANSPORT)
+	if ((IsLowIdHolePunchDial() || IsLugdunumCallbackDial()) && !HasBeenDeleted()) {
+#ifdef AMULE_QUIC_TRANSPORT
+		m_skipQuicDial = true;
+#endif
+		TryServerVouchedLowIdUtpDial();
+#ifdef AMULE_QUIC_TRANSPORT
+		m_skipQuicDial = false;
+#endif
+		return;
+	}
+#endif
+
+	// QUIC is opportunistic. The failure callback is delivered by the UDP event loop, so resume
+	// the ordinary contact policy here. Consume the QUIC choice before re-entry: otherwise the
+	// fallback can immediately select the same failed transport again.
+#ifdef AMULE_QUIC_TRANSPORT
+	m_skipQuicDial = true;
+#endif
+	TryToContact(true);
+#ifdef AMULE_QUIC_TRANSPORT
+	m_skipQuicDial = false;
+#endif
+}
+
 // The returned bool is not whether TryToConnect succeeded: false means the client was
 // deleted, true means it was not.
 bool CUpDownClient::TryToConnect(bool bIgnoreMaxCon)
@@ -1858,29 +1890,34 @@ void CUpDownClient::TrySendLugdunumNatCallbackRequest(uint32 targetId) const
 		0);
 }
 
-bool CUpDownClient::TrySendLowIdHolePunchRequest()
+namespace
 {
+NatServerHolePunch::RequestFacts BuildLowIdHolePunchRequestFacts(const CUpDownClient &client)
+{
+	NatServerHolePunch::RequestFacts facts;
 	if (theApp->serverconnect == nullptr) {
-		return false;
+		return facts;
 	}
 	CServer *server = theApp->serverconnect->GetCurrentServer();
 	if (server == nullptr) {
-		return false;
+		return facts;
 	}
-	const uint16 ourUdpPort = thePrefs::GetEffectiveUDPPort();
+	facts.ourId = theApp->serverconnect->GetClientID();
+	facts.sourceId = client.GetUserIDHybrid();
+	facts.sameServer = theApp->serverconnect->IsLocalServer(client.GetServerIP(), client.GetServerPort());
+	facts.serverAnnouncesHolePunch = server->SupportsLowIdHolePunch();
+	facts.settingEnabled = thePrefs::IsLowIdHolePunchEnabled();
+	facts.ourUdpPort = thePrefs::GetEffectiveUDPPort();
 #ifdef AMULE_UTP_TRANSPORT
-	const bool lowIdHolePunchUtpAvailable = true;
-#else
-	const bool lowIdHolePunchUtpAvailable = false;
+	facts.utpAvailable = true;
 #endif
-	const NatServerHolePunch::RequestFacts facts{ theApp->serverconnect->GetClientID(),
-		GetUserIDHybrid(),
-		theApp->serverconnect->IsLocalServer(GetServerIP(), GetServerPort()),
-		server->SupportsLowIdHolePunch(),
-		server->IsLugdunumNatCallbackActive(),
-		thePrefs::IsLowIdHolePunchEnabled(),
-		ourUdpPort,
-		lowIdHolePunchUtpAvailable };
+	return facts;
+}
+} // namespace
+
+bool CUpDownClient::TrySendLowIdHolePunchRequest()
+{
+	const NatServerHolePunch::RequestFacts facts = BuildLowIdHolePunchRequestFacts(*this);
 	if (!NatServerHolePunch::ShouldRequestLowIdHolePunch(facts)) {
 		return false;
 	}
@@ -1889,7 +1926,7 @@ bool CUpDownClient::TrySendLowIdHolePunchRequest()
 		return false;
 	}
 
-	const NatServerHolePunch::Request request{ GetUserIDHybrid(), ourUdpPort };
+	const NatServerHolePunch::Request request{ GetUserIDHybrid(), facts.ourUdpPort };
 	const std::array<std::uint8_t, 6> payload = NatServerHolePunch::BuildRequest(request);
 	CMemFile data(payload.data(), payload.size());
 	CPacket *packet = new CPacket(data, OP_EDONKEYPROT, NatServerTcp::OP_LOWID_HOLEPUNCH_REQUEST);
@@ -1950,11 +1987,13 @@ EContactResult CUpDownClient::TryToContact(bool bIgnoreMaxCon)
 			// We cannot do a callback!
 			if (GetDownloadState() == DS_CONNECTING) {
 #ifdef ENABLE_NATT_SERVER_COORDINATION
-				// Sent once per source: a DS_LOWTOLOWIP source is not asked again. A server
-				// is either Lugdunum or ed2k-server; each call no-ops on the
-				// other's server.
-				TrySendLugdunumNatCallbackRequest();
-				TrySendLowIdHolePunchRequest();
+				// Sent once per source: a DS_LOWTOLOWIP source is not asked again.
+				if (NatServerHolePunch::ShouldRequestLowIdHolePunch(
+					    BuildLowIdHolePunchRequestFacts(*this))) {
+					TrySendLowIdHolePunchRequest();
+				} else {
+					TrySendLugdunumNatCallbackRequest();
+				}
 #endif
 				SetDownloadState(DS_LOWTOLOWIP);
 			} else if (GetDownloadState() == DS_REQHASHSET) {
@@ -2224,6 +2263,26 @@ bool CUpDownClient::TryServerVouchedLowIdUtpDial()
 	if (m_socket != nullptr && m_socket->IsOk()) {
 		return false;
 	}
+#ifdef AMULE_QUIC_TRANSPORT
+	// QUIC is selected only for an authenticated LowID NAT-T rendezvous; HighID contact
+	// remains TCP (and the uTP fallback below remains available for this route).
+	if (!m_skipQuicDial && HasValidHash() && GetConnectIP() != 0 && GetUDPPort() != 0) {
+		std::array<uint8_t, 16> peerHash{};
+		std::copy_n(GetUserHash().GetHash(), peerHash.size(), peerHash.begin());
+		std::array<uint8_t, 16> fileHash{};
+		if (m_reqfile != nullptr) {
+			std::copy_n(m_reqfile->GetFileHash().GetHash(), fileHash.size(), fileHash.begin());
+		}
+		// TryQuicDial() also returns true while a CAPS answer is pending.
+		if (theApp->clientudp->TryQuicDial(peerHash, GetConnectIP(), GetUDPPort(), fileHash, this)) {
+			return true;
+		}
+		AddDebugLogLineN(logClientUDP,
+			CFormat("QUIC dial to %s not possible (disabled, incompatible peer, cooldown, or "
+				"dial start failed); falling back to uTP") %
+				Uint32_16toStringIP_Port(GetConnectIP(), GetUDPPort()));
+	}
+#endif
 	IUtpContext *utp = theApp->clientudp->GetUtpContext();
 	const bool canSend = utp != nullptr && utp->IsAvailable() && theApp->clientudp->Ok();
 	const bool obfuscationSatisfied = !WantsStreamObfuscation() || ShouldReceiveCryptUDPPackets();
@@ -2476,6 +2535,18 @@ int CUpDownClient::GetHashType() const
 	}
 
 	return SO_UNKNOWN;
+}
+
+bool CUpDownClient::ReplaceSocket(CClientTCPSocket *socket)
+{
+	if (m_socket != nullptr && m_socket->IsConnected()) {
+		return false;
+	}
+	if (m_socket != nullptr) {
+		m_socket->Safe_Delete();
+	}
+	SetSocket(socket);
+	return true;
 }
 
 void CUpDownClient::SetSocket(CClientTCPSocket *socket)
@@ -3654,11 +3725,7 @@ void CUpDownClient::ProcessCaptchaReqRes(uint8 status)
 #endif
 }
 
-// Shared by both builds. The advanced spam filter (captcha + URL heuristic) is GUI-only --
-// CCaptchaGenerator lives in the monolithic target and the spam path touches the chat
-// window -- so it is compiled out on the daemon, which relays incoming messages to amulegui
-// with the message filter alone. By-value to match the header signature: the non-daemon
-// path reassigns `message` (captcha), so the parameter cannot be const-ref.
+// The core applies the same chat protection in both builds, before recording any message.
 // NOLINTNEXTLINE(performance-unnecessary-value-param)
 void CUpDownClient::ProcessChatMessage(wxString message)
 {
@@ -3671,9 +3738,8 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 		return;
 	}
 
-#ifndef AMULE_DAEMON
 	// advanced spamfilter check
-	if (thePrefs::IsChatCaptchaEnabled() && !IsFriend()) {
+	if (thePrefs::IsAdvancedSpamfilterEnabled() && thePrefs::IsChatCaptchaEnabled() && !IsFriend()) {
 		// captcha checks outrank any further checks - if the captcha has been solved, we assume it's
 		// not spam first check if we need to send a captcha request to this client
 		if (GetMessagesSent() == 0 && GetMessagesReceived() == 0 &&
@@ -3741,8 +3807,7 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 				// this message must be the answer to the captcha request we sent him, let's
 				// verify
 				wxASSERT(!m_strCaptchaChallenge.IsEmpty());
-				if (m_strCaptchaChallenge.CmpNoCase(message.Trim().Right(std::min(
-					    message.Length(), m_strCaptchaChallenge.Length()))) == 0) {
+				if (MatchesChatCaptchaAnswer(m_strCaptchaChallenge, message)) {
 					// allright
 					AddDebugLogLineN(logClient,
 						CFormat("Captcha solved, showing withheld message (%s)") %
@@ -3753,6 +3818,7 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 								  // later if the captcha has been solved
 					// replace captchaanswer with withheld message and show it
 					message = m_strCaptchaPendingMsg;
+					m_strCaptchaPendingMsg.Clear();
 					m_cCaptchasSent = 0;
 					m_strCaptchaChallenge.Clear();
 					CPacket *packet =
@@ -3782,10 +3848,8 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 
 	if (thePrefs::IsAdvancedSpamfilterEnabled() &&
 		!IsFriend()) { // friends are never spammer... (but what if two spammers are friends :P )
-		bool bIsSpam = false;
-		if (m_fIsSpammer) {
-			bIsSpam = true;
-		} else {
+		bool bIsSpam = m_fIsSpammer;
+		if (!bIsSpam) {
 			// First fixed criteria: a client that sends an URL in its first message before I
 			// respond has a 99.9% chance of being some poor guy advertising his leech mod, or
 			// selling you something.
@@ -3812,11 +3876,10 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 			AddDebugLogLineN(
 				logClient, CFormat("'%s' has been marked as spammer") % GetUserName());
 			SetSpammer(true);
-			theApp->amuledlg->m_chatwnd->EndSession(GetChatPeer());
+			theApp->clientlist->CloseChatSession(GetChatPeer());
 			return;
 		}
 	}
-#endif // AMULE_DAEMON
 
 	wxString logMsg = CFormat(_("New message from '%s' (IP:%s)")) % GetUserName() % GetFullIP();
 	if (thePrefs::ShowMessagesInLog()) {

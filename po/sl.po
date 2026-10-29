@@ -1287,6 +1287,15 @@ msgstr ""
 msgid "All"
 msgstr "Vse"
 
+#: src/amule-remote-gui.cpp src/muuli_wdr.cpp
+msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
+msgstr ""
+
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
 msgstr ""
@@ -1294,6 +1303,10 @@ msgstr ""
 #: src/amule-remote-gui.cpp
 msgid "not readable"
 msgstr "ni berljivo"
+
+#: src/amule-remote-gui.cpp
+msgid "outside the folders the daemon allows (configured on the daemon)"
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 msgid "not found"
@@ -1321,6 +1334,15 @@ msgstr "Mapa za začasne datoteke prejemanj"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Ni moč ustvariti mape »%s« za kategorijo »%s«, obdržana bo mapa »%s«."
+
+#: src/amule-remote-gui.cpp
+msgid "the daemon refused the request"
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, fuzzy, c-format
+msgid "The daemon refused the category: %s"
+msgstr "Mapa za začasne datoteke prejemanj"
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
 msgid "Invalid URL"
@@ -2362,6 +2384,22 @@ msgstr[3] "Ni bilo mogoče dodati %u povezav (podrobnosti si oglejte v dnevniku)
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Neveljavna povezava eD2k. NAPAKA: %s"
 
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the media-probe (ffprobe) path: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
+msgstr ""
+
 #: src/EditServerListDlg.cpp
 #, fuzzy
 msgid "Edit server list sources"
@@ -2393,6 +2431,11 @@ msgstr "Zunanja povezava se je zaprla."
 #: src/ExternalConn.cpp
 msgid "External connections disabled due to empty password!"
 msgstr "Zunanje povezave onemogočene zaradi praznega gesla."
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Remote clients cannot change folders: no folder is listed in %s"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
@@ -2623,6 +2666,14 @@ msgstr ""
 #, c-format
 msgid "Could not save the amuleapi password: %s"
 msgstr "Gesla amuleapi ni bilo mogoče shraniti: %s"
+
+#: src/ExternalConn.cpp
+msgid "One or more folders were outside the allowed remote directories and were left unchanged."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "The category folder is outside the allowed remote directories."
+msgstr ""
 
 #: src/ExternalConn.cpp
 #, fuzzy
@@ -3347,6 +3398,11 @@ msgstr "Prejemanje …"
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "Prejemanje HTTP preklicano"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "Refusing to download %s: only http and https URLs are supported."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 #, c-format
@@ -5239,7 +5295,7 @@ msgstr "poskusih"
 
 #: src/muuli_wdr.cpp
 #, fuzzy
-msgid "Edit sources…"
+msgid "Edit sources..."
 msgstr "Viri datoteke:"
 
 #: src/muuli_wdr.cpp
@@ -5500,6 +5556,14 @@ msgid "Show how many of the files and folders in your shared folders the current
 msgstr ""
 
 #: src/muuli_wdr.cpp
+msgid "Folders the daemon allows remote changes in"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
 msgid "When the connected core's files live on a different machine, map a path prefix it reports to where that filesystem is reachable from here (a network share, say) so \"Open\" and \"Show in folder\" work."
 msgstr ""
 
@@ -5651,25 +5715,6 @@ msgid "Server connection refresh interval: Disable"
 msgstr "Čas med osvežitvama povezave na strežnik: onemogoči"
 
 #: src/muuli_wdr.cpp
-msgid "Experimental"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Enable experimental ED2K accelerated file publication"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid ""
-"Testing is discouraged for normal use. Interoperability and server-load testing\n"
-"are incomplete; this may cause server disconnections. Enable only for\n"
-"controlled testing with a compatible server. Disabled by default."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Configure this experimental option on the daemon host."
-msgstr ""
-
-#: src/muuli_wdr.cpp
 msgid "Disable computer's timed standby mode"
 msgstr "Onemogoči prehod računalnika v pripravljenost"
 
@@ -5783,6 +5828,18 @@ msgstr "Geslo"
 
 #: src/muuli_wdr.cpp
 msgid "Require encrypted connections (rejects clients that cannot encrypt)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders remote clients may use"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -6241,6 +6298,22 @@ msgstr "Filtriraj sporočila, ki vsebujejo (uporabi »,« kot ločilnik):"
 #: src/muuli_wdr.cpp
 msgid "add here the words amule should filter and block messages including it"
 msgstr "Sem dodajte besede, ki naj jih aMule filtrira, vključno s sporočili v katerih se nahajajo."
+
+#: src/muuli_wdr.cpp
+msgid "Enable advanced spam filter"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Block unsolicited links and repeated messages from non-friends."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Require a CAPTCHA for first messages from non-friends"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Withhold the message until the sender solves the challenge. Clients without CAPTCHA support cannot start a chat."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Show received messages in the log"
@@ -6765,6 +6838,11 @@ msgstr[3] "Najden pokvarjen del (%d) v %d delnih datotekah %s - - FileResultHash
 
 #: src/PartFile.cpp
 #, c-format
+msgid "'%s' does not match its file hash, and without the part hashset the corrupt part cannot be found. Waiting for the hashset."
+msgstr ""
+
+#: src/PartFile.cpp
+#, c-format
 msgid "Found completed part (%i) in %s"
 msgstr "Najden zaključen del (%i) v %s"
 
@@ -6876,6 +6954,11 @@ msgstr "Vrata TCP ne smejo biti večja od 65532, ker so vrata UDP TCP+3"
 msgid "Default port will be used (%d)"
 msgstr "Uporabljena bodo privzeta vrata (%d)"
 
+#: src/Preferences.cpp
+#, c-format
+msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
+msgstr ""
+
 #: src/BandwidthLimitSlider.h
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr ""
@@ -6986,6 +7069,10 @@ msgid "The type of proxy you are connecting to"
 msgstr "Vrsta posrednika s katerim se hočete povezati"
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "Set in the daemon's own configuration (amule.conf); not editable remotely."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "Failed to transfer data from Widget to Cfg with the ID %d and key %s"
 msgstr "Podatkov iz gradnika ni bilo moč prenesti v nastavitve z ID-jem %d in ključem %s."
@@ -6993,6 +7080,15 @@ msgstr "Podatkov iz gradnika ni bilo moč prenesti v nastavitve z ID-jem %d in k
 #: src/PrefsUnifiedDlg.cpp
 msgid "No password set."
 msgstr "Geslo ni nastavljeno."
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "That file does not look like ffprobe. Choose a binary named ffprobe (or ffprobe.exe) that reports an \"ffprobe version\" banner, leave the field empty to auto-detect, or set the path directly in amule.conf."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Invalid ffprobe path"
+msgstr "Neveljavno ime datoteke."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "The shared-file exclusion pattern is not a valid regular expression. The filter has been left disabled."
@@ -7459,6 +7555,19 @@ msgstr ""
 #, fuzzy
 msgid "Choose the local folder"
 msgstr "Izberite mapo za %s"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Please enter an absolute path. A relative path would be resolved against the daemon's working directory, so it is not accepted."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Allowed folders for remote clients"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Choose a folder remote clients may use"
+msgstr "Izberite mapo za prejete datoteke"
 
 #: src/SearchDlg.cpp
 #, fuzzy
@@ -8367,6 +8476,11 @@ msgstr[0] "Najdenih %i znanih deljenih datotek"
 msgstr[1] "Najdena %i znana deljena datoteka"
 msgstr[2] "Najdeni %i znani deljeni datoteki"
 msgstr[3] "Najdene %i znane deljene datoteke"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Refused to rename '%s' to '%s': the new name must be a plain file name, not a path."
+msgstr ""
 
 #: src/SharedFilePeersListCtrl.cpp src/SourceListCtrl.cpp
 msgid "User Name"

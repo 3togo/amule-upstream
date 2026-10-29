@@ -324,7 +324,8 @@ jobs:
     env:
       # What the .app build needs from Homebrew. On x86_64 the keg cache is
       # limited to these and their dependency closure.
-      BREW_DEPS: cmake wxwidgets cryptopp libupnp gd gettext boost dylibbundler libmaxminddb
+      # freetype, jpeg-turbo and libpng are for the libgd built below.
+      BREW_DEPS: cmake wxwidgets cryptopp libupnp freetype jpeg-turbo libpng gettext boost dylibbundler libmaxminddb
     steps:
       - uses: actions/checkout@v7
         with:
@@ -440,6 +441,10 @@ jobs:
           # NOT --quiet: when the next formula loses its Intel bottle,
           # the reason has to be in the log.
           ${{ matrix.archcmd }} $BREW install $BREW_DEPS
+          # A restored x86_64 keg can link a bottled formula that the cache does
+          # not carry (libtiff links zstd); install it unless something else
+          # pulled it in.
+          ${{ matrix.archcmd }} $BREW install $(${{ matrix.archcmd }} $BREW deps --union $BREW_DEPS)
           # Native on both legs: ccache 4.14.1 has no Intel bottle and builds with gcc, which has
           # none either. It only launches the compiler, so an arm64 ccache serves the x86_64 build.
           /opt/homebrew/bin/brew install ccache
@@ -571,7 +576,37 @@ jobs:
       - name: Zero ccache stats
         if: github.event_name != 'workflow_call'
         run: ccache --zero-stats
+      # Homebrew's gd links libavif, which bundled aom, dav1d and libvmaf that
+      # nothing in aMule uses. Only cas links libgd, and it needs PNG, JPEG and
+      # FreeType. build.sh finds this one through LIBGD_PREFIX.
+      - name: Build libgd from source
+        run: |
+          set -euo pipefail
+          . packaging/linux/versions.env
+          . packaging/macos/versions.env
+          SRC="$RUNNER_TEMP/libgd-src"
+          PREFIX="$RUNNER_TEMP/libgd"
+          curl -fsSL -o "$RUNNER_TEMP/libgd.tar.xz" "$LIBGD_TARBALL_URL"
+          echo "$LIBGD_SHA256  $RUNNER_TEMP/libgd.tar.xz" | shasum -a 256 -c -
+          mkdir -p "$SRC"
+          tar -xf "$RUNNER_TEMP/libgd.tar.xz" -C "$SRC" --strip-components=1
+          # An absolute install name, so dylibbundler can follow it from cas.
+          ${{ matrix.archcmd }} cmake -S "$SRC" -B "$SRC/build" -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_PNG=ON -DENABLE_JPEG=ON -DENABLE_FREETYPE=ON \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET" \
+            -DCMAKE_PREFIX_PATH=${{ matrix.brew_prefix }} \
+            -DCMAKE_MACOSX_RPATH=OFF -DCMAKE_INSTALL_NAME_DIR="$PREFIX/lib" \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX"
+          ${{ matrix.archcmd }} cmake --build "$SRC/build" -j"$(sysctl -n hw.ncpu)"
+          ${{ matrix.archcmd }} cmake --install "$SRC/build"
+          mkdir -p "$PREFIX/share/licenses/libgd"
+          cp "$SRC/COPYING" "$PREFIX/share/licenses/libgd/"
+          echo "LIBGD_PREFIX=$PREFIX" >> "$GITHUB_ENV"
       - name: Build native-arch .app
+        # dylibbundler asks on stdin for a library it cannot find and loops on
+        # an empty answer, so a missing dylib would otherwise hold the runner.
+        timeout-minutes: 60
         env:
           MACOS_ARCHITECTURES: ${{ matrix.arch }}
         run: ${{ matrix.archcmd }} packaging/macos/build.sh
@@ -766,9 +801,11 @@ jobs:
             ${{ matrix.pkg_prefix }}-ccache
             ${{ matrix.pkg_prefix }}-cmake
             ${{ matrix.pkg_prefix }}-crypto++
+            ${{ matrix.pkg_prefix }}-freetype
             ${{ matrix.pkg_prefix }}-gettext
-            ${{ matrix.pkg_prefix }}-libgd
+            ${{ matrix.pkg_prefix }}-libjpeg-turbo
             ${{ matrix.pkg_prefix }}-libmaxminddb
+            ${{ matrix.pkg_prefix }}-libpng
             ${{ matrix.pkg_prefix }}-make
             ${{ matrix.pkg_prefix }}-ninja
             ${{ matrix.pkg_prefix }}-pkgconf
@@ -834,6 +871,26 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="$MINGW_PREFIX"
           cmake --build /tmp/libupnp/build
           cmake --install /tmp/libupnp/build
+          # No package owns it, so packaging/windows/build.sh takes its
+          # license from here.
+          install -Dm644 /tmp/libupnp/COPYING "$MINGW_PREFIX/share/licenses/libupnp/COPYING"
+      # MSYS2's libgd is built with HEIF and AVIF support, which bundled
+      # x264, x265, AV1 and other codec DLLs that nothing in aMule uses. Only
+      # cas links libgd, and it needs PNG, JPEG and FreeType.
+      - name: Build libgd from source
+        run: |
+          set -euo pipefail
+          . packaging/linux/versions.env
+          curl -L -o /tmp/libgd.tar.xz "$LIBGD_TARBALL_URL"
+          echo "$LIBGD_SHA256  /tmp/libgd.tar.xz" | sha256sum -c -
+          mkdir -p /tmp/libgd
+          tar -xf /tmp/libgd.tar.xz -C /tmp/libgd --strip-components=1
+          cmake -S /tmp/libgd -B /tmp/libgd/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_PNG=ON -DENABLE_JPEG=ON -DENABLE_FREETYPE=ON \
+            -DCMAKE_INSTALL_PREFIX="$MINGW_PREFIX"
+          cmake --build /tmp/libgd/build
+          cmake --install /tmp/libgd/build
+          install -Dm644 /tmp/libgd/COPYING "$MINGW_PREFIX/share/licenses/libgd/COPYING"
       - name: Build portable .zip
         env:
           WINDOWS_MSYSTEM: ${{ matrix.msystem }}
