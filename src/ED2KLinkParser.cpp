@@ -396,9 +396,11 @@ int main(int argc, char *argv[])
 		string arg = strip(Unescape(string(argv[i])));
 
 		if (CMagnetURI::IsMagnet(arg)) {
-			string ed2k = CMagnetED2KConverter(arg);
-			if (ed2k.empty()) {
-				std::cerr << "Cannot convert magnet URI to ed2k:\n\t" << arg << '\n';
+			const auto imported = CMagnetED2KConverter(arg).Parse();
+			string ed2k = imported.GetED2KLink();
+			if (!imported.IsValid()) {
+				std::cerr << "Cannot convert magnet URI to ed2k:\n\t" << arg << " ("
+					  << imported.GetErrorMessage() << ")\n";
 				errors = true;
 				continue;
 			} else {

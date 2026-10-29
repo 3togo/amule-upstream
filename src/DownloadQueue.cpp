@@ -1507,9 +1507,11 @@ bool CDownloadQueue::AddLink(const wxString &link, uint8 category)
 	wxString uri(link);
 
 	if (CMagnetURI::IsMagnet(link)) {
-		uri = CMagnetED2KConverter(link);
-		if (uri.empty()) {
-			AddLogLineC(CFormat(_("Cannot convert magnet link to eD2k: %s")) % link);
+		const auto imported = CMagnetED2KConverter(link).Parse();
+		uri = imported.GetED2KLink();
+		if (!imported.IsValid()) {
+			AddLogLineC(CFormat(_("Cannot convert magnet link to eD2k: %s")) %
+				    (link + " (" + wxString::FromUTF8(imported.GetErrorMessage()) + ")"));
 			return false;
 		}
 	}
