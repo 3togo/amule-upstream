@@ -2857,6 +2857,12 @@ target_link_libraries (ReservedProtocolFramesTest
 	mulecommon
 )
 
+# First-share hash eligibility without file IO or a worker thread.
+add_executable (PartVerificationTest PartVerificationTest.cpp)
+target_include_directories (PartVerificationTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (PartVerificationTest muleunit mulecommon)
+add_test (NAME PartVerificationTest COMMAND PartVerificationTest)
+
 add_executable (PartIndexTest
 	PartIndexTest.cpp
 )

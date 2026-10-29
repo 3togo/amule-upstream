@@ -25,6 +25,7 @@
 
 #include <wx/wx.h>
 
+#include "PartVerification.h"    // Needed for verification range eligibility
 #include "PartFile.h"            // Interface declarations.
 #include "PartFileBuffering.h"   // Needed for ordered buffered writes
 #include "BlockReservation.h"    // Needed for selecting unreserved block intervals
@@ -3826,30 +3827,25 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 	// such part.
 	if (status == PS_EMPTY && GetHashCount() == GetED2KPartHashCount() && !m_hashsetneeded &&
 		m_pendingHashes == 0 && !m_gaplist.IsComplete()) {
-		for (uint32 partNumber = 0; partNumber < partCount; ++partNumber) {
-			if (!m_aChangedPart[partNumber]) {
-				continue;
-			}
-			if (!IsComplete(partNumber)) {
-				continue;
-			}
-			const uint64 partStart = (uint64)partNumber * PARTSIZE;
-			const uint64 partEnd = std::min<uint64>(partStart + PARTSIZE - 1, GetFileSize() - 1);
-			bool pendingWrite = false;
-			for (const auto &entry : m_BufferedData_list) {
-				const PartFileBufferedData *item = entry.second;
-				if (item->flushed == PB_WRITTEN) {
-					continue;
+		const auto candidate = FindNextPartToVerify(
+			GetFileSize(),
+			PARTSIZE,
+			0,
+			[this](uint64 part) { return m_aChangedPart[part]; },
+			[this](uint64 part) { return IsComplete(static_cast<uint16>(part)); },
+			[this](const CPartVerificationRange &range) {
+				const uint64 partEnd = range.offset + range.length - 1;
+				for (const auto &entry : m_BufferedData_list) {
+					const PartFileBufferedData *item = entry.second;
+					if (item->flushed != PB_WRITTEN && item->start <= partEnd &&
+						item->end >= range.offset) {
+						return true;
+					}
 				}
-				if (item->start > partEnd || item->end < partStart) {
-					continue;
-				}
-				pendingWrite = true;
-				break;
-			}
-			if (pendingWrite) {
-				continue;
-			}
+				return false;
+			});
+		if (candidate) {
+			const auto partNumber = static_cast<uint16>(candidate->part);
 			m_aChangedPart[partNumber] = false;
 			++m_pendingHashes;
 			theApp->partFileHashThread->QueueHashCheck(
@@ -3857,7 +3853,6 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 			AddDebugLogLineN(logPartFile,
 				CFormat("First-share: enqueued part %u of '%s' for hash") % partNumber %
 					GetFileName());
-			break;
 		}
 	}
 
