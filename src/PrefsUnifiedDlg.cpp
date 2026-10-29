@@ -785,6 +785,17 @@ bool PrefsUnifiedDlg::TransferToWindow()
 		mmapBox->Show(thePrefs::GetMMapSupported());
 	}
 
+	// Without its helper the core cannot extract media metadata: keep the toggle visible,
+	// but disabled, and say why.
+	if (wxWindow *media = FindWindow(IDC_MEDIAMETA_ENABLED)) {
+		const bool available = thePrefs::IsMediaMetadataAvailable();
+		media->Enable(available);
+		if (!available) {
+			media->SetToolTip(_("This aMule has no media helper (amule-media-probe), so it "
+					    "cannot extract media metadata."));
+		}
+	}
+
 	// Load the user's intent (explicit non-recursive vs marked-recursive roots) into the
 	// tree control's two maps. shareddir_list itself is the runtime expansion, which
 	// includes auto-discovered subdirs that should not render as user-selected.

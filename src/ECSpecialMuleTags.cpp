@@ -439,9 +439,9 @@ CEC_Prefs_Packet::CEC_Prefs_Packet(
 			filePrefs.AddTag(CECEmptyTag(EC_TAG_FILES_MEDIA_METADATA_ENABLED));
 		}
 #ifndef CLIENT_GUI
-		// Reserved since ffprobe was replaced: always empty, kept for clients that read it.
+		// By value, so a client can tell "no helper" from an older core that does not say.
 		filePrefs.AddTag(
-			CECTag(EC_TAG_FILES_MEDIA_FFPROBE_PATH, thePrefs::GetMediaMetadataFFProbePath()));
+			CECTag(EC_TAG_FILES_MEDIA_METADATA_AVAILABLE, thePrefs::IsMediaMetadataAvailable()));
 #endif
 		if (thePrefs::StartNextFileAlpha()) {
 			filePrefs.AddTag(CECEmptyTag(EC_TAG_FILES_START_NEXT_ALPHA));
@@ -997,6 +997,11 @@ bool CEC_Prefs_Packet::Apply(wxArrayString *refusedDirs) const
 			thePrefs::SetMediaMetadataEnabled,
 			EC_TAG_FILES_MEDIA_METADATA_ENABLED);
 		// EC_TAG_FILES_MEDIA_FFPROBE_PATH is reserved and ignored.
+#ifdef CLIENT_GUI
+		// An older core sends no capability; it may still extract with ffprobe.
+		oneTag = thisTab->GetTagByName(EC_TAG_FILES_MEDIA_METADATA_AVAILABLE);
+		thePrefs::SetMediaMetadataAvailable(oneTag == nullptr || oneTag->GetInt() != 0);
+#endif
 		ApplyBoolean(
 			use_tag, thisTab, thePrefs::SetStartNextFileAlpha, EC_TAG_FILES_START_NEXT_ALPHA);
 #ifdef CLIENT_GUI

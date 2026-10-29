@@ -74,13 +74,18 @@ DESTDIR="${APPDIR}" cmake --install "${BUILD_DIR}"
 #    invokes the daemon, amulegui invokes the remote GUI, and so on.
 #    Listing each via --executable makes linuxdeploy walk their .so
 #    deps and bundle every transitive library.
-EXTRA_BINS=(amule-media-probe amuled amulegui amulecmd amuleweb amuleapi ed2k cas wxcas alc alcc)
+EXTRA_BINS=(amuled amulegui amulecmd amuleweb amuleapi ed2k cas wxcas alc alcc)
 EXEC_ARGS=()
 for bin in "${EXTRA_BINS[@]}"; do
     if [ -x "${APPDIR}/usr/bin/${bin}" ]; then
         EXEC_ARGS+=(--executable "${APPDIR}/usr/bin/${bin}")
     fi
 done
+# The media helper is internal, so it installs to libexec, not bin.
+MEDIA_PROBE="${APPDIR}/usr/libexec/amule/amule-media-probe"
+if [ -x "${MEDIA_PROBE}" ]; then
+    EXEC_ARGS+=(--executable "${MEDIA_PROBE}")
+fi
 
 # Force-include libraries that linuxdeploy's AppImage standard
 # excludelist drops but that aren't actually present on every distro.

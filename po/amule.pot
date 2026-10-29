@@ -6776,6 +6776,10 @@ msgid "Failed to transfer data from Cfg to Widget with the ID %d and key %s"
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot extract media metadata."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
 msgid "The type of proxy you are connecting to"
 msgstr ""
 

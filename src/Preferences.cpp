@@ -73,6 +73,7 @@
 #include "UserHash.h"
 #include "PlatformSpecific.h" // Needed for PlatformSpecific::GetMaxConnections()
 #include "SharedFileList.h"   // Needed for theApp->sharedfiles->Reload()
+#include "MediaProbe.h"       // Needed for MediaProbe::DetectedPath
 #endif
 
 // Needed for IP filtering prefs
@@ -265,6 +266,16 @@ bool CPreferences::s_NewVersionCheck;
 // prefs-apply.
 bool CPreferences::s_versionCheckAvailable = true;
 bool CPreferences::s_MediaMetadataEnabled;
+bool CPreferences::s_MediaMetadataAvailable = true;
+
+bool CPreferences::IsMediaMetadataAvailable()
+{
+#ifdef CLIENT_GUI
+	return s_MediaMetadataAvailable;
+#else
+	return !MediaProbe::DetectedPath().empty();
+#endif
+}
 bool CPreferences::s_ConnectToKad;
 bool CPreferences::s_ConnectToED2K;
 bool CPreferences::s_ED2KAcceleratedPublication;

@@ -1035,6 +1035,18 @@ _curl -X PATCH -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: applica
 	-d "{\"servers\":{\"accelerated_publication_enabled\":$SAVED_ACCEL,\"dead_server_retry_count\":$SAVED_RETRIES}}" \
 	"$API/preferences" >/dev/null 2>&1
 
+# --- files.media_metadata_available: a read-only daemon capability. ---
+_curl -H "Authorization: Bearer $ADMIN_TOKEN" "$API/preferences"
+_assert_json_eq '(.files.media_metadata_available|type)' boolean 'files.media_metadata_available is boolean'
+SAVED_AVAILABLE=$(printf '%s' "$CURL_BODY" | jq -r '.files.media_metadata_available')
+SAVED_MM2=$(printf '%s' "$CURL_BODY" | jq -r '.files.media_metadata_enabled')
+FLIPPED_AVAILABLE=$([ "$SAVED_AVAILABLE" = "true" ] && echo false || echo true)
+_curl -X PATCH -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+	-d "{\"files\":{\"media_metadata_enabled\":$SAVED_MM2,\"media_metadata_available\":$FLIPPED_AVAILABLE}}" \
+	"$API/preferences"
+_assert_status 200 'PATCH with read-only files.media_metadata_available -> 200'
+_assert_json_eq '.files.media_metadata_available' "$SAVED_AVAILABLE" 'files.media_metadata_available ignored on PATCH'
+
 # --- Summary. -----------------------------------------------------
 echo
 if [ "$FAIL_COUNT" -eq 0 ]; then

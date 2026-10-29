@@ -1,15 +1,19 @@
 # Bundled media metadata extraction
 
-The core launches `amule-media-probe` beside its own executable. The helper uses
-MediaInfoLib only. It consumes an already-open, seekable regular file on stdin;
+The core launches `amule-media-probe`. It looks next to its own executable first
+(the Windows, macOS, AppImage and static bundles, and the build tree), then at the
+installed `libexec/amule/amule-media-probe`, relative to its own folder. It never
+searches `PATH`: the helper is internal, so installs keep it out of `bin`. The
+helper uses MediaInfoLib only. It consumes an already-open, seekable regular file on stdin;
 the parent validates a bounded, versioned nine-line response containing duration
 (rounded seconds), bitrate (kbps), codec, artist, album and title. The existing
 metadata queue and enable/refresh controls remain.
 
 The parent enforces a wall-clock deadline, cancellation and a 64 KiB output
 limit while the child runs. It rejects malformed framing and numeric values
-outside the helper protocol, and treats crashes as helper failures. Windows uses
-a Job object and an explicit inherited handle list. POSIX builds limit CPU, memory and core dumps. Bundle library search paths
+outside the helper protocol. Windows uses a Job object and an explicit inherited
+handle list. POSIX builds limit CPU, memory, core dumps and file size (256 KiB:
+stdout is a file the core reads, so 0 would block the reply). Bundle library search paths
 are preserved. This is process isolation and resource limiting, not an operating
 system sandbox. Pinned bundle builds disable curl and libmms readers.
 
@@ -17,19 +21,26 @@ system sandbox. Pinned bundle builds disable curl and libmms readers.
 and the key is removed from `amule.conf`. The EC tag stays reserved and the frozen
 `/api/v1` field `files.ffprobe_path` reads as empty; a PATCH that would change it
 is `400 read_only_field`.
-The old path, Browse and Detect controls are removed.
+The old path, Browse and Detect controls are removed. When the core has no helper
+(built with `-DENABLE_MEDIA_PROBE=OFF`, or installed without it), the toggle stays
+visible but disabled, and amuleapi reports `files.media_metadata_available` as
+`false`. EC tag `EC_TAG_FILES_MEDIA_METADATA_AVAILABLE` carries this to remote
+GUIs; an older core sends nothing, and the toggle stays enabled there.
 
 Files with a legacy ffprobe failure marker (`FT_MEDIA_PROBE_FAILED=1`) receive
 one retry. Only a MediaInfo file verdict writes marker `2`; the normal scheduling
-path skips only `2`. Refresh ignores markers and success clears them. Missing
-helpers, crashes, malformed output and cancellation never become file verdicts.
+path skips only `2`. Refresh ignores markers and success clears them. The helper
+prints its `AMMP 1` header before it parses the file, so a crash after the header
+is this file's doing and writes marker `2`. Missing helpers, crashes before the
+header, malformed output and cancellation never become file verdicts.
 
 ## Build and tests
 
 Install MediaInfoLib (`libmediainfo-dev` on Debian/Ubuntu, `libmediainfo-devel` on
 Fedora, `libmediainfo` on Arch or Homebrew, `mingw-w64-<toolchain>-libmediainfo` on MSYS2). CMake builds
-and installs the helper by default with either core target. Configure
-`-DENABLE_MEDIA_PROBE=OFF` to omit it; extraction needs the sibling executable.
+and installs the helper by default with either core target, to
+`${CMAKE_INSTALL_LIBEXECDIR}/amule` (`bin` on Windows). Configure
+`-DENABLE_MEDIA_PROBE=OFF` to omit it.
 
 ```sh
 cmake -S . -B build -DBUILD_TESTING=ON

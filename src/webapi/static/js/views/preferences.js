@@ -186,7 +186,8 @@ const TABS = [
       { key: "strict_aich_publishers", type: "bool", sub: true, cat: "kad", gatedBy: ["protocol10_supported", "protocol10_enabled"] },
     ] },
     { legendKey: "prefs_group_media", fields: [
-      { key: "media_metadata_enabled", type: "bool" },
+      { key: "media_metadata_enabled", type: "bool", gatedBy: "media_metadata_available" },
+      { key: "media_metadata_available", type: "bool", hidden: true },
     ] },
   ] },
   { id: "security", labelKey: "prefs_security", cat: "security", groups: [

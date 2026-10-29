@@ -940,7 +940,6 @@
   "prefs_field_files_save_sources_for_rare_files": "Save up to 10 HighID sources of rare files (20 or fewer sources) on exit, used again if aMule restarts within 2 hours",
   "prefs_field_files_new_shared_files_auto_priority_enabled": "Add new shared files with auto priority",
   "prefs_field_files_media_metadata_enabled": "Extract length / bitrate / codec from shared audio and video files",
-  "prefs_field_files_ffprobe_path": "Path to ffprobe (empty = auto-detect)",
   "prefs_field_files_mmap_enabled": "Use MMAP: memory-mapped file access (lower memory use)",
   "prefs_field_servers_remove_dead_servers": "Remove dead servers",
   "prefs_field_servers_dead_server_retry_count": "Retries before a server is dead",

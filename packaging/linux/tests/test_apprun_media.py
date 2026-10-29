@@ -15,9 +15,10 @@ class AppRunMediaTests(unittest.TestCase):
             root = Path(scratch)
             shutil.copy2(SOURCE / 'packaging/linux/appimage/AppRun', root / 'AppRun')
             (root / 'AppRun').chmod(0o755)
-            (root / 'usr/bin').mkdir(parents=True)
-            for binary, output in (('amule-media-probe', 'helper'), ('amule', 'gui')):
-                path = root / 'usr/bin' / binary
+            for binary, folder, output in (('amule-media-probe', 'usr/libexec/amule', 'helper'),
+                                           ('amule', 'usr/bin', 'gui')):
+                (root / folder).mkdir(parents=True, exist_ok=True)
+                path = root / folder / binary
                 path.write_text('#!/bin/sh\nprintf "%s %s\\n" ' + output + ' "$1"\n')
                 path.chmod(0o755)
             env = dict(os.environ, ARGV0='/relocated/amule-media-probe.AppImage')

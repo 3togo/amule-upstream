@@ -20,10 +20,13 @@
 
 #include "MediaProbe.h"
 
+#include "config.h" // Needed for AMULE_MEDIA_PROBE, AMULE_MEDIA_PROBE_RELPATH
+
 #include <map>
 #include <cmath>
 #include <cstdlib>
 #include <cstdint>
+#include <cstring>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -73,6 +76,7 @@ namespace
 constexpr int kSpawnFailed = -1;    // unavailable helper, abnormal exit or malformed response
 constexpr int kKilled = -2;         // overran timeoutMs, or keepRunning went false
 constexpr int kOutputTooLarge = -3; // reply exceeded the read budget; see the slurp
+constexpr int kCrashed = -4;        // died abnormally after printing its header
 
 // Spawn `exe argv...`, capturing stdout to a temp file, bounded by `timeoutMs` wall-clock. The wait
 // loop also polls `keepRunning`, so worker shutdown kills the child at once. Real argv, no shell,
@@ -247,7 +251,10 @@ int RunBoundedHelper(const wxString &exe,
 		if (::WaitForSingleObject(pi.hProcess, 25) == WAIT_OBJECT_0) {
 			DWORD code = 0;
 			::GetExitCodeProcess(pi.hProcess, &code);
-			exitCode = static_cast<int>(code);
+			// Anything but the helper's own codes is a crash or a loader failure.
+			exitCode = code == 0 || code == 10 || code == 11 || code == 12
+					   ? static_cast<int>(code)
+					   : kCrashed;
 			break;
 		}
 		const bool oversized = outputTooLarge();
@@ -333,7 +340,7 @@ int RunBoundedHelper(const wxString &exe,
 		int status = 0;
 		const pid_t r = waitpid(pid, &status, WNOHANG);
 		if (r == pid) {
-			exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : kSpawnFailed;
+			exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : kCrashed;
 			break;
 		}
 		if (r == -1 && errno == EINTR) {
@@ -363,6 +370,16 @@ int RunBoundedHelper(const wxString &exe,
 	// and the unescaper before kMaxTagChars ever applies. A legitimate five-field reply is a
 	// few hundred bytes, and anything past the cap is treated as a failed probe rather than
 	// truncated.
+	// The helper prints its header once it has started. A crash before that is a broken
+	// install, which must not mark every file; a crash after it is this file's doing.
+	if (exitCode == kCrashed) {
+		wxFFile f(tmpPath, wxT("rb"));
+		char header[7] = {};
+		if (!f.IsOpened() || f.Read(header, sizeof(header)) != sizeof(header) ||
+			std::memcmp(header, "AMMP 1\n", sizeof(header)) != 0) {
+			exitCode = kSpawnFailed;
+		}
+	}
 	if (exitCode == 0) {
 		wxFFile f(tmpPath, wxT("rb"));
 		wxString content;
@@ -395,15 +412,35 @@ int RunBoundedHelper(const wxString &exe,
 
 } // anonymous namespace
 
+wxArrayString HelperCandidates(const wxString &executable)
+{
+	wxFileName sibling(executable);
+#ifdef __WXMSW__
+	sibling.SetFullName(wxT("amule-media-probe.exe"));
+#else
+	sibling.SetFullName(wxT("amule-media-probe"));
+#endif
+	wxArrayString candidates;
+	candidates.Add(sibling.GetFullPath());
+#ifdef AMULE_MEDIA_PROBE_RELPATH
+	wxFileName installed(
+		wxFileName(executable).GetPathWithSep() + wxString::FromUTF8(AMULE_MEDIA_PROBE_RELPATH));
+	installed.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_ABSOLUTE);
+	candidates.Add(installed.GetFullPath());
+#endif
+	return candidates;
+}
+
 wxString AutoDetectPath()
 {
-	wxFileName binary(wxStandardPaths::Get().GetExecutablePath());
-#ifdef __WXMSW__
-	binary.SetFullName(wxT("amule-media-probe.exe"));
-#else
-	binary.SetFullName(wxT("amule-media-probe"));
+#ifdef AMULE_MEDIA_PROBE
+	for (const wxString &candidate : HelperCandidates(wxStandardPaths::Get().GetExecutablePath())) {
+		if (wxFileName::FileExists(candidate)) {
+			return candidate;
+		}
+	}
 #endif
-	return binary.FileExists() ? binary.GetFullPath() : wxString();
+	return wxString();
 }
 
 wxString DetectedPath(bool redetect)
@@ -415,8 +452,11 @@ wxString DetectedPath(bool redetect)
 	if (!done || redetect) {
 		cached = AutoDetectPath();
 		done = true;
+#ifdef AMULE_MEDIA_PROBE
+		// A build without the helper disables the toggle instead.
 		if (cached.empty())
 			AddLogLineN(_("Media metadata: bundled amule-media-probe helper is unavailable."));
+#endif
 	}
 	return cached;
 }
@@ -820,11 +860,11 @@ ProbeOutcome Probe(const wxString &helperPath,
 	}
 	if (logFailure)
 		AddLogLineN(CFormat(_("Media metadata: parser failed for %s")) % file.GetPrintable());
-	// Only documented parser rejections describe the file. Loader failures,
-	// protocol errors and unexpected exits must not poison known.met entries.
+	// Only documented parser rejections and a crash while parsing describe the file.
+	// Loader failures, protocol errors and other exits must not poison known.met entries.
 	if (rc == 10)
 		return ProbeOutcome::NoUsableMetadata;
-	if (rc == 11)
+	if (rc == 11 || rc == kCrashed)
 		return ProbeOutcome::UnreadableFile;
 	return ProbeOutcome::Unavailable;
 }

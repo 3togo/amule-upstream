@@ -63,7 +63,11 @@ bool ParseProbeOutput(const wxArrayString &lines, MediaInfo &out);
 // by this exact request rather than a hand-written approximation of it.
 const wxChar *ProbeEntries();
 
-// Locate the bundled amule-media-probe executable alongside the running core.
+// Where the helper may be, in order: next to the core's executable (bundles, the build tree),
+// then the installed libexec path relative to it. Never PATH.
+wxArrayString HelperCandidates(const wxString &executable);
+
+// The first existing HelperCandidates() entry, or empty.
 wxString AutoDetectPath();
 
 // AutoDetectPath() memoised for the life of the process, and the entry point everything but the

@@ -112,8 +112,9 @@ def run(args, root):
     def command(binary):
         child_env = dict(env)
         if args.flatpak:
+            folder = '/app/libexec/amule/' if binary == 'amule-media-probe' else '/app/bin/'
             return ['flatpak', 'run', '--filesystem=' + str(root),
-                    '--command=/app/bin/' + binary, args.flatpak], child_env
+                    '--command=' + folder + binary, args.flatpak], child_env
         if appdir:
             child_env['ARGV0'] = binary
             return [str(appdir / 'AppRun')], child_env

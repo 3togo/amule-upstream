@@ -331,6 +331,17 @@ TEST(MediaProbeEnv, CancellationDiscardsResult)
 	ASSERT_TRUE(info.title.empty());
 }
 
+// The helper prints its header before parsing, so a crash after it was caused by the file.
+TEST(MediaProbeEnv, CrashAfterTheHeaderIsAFileVerdict)
+{
+	MediaProbe::ProbeOutcome outcome;
+	RunPolicyScript(wxT("printf 'AMMP 1\\n'; ulimit -c 0; kill -SEGV $$"), 2000, &outcome);
+	ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::UnreadableFile);
+	ASSERT_TRUE(MediaProbe::IsFileVerdict(outcome));
+	// An ordinary error exit after the header is still the helper's problem, not the file's.
+	RunPolicyScript(wxT("printf 'AMMP 1\\n'; exit 1"), 2000, &outcome);
+	ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Unavailable);
+}
 #endif // __WXMSW__
 
 #ifdef AMULE_MEDIA_HELPER_TEST
@@ -368,3 +379,17 @@ TEST(MediaProbeEnv, RealHelperReadsInheritedSeekableFile)
 	ASSERT_EQUALS(wxString(wxT("pcm_s16le")), info.codec);
 }
 #endif
+
+// Next to the core first, then the installed path; never anything from PATH.
+TEST(MediaProbeEnv, HelperIsLookedUpBesideTheCoreFirst)
+{
+	const wxFileName core(wxFileName::GetTempDir(), wxT("amuled"));
+	const wxArrayString candidates = MediaProbe::HelperCandidates(core.GetFullPath());
+	ASSERT_TRUE(candidates.size() >= 1);
+	wxFileName sibling(candidates[0]);
+	ASSERT_EQUALS(core.GetPath(), sibling.GetPath());
+	ASSERT_TRUE(sibling.GetName() == wxT("amule-media-probe"));
+	for (const wxString &candidate : candidates) {
+		ASSERT_TRUE(wxFileName(candidate).IsAbsolute());
+	}
+}

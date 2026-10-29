@@ -34,7 +34,10 @@ if(MEDIA_PROBE_STATIC)
 endif()
 # Same directory as the core, including relocated bundles and portable installs.
 set_target_properties(amule-media-probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/src")
-install(TARGETS amule-media-probe RUNTIME DESTINATION bin)
+if(NOT AMULE_MEDIA_PROBE_INSTALL_DIR)
+  set(AMULE_MEDIA_PROBE_INSTALL_DIR bin)
+endif()
+install(TARGETS amule-media-probe RUNTIME DESTINATION "${AMULE_MEDIA_PROBE_INSTALL_DIR}")
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
   add_test(NAME MediaProbeBackends COMMAND ${Python3_EXECUTABLE}

@@ -1103,6 +1103,8 @@ struct PreferencesSnapshot
 		// Media metadata: the bundled helper probes shared files for length/bitrate/codec.
 		// ffprobe_path is reserved and always empty.
 		bool media_metadata_enabled = false;
+		// Read-only: the daemon found its media helper. False for a daemon that does not say.
+		bool media_metadata_available = false;
 		std::string ffprobe_path;
 	} files;
 

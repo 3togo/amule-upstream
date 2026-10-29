@@ -417,6 +417,10 @@ int main(int argc, char **argv)
 	setrlimit(RLIMIT_CORE, &noCore);
 	rlimit cpu{ 25, 25 };
 	setrlimit(RLIMIT_CPU, &cpu);
+	// stdout is a regular file the core reads, so 0 would block the reply. Four times the
+	// core's 64 KiB reply cap still leaves no room for any real file write.
+	rlimit writes{ 256 * 1024, 256 * 1024 };
+	setrlimit(RLIMIT_FSIZE, &writes);
 #if !defined(__SANITIZE_ADDRESS__)
 	// ASan reserves a large shadow address space; ordinary builds have a 1 GiB cap.
 #if defined(__has_feature)
@@ -447,6 +451,10 @@ int main(int argc, char **argv)
 	const auto size = tell();
 	if (size < 0 || seek(0, SEEK_SET))
 		return 12;
+	if (!json) {
+		// Before parsing: a crash after this line is the file's doing, not a broken install.
+		std::cout << "AMMP 1" << std::endl;
+	}
 	Result r;
 	int rc = 12;
 	try {
@@ -470,7 +478,7 @@ int main(int argc, char **argv)
 		std::cout << "}\n";
 	} else {
 		// Versioned, fixed flat vocabulary reuses the core's tested escaping parser.
-		std::cout << "AMMP 1\nformat.duration=" << r.length
+		std::cout << "format.duration=" << r.length
 			  << "\nformat.bit_rate=" << uint64_t(r.bitrate) * 1000 << '\n';
 		std::cout << "streams.stream.0.codec_type=\"audio\"\nstreams.stream.0.codec_name=";
 		quoted(r.codec);

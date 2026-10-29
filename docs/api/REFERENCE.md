@@ -2394,7 +2394,7 @@ Returns every preference category amuled carries over EC. The `general` and `con
     "stop_on_low_disk_space": true, "min_free_space_mebibytes": 1, "create_sparse_files": true,
     "shared_file_reverify_days": 0,
     "on_finished_start_next_alphabetically": false, "endgame_mode_enabled": false,
-    "media_metadata_enabled": true, "ffprobe_path": ""
+    "media_metadata_enabled": true, "media_metadata_available": true, "ffprobe_path": ""
   },
   "servers": {
     "remove_dead_servers": true, "dead_server_retry_count": 3, "update_list_at_startup": false,
@@ -2464,7 +2464,7 @@ Booleans are plain JSON `true`/`false` regardless of how amuled encodes them on 
 
 `geoip` is the GeoIP (IP-to-country) config category. `supported` is a capability flag: `false` when the connected daemon is built without GeoIP — the config fields are then present but inert. `source` is one of `"dbip"` / `"maxmind"` / `"custom"` (the next-download database selector). `maxmind_license` is returned plainly to admins (it is a config string the daemon already round-trips, not a masked password) and omitted for guests, like `custom_update_url`. `loaded_source`, `db_path`, `db_loaded`, `download_in_progress`, and `last_update_status` are **read-only** live status (the currently loaded DB and any in-flight refresh); they are ignored if sent on PATCH.
 
-`files.media_metadata_enabled` controls media-metadata extraction using the bundled MediaInfo helper. The helper advertises length, bitrate, codec, artist, album and title. `files.ffprobe_path` remains a reserved compatibility field in `/api/v1`: GET always returns `""`, and a PATCH that would change it is rejected with `400 read_only_field`, as for the other daemon-local fields below. Extraction requires `amule-media-probe` beside the daemon executable. `connection.bind_address` (empty = bind to any local IP), `connection.bind_interface` (a daemon-side interface name such as `eth0` / `en0` / `tun0`; empty = any), and `online_signature.directory` are likewise daemon-side paths/addresses. These, together with `files.on_finished_start_next_alphabetically`, `security.reject_spoofed_source_ips`, `security.system_ipfilter_enabled`, and `online_signature.update_frequency_seconds`, are ordinary daemon settings; a `bind_address` change takes effect on the next amuled restart.
+`files.media_metadata_enabled` controls media-metadata extraction using the bundled MediaInfo helper. The helper advertises length, bitrate, codec, artist, album and title. `files.media_metadata_available` is **read-only**: `true` when the daemon found its helper, `false` when it was built or installed without one, so enabling extraction would have no effect. A daemon that predates the field does not report it, and it reads `false` there. `files.ffprobe_path` remains a reserved compatibility field in `/api/v1`: GET always returns `""`, and a PATCH that would change it is rejected with `400 read_only_field`, as for the other daemon-local fields below. Extraction requires `amule-media-probe` beside the daemon executable. `connection.bind_address` (empty = bind to any local IP), `connection.bind_interface` (a daemon-side interface name such as `eth0` / `en0` / `tun0`; empty = any), and `online_signature.directory` are likewise daemon-side paths/addresses. These, together with `files.on_finished_start_next_alphabetically`, `security.reject_spoofed_source_ips`, `security.system_ipfilter_enabled`, and `online_signature.update_frequency_seconds`, are ordinary daemon settings; a `bind_address` change takes effect on the next amuled restart.
 
 `directories.allowed_remote_roots` is **read-only**: the folders the daemon lets a remote client point `incoming_path`, `temp_path`, `shared_paths` and a category's `save_path` at. It is daemon-local config (`allowed-remote-dirs.dat`), reported here only so a client can show what will be accepted; an **empty array means the daemon refuses every remote folder change**, which is the default. It is ignored if sent on PATCH, and enforced as described under [`PATCH /preferences`](#patch-apiv1preferences).
 
@@ -2491,7 +2491,7 @@ The `connection.proxy_*` fields configure the proxy the **daemon** routes its P2
 | Kind | What `PATCH` does | Examples |
 | --- | --- | --- |
 | Settable | applied | most of the 133 -- `files.mmap_enabled`, `connection.max_connection_count`, … |
-| Read-only status | ignored, request still succeeds | `files.mmap_supported`, `kad.protocol10_supported`, `connection.upnp_supported`, the six `geoip.*`, the seven `remote_controls.external_connections.*` |
+| Read-only status | ignored, request still succeeds | `files.mmap_supported`, `files.media_metadata_available`, `kad.protocol10_supported`, `connection.upnp_supported`, the six `geoip.*`, the seven `remote_controls.external_connections.*` |
 | Write-only | applied, never echoed on `GET` | `remote_controls.webserver.password`, `.guest_password` |
 | Refused | `400 bad_request` | `remote_controls.amuleapi.password`, `.guest_password`, `.guest_enabled` |
 

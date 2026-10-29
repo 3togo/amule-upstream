@@ -17,7 +17,8 @@ class SeekLimitTests(unittest.TestCase):
             source.seek(0)
             result = subprocess.run([HELPER], stdin=source, capture_output=True, timeout=3)
             self.assertEqual(result.returncode, 11, result.stderr)
-            self.assertEqual(result.stdout, b'')
+            # The header comes before parsing; a rejection adds nothing after it.
+            self.assertEqual(result.stdout, b'AMMP 1\n')
 
     def test_full_scan_loop_keeps_first_pass_codec(self):
         with tempfile.TemporaryFile() as source:
