@@ -2135,6 +2135,14 @@ msgstr ""
 msgid "Show all comments"
 msgstr ""
 
+#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
+msgid "Add Comment/Rating"
+msgstr ""
+
+#: src/DownloadListCtrl.cpp src/SharedFilesCtrl.cpp
+msgid "Edit Comment/Rating"
+msgstr ""
+
 #: src/DownloadListCtrl.cpp
 msgid "Copy magnet URI to clipboard"
 msgstr ""
@@ -8138,14 +8146,6 @@ msgstr ""
 
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
-msgstr ""
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr ""
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
 msgstr ""
 
 #: src/SharedFilesCtrl.cpp
