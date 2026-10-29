@@ -212,6 +212,10 @@ msgstr "Reiniciar agora"
 msgid "Later"
 msgstr "Máis tarde"
 
+#: src/GuiEvents.cpp src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr ""
+
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
 msgstr ""
@@ -1295,6 +1299,15 @@ msgstr ""
 msgid "All"
 msgstr "Todo"
 
+#: src/amule-remote-gui.cpp src/muuli_wdr.cpp
+msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
+msgstr ""
+
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
 msgstr ""
@@ -1302,6 +1315,10 @@ msgstr ""
 #: src/amule-remote-gui.cpp
 msgid "not readable"
 msgstr "non lexíbel"
+
+#: src/amule-remote-gui.cpp
+msgid "outside the folders the daemon allows (configured on the daemon)"
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 msgid "not found"
@@ -1329,6 +1346,15 @@ msgstr "Non se puido mover o ficheiro descargado a %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Non se puido crear o directorio «%s» para a categoría «%s», mantendo o directorio «%s»."
+
+#: src/amule-remote-gui.cpp
+msgid "the daemon refused the request"
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, fuzzy, c-format
+msgid "The daemon refused the category: %s"
+msgstr "Non se puido mover o ficheiro descargado a %s"
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
 msgid "Invalid URL"
@@ -2345,6 +2371,22 @@ msgstr[1] "Non se puideron engadir as ligazóns %u (consulte o rexistro)."
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Ligazón eD2k inválida! ERRO: %s"
 
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the media-probe (ffprobe) path: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
+msgstr ""
+
 #: src/EditServerListDlg.cpp
 #, fuzzy
 msgid "Edit server list sources"
@@ -2376,6 +2418,11 @@ msgstr "Conexión externa pechada."
 #: src/ExternalConn.cpp
 msgid "External connections disabled due to empty password!"
 msgstr "Conexións externas desactivadas por mor dun contrasinal baleiro!"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Remote clients cannot change folders: no folder is listed in %s"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
@@ -2482,7 +2529,7 @@ msgstr "FileHash non atopado: %s"
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
-msgid "Cannot cancel a finished download: %s"
+msgid "Cannot cancel a hashing or finished download: %s"
 msgstr "Rematouse a descarga: %s"
 
 #: src/ExternalConn.cpp
@@ -2606,6 +2653,14 @@ msgstr ""
 #, c-format
 msgid "Could not save the amuleapi password: %s"
 msgstr "Non se puido gardar o contrasinal de amuleapi: %s"
+
+#: src/ExternalConn.cpp
+msgid "One or more folders were outside the allowed remote directories and were left unchanged."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "The category folder is outside the allowed remote directories."
+msgstr ""
 
 #: src/ExternalConn.cpp
 #, fuzzy
@@ -3330,6 +3385,11 @@ msgstr "Descargando..."
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "Descarga HTTP cancelada"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "Refusing to download %s: only http and https URLs are supported."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 #, c-format
@@ -5204,7 +5264,7 @@ msgstr "intentos"
 
 #: src/muuli_wdr.cpp
 #, fuzzy
-msgid "Edit sources…"
+msgid "Edit sources..."
 msgstr "Fontes do ficheiro:"
 
 #: src/muuli_wdr.cpp
@@ -5462,6 +5522,14 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Show how many of the files and folders in your shared folders the current pattern would exclude, counted over the last scan."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders the daemon allows remote changes in"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5728,6 +5796,18 @@ msgstr "Contrasinal"
 
 #: src/muuli_wdr.cpp
 msgid "Require encrypted connections (rejects clients that cannot encrypt)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders remote clients may use"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -6184,6 +6264,22 @@ msgstr "Filtrar mensaxes que conteñan (use «,» como separador):"
 #: src/muuli_wdr.cpp
 msgid "add here the words amule should filter and block messages including it"
 msgstr "engada aquí palabras para filtrar e bloquear as mensaxes que coincidan"
+
+#: src/muuli_wdr.cpp
+msgid "Enable advanced spam filter"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Block unsolicited links and repeated messages from non-friends."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Require a CAPTCHA for first messages from non-friends"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Withhold the message until the sender solves the challenge. Clients without CAPTCHA support cannot start a chat."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Show received messages in the log"
@@ -6699,6 +6795,11 @@ msgstr[1] "Parte corrupta atopada (%d) en %d ficheiros parcial %s - FileResultHa
 
 #: src/PartFile.cpp
 #, c-format
+msgid "'%s' does not match its file hash, and without the part hashset the corrupt part cannot be found. Waiting for the hashset."
+msgstr ""
+
+#: src/PartFile.cpp
+#, c-format
 msgid "Found completed part (%i) in %s"
 msgstr "Parte (%i) completada atopada en %s"
 
@@ -6810,6 +6911,11 @@ msgstr "O porto TCP non pode ser máis alto que 65532 debido a que o socket do s
 msgid "Default port will be used (%d)"
 msgstr "Empregarase o porto predeterminado (%d)"
 
+#: src/Preferences.cpp
+#, c-format
+msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
+msgstr ""
+
 #: src/BandwidthLimitSlider.h
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr ""
@@ -6920,6 +7026,10 @@ msgid "The type of proxy you are connecting to"
 msgstr "O tipo de proxy ao que se está a conectar"
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "Set in the daemon's own configuration (amule.conf); not editable remotely."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "Failed to transfer data from Widget to Cfg with the ID %d and key %s"
 msgstr "Non se puido transferir información entre o compoñente e a configuración con ID %d e chave %s"
@@ -6927,6 +7037,15 @@ msgstr "Non se puido transferir información entre o compoñente e a configuraci
 #: src/PrefsUnifiedDlg.cpp
 msgid "No password set."
 msgstr "Non hai ningún contrasinal estabelecido."
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "That file does not look like ffprobe. Choose a binary named ffprobe (or ffprobe.exe) that reports an \"ffprobe version\" banner, leave the field empty to auto-detect, or set the path directly in amule.conf."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Invalid ffprobe path"
+msgstr "Nome de ficheiro inválido."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "The shared-file exclusion pattern is not a valid regular expression. The filter has been left disabled."
@@ -7379,6 +7498,19 @@ msgstr ""
 #, fuzzy
 msgid "Choose the local folder"
 msgstr "Escolla un cartafol para %s"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Please enter an absolute path. A relative path would be resolved against the daemon's working directory, so it is not accepted."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Allowed folders for remote clients"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Choose a folder remote clients may use"
+msgstr "Escolla un cartafol para os ficheiros entrantes"
 
 #: src/SearchDlg.cpp
 #, fuzzy
@@ -8265,6 +8397,11 @@ msgid "Discovered %u new shared file"
 msgid_plural "Discovered %u new shared files"
 msgstr[0] "Atopado %i ficheiro compartido"
 msgstr[1] "Atopados %i ficheiros compartidos"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Refused to rename '%s' to '%s': the new name must be a plain file name, not a path."
+msgstr ""
 
 #: src/SharedFilePeersListCtrl.cpp src/SourceListCtrl.cpp
 msgid "User Name"
@@ -9457,6 +9594,16 @@ msgstr "Borrar categoría"
 #, c-format
 msgid "Hashset requested for unknown file: %s"
 msgstr "Pediuse un hashset para un ficheiro descoñecido: %s"
+
+#: src/UploadDiskIOThread.cpp
+#, fuzzy, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Non se puido iniciar unha busca en Kad"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr ""
 
 #: src/UploadDiskIOThread.cpp
 #, fuzzy, c-format

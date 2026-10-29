@@ -12,7 +12,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-07 16:25+0000\n"
+"PO-Revision-Date: 2026-10-25 09:58+0000\n"
 "Last-Translator: Tapio Rantala <tapio.rantala@iki.fi>\n"
 "Language-Team: aMule Team <https://github.com/amule-org/amule>\n"
 "Language: fi\n"
@@ -198,14 +198,17 @@ msgstr "Käynnistä uudelleen nyt"
 msgid "Later"
 msgstr "Myöhemmin"
 
+#: src/GuiEvents.cpp src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr ""
+
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
 msgstr ""
 
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
-#, fuzzy
 msgid "Delete from disk"
-msgstr "Hae Kadista"
+msgstr "Poista levyltä"
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -216,11 +219,16 @@ msgid ""
 "\n"
 "The file is deleted and no longer shared. This cannot be undone."
 msgstr ""
+"Oletko varma, että haluat poistaa kohteen '%s' levyltä?\n"
+"\n"
+"Tiedosto: %s\n"
+"\n"
+"Tämä tiedosto poistetaan ja jakaminen lopetetaan. Tätä ei voi perua."
 
 #: src/GuiEvents.cpp
 #, c-format
 msgid "... and %i more"
-msgstr ""
+msgstr "... ja %i lisää"
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -230,6 +238,10 @@ msgid ""
 "%s\n"
 "The files are deleted and no longer shared. This cannot be undone."
 msgstr ""
+"Oletko varma, että haluat poistaa valitut %i tiedostoa levyltä?\n"
+"\n"
+"%s\n"
+"Tiedostot poistetaan ja niiden jakaminen lopetetaan. Tätä ei voi perua."
 
 #: src/GuiEvents.cpp
 #, c-format
@@ -242,6 +254,13 @@ msgid ""
 "Yes: stop sharing and remove the list entries. A later share scan may share the files again.\n"
 "No: keep the files shared and listed."
 msgstr ""
+"Näitä tiedostoja ei voitu poistaa levyltä:\n"
+"\n"
+"%s\n"
+"Poistetaanko ne silti jaetuista ja valmiiden siirtojen listalta?\n"
+"\n"
+"Kyllä: lopeta jakaminen ja poista listamerkinnät. Myöhempi jaettujen tiedostojen skannaus saattaa jakaa tiedostot uudelleen.\n"
+"Ei: pidä tiedostot jaettuina ja listalla."
 
 #: src/amuleAppCommon.cpp
 msgid "Failed to open ED2KLinks file."
@@ -280,9 +299,9 @@ msgid "Restricted permissions on %s to owner-only."
 msgstr ""
 
 #: src/amuleAppCommon.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Collection file not found: %s"
-msgstr "Indeksitiedostoa ei löydetty: "
+msgstr "Kokoelmatiedostoa ei löydetty: %s"
 
 #: src/amuleAppCommon.cpp
 #, fuzzy, c-format
@@ -307,9 +326,9 @@ msgid "Cannot convert magnet link to eD2k: %s"
 msgstr "Ei voitu kääntää magnet-linkkiä eD2k-linkiksi: %s"
 
 #: src/amuleAppCommon.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Invalid eD2k link \"%s\" - ERROR: %s"
-msgstr "Virheellinen eD2k-linkki! VIRHE: %s"
+msgstr "Virheellinen eD2k-linkki \"%s\" - VIRHE: %s"
 
 #: src/amule.cpp
 msgid "Now, exiting main app..."
@@ -371,9 +390,8 @@ msgid "Saving downloads and shared files..."
 msgstr "Ladataan jaettuja tiedostoja uudelleen..."
 
 #: src/amule.cpp
-#, fuzzy
 msgid "Flushing download buffers..."
-msgstr "Poistetaan tiedosto: %s"
+msgstr "Tyhjennetään latauspuskureita..."
 
 #: src/amule.cpp
 msgid "aMule shutdown completed."
@@ -437,14 +455,13 @@ msgid "WARNING"
 msgstr "VAROITUS"
 
 #: src/amule.cpp
-#, fuzzy
 msgid "Loading known files"
-msgstr "Lataan väliaikaistiedostoja kohteesta %s."
+msgstr "Ladataan tunnettuja tiedostoja"
 
 #: src/amule.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Loading known files (%u of %u)"
-msgstr "Lataan väliaikaistiedostoja kohteesta %s."
+msgstr "Ladataan tunnettuja tiedostoja (%u/%u)"
 
 #: src/amule.cpp
 #, fuzzy
@@ -452,23 +469,21 @@ msgid "Loading credits"
 msgstr "Uudelleenlataa jaetut tiedostot"
 
 #: src/amule.cpp
-#, fuzzy
 msgid "Loading IP filter"
-msgstr "Lataan väliaikaistiedostoja kohteesta %s."
+msgstr "Ladataan IP-suodatinta"
 
 #: src/amule.cpp
 msgid "Initializing network"
 msgstr ""
 
 #: src/amule.cpp
-#, fuzzy
 msgid "Loading temp files"
-msgstr "Lataan väliaikaistiedostoja kohteesta %s."
+msgstr "Ladataan väliaikaistiedostoja"
 
 #: src/amule.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Loading temp files (%u of %u)"
-msgstr "Lataan väliaikaistiedostoja kohteesta %s."
+msgstr "Ladataan väliaikaistiedostoja (%u/%u)"
 
 #: src/amule.cpp
 #, fuzzy
@@ -476,9 +491,9 @@ msgid "Loading shared files"
 msgstr "Uudelleenlataa jaetut tiedostot"
 
 #: src/amule.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Loading shared files (%u)"
-msgstr "Uudelleenlataa jaetut tiedostot"
+msgstr "Ladataan jaettuja tiedostoja (%u)"
 
 #: src/amule.cpp
 #, fuzzy
@@ -604,9 +619,9 @@ msgid "Could not rebind the server UDP port %u; no sockets were changed.\n"
 msgstr ""
 
 #: src/amule.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Could not rebind the P2P TCP port %u. %s"
-msgstr "VIRHE: Ei voida kuunnella TCP-porttia."
+msgstr "P2P TCP -porttia %u ei voitu sitoa uudelleen. %s"
 
 #: src/amule.cpp
 msgid "The previous listener and server UDP socket remain active.\n"
@@ -629,9 +644,9 @@ msgid "Some previous P2P sockets could not be restored; restart aMule.\n"
 msgstr ""
 
 #: src/amule.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Could not rebind the client UDP port %u. %s"
-msgstr "Kansio latauksen väliaikaisille tiedostoille"
+msgstr "Asiakkaan UDP-porttia %u ei voitu sitoa uudelleen. %s"
 
 #: src/amule.cpp
 msgid "P2P listening sockets rebound; established peer connections were kept."
@@ -710,18 +725,16 @@ msgid "Stopping network services..."
 msgstr ""
 
 #: src/amule.cpp
-#, fuzzy
 msgid "Saving source seeds..."
-msgstr "Lähteitä"
+msgstr "Tallennetaan lähdesiemeniä..."
 
 #: src/amule.cpp
 msgid "Stopping background downloads and workers..."
 msgstr ""
 
 #: src/amule.cpp
-#, fuzzy
 msgid "Closing connections..."
-msgstr " on yhdistämässä..."
+msgstr "Suljetaan yhteyksiä..."
 
 #: src/amule.cpp
 msgid "Saving known files and statistics..."
@@ -1281,6 +1294,15 @@ msgstr ""
 msgid "All"
 msgstr "Kaikki"
 
+#: src/amule-remote-gui.cpp src/muuli_wdr.cpp
+msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
+msgstr ""
+
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
 msgstr ""
@@ -1288,6 +1310,10 @@ msgstr ""
 #: src/amule-remote-gui.cpp
 msgid "not readable"
 msgstr "ei luettavissa"
+
+#: src/amule-remote-gui.cpp
+msgid "outside the folders the daemon allows (configured on the daemon)"
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 msgid "not found"
@@ -1307,14 +1333,23 @@ msgid "The daemon refused the request."
 msgstr ""
 
 #: src/amule-remote-gui.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Could not delete the category: %s"
-msgstr "Kansio latauksen väliaikaisille tiedostoille"
+msgstr "Luokkaa ei voitu poistaa: %s"
 
 #: src/amule-remote-gui.cpp
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Ei voida luoda kansiota '%s' luokalle '%s', pidän kansion '%s'."
+
+#: src/amule-remote-gui.cpp
+msgid "the daemon refused the request"
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, fuzzy, c-format
+msgid "The daemon refused the category: %s"
+msgstr "Luokkaa ei voitu poistaa: %s"
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
 msgid "Invalid URL"
@@ -1461,9 +1496,9 @@ msgid "Failed to create incoming dir for category. Please specify a valid path!"
 msgstr "Saapuvien kansion luonti luokalle epäonnistui. Anna kelvollinen polku!"
 
 #: src/ChatSelector.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Chat-Session Started: %s - %s %s"
-msgstr "Keskustelu aloitettu: %s (%s:%u) - %s %s"
+msgstr "Keskustelusessio aloitettu: %s - %s %s"
 
 #: src/ChatSelector.cpp
 msgid "*** Connected to Client ***"
@@ -1567,11 +1602,11 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: src/ClientContextActions.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Remove %u client from your friend list?"
 msgid_plural "Remove %u clients from your friend list?"
-msgstr[0] "Poista ystävistä"
-msgstr[1] "Poista ystävistä"
+msgstr[0] "Poistetaanko %u asiakas kaverilistalta?"
+msgstr[1] "Poistetaanko %u asiakasta kaverilistalta?"
 
 #: src/ClientContextActions.cpp
 #, c-format
@@ -1581,11 +1616,11 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: src/ClientContextActions.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Request the shared files of %u client?"
 msgid_plural "Request the shared files of %u clients?"
-msgstr[0] "Lataa uudelleen lista jaetuista tiedostoista."
-msgstr[1] "Lataa uudelleen lista jaetuista tiedostoista."
+msgstr[0] "Pyydetäänkö %u asiakkaan jaetut tiedostot?"
+msgstr[1] "Pyydetäänkö %u asiakkaan jaetut tiedostot?"
 
 #: src/ClientContextActions.cpp
 msgid "A connection is opened to each of them."
@@ -1697,9 +1732,8 @@ msgid "Total Uploaded"
 msgstr "Lähetetty"
 
 #: src/ClientHistoryListCtrl.cpp src/ClientsListCtrl.cpp
-#, fuzzy
 msgid "Total Downloaded"
-msgstr "Yhteensä Ladattu: "
+msgstr "Yhteensä ladattu"
 
 #: src/ClientHistoryListCtrl.cpp src/ClientsListCtrl.cpp src/muuli_wdr.cpp
 msgid "DL/UP modifier"
@@ -2265,7 +2299,7 @@ msgstr "Lataan osatiedostoa %u %u:sta"
 
 #: src/DownloadQueue.cpp
 msgid "ERROR: Failed to load backup file. Search https://github.com/amule-org/amule/discussions for .part.met recovery solutions."
-msgstr "VIRHE: Varmuuskopiotiedostoa ei saatu avattua.  Katso sivuilta https://github.com/amule-org/amule/discussions ratkaisuja .part.met -palautukseen."
+msgstr "VIRHE: Varmuuskopiotiedostoa ei saatu avattua. Katso sivuilta https://github.com/amule-org/amule/discussions ratkaisuja .part.met -palautukseen."
 
 #: src/DownloadQueue.cpp
 msgid "All PartFiles Loaded."
@@ -2332,6 +2366,22 @@ msgstr[1] "%u linkkiä jäi lisäämättä (katso lisätietoja lokista)."
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Virheellinen eD2k-linkki! VIRHE: %s"
 
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the media-probe (ffprobe) path: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
+msgstr ""
+
 #: src/EditServerListDlg.cpp
 #, fuzzy
 msgid "Edit server list sources"
@@ -2363,6 +2413,11 @@ msgstr "Etäyhteys suljettu."
 #: src/ExternalConn.cpp
 msgid "External connections disabled due to empty password!"
 msgstr "Etäyhteydet kielletty sillä salasana on tyhjä!"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Remote clients cannot change folders: no folder is listed in %s"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
@@ -2406,9 +2461,9 @@ msgid "Missing protocol version tag."
 msgstr "Puuttuva protokollan versiomerkintä."
 
 #: src/ExternalConn.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Too many failed connection attempts; try again in %d seconds."
-msgstr "Automaattinen uudelleenyhdistäminen palvelimelle %d sekunnin päästä"
+msgstr "Liian monta epäonnistunutta yhdistämisyritystä; yritä uudelleen %d sekunnin kuluttua."
 
 #: src/ExternalConn.cpp
 msgid "Authentication failed: invalid hash specified as EC password."
@@ -2469,7 +2524,7 @@ msgstr "Tiedostotarkistetta ei löytynyt: %s"
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
-msgid "Cannot cancel a finished download: %s"
+msgid "Cannot cancel a hashing or finished download: %s"
 msgstr "Lataus suoritettu: %s"
 
 #: src/ExternalConn.cpp
@@ -2477,9 +2532,9 @@ msgid "The selected download has changed or is completing. Refresh and try again
 msgstr ""
 
 #: src/ExternalConn.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "No such category: %u"
-msgstr "Sulje tämä keskustelu."
+msgstr "Luokkaa ei ole: %u"
 
 #: src/ExternalConn.cpp
 msgid "OOPS! OpCode processing error!"
@@ -2595,6 +2650,14 @@ msgid "Could not save the amuleapi password: %s"
 msgstr "amuleapi-salasanaa ei voitu tallentaa: %s"
 
 #: src/ExternalConn.cpp
+msgid "One or more folders were outside the allowed remote directories and were left unchanged."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "The category folder is outside the allowed remote directories."
+msgstr ""
+
+#: src/ExternalConn.cpp
 #, fuzzy
 msgid "No such category."
 msgstr "Sulje tämä keskustelu."
@@ -2613,14 +2676,12 @@ msgid "Missing chat session id"
 msgstr "Uusi keskustelu aloitettu"
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "No such chat session"
-msgstr "Sulje tämä keskustelu."
+msgstr "Keskustelusessiota ei ole"
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "Media metadata extraction is disabled in preferences"
-msgstr "Kad on poistettu päältä asetuksissa."
+msgstr "Median metadatan purku on otettu pois käytöstä asetuksissa"
 
 #: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
@@ -2990,9 +3051,9 @@ msgid "ERROR: Failed to open '%s' with the default application."
 msgstr ""
 
 #: src/FileLaunch.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "ERROR: Failed to show '%s' in the file manager."
-msgstr "VIRHE: Ei voida avata osatiedostoa '%s'"
+msgstr "VIRHE: Kohteen '%s' näyttäminen tiedostonhallinnassa epäonnistui."
 
 #: src/FirstRunWizard.cpp
 msgid "Mobile / 4G-5G (20 / 5 Mbit)"
@@ -3084,11 +3145,11 @@ msgstr "Kademlia"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Standard TCP Port "
-msgstr "Vakio TCP-portti"
+msgstr "Vakio TCP-portti "
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Extended UDP port (Kad / global search) "
-msgstr "Laajennettu UDP-portti (Kad / haku kaikkialta)."
+msgstr "Laajennettu UDP-portti (Kad / haku kaikkialta) "
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Enable UPnP for router port forwarding"
@@ -3317,6 +3378,11 @@ msgstr "Ladataan..."
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "HTTP-lataus peruutettu"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "Refusing to download %s: only http and https URLs are supported."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 #, c-format
@@ -3551,7 +3617,7 @@ msgstr "Kademlia: hakusana on liian lyhyt"
 
 #: src/kademlia/kademlia/SearchManager.cpp
 msgid "Kademlia: Search keyword is already on search list: "
-msgstr "Kademlia: Hakusana on jo hakulistalla:"
+msgstr "Kademlia: Hakusana on jo hakulistalla: "
 
 #: src/kademlia/routing/RoutingZone.cpp
 msgid "Failed to read nodes.dat file - too old. This version (0) is not supported anymore."
@@ -3623,9 +3689,8 @@ msgid "Find buddy"
 msgstr "Ei kaveria"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "Find source"
-msgstr "Tiedostolähteet:"
+msgstr "Lähteen haku"
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
 #, fuzzy
@@ -3694,9 +3759,8 @@ msgid "Overdue means a routing request unanswered for at least 3 seconds; late r
 msgstr ""
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-#, fuzzy
 msgid "No Kad lookup history available."
-msgstr "vaihtoehtoja ei saatavilla"
+msgstr "Ei Kad-hakuhistoriaa saatavilla."
 
 #: src/KnownFile.cpp
 msgid "Kad user"
@@ -4030,7 +4094,7 @@ msgstr "Etäyhteys: Pääsy evättiin: "
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
 msgid "External Connection: Handshake failed."
-msgstr "Etäyhteys: Kättely epäonnistui"
+msgstr "Etäyhteys: Kättely epäonnistui."
 
 #: src/LibSocketAsio.cpp
 #, fuzzy, c-format
@@ -4469,9 +4533,8 @@ msgid "Audio"
 msgstr "Ääni"
 
 #: src/muuli_wdr.cpp src/OtherFunctions.cpp src/TransferWnd.cpp
-#, fuzzy
 msgid "Disc images"
-msgstr "CD-levykuvat"
+msgstr "Levykuvat"
 
 #: src/muuli_wdr.cpp src/OtherFunctions.cpp src/TransferWnd.cpp
 msgid "Pictures"
@@ -5035,7 +5098,7 @@ msgstr "Säilyttää pudotusvalikon aiemmista hakusanoistasi Haku-välilehden Ni
 
 #: src/muuli_wdr.cpp
 msgid "Tooltip delay time: "
-msgstr "Työkaluvihjeiden viive:"
+msgstr "Työkaluvihjeiden viive: "
 
 #: src/muuli_wdr.cpp
 msgid "seconds"
@@ -5088,9 +5151,8 @@ msgid "Slot Allocation"
 msgstr "Paikkavaraus"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
 msgid "Bandwidth calculator..."
-msgstr "Kaistankäytön rajoitukset"
+msgstr "Kaistanleveyslaskin..."
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -5190,9 +5252,8 @@ msgid "retries"
 msgstr "yrityksen jälkeen"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
-msgid "Edit sources…"
-msgstr "Tiedostolähteet:"
+msgid "Edit sources..."
+msgstr "Muokkaa lähteitä…"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5449,6 +5510,14 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Show how many of the files and folders in your shared folders the current pattern would exclude, counted over the last scan."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders the daemon allows remote changes in"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5717,6 +5786,18 @@ msgstr "Salasana"
 
 #: src/muuli_wdr.cpp
 msgid "Require encrypted connections (rejects clients that cannot encrypt)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders remote clients may use"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -6053,7 +6134,7 @@ msgstr "Muuttaa Online-Signeerauksen päivitysväliä, annetaan sekunteina."
 
 #: src/muuli_wdr.cpp
 msgid "Save online signature file in: "
-msgstr "Online-signeeraus-tiedoston tallennuspaikka:"
+msgstr "Online-signeeraus-tiedoston tallennuspaikka: "
 
 #: src/muuli_wdr.cpp
 msgid "Click here to select the directory containing the the Online Signature files."
@@ -6175,6 +6256,22 @@ msgid "add here the words amule should filter and block messages including it"
 msgstr "Syötä tähän suodatettavat sanat ja aMule estää viestit jotka sisältävät sellaisen"
 
 #: src/muuli_wdr.cpp
+msgid "Enable advanced spam filter"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Block unsolicited links and repeated messages from non-friends."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Require a CAPTCHA for first messages from non-friends"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Withhold the message until the sender solves the challenge. Clients without CAPTCHA support cannot start a chat."
+msgstr ""
+
+#: src/muuli_wdr.cpp
 msgid "Show received messages in the log"
 msgstr "Näytä vastaanotetut viestit lokissa"
 
@@ -6243,9 +6340,8 @@ msgid "Remember those settings"
 msgstr "Muista nämä asetukset"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
 msgid "Encrypt the connection (recommended)"
-msgstr "Etäyhteys suljettu."
+msgstr "Salaa yhteys (suositeltu)"
 
 #: src/muuli_wdr.cpp
 msgid "Force ZLIB compression"
@@ -6688,6 +6784,11 @@ msgstr[1] "Turmeltunut osa (%d) %d osasta tiedostossa %s - Tiedostotulostarkiste
 
 #: src/PartFile.cpp
 #, c-format
+msgid "'%s' does not match its file hash, and without the part hashset the corrupt part cannot be found. Waiting for the hashset."
+msgstr ""
+
+#: src/PartFile.cpp
+#, c-format
 msgid "Found completed part (%i) in %s"
 msgstr "Valmis osa (%i) kohteessa %s"
 
@@ -6799,6 +6900,11 @@ msgstr "TCP-portti ei voi olla korkeampi kuin 65532 koska serverin käyttämä U
 msgid "Default port will be used (%d)"
 msgstr "Käytetään oletusporttia (%d)"
 
+#: src/Preferences.cpp
+#, c-format
+msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
+msgstr ""
+
 #: src/BandwidthLimitSlider.h
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
 msgstr ""
@@ -6909,6 +7015,10 @@ msgid "The type of proxy you are connecting to"
 msgstr "Yhdistettävän välityspalvelimen tyyppi"
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "Set in the daemon's own configuration (amule.conf); not editable remotely."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "Failed to transfer data from Widget to Cfg with the ID %d and key %s"
 msgstr "Datan siirtäminen widgetistä asetukseen epäonnistui ID:llä %d ja avaimella %s"
@@ -6916,6 +7026,15 @@ msgstr "Datan siirtäminen widgetistä asetukseen epäonnistui ID:llä %d ja ava
 #: src/PrefsUnifiedDlg.cpp
 msgid "No password set."
 msgstr "Salasanaa ei ole asetettu."
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "That file does not look like ffprobe. Choose a binary named ffprobe (or ffprobe.exe) that reports an \"ffprobe version\" banner, leave the field empty to auto-detect, or set the path directly in amule.conf."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Invalid ffprobe path"
+msgstr "Epäkelpo tiedostonimi."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "The shared-file exclusion pattern is not a valid regular expression. The filter has been left disabled."
@@ -7368,6 +7487,19 @@ msgstr ""
 #, fuzzy
 msgid "Choose the local folder"
 msgstr "Valitse kansio kohteelle %s"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Please enter an absolute path. A relative path would be resolved against the daemon's working directory, so it is not accepted."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Allowed folders for remote clients"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Choose a folder remote clients may use"
+msgstr "Valitse kansio saapuville tiedostoille"
 
 #: src/SearchDlg.cpp
 #, fuzzy
@@ -8254,6 +8386,11 @@ msgid "Discovered %u new shared file"
 msgid_plural "Discovered %u new shared files"
 msgstr[0] "Löydetty %i tunnettu jaettu tiedosto"
 msgstr[1] "Löydetty %i tunnettua jaettua tiedostoa"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Refused to rename '%s' to '%s': the new name must be a plain file name, not a path."
+msgstr ""
 
 #: src/SharedFilePeersListCtrl.cpp src/SourceListCtrl.cpp
 msgid "User Name"
@@ -9446,6 +9583,16 @@ msgstr "Poista luokka"
 #, c-format
 msgid "Hashset requested for unknown file: %s"
 msgstr "Tarkistejoukkoa pyydettiin tuntemattomalle tiedostolle: %s"
+
+#: src/UploadDiskIOThread.cpp
+#, fuzzy, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Kad-hakua ei voitu käynnistää"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr ""
 
 #: src/UploadDiskIOThread.cpp
 #, fuzzy, c-format

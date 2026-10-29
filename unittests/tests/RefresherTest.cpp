@@ -2390,6 +2390,7 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 	CECEmptyTag srv(EC_TAG_PREFS_SERVERS);
 	srv.AddTag(CECTag(EC_TAG_SERVERS_DEAD_SERVER_RETRIES, static_cast<std::uint16_t>(5)));
 	srv.AddTag(CECTag(EC_TAG_SERVERS_UPDATE_URL, wxString::FromUTF8("http://srv")));
+	srv.AddTag(CECTag(EC_TAG_SERVERS_ED2K_ACCELERATED_PUBLICATION, true)); // by value
 	CECEmptyTag sources(EC_TAG_SERVERS_URL_LIST);
 	sources.AddTag(CECTag(EC_TAG_STRING, "http://srv"));
 	sources.AddTag(CECTag(EC_TAG_STRING, "https://backup"));
@@ -2449,6 +2450,7 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 	ASSERT_EQUALS(static_cast<std::uint32_t>(512), p.files.min_free_space_mebibytes);
 
 	ASSERT_EQUALS(static_cast<std::uint32_t>(5), p.servers.dead_server_retry_count);
+	ASSERT_TRUE(p.servers.accelerated_publication_enabled);
 	ASSERT_EQUALS(std::string("http://srv"), p.servers.update_url);
 	ASSERT_EQUALS(size_t(2), p.servers.update_urls.size());
 	ASSERT_EQUALS(std::string("http://srv"), p.servers.update_urls[0]);
@@ -2719,10 +2721,12 @@ TEST(Refresher, PrefsSchemaIsWellFormed)
 		ASSERT_TRUE(PrefGroupTagFor(f.category) != 0);
 
 		// Rows that round-trip a value need a backing member; rows that
-		// never do must not have one.
-		const bool needs_member = f.access == PrefAccess::ReadWrite ||
-					  f.access == PrefAccess::AdminRead ||
-					  f.access == PrefAccess::ReadOnly || f.access == PrefAccess::Bespoke;
+		// never do must not have one. DaemonLocal reads its member on GET and
+		// compares against it on PATCH (to accept an unchanged echo), so it needs one too.
+		const bool needs_member =
+			f.access == PrefAccess::ReadWrite || f.access == PrefAccess::AdminRead ||
+			f.access == PrefAccess::ReadOnly || f.access == PrefAccess::DaemonLocal ||
+			f.access == PrefAccess::Bespoke;
 		ASSERT_TRUE(needs_member == (f.member != nullptr));
 
 		// Enum rows carry a non-empty, nullptr-terminated name table.
@@ -2751,9 +2755,9 @@ TEST(Refresher, PrefsSchemaIsWellFormed)
 			++emitted;
 	}
 
-	// The documented payload is 131 fields. A row added or dropped without
+	// The documented payload is 136 fields. A row added or dropped without
 	// updating docs/api/REFERENCE.md should trip this.
-	ASSERT_EQUALS(static_cast<std::size_t>(131), emitted);
+	ASSERT_EQUALS(static_cast<std::size_t>(136), emitted);
 }
 
 // The schema's irregularities are enumerated rather than merely counted: each is deliberate and
@@ -3932,4 +3936,89 @@ TEST(PrefsSchema, SharedFileReverifyDefaultsOffAndUsesBoundedUint32)
 	std::vector<webapi::CategorySnapshot> categories;
 	webapi::ParsePreferencesFromPacket(&response, prefs, categories);
 	ASSERT_EQUALS(static_cast<std::uint32_t>(3650u), prefs.files.shared_file_reverify_days);
+}
+
+TEST(Refresher, ChatSpamPreferencesDistinguishDisabledFromUnsupported)
+{
+	for (unsigned enabled = 0; enabled < 2; ++enabled) {
+		CECPacket response(EC_OP_SET_PREFERENCES);
+		CECEmptyTag group(EC_TAG_PREFS_MESSAGEFILTER);
+		group.AddTag(CECTag(EC_TAG_MSGFILTER_ADVANCED, static_cast<uint8>(enabled)));
+		group.AddTag(CECTag(EC_TAG_MSGFILTER_CAPTCHA, static_cast<uint8>(1 - enabled)));
+		response.AddTag(group);
+		PreferencesSnapshot prefs;
+		std::vector<CategorySnapshot> categories;
+		ParsePreferencesFromPacket(&response, prefs, categories);
+		ASSERT_TRUE(prefs.message_filter.advanced_spam_filter_supported);
+		ASSERT_EQUALS(enabled != 0, prefs.message_filter.advanced_spam_filter);
+		ASSERT_EQUALS(enabled == 0, prefs.message_filter.use_captchas);
+	}
+	CECPacket oldCore(EC_OP_SET_PREFERENCES);
+	oldCore.AddTag(CECEmptyTag(EC_TAG_PREFS_MESSAGEFILTER));
+	PreferencesSnapshot prefs;
+	std::vector<CategorySnapshot> categories;
+	ParsePreferencesFromPacket(&oldCore, prefs, categories);
+	ASSERT_FALSE(prefs.message_filter.advanced_spam_filter_supported);
+}
+
+TEST(Refresher, OptionalMetricsTagsPreservePresenceAndWideCounters)
+{
+	CECPacket empty(EC_OP_STATS);
+	StatusSnapshot missing;
+	ParseStatusFromPacket(&empty, missing);
+	ASSERT_FALSE(missing.total_sent_bytes.present);
+	ASSERT_FALSE(missing.total_received_bytes.present);
+	ASSERT_FALSE(missing.upload_limit_bytes_per_second.present);
+	ASSERT_FALSE(missing.download_limit_bytes_per_second.present);
+	ASSERT_FALSE(missing.shared_file_count.present);
+	ASSERT_FALSE(missing.banned_client_count.present);
+
+	CECPacket response(EC_OP_STATS);
+	const std::uint64_t total = 123456789012345ULL;
+	response.AddTag(CECTag(EC_TAG_STATS_TOTAL_SENT_BYTES, total));
+	response.AddTag(CECTag(EC_TAG_STATS_TOTAL_RECEIVED_BYTES, total + 1));
+	response.AddTag(CECTag(EC_TAG_STATS_UL_SPEED_LIMIT, static_cast<std::uint32_t>(0)));
+	response.AddTag(CECTag(EC_TAG_STATS_DL_SPEED_LIMIT, static_cast<std::uint32_t>(102400)));
+	response.AddTag(CECTag(EC_TAG_STATS_SHARED_FILE_COUNT, static_cast<std::uint32_t>(2)));
+	response.AddTag(CECTag(EC_TAG_STATS_BANNED_COUNT, static_cast<std::uint32_t>(0)));
+	StatusSnapshot parsed;
+	ParseStatusFromPacket(&response, parsed);
+	ASSERT_TRUE(parsed.total_sent_bytes.present);
+	ASSERT_EQUALS(total, parsed.total_sent_bytes.value);
+	ASSERT_TRUE(parsed.total_received_bytes.present);
+	ASSERT_EQUALS(total + 1, parsed.total_received_bytes.value);
+	ASSERT_TRUE(parsed.upload_limit_bytes_per_second.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(0), parsed.upload_limit_bytes_per_second.value);
+	ASSERT_TRUE(parsed.download_limit_bytes_per_second.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(102400), parsed.download_limit_bytes_per_second.value);
+	ASSERT_TRUE(parsed.shared_file_count.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(2), parsed.shared_file_count.value);
+	ASSERT_TRUE(parsed.banned_client_count.present);
+}
+
+TEST(Refresher, OptionalSessionMetricsAreByteAccurateAndDoNotLatchMissingTags)
+{
+	CECPacket response(EC_OP_STATS);
+	const std::uint64_t bytes = 123456789012345ULL;
+	response.AddTag(CECTag(EC_TAG_STATS_SESSION_SENT_BYTES, bytes));
+	response.AddTag(CECTag(EC_TAG_STATS_SESSION_RECEIVED_BYTES, static_cast<std::uint64_t>(0)));
+	response.AddTag(CECTag(EC_TAG_STATS_ACTIVE_CONNECTIONS, static_cast<std::uint32_t>(7)));
+	response.AddTag(CECTag(EC_TAG_STATS_UPTIME_SECONDS, static_cast<std::uint64_t>(42)));
+	StatusSnapshot parsed;
+	ParseStatusFromPacket(&response, parsed);
+	ASSERT_TRUE(parsed.session_sent_bytes.present);
+	ASSERT_EQUALS(bytes, parsed.session_sent_bytes.value);
+	ASSERT_TRUE(parsed.session_received_bytes.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(0), parsed.session_received_bytes.value);
+	ASSERT_TRUE(parsed.active_connections.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(7), parsed.active_connections.value);
+	ASSERT_TRUE(parsed.uptime_seconds.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(42), parsed.uptime_seconds.value);
+	CECPacket older(EC_OP_STATS);
+	StatusSnapshot missing;
+	ParseStatusFromPacket(&older, missing);
+	ASSERT_FALSE(missing.session_sent_bytes.present);
+	ASSERT_FALSE(missing.session_received_bytes.present);
+	ASSERT_FALSE(missing.active_connections.present);
+	ASSERT_FALSE(missing.uptime_seconds.present);
 }

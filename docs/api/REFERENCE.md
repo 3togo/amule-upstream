@@ -1,6 +1,6 @@
 # amuleapi v1 — REST reference
 
-This document is the contract for every REST endpoint exposed by the `amuleapi` daemon under the `/api/v1/` prefix. For the SSE stream see [EVENTS.md](EVENTS.md). For first-run setup see [../QUICKSTART-AMULEAPI.md](../QUICKSTART-AMULEAPI.md).
+This document is the contract for every REST endpoint exposed by the `amuleapi` daemon under the `/api/v1/` prefix. For the SSE stream see [EVENTS.md](EVENTS.md). For first-run setup see [../QUICKSTART-AMULEAPI.md](../QUICKSTART-AMULEAPI.md). The optional [Prometheus metrics endpoint](#get-metrics) lives at `/metrics`.
 
 The API is versioned in the path. **`/api/v1/` is frozen**: anything that could break a conformant client is deferred to the next version rather than applied in place, and this document is its contract. See [Backward compatibility](#backward-compatibility) for what conformant means and what may still change.
 
@@ -8,7 +8,7 @@ The API is versioned in the path. **`/api/v1/` is frozen**: anything that could 
 
 **Cross-cutting concerns**
 - [Base URL and transport](#base-url-and-transport)
-- [Authentication](#authentication) — [Login response shape](#login-response-shape), [Role model](#role-model), [Rate limiting](#rate-limiting), [JWT structure](#jwt-structure)
+- [Authentication](#authentication) — [Cross-origin writes](#cross-origin-writes), [Login response shape](#login-response-shape), [Role model](#role-model), [Rate limiting](#rate-limiting), [JWT structure](#jwt-structure)
 - [Response model](#response-model) — [Success envelope](#success-envelope), [Mutation responses](#mutation-responses), [Idempotency](#idempotency), [IP addresses](#ip-addresses), [List pagination and sorting](#list-pagination-and-sorting), [Bulk mutations and the `results` envelope](#bulk-mutations-and-the-results-envelope), [Error envelope](#error-envelope), [ETag and conditional GET](#etag-and-conditional-get), [CORS](#cors), [Path validation](#path-validation), [Request size limits](#request-size-limits)
 - [Naming rules](#naming-rules) — the conventions every path, parameter and key follows, and why rates are spelled out
 - [Error code catalog](#error-code-catalog)
@@ -144,6 +144,17 @@ Two carriers, one token. amuleapi mints HS256 JWTs at `/auth/login` and accepts 
 - An HttpOnly session cookie named `amuleapi_token` (browser clients).
 
 If both arrive on the same request, the bearer header wins. The cookie attributes are `HttpOnly; SameSite=Strict; Path=/api/v1`, with the path prefixed by [`BasePath`](#base-url-and-transport) when one is set. Cookie lifetime tracks the JWT's `exp` claim (`Max-Age = expires_at - now`).
+
+### Cross-origin writes
+
+`SameSite=Strict` does not stop a page on another port of the same host: the browser treats it as the same site and sends the cookie. So a `POST`, `PUT`, `PATCH` or `DELETE` without a bearer token gets `403 forbidden` when the browser marks it as cross-origin:
+
+- `Sec-Fetch-Site` is present and is neither `same-origin` nor `none`, or
+- without `Sec-Fetch-Site`, `Origin` names a host other than `Host` or the first `X-Forwarded-Host` entry.
+
+An origin in [`CorsOriginAllowlist`](#cors) is always accepted. Requests with a bearer token, and requests with neither header (curl, scripts), are not affected.
+
+The `Origin` fallback only matters for browsers that do not send `Sec-Fetch-Site`, such as Safari before 16.4. Behind a reverse proxy that rewrites `Host`, as nginx does by default, have the proxy set `X-Forwarded-Host` to the original host. Otherwise those browsers get `403` on their own writes.
 
 ### Login response shape
 
@@ -323,7 +334,7 @@ Rows added or removed *during* a sweep are not missed: both emit an SSE event, s
 | `GET /friends`        | **`ecid`** (id), `name`, `connected` |
 | `GET /chats`          | **`client_ecid`** (id), `last_message_at`, `name` |
 | `GET /search/{id}/results` | **`hash`** (id), `name`, `size_bytes`, `sources.total`, `rating`, `directory` |
-| `GET /search`         | **`search_id`** (id), `query`, `type`, `state`, `file_type`, `extension`, `min_size_bytes`, `max_size_bytes`, `min_source_count`, `started_at`, `result_count` |
+| `GET /search`         | **`search_id`** (id), `query`, `started_at`, `result_count` |
 | `GET /categories`     | **`index`** (id), `name` |
 
 The column marked **id** is the endpoint's identity: immutable for the life of the row, and the only one `after` accepts. Note that `ecid` is stable **within a daemon session** only — `CECID` hands ids out from a counter that restarts with the process — which is enough for a bootstrap sweep, since a reconnect invalidates the sweep anyway and triggers a `resync`.
@@ -363,7 +374,7 @@ A key is **omitted** only where absence itself is the meaning: something the dae
 
 So: `null` means "no value", an absent key means "not reported", and neither is ever spelled `0` or `-1`.
 
-This rule covers the whole surface, not just the download and shared objects. These keys are `null` when their value is unknown: `name`, `ip`, `port`, `kad_port`, `country_code`, `software`, `software_version`, `source_origin`, `obfuscation_state`, `first_seen_at` and `session_count` on [`GET /known_clients`](#get-apiv1known_clients); `part_progress_percent` and `parts_offered_count` on the client rows and the `client_*` events; `client_ecid` on [`GET /search`](#get-apiv1search), [`GET /friends`](#get-apiv1friends) and the `friend_*` events; `last_message` on [`GET /chats`](#get-apiv1chats); `token`, `label_value` and `extra` on the statistics tree; and `media` everywhere it appears. The address fields follow the same rule: `port` on [`GET /friends`](#get-apiv1friends) and the `friend_*` events; `ed2k.public_ip` and `ed2k.server_ip` on [`GET /status`](#get-apiv1status); `public_ip` on [`GET /kad`](#get-apiv1kad); `server_ip` / `server_port` on [`GET /clients/{ecid}`](#get-apiv1clientsecid); `ip` and `port` on [`GET /clients`](#get-apiv1clients) and the client detail row (also nulled by the `client_*` events); and `ed2k.server_port` on [`GET /status`](#get-apiv1status). The `status_changed` event nulls `ed2k.public_ip`, `ed2k.server_ip` and `ed2k.server_port` to match the REST row. Also `null` when unknown: `kad_port` on [`GET /api/v1/clients/{ecid}`](#get-apiv1clientsecid); `last_received_at` on [`GET /api/v1/downloads/{hash}`](#get-apiv1downloadshash); `node_id` on [`GET /api/v1/kad`](#get-apiv1kad); and `server_name` on [`GET /status`](#get-apiv1status) and [`GET /clients/{ecid}`](#get-apiv1clientsecid), which `status_changed` nulls too. The client objects follow suit: `name`, `software`, `software_version`, `reported_os`, `download_file_name`, `upload_file_name`, `upload_file_hash`, `download_file_hash`, `obfuscation_state`, `source_origin` and `client_mod_name` on [`GET /clients`](#get-apiv1clients), the client detail row and the `client_*` events. And the reachability field: `connected` on [`GET /friends`](#get-apiv1friends), [`GET /chats`](#get-apiv1chats), [`GET /known_clients`](#get-apiv1known_clients) and the client objects, is `null` on a daemon that does not report peer connectivity - unknown, rather than a guessed "offline". One quantity, one key on every resource that carries it (R6).
+This rule covers the whole surface, not just the download and shared objects. These keys are `null` when their value is unknown: `name`, `ip`, `port`, `kad_port`, `country_code`, `software`, `software_version`, `source_origin`, `obfuscation_state`, `first_seen_at` and `session_count` on [`GET /known_clients`](#get-apiv1known_clients); `part_progress_percent` and `parts_offered_count` on the client rows and the `client_*` events; `client_ecid`, `file_type`, `extension`, `min_size_bytes`, `max_size_bytes` and `min_source_count` on [`GET /search`](#get-apiv1search), `client_ecid` on [`GET /friends`](#get-apiv1friends) and the `friend_*` events; `last_message` on [`GET /chats`](#get-apiv1chats); `token`, `label_value` and `extra` on the statistics tree; and `media` everywhere it appears. The address fields follow the same rule: `port` on [`GET /friends`](#get-apiv1friends) and the `friend_*` events; `ed2k.public_ip` and `ed2k.server_ip` on [`GET /status`](#get-apiv1status); `public_ip` on [`GET /kad`](#get-apiv1kad); `server_ip` / `server_port` on [`GET /clients/{ecid}`](#get-apiv1clientsecid); `ip` and `port` on [`GET /clients`](#get-apiv1clients) and the client detail row (also nulled by the `client_*` events); and `ed2k.server_port` on [`GET /status`](#get-apiv1status). The `status_changed` event nulls `ed2k.public_ip`, `ed2k.server_ip` and `ed2k.server_port` to match the REST row. Also `null` when unknown: `kad_port` on [`GET /api/v1/clients/{ecid}`](#get-apiv1clientsecid); `last_received_at` on [`GET /api/v1/downloads/{hash}`](#get-apiv1downloadshash); `node_id` on [`GET /api/v1/kad`](#get-apiv1kad); and `server_name` on [`GET /status`](#get-apiv1status) and [`GET /clients/{ecid}`](#get-apiv1clientsecid), which `status_changed` nulls too. The client objects follow suit: `name`, `software`, `software_version`, `reported_os`, `download_file_name`, `upload_file_name`, `upload_file_hash`, `download_file_hash`, `obfuscation_state`, `source_origin` and `client_mod_name` on [`GET /clients`](#get-apiv1clients), the client detail row and the `client_*` events. And the reachability field: `connected` on [`GET /friends`](#get-apiv1friends), [`GET /chats`](#get-apiv1chats), [`GET /known_clients`](#get-apiv1known_clients) and the client objects, is `null` on a daemon that does not report peer connectivity - unknown, rather than a guessed "offline". One quantity, one key on every resource that carries it (R6).
 
 `media` is the one place this reaches an **object** rather than a scalar, so a client tests `media === null` before reaching into it -- which it had to do regardless, since the object's own fields can be absent.
 
@@ -441,6 +452,7 @@ If `amuleapi.conf[Server]/AllowCORS=1`:
 - Every response carries `Vary: Origin`.
 - The origin is echoed in `Access-Control-Allow-Origin` if either the allowlist is empty (any-origin echo) or the request's `Origin` header matches a configured entry.
 - **`Access-Control-Allow-Credentials: true` is sent only for an origin the allowlist names.** With an empty allowlist the echo is `*`-equivalent, and granting credentials there would let any site the user happens to visit call this API with their session cookie and read the replies, which is what the same-origin policy exists to prevent. Anonymous cross-origin reads still work with an empty allowlist; a **credentialed** cross-origin client needs its origin listed in `amuleapi.conf[Server]/CorsOriginAllowlist`: a comma-separated list, entries trimmed, matched by exact string equality against the request's `Origin` header. An origin is a scheme, host and port (`https://app.example.com`, or `http://localhost:5173` in development) with no path and no wildcards, so `https://example.com` does not cover `https://www.example.com` and the two ports of the same host are two entries.
+- A cookie-authenticated write from an origin not in the allowlist is refused, see [Cross-origin writes](#cross-origin-writes).
 - Allowed responses carry `Access-Control-Expose-Headers: ETag, Allow, Retry-After` so clients can read the validator, the supported-method list from a `405`, and the back-off hint from a `429` or `503`, from JS.
 - Preflight (`OPTIONS` with `Access-Control-Request-Method`) returns `204` with `Access-Control-Allow-Methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS`, `Access-Control-Allow-Headers: Authorization, Content-Type, If-None-Match, Last-Event-ID`, and `Access-Control-Max-Age: 86400`.
 
@@ -939,7 +951,7 @@ The `media` object (on both `GET /downloads/{hash}` and `GET /shared/{hash}`) ca
 |---|---|---|
 | `duration_seconds` | int | Duration in seconds. |
 | `bitrate_kilobits_per_second` | int | Bitrate (kbps). |
-| `codec` | string | Codec as the interface shows it (e.g. `"H.264"`). A display label, mapped from the codec id (ffprobe `codec_name` for probed files, or the FOURCC / audio format id a remote client advertised); an unmapped codec is passed through as advertised. The desktop renders the same label. |
+| `codec` | string | Codec as the interface shows it (e.g. `"H.264"`). A display label, mapped from the codec id (the probed codec name, such as `h264`, or the FOURCC / audio format id a remote client advertised); an unmapped codec is passed through as advertised. The desktop renders the same label. |
 | `artist` / `album` / `title` | string | Tag metadata; `""` when the file carries none. |
 
 #### `GET /api/v1/downloads/{hash}/comments`
@@ -1142,7 +1154,7 @@ curl -s -X PATCH -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application
 
 Bulk cancel + remove of active downloads (deletes each `.part`/`.met` from disk). Completed entries are deleted from disk through `EC_OP_KNOWNFILE_DELETE` only when `confirmed_target` is supplied. Without it they report `409 download_completed` and their Incoming files are preserved, including when a v1 client submits every hash from `GET /downloads`. Use `POST /downloads_clear_completed` to clear entries while keeping the files.
 
-Entries still completing also report `download_completed`; wait for completion and confirm again.
+Entries still completing also report `download_completed`; wait for completion and confirm again. Entries waiting for or in a hash check (`status` `waiting` or `hashing`) report `409 download_hashing`; retry once the check has finished.
 
 **Body:** `{ "hashes": ["<md4>", …] }` (non-empty, max 500).
 
@@ -1151,7 +1163,7 @@ accepted by single-file DELETE. All supplied preconditions are validated before 
 file is mutated; stale entries report `selection_changed` per item. The Web UI freezes
 this map and the selected hashes while its confirmation dialog is open.
 
-**Response:** the [bulk `results` envelope](#bulk-mutations-and-the-results-envelope), keyed by hash. Per-item `error.code` is `not_found`, `download_completed`, `selection_changed`, `ec_unsupported`, `amuled_rejected`, `ec_protocol_error`, or `ec_unavailable`.
+**Response:** the [bulk `results` envelope](#bulk-mutations-and-the-results-envelope), keyed by hash. Per-item `error.code` is `not_found`, `download_completed`, `download_hashing`, `selection_changed`, `ec_unsupported`, `amuled_rejected`, `ec_protocol_error`, or `ec_unavailable`.
 
 **Errors:** `400 bad_request` (missing/empty `hashes`), `503 ec_unavailable`.
 
@@ -1200,7 +1212,7 @@ Requests without `confirmed_target` retain the existing v1 behavior: active down
 
 **Response:** `204 No Content`.
 
-**Errors:** `400 bad_request` (`{hash}` is not 32 hex characters), `400 amuled_rejected`, `404 not_found`, `409 download_completed` (still completing, or completed without `confirmed_target`), `409 selection_changed`, `502 ec_protocol_error` (unexpected core acknowledgment), `503 ec_unsupported`, `503 ec_unavailable`.
+**Errors:** `400 bad_request` (`{hash}` is not 32 hex characters), `400 amuled_rejected`, `404 not_found`, `409 download_completed` (still completing, or completed without `confirmed_target`), `409 download_hashing` (waiting for or in a hash check), `409 selection_changed`, `502 ec_protocol_error` (unexpected core acknowledgment), `503 ec_unsupported`, `503 ec_unavailable`.
 
 #### `POST /api/v1/downloads_clear_completed`
 
@@ -1728,7 +1740,7 @@ Returns `202 Accepted`. `queued_file_count` is how many files were **accepted fo
 
 This is the only way to correct metadata that is *wrong* rather than missing. The normal scheduler skips any file that already carries a media tag, so a value stored by an older build — a cover-art codec, or a preview inherited from a search result before the local probe could overwrite it — is otherwise permanent short of deleting `known.met`, which would also discard the ed2k part hashes and every per-file statistic.
 
-A refresh also retries files a previous probe could not read. amuled records that ffprobe already ran on a file and found nothing usable, so a broken or truncated one is not re-probed on every share reload and every restart; that record is what a refresh clears. Repair the file, or install a working ffprobe, and ask for a refresh -- there is no need to touch `known.met`.
+A refresh also retries files a previous probe could not read. amuled records that the media helper already ran on a file and found nothing usable, so a broken or truncated one is not re-probed on every share reload and every restart; that record is what a refresh clears. Repair the file and ask for a refresh -- there is no need to touch `known.met`.
 
 Each probe **replaces** every media field, including *clearing* one the new probe no longer finds, so a refresh corrects a value in both directions. Nothing else about a file is touched: statistics, comment, rating, upload priority, AICH hash set and share state all survive, the file is not re-hashed, its ed2k hash does not change, and it never leaves the share.
 
@@ -1800,16 +1812,17 @@ amuled validates every path: a REST client cannot stat the core's filesystem, so
 {
   "results": [
     { "id": "/srv/share", "ok": true },
-    { "id": "/typo", "ok": false, "error": { "code": "not_found", "message": "no such directory" } }
+    { "id": "/typo", "ok": false, "error": { "code": "not_found", "message": "no such directory" } },
+    { "id": "/etc", "ok": false, "error": { "code": "path_not_allowed", "message": "outside the folders the daemon allows (configured on the daemon)" } }
   ]
 }
 ```
 
-`error.code` is `not_found` (missing, or not a directory) or `not_readable` (`403`, amuled cannot read the path). amuled reports these as codes and the API renders them, so its locale never leaks into your response.
+`error.code` is `not_found` (missing, or not a directory), `not_readable` (`403`, amuled cannot read the path), or `path_not_allowed` (`403`, the path is outside the folders the daemon allows remote clients to use — see [the allowed-roots note on `PATCH /preferences`](#patch-apiv1preferences)). amuled reports these as codes and the API renders them, so its locale never leaks into your response. A folder already configured as a share is re-accepted unchecked, so re-sending the current list never drops an existing share even if it now lies outside the allowed roots or its disk is unmounted; only a **newly added** path is validated.
 
 The **rescan is scheduled, not completed**, before the response returns: a successful reply means the new roots are validated and persisted, and that the re-walk will start on amuled's next processing tick. Until it finishes, [`GET /api/v1/shared`](#get-apiv1shared) still serves the previous file list. Observe completion the same way as [`POST /api/v1/shared_reload`](#post-apiv1shared_reload), whose notes on log lines and coalescing apply here too.
 
-**Errors:** `400 bad_request` (`directories` not an array, an entry without a non-empty `path`, non-boolean `recursive`), `502 amuled_rejected`, `503 ec_unavailable`.
+**Errors:** `400 bad_request` (`directories` not an array, an entry without a non-empty `path`, non-boolean `recursive`), `502 amuled_rejected`, `503 ec_unavailable`. A path outside the daemon's allowed roots is not a top-level error: it is a per-item `path_not_allowed` in the `results` envelope above, so the paths that pass still apply.
 
 #### `POST /api/v1/share_directories`
 
@@ -1823,7 +1836,7 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
   "http://$HOST/api/v1/share_directories"
 ```
 
-Idempotent: adding a path that is already configured updates its `recursive` flag rather than failing, so "ensure this folder is shared" is safe to repeat. Same `{results: [...]}` envelope as `PUT`.
+Idempotent: adding a path that is already configured updates its `recursive` flag rather than failing, so "ensure this folder is shared" is safe to repeat. Same `{results: [...]}` envelope as `PUT`, so a path outside the daemon's allowed roots comes back as a single-item `207` with `path_not_allowed` (see `PUT` above).
 
 **Errors:** `400 bad_request` (missing/empty `path`, non-boolean `recursive`), `502 amuled_rejected`, `503 ec_unavailable`.
 
@@ -2278,11 +2291,11 @@ client never has to unpack that (a naive hex print of the integer comes out
 reversed). Anything that is not `#` followed by six hex
 digits is a `400 bad_request`. `priority` accepts the same six levels the category read side can return — `"very_low"` / `"low"` / `"normal"` / `"high"` / `"release"` / `"auto"` — so a read-modify-write round-trip always succeeds (R9). It is applied to the category's member files as a download priority.
 
-**`save_path` is resolved on the daemon's filesystem, not yours,** so it is accepted without being checked here. Omit it and the category is created on the incoming directory, which is amuled's own default. Give a path amuled cannot use — it does not exist and cannot be created — and the category is still created, on the incoming directory again. Either way this is a success, and [`GET /categories/{index}`](#get-apiv1categoriesindex) reports the path that was actually stored. Compare it with what you sent if it matters to you; a `save_path` that comes back different is the daemon saying it could not use yours.
+**`save_path` is resolved on the daemon's filesystem, not yours,** so it is not checked for existence here. Omit it and the category is created on the incoming directory, which is amuled's own default. Give a path that is within the daemon's [allowed roots](#patch-apiv1preferences) but that amuled cannot use — it does not exist and cannot be created — and the category is still created, on the incoming directory again; that is a success, and [`GET /categories/{index}`](#get-apiv1categoriesindex) reports the path that was actually stored (compare it with what you sent — a `save_path` that comes back different is the daemon saying it could not use yours). Give a path **outside** the allowed roots and the category is **not** created: the request is refused with `403 path_not_allowed`.
 
 **Response:** `202 Accepted`, no body. `EC_OP_CREATE_CATEGORY` answers success or failure and never returns the index it assigned, so naming the new category here would mean scanning the snapshot for a matching name and guessing when the scan came up short. Re-read [`GET /categories`](#get-apiv1categories) for the assigned index.
 
-**Errors:** `400 bad_request`, `400 amuled_rejected`, `503 ec_unavailable`.
+**Errors:** `400 bad_request`, `403 path_not_allowed` (`save_path` outside the daemon's allowed roots; nothing is created), `400 amuled_rejected`, `503 ec_unavailable`.
 
 #### `GET /api/v1/categories/{index}`
 
@@ -2302,9 +2315,9 @@ Any subset of the POST body fields. `index 0` (the default category) can be patc
 
 **Response:** `200 OK` with the category object as stored, the same shape [`GET /categories/{index}`](#get-apiv1categoriesindex) returns, so a client can see what landed without a follow-up read.
 
-`save_path` follows the same rule as on create: amuled resolves it on its own filesystem, and when it cannot use the path it keeps the one the category already had. The rest of the request still applies — `name`, `comment`, `color` and `priority` all land — and the echoed object reports the path that was kept. That is the one case where a field you sent is not the field you get back, which is why the response echoes the object rather than answering `204`.
+`save_path` follows the same rule as on create: amuled resolves it on its own filesystem, and when it cannot use a path that is within the [allowed roots](#patch-apiv1preferences) it keeps the one the category already had. The rest of the request still applies — `name`, `comment`, `color` and `priority` all land — and the echoed object reports the path that was kept. That is the one case where a field you sent is not the field you get back, which is why the response echoes the object rather than answering `204`. Only a *change* of `save_path` is checked against the allowed roots, so re-sending the current path always passes; a change to a path **outside** the allowed roots is refused with `403 path_not_allowed` and the **whole update is dropped** — not even `name`/`comment`/`color`/`priority` land — so the category is left exactly as it was.
 
-**Errors:** `400 bad_request` (non-numeric or out-of-range `{index}`, malformed `color`, unknown `priority`), `404 not_found` (no category at that index), `400 amuled_rejected`, `503 ec_unavailable`.
+**Errors:** `400 bad_request` (non-numeric or out-of-range `{index}`, malformed `color`, unknown `priority`), `404 not_found` (no category at that index), `403 path_not_allowed` (a changed `save_path` outside the daemon's allowed roots; the category is left unchanged), `400 amuled_rejected`, `503 ec_unavailable`.
 
 #### `DELETE /api/v1/categories/{index}`
 
@@ -2363,6 +2376,7 @@ Returns every preference category amuled carries over EC. The `general` and `con
     "incoming_path":   "/home/me/.aMule/Incoming",
     "temp_path":       "/home/me/.aMule/Temp",
     "shared_paths":    ["/home/me/media"],
+    "allowed_remote_roots": ["/home/me/media", "/srv/downloads"],
     "share_hidden":    false,
     "rescan_on_startup": true,
     "follow_symlinks": false,
@@ -2388,6 +2402,7 @@ Returns every preference category amuled carries over EC. The `general` and `con
     "server_priority_system_enabled": true,
     "smart_lowid_check_enabled": true, "safe_server_connect_enabled": false,
     "autoconnect_static_servers_only": false, "manual_servers_high_priority": false,
+    "accelerated_publication_enabled": true,
     "update_url": "https://upd.emule-security.org/server.met",
     "update_urls": ["https://upd.emule-security.org/server.met"]
   },
@@ -2404,7 +2419,8 @@ Returns every preference category amuled carries over EC. The `general` and `con
     "enabled": false, "filter_all_messages": false,
     "accept_from_friends_only": false, "accept_from_known_clients_only": false,
     "filter_by_keyword": false, "keywords": "",
-    "log_filtered_messages": true, "filter_comments": false, "comment_keywords": ""
+    "log_filtered_messages": true, "filter_comments": false, "comment_keywords": "",
+    "advanced_spam_filter_supported": true, "advanced_spam_filter": false, "use_captchas": false
   },
   "remote_controls": {
     "webserver": {
@@ -2448,7 +2464,11 @@ Booleans are plain JSON `true`/`false` regardless of how amuled encodes them on 
 
 `geoip` is the GeoIP (IP-to-country) config category. `supported` is a capability flag: `false` when the connected daemon is built without GeoIP — the config fields are then present but inert. `source` is one of `"dbip"` / `"maxmind"` / `"custom"` (the next-download database selector). `maxmind_license` is returned plainly to admins (it is a config string the daemon already round-trips, not a masked password) and omitted for guests, like `custom_update_url`. `loaded_source`, `db_path`, `db_loaded`, `download_in_progress`, and `last_update_status` are **read-only** live status (the currently loaded DB and any in-flight refresh); they are ignored if sent on PATCH.
 
-`files.media_metadata_enabled` controls media-metadata extraction using the bundled MediaInfo helper. The helper advertises length, bitrate, codec, artist, album and title. `files.ffprobe_path` remains a reserved compatibility field in `/api/v1`: GET always returns `""`, and PATCH accepts strings but ignores their value. Extraction requires `amule-media-probe` beside the daemon executable. `connection.bind_address` (empty = bind to any local IP), `connection.bind_interface` (a daemon-side interface name such as `eth0` / `en0` / `tun0`; empty = any), and `online_signature.directory` are likewise daemon-side paths/addresses. These, together with `files.on_finished_start_next_alphabetically`, `security.reject_spoofed_source_ips`, `security.system_ipfilter_enabled`, and `online_signature.update_frequency_seconds`, are ordinary daemon settings; a `bind_address` change takes effect on the next amuled restart.
+`files.media_metadata_enabled` controls media-metadata extraction using the bundled MediaInfo helper. The helper advertises length, bitrate, codec, artist, album and title. `files.ffprobe_path` remains a reserved compatibility field in `/api/v1`: GET always returns `""`, and a PATCH that would change it is rejected with `400 read_only_field`, as for the other daemon-local fields below. Extraction requires `amule-media-probe` beside the daemon executable. `connection.bind_address` (empty = bind to any local IP), `connection.bind_interface` (a daemon-side interface name such as `eth0` / `en0` / `tun0`; empty = any), and `online_signature.directory` are likewise daemon-side paths/addresses. These, together with `files.on_finished_start_next_alphabetically`, `security.reject_spoofed_source_ips`, `security.system_ipfilter_enabled`, and `online_signature.update_frequency_seconds`, are ordinary daemon settings; a `bind_address` change takes effect on the next amuled restart.
+
+`directories.allowed_remote_roots` is **read-only**: the folders the daemon lets a remote client point `incoming_path`, `temp_path`, `shared_paths` and a category's `save_path` at. It is daemon-local config (`allowed-remote-dirs.dat`), reported here only so a client can show what will be accepted; an **empty array means the daemon refuses every remote folder change**, which is the default. It is ignored if sent on PATCH, and enforced as described under [`PATCH /preferences`](#patch-apiv1preferences).
+
+`directories.follow_symlinks` is **daemon-local**: whether the daemon follows symbolic links while scanning shared folders governs what the shared-files scan traverses on the daemon's own disk, so it is configured only on the daemon (`FollowSymlinksInShares` in `amule.conf`) and is read-only over the API. It is emitted on `GET`; a `PATCH` that would **change** it is rejected with **400 `read_only_field`**, while echoing the current value back is accepted as a no-op.
 
 `files.mmap_supported` is **read-only** — the daemon advertises whether it was built with memory-mapped file I/O (`false` on a core without mmap support, e.g. Windows or a build with `-DENABLE_MMAP=OFF`); it is ignored if sent on PATCH. `files.mmap_enabled` is the runtime toggle for memory-mapped block I/O — download writes to part files, upload reads of both shared (completed) and partial files, and hashing (lower per-process memory use, at some write-path cost; best for upload-heavy or memory-constrained hosts). It is **capability-gated**: a PATCH that sets `files.mmap_enabled` is rejected with **409 `option_not_supported`** when `files.mmap_supported` is `false`, so the option is only writable against a daemon that can actually use it. Safe to toggle with active transfers.
 
@@ -2457,6 +2477,8 @@ Booleans are plain JSON `true`/`false` regardless of how amuled encodes them on 
 `connection.upnp_enabled` toggles UPnP router forwarding of the daemon's P2P ports — the ports themselves are `connection.tcp_port` (ed2k TCP) and `connection.udp_port` (ed2k/Kad UDP). `connection.upnp_control_point_port` is a separate optional knob: the fixed local port the UPnP control point (libupnp) binds to for the router's callbacks, `0` meaning auto-assign — **not** a forwarded port. `connection.upnp_supported` is **read-only** — the daemon advertises whether it was built with UPnP (`false` on a core built `-DENABLE_UPNP=OFF`, where `upnp_enabled` has no effect); it is ignored if sent on PATCH. (Web-server UPnP is not exposed, since amuleweb is deprecated. EC-port UPnP is reported read-only, as `remote_controls.external_connections.upnp_enabled`.)
 
 The `connection.proxy_*` fields configure the proxy the **daemon** routes its P2P and HTTP traffic through. `proxy_type` is one of `"socks5"` / `"socks4"` / `"http"` / `"socks4a"` — any other value is a `400`. It is the empty string when the daemon has no proxy type configured at all (the core's `PROXY_NONE`), a state that cannot be set back through this API; use `proxy_enabled: false` to turn the proxy off. `proxy_auth_enabled` toggles username/password authentication. `proxy_password` is **write-only** — accepted on PATCH but never returned on GET (same as the `remote_controls` passwords); PATCH the other proxy fields without it to leave the stored password unchanged.
+
+`servers.accelerated_publication_enabled` lets the daemon publish its shared files at the pace an eD2k server advertises (OFFERFILES v1); servers that advertise none get the standard pace. It defaults to `true` and takes effect from the next server connection. A daemon that predates the setting does not report it: the key then reads `false`, and a PATCH has no effect.
 
 **Errors:** `503 ec_unavailable`.
 
@@ -2474,6 +2496,10 @@ The `connection.proxy_*` fields configure the proxy the **daemon** routes its P2
 | Refused | `400 bad_request` | `remote_controls.amuleapi.password`, `.guest_password`, `.guest_enabled` |
 
 Read-only fields are **ignored rather than rejected** when they arrive alongside at least one writable field, so the obvious way to use this endpoint -- `GET` the object, change one value, `PATCH` the whole thing back -- keeps working. A body naming *only* read-only fields is a `400` that says which ones: `no writable fields in the request; files.mmap_supported is read-only`.
+
+`online_signature.directory` is stricter than an ordinary read-only field because it names a place on the daemon's own filesystem that the daemon writes: it is daemon-local config, so an unchanged value echoed back is accepted (a no-op that returns the current object, even when it is the only field sent), but a value that would **change** it is rejected with `400 read_only_field` and the whole request is refused before anything is applied. Set it in the daemon's `amule.conf` instead (`OSDirectory`). The reserved `files.ffprobe_path` follows the same rule. `directories.follow_symlinks` is daemon-local for a related reason — following symlinks widens what a share exposes on the daemon's own disk — and behaves the same way (an unchanged echo is a no-op, a change is `400 read_only_field`); set it in `amule.conf` (`FollowSymlinksInShares`).
+
+The folder fields a remote client *can* still set -- `directories.incoming_path`, `directories.temp_path`, `directories.shared_paths` and each category's `save_path` -- are confined to a list of **allowed roots** the daemon configures locally (reported read-only as `directories.allowed_remote_roots`; **empty means the daemon refuses every remote folder change**, which is the out-of-the-box default). A `PATCH` that points one of these at a folder outside the allowed roots is answered `403 path_not_allowed` naming the refused folder(s); the refused folder keeps its current value while **every other field in the same request still applies** (the same partial-apply behaviour as the port-rebind rule below). Only an actual *change* is checked, so echoing the current value back always passes. The allowed roots are daemon-local config and cannot be set through the API; configure them on the daemon (`allowed-remote-dirs.dat`, one path per line). An accepted folder is stored in its resolved canonical form — symlinks are followed (on macOS `/tmp/x` is stored as `/private/tmp/x`) — so a later `GET` may report an equivalent path that differs from the one sent.
 
 Body shape mirrors the GET; every sub-object and every field is optional, and fields not present are left unchanged. Subset example:
 
@@ -2521,7 +2547,7 @@ The three **clamped at daemon start** rows are the reason this is enforced on th
 
 **A low `connection.max_upload_kibibytes_per_second` caps `max_download_kibibytes_per_second`,** which is the one place a `PATCH` changes a field the request did not name. Below `4` KiB/s up the download limit is forced to 3× the upload; below `10` it is forced to 4×. So `PATCH {"connection": {"max_upload_kibibytes_per_second": 3}}` also sets `max_download_kibibytes_per_second` to `9`. This is a deliberate anti-leech rule in the core rather than a defect, it applies whichever of the two you write, and the `PATCH` response echoes the whole preferences object so the adjusted value is visible in the reply.
 
-**Errors:** `400 bad_request` (unknown/mis-typed field, or a body with no recognized fields), `409 option_not_supported` (the connected daemon does not support the option being set: it was built without it, or is too old), `400 amuled_rejected`, `503 ec_unavailable`.
+**Errors:** `400 bad_request` (unknown/mis-typed field, or a body with no recognized fields), `400 read_only_field` (a `PATCH` that would change `files.ffprobe_path`, `online_signature.directory` or `directories.follow_symlinks`, which are daemon-local config), `403 path_not_allowed` (a folder field pointed outside the daemon's allowed roots; names the folder, other fields still apply), `409 option_not_supported` (the connected daemon does not support the option being set: it was built without it, or is too old), `400 amuled_rejected`, `503 ec_unavailable`.
 
 ---
 
@@ -2962,9 +2988,9 @@ Lists every search amuled currently holds — including ones started by a **diff
     { "search_id": 42, "query": "ubuntu desktop iso", "type": "global", "state": "finished", "client_ecid": null, "started_at": 1751000000, "result_count": 182,
       "file_type": "disc_image", "extension": "iso", "min_size_bytes": 1000000000, "max_size_bytes": 5000000000, "min_source_count": 5 },
     { "search_id": 43, "query": "debian",             "type": "kad",    "state": "running",  "client_ecid": null, "started_at": 1751000042, "result_count": 57,
-      "min_size_bytes": null, "max_size_bytes": null, "min_source_count": null },
+      "file_type": null, "extension": null, "min_size_bytes": null, "max_size_bytes": null, "min_source_count": null },
     { "search_id": 44, "query": "SomePeerNick",       "type": "browse", "state": "running",  "client_ecid": 621,  "result_count": 237,
-      "min_size_bytes": null, "max_size_bytes": null, "min_source_count": null }
+      "file_type": null, "extension": null, "min_size_bytes": null, "max_size_bytes": null, "min_source_count": null }
   ],
   "total": 3,
   "offset": 0,
@@ -2990,11 +3016,9 @@ It is **omitted** for any search this `amuleapi` process did not start itself �
 
 It exists so a client that adopts the whole list and fetches each search's results lazily — on first activation of a tab, rather than all at once at load — has a number to label an unopened tab with. It is **omitted**, not zeroed, when the daemon does not report it: a daemon older than this field sends nothing, and "does not report counts" has to stay distinguishable from "this search found nothing". Same rule as `started_at` above.
 
-The start parameters a search was submitted with ride along on its row, in the same vocabulary [`POST /search`](#post-apiv1search) accepts, so a client can reload the form and re-run the search without translating anything: `file_type` (the token form — `"audio"`, `"video"`, `"picture"`, `"text"`, `"program"`, `"archive"`, `"disc_image"` — never the ed2k term the daemon stores), `extension`, `min_size_bytes`, `max_size_bytes`, and `min_source_count`, with `0` meaning "no cap" exactly as on the POST side.
+The start parameters a search was submitted with ride along on its row, in the same vocabulary [`POST /search`](#post-apiv1search) accepts, so a client can reload the form and re-run the search without translating anything: `file_type` (the token form — `"audio"`, `"video"`, `"picture"`, `"text"`, `"program"`, `"archive"`, `"disc_image"` — never the ed2k term the daemon stores), `extension`, `min_size_bytes`, `max_size_bytes`, and `min_source_count`, with `""` meaning "any" and `0` meaning "no cap" exactly as on the POST side.
 
-They describe the form the search was **actually started from**, as the daemon recorded it, so a search adopted from another client shows that client's filters, not this one's. Only a search the daemon started from a form carries them: a `"browse"` has none, and neither does one restored from a `StoredSearches.met` without a parameter block (one written before this feature existed), or reported by an older daemon. For those, `file_type` and `extension` are omitted, and the three numeric keys read `null` — which keeps "the form had no cap" (`0`) distinguishable from "there is no form" (`null`). The numeric keys are always present so a row's shape does not depend on which daemon produced it.
-
-On disk the parameters ride in a trailing block after the 0x01 records the file already held, keyed by search id. An older daemon reads exactly the records it knows and ignores the block, so downgrading keeps every search and result and loses only the filters; the older daemon's next save drops the block. The block is additive — each search's filters are a named tag list, so a future filter is another tag, never a format change.
+They describe the form the search was **actually started from**, as the daemon recorded it, so a search adopted from another client shows that client's filters, not this one's. Only a search the daemon started from a form carries them: a `"browse"` has none, and neither does one restored from search history an older version saved, or reported by an older daemon. For those, all five keys read `null`, which keeps "the form had no filter" (`""` or `0`) distinguishable from "there is no form" (`null`). The keys are always present, so a row's shape does not depend on which daemon produced it.
 
 amuled only tracks multiple concurrent searches for clients that advertise multi-search support; `amuleapi` does, so this always reflects the full live set. `searches` is an empty array when amuled holds no searches, never an error.
 
@@ -3415,12 +3439,14 @@ Every error code emitted by `/api/v1/*`, sorted by what triggered it. Two codes 
 | `bad_request` | 400 | Body, query, or path-segment validation failed. Body parse depth-cap rejects also surface here. |
 | `amuled_rejected` | 400, 502 | amuled rejected the EC operation and the message carries its reason verbatim (400); or amuled answered but its reply was unusable, e.g. no `search_id` came back from a search or a browse (502). |
 | `captcha_expired` | 409 | The challenge identified by `captcha_id` is no longer pending; its answer was not sent. |
+| `read_only_field` | 400 | A `PATCH /preferences` tried to **change** a field configured only in the daemon's own `amule.conf` and not settable through the API — currently `files.ffprobe_path` (a binary the daemon executes), `online_signature.directory` (a folder the daemon writes into) and `directories.follow_symlinks` (a daemon-side share-scan policy). Sending the field's current value back unchanged (as a read-modify-write of the whole object does) is accepted, not an error. |
 | `request_timeout` | 408 | The request was not completed within the 10 s read timeout. |
 | `unauthorized` | 401 | Missing token, bad signature, expired, revoked, or `iat` invariants failed. |
 | `invalid_credentials` | 401, 403 | `/auth/login` password didn't match any role (401); or `PATCH /auth/passwords` was given a `current_password` that does not match (403). |
 | `forbidden` | 403 | Authenticated as `guest` but the endpoint requires `admin`. |
 | `not_found` | 404 | Resource doesn't exist (unknown hash, ECID, graph name, or no such endpoint). |
 | `not_readable` | 403 | Per-item code from the [`/share_directories`](#post-apiv1share_directories) bulk envelope: amuled cannot read that path. Only ever appears inside a `results[].error`, never as a whole-response error. |
+| `path_not_allowed` | 403 | A folder was pointed outside the roots the daemon lets remote clients use (configured on the daemon; see [`PATCH /preferences`](#patch-apiv1preferences)). Per-item in the [`/share_directories`](#put-apiv1share_directories) envelope; a whole-response error on `PATCH /preferences` (a `directories.*` folder — other fields still apply) and on category create/update (`save_path`). The refused folder's current value is left unchanged. |
 | `method_not_allowed` | 405 | Wrong HTTP verb for the route. The response carries an `Allow` header listing the methods this resource does support. |
 | `option_not_supported` | 409 | `PATCH /preferences` set an option the connected daemon was built without, or is too old to support. |
 | `not_a4af_source` | 409 | The client named on a `POST /downloads/{hash}/a4af` request is not an A4AF source of that download. |
@@ -3428,6 +3454,7 @@ Every error code emitted by `/api/v1/*`, sorted by what triggered it. Two codes 
 | `not_shared` | 409 | A comment or rating was posted against a file that is not shared. |
 | `not_completed` | 409 | `clear_completed` named a `hash` that is not a completed download. |
 | `download_completed` | 409 | DELETE matched a download still completing, or a completed entry without `confirmed_target`; wait for completion and explicitly confirm disk deletion, or clear the completed row to keep its file. |
+| `download_hashing` | 409 | DELETE matched a download that is waiting for or in a hash check; retry once the check has finished. |
 | `selection_changed` | 409 | The confirmed deletion target changed; refresh and confirm again. |
 | `ec_protocol_error` | 502 | The core returned an unexpected deletion acknowledgment; success could not be confirmed. |
 | `kad_more_exhausted` | 409 | `POST /search/{id}/more` on a Kad search that can no longer be widened — its 4-reask budget is spent, or it has entered the stopping window Kad begins 20 s before a keyword search ends. Terminal for that search; re-run the query for more. |
@@ -3466,3 +3493,50 @@ A client that follows those rules keeps working across every `/api/v1/` release.
 Corrections that cannot be made additively wait for `/api/v2/`. There is no alias window and no deprecation period inside a version, which is what makes the guarantee worth having.
 
 `POST /api/v1/auth/login` returns no token in the response body unless `?include_token=true` is given. That is the frozen shape.
+
+## GET /metrics
+
+Optional Prometheus text 0.0.4 exposition, outside the `/api/v1` namespace. `BasePath` applies as for the API. `GET` and `HEAD` are supported; other methods return 405.
+
+Metrics are off by default. To turn them on, set `[Metrics]/Enabled=1` and a dedicated `[Metrics]/Token` of 32-256 characters from the RFC 6750 bearer-token alphabet. While metrics are off, `/metrics` returns 404, also when a static frontend is served. If `Enabled=1` and the token is empty or malformed, amuleapi logs a warning without the token, keeps metrics off and starts normally. This is a setting of amuleapi only, not an EC capability.
+
+Send `Authorization: Bearer <token>`. JWTs and session cookies are not accepted. A missing or wrong token returns 401 with `WWW-Authenticate: Bearer realm="metrics"`. A separate limiter, per socket peer address, locks metrics out after 30 failures in 60 seconds for 300 seconds and returns 429 with `Retry-After`. `[Metrics]/FailureThreshold`, `FailureWindowSeconds` and `LockoutSeconds` change these limits (positive integers). This limiter and the API's JWT limiter do not affect each other. Clients behind one proxy share the same metrics limit.
+
+A successful response has `Content-Type: text/plain; version=0.0.4; charset=utf-8` and `Cache-Control: no-store`, no ETag, and never returns 304.
+
+Each scrape reads a compact snapshot that amuleapi publishes after a successful refresh. A scrape makes **no EC requests**, reads no files and does not walk the file or client lists. Labels are bounded: no file names, hashes, addresses, or client or server identifiers. Samples have no explicit timestamps.
+
+| Metric | Type / labels | Meaning |
+|---|---|---|
+| `amule_build_info` | gauge, `version`, `daemon_version` | amuleapi binary version and daemon version from the EC handshake (empty before the first successful refresh); value 1 |
+| `amule_ec_connected` | gauge | Last EC refresh succeeded (0/1) |
+| `amule_snapshot_timestamp_seconds` | gauge | Unix time of last successful refresh; absent before the first |
+| `amule_network_connected` | gauge, `network="ed2k\|kad"` | Network connection state (0/1) |
+| `amule_ed2k_high_id` | gauge | HighID (0/1), only while connected |
+| `amule_kad_firewalled` | gauge, `protocol="tcp\|udp"` | Firewall verdict, only when available |
+| `amule_transfer_rate_bytes_per_second` | gauge, `direction="upload\|download"`, `kind="data\|overhead"` | Data and additional overhead rates |
+| `amule_speed_limit_bytes_per_second` | gauge, `direction` | Configured limit; zero means unlimited |
+| `amule_lifetime_transferred_bytes_total` | counter, `direction` | Persisted lifetime bytes from `statistics.dat` |
+| `amule_transferred_bytes_total` | counter, `direction` | Exact session bytes; resets on daemon restart |
+| `amule_active_uploads` | gauge | Cached clients whose upload state is uploading |
+| `amule_active_connections` | gauge | Active daemon connections; omitted on older daemons |
+| `amule_uptime_seconds` | gauge | Daemon uptime; omitted on older daemons |
+| `amule_servers` | gauge | Cached server-list size |
+| `amule_connected_server_users` | gauge | Users on the connected eD2k server; omitted while disconnected or absent from the server cache |
+| `amule_upload_queue_length` | gauge | Waiting upload clients |
+| `amule_sources_found` | gauge | Download sources found |
+| `amule_shared_files` | gauge | Daemon's shared-file count |
+| `amule_banned_clients` | gauge | Currently banned clients |
+| `amule_downloads` | gauge, `status` | Download rows per status, including completed rows awaiting removal |
+| `amule_disk_free_bytes` | gauge, `dir="temp\|incoming"` | Filesystem free space; unknown values omitted |
+| `amule_ed2k_network_users`, `amule_ed2k_network_files` | gauge | Totals across the known server list, only while connected |
+| `amule_kad_network_users`, `amule_kad_network_files` | gauge | Network estimates, only while connected |
+| `amule_kad_network_nodes` | gauge | Local routing-table size, only while connected |
+| `amule_kad_indexed` | gauge, `type="sources\|keywords\|notes"` | Locally indexed item counts |
+| `amule_kad_index_load` | gauge | Daemon-reported index load, separate from item counts |
+
+Download status labels are `downloading`, `waiting`, `hashing`, `erroneous`, `insufficient_disk`, `paused`, `allocating`, `stopped`, `completing`, `completed` and `unknown`. Every status appears, also with a zero count; a status amuleapi does not know counts as `unknown`. An older daemon that does not send a value gets no series for it, while a real zero stays zero. Lifetime counters can go down after a statistics reset or a profile change; `rate()` handles such resets.
+
+Before the first successful refresh, the output holds only `amule_build_info` and `amule_ec_connected 0`. After a failed refresh it also keeps the last snapshot timestamp, but leaves out all daemon measurements. A statistics, file-update or preferences request answered with `EC_OP_FAILED` counts as a failed refresh, even if the EC connection stays open. These responses are still HTTP 200: Prometheus `up` shows the health of the scrape, while `amule_ec_connected` and `time() - amule_snapshot_timestamp_seconds` show the health and age of the refresh. A refresh that hangs keeps the last published state, so monitor the age as well as the connection. When the EC connection drops, amuleapi exits as before, and the scrape itself fails.
+
+Per-file labels, OpenMetrics negotiation and OTLP push are not in scope. See the [quickstart](../QUICKSTART-AMULEAPI.md#prometheus-metrics) for Prometheus and OpenTelemetry Collector configuration, and for a [Grafana dashboard](grafana-dashboard.json) built on these metrics.

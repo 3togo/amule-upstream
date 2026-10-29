@@ -43,10 +43,22 @@
 
 using namespace muleunit;
 
+namespace
+{
+// Every config dir the current test created, removed in tearDown().
+std::vector<wxString> g_tmpDirs;
+} // namespace
+
 DECLARE(AmuleApiConfig)
-// Fresh per-test config dir under the system temp tree. Tearing down inside the test bodies
-// works around muleunit's lack of a TearDown hook in the DECLARE_SIMPLE style -- each test owns
-// its own dir. wxStandardPaths::GetTempDir() returns `/tmp` on POSIX and `%TEMP%` on Windows, so
+void tearDown()
+{
+	for (const wxString &dir : g_tmpDirs) {
+		wxFileName::Rmdir(dir, wxPATH_RMDIR_RECURSIVE);
+	}
+	g_tmpDirs.clear();
+}
+// Fresh per-test config dir under the system temp tree, removed again by tearDown() -- each test
+// owns its own dir. wxStandardPaths::GetTempDir() returns `/tmp` on POSIX and `%TEMP%` on Windows, so
 // the test is portable across the CI matrix.
 wxString MakeTmpDir(const char *tag)
 {
@@ -63,6 +75,7 @@ wxString MakeTmpDir(const char *tag)
 	::wxRemoveFile(pwfile);
 	::wxRemoveFile(conf);
 	::wxRmdir(d);
+	g_tmpDirs.push_back(d);
 	return d;
 }
 END_DECLARE;
@@ -104,6 +117,7 @@ bool LoadHandWrittenConf(const char *tag, const std::string &extra, CAmuleApiCon
 	::wxRemoveFile(dir + "/amuleapi.conf");
 	::wxRmdir(dir);
 	::wxMkdir(dir, 0700);
+	g_tmpDirs.push_back(dir);
 
 	const std::string conf = "[Server]\nBindAddress=127.0.0.1\nPort=4713\n" + extra + "\n";
 	wxFile f(dir + "/amuleapi.conf", wxFile::write);
@@ -480,4 +494,68 @@ TEST(AmuleApiConfig, EcSetupMigratesPlaintextAndPreservesSettings)
 	ASSERT_TRUE(text.Find("Keep=yes") != wxNOT_FOUND);
 	ASSERT_TRUE(text.Find("legacy-secret") == wxNOT_FOUND);
 	ASSERT_TRUE(text.Find("Password=") == wxNOT_FOUND);
+}
+
+TEST(AmuleApiConfig, MetricsDisabledByDefault)
+{
+	CAmuleApiConfig cfg;
+	ASSERT_TRUE(cfg.Load(MakeTmpDir("metrics-default")));
+	ASSERT_FALSE(cfg.MetricsCfg().enabled);
+	ASSERT_FALSE(cfg.MetricsCfg().IsActive());
+	ASSERT_TRUE(cfg.MetricsCfg().token.empty());
+}
+
+TEST(AmuleApiConfig, MetricsRequireDedicatedValidToken)
+{
+	CAmuleApiConfig missing;
+	ASSERT_TRUE(LoadHandWrittenConf("metrics-missing", "[Metrics]\nEnabled=1\nToken=", missing));
+	ASSERT_FALSE(missing.MetricsCfg().IsActive());
+	CAmuleApiConfig invalid;
+	ASSERT_TRUE(LoadHandWrittenConf("metrics-invalid",
+		"[Metrics]\nEnabled=1\nToken=" + std::string(32, ' ') + "bad token",
+		invalid));
+	ASSERT_FALSE(invalid.MetricsCfg().IsActive());
+	ASSERT_TRUE(invalid.MetricsCfg().token.empty());
+	CAmuleApiConfig valid;
+	const std::string token(64, 'a');
+	ASSERT_TRUE(LoadHandWrittenConf("metrics-valid", "[Metrics]\nEnabled=1\nToken=" + token, valid));
+	ASSERT_TRUE(valid.MetricsCfg().enabled);
+	ASSERT_EQUALS(token, valid.MetricsCfg().token);
+	ASSERT_TRUE(valid.MetricsCfg().IsActive());
+	CAmuleApiConfig token_only;
+	ASSERT_TRUE(LoadHandWrittenConf("metrics-token-only", "[Metrics]\nToken=" + token, token_only));
+	ASSERT_FALSE(token_only.MetricsCfg().IsActive());
+	CAmuleApiConfig disabled;
+	ASSERT_TRUE(LoadHandWrittenConf(
+		"metrics-explicit-disabled", "[Metrics]\nEnabled=0\nToken=" + token, disabled));
+	ASSERT_FALSE(disabled.MetricsCfg().IsActive());
+}
+
+TEST(AmuleApiConfig, ReloadWithoutMetricsSectionDisablesPreviousCredential)
+{
+	CAmuleApiConfig cfg;
+	ASSERT_TRUE(LoadHandWrittenConf(
+		"metrics-reload-enabled", "[Metrics]\nEnabled=1\nToken=" + std::string(64, 'b'), cfg));
+	ASSERT_TRUE(cfg.MetricsCfg().enabled);
+	ASSERT_TRUE(LoadHandWrittenConf("metrics-reload-disabled", "", cfg));
+	ASSERT_FALSE(cfg.MetricsCfg().enabled);
+	ASSERT_FALSE(cfg.MetricsCfg().IsActive());
+	ASSERT_TRUE(cfg.MetricsCfg().token.empty());
+}
+
+TEST(AmuleApiConfig, MetricsLimiterIsConfigurableAndResetsOnReload)
+{
+	CAmuleApiConfig cfg;
+	ASSERT_TRUE(LoadHandWrittenConf("metrics-limits",
+		"[Metrics]\nFailureThreshold=4\nFailureWindowSeconds=15\nLockoutSeconds=25",
+		cfg));
+	ASSERT_EQUALS(4u, cfg.MetricsCfg().failure_threshold);
+	ASSERT_EQUALS(15u, cfg.MetricsCfg().failure_window_seconds);
+	ASSERT_EQUALS(25u, cfg.MetricsCfg().lockout_seconds);
+	ASSERT_TRUE(LoadHandWrittenConf("metrics-limits-default",
+		"[Metrics]\nFailureThreshold=0\nFailureWindowSeconds=-1\nLockoutSeconds=0",
+		cfg));
+	ASSERT_EQUALS(30u, cfg.MetricsCfg().failure_threshold);
+	ASSERT_EQUALS(60u, cfg.MetricsCfg().failure_window_seconds);
+	ASSERT_EQUALS(300u, cfg.MetricsCfg().lockout_seconds);
 }

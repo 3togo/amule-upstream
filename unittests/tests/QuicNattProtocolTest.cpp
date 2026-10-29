@@ -24,6 +24,7 @@
 #include <muleunit/test.h>
 
 #include <QuicNattProtocol.h>
+#include <QuicCapsRequestLedger.h>
 
 #include <algorithm>
 #include <array>
@@ -46,6 +47,27 @@ std::array<uint8_t, 16> Hash(uint8_t first)
 	return hash;
 }
 } // namespace
+
+TEST(QuicNattProtocol, CapsAndAckSendPlansSelectTheirPeerHashAndRespectPlaintextFallback)
+{
+	const auto dialledPeer = Hash(10);
+	const auto capsSender = Hash(40);
+	// These same plans drive the production SendPacket calls for CAPS and CAPS_ACK.
+	const auto caps = MakeQuicCapsSendPlan(true, 0x01020304, dialledPeer);
+	ASSERT_TRUE(caps.obfuscate);
+	ASSERT_TRUE(caps.targetHash == dialledPeer);
+	const auto ack = MakeQuicCapsSendPlan(true, 0x01020304, capsSender);
+	ASSERT_TRUE(ack.obfuscate);
+	ASSERT_TRUE(ack.targetHash == capsSender);
+
+	const std::array<uint8_t, 16> noHash{};
+	const auto unsupported = MakeQuicCapsSendPlan(false, 0x01020304, dialledPeer);
+	ASSERT_FALSE(unsupported.obfuscate);
+	ASSERT_TRUE(unsupported.targetHash == noHash);
+	const auto noPublicIp = MakeQuicCapsSendPlan(true, 0, capsSender);
+	ASSERT_FALSE(noPublicIp.obfuscate);
+	ASSERT_TRUE(noPublicIp.targetHash == noHash);
+}
 
 TEST(QuicNattProtocol, EaqcCodecMatchesWireFixture)
 {
@@ -167,19 +189,21 @@ TEST(QuicNattProtocol, EaqcCapsAckEchoesRequestAndAdvertisesQuic)
 	const auto sender = Hash(33);
 	const auto file = Hash(65);
 	EaqcFrame request{ 0, sender, local, file };
-	const auto ack = BuildEaqcCapsAck(request, local, true, false);
+	const auto ack = BuildEaqcCapsAck(request, local, true, true, false);
 	EaqcFrame decoded{};
 	ASSERT_TRUE(DecodeEaqcFrame(ack.data(), ack.size(), sender, decoded));
-	ASSERT_EQUALS(0x48, ack[5]);
+	ASSERT_EQUALS(EAQC_CAP_QUIC | EAQC_CAP_DIRECT_CALLBACK, ack[5]);
 	ASSERT_TRUE(decoded.senderUserHash == local);
 	ASSERT_TRUE(decoded.expectedPeerHash == sender);
 	ASSERT_TRUE(decoded.fileHash == file);
-	const auto noCallback = BuildEaqcCapsAck(request, local, false, false);
-	ASSERT_EQUALS(0x40, noCallback[5]);
-	const auto withUtp = BuildEaqcCapsAck(request, local, false, true);
-	ASSERT_EQUALS(0xC0, withUtp[5]);
-	const auto everything = BuildEaqcCapsAck(request, local, true, true);
-	ASSERT_EQUALS(0xC8, everything[5]);
+	const auto noCallback = BuildEaqcCapsAck(request, local, true, false, false);
+	ASSERT_EQUALS(EAQC_CAP_QUIC, noCallback[5]);
+	const auto withUtp = BuildEaqcCapsAck(request, local, false, false, true);
+	ASSERT_EQUALS(EAQC_CAP_UTP, withUtp[5]);
+	const auto everything = BuildEaqcCapsAck(request, local, true, true, true);
+	ASSERT_EQUALS(EAQC_CAP_QUIC | EAQC_CAP_DIRECT_CALLBACK | EAQC_CAP_UTP, everything[5]);
+	const auto noQuic = BuildEaqcCapsAck(request, local, false, true, true);
+	ASSERT_EQUALS(EAQC_CAP_DIRECT_CALLBACK | EAQC_CAP_UTP, noQuic[5]);
 }
 
 TEST(QuicNattProtocol, EaqcCodecValidatesLengthAndIdentity)
@@ -203,6 +227,8 @@ TEST(QuicNattProtocol, EaqcCodecValidatesLengthAndIdentity)
 	ASSERT_FALSE(DecodeEaqcFrame(bad.data(), bad.size(), local, decoded));
 	const auto mismatch = EncodeEaqcFrame(0, sender, Hash(90), file);
 	ASSERT_FALSE(DecodeEaqcFrame(mismatch.data(), mismatch.size(), local, decoded));
+	const auto unknownBits = EncodeEaqcFrame(0x01, sender, local, file);
+	ASSERT_TRUE(DecodeEaqcFrame(unknownBits.data(), unknownBits.size(), local, decoded));
 }
 
 TEST(QuicNattProtocol, AlpnRequiresExactBytesAndLength)

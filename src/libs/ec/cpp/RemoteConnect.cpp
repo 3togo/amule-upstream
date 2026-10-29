@@ -422,6 +422,9 @@ void CRemoteConnect::OnLost()
 		m_notifier->AddPendingEvent(event);
 		return;
 	}
+	if (m_closeExpected) {
+		return;
+	}
 	// Headless EC clients (amulecmd, amuleweb) pass a NULL m_notifier. Continuing
 	// would mean amuleweb serving an empty shell with no error, or amulecmd at a
 	// prompt with a dead socket. Failing fast is right; the supervisor recovers.
@@ -472,9 +475,11 @@ void CRemoteConnect::SetupAEADFromSalt(const CECPacket *reply)
 	// Validate the received lengths here, as the daemon does for the client's.
 	// Downstream would reject them too, but checking locally keeps the "every field
 	// the transcript concatenates is fixed-length" invariant obvious.
-	if (serverNonceTag->GetTagDataLen() != ECCrypt::NONCE_TAG_LEN ||
+	// GetTagData() asserts on a tag that is not raw bytes; a fake daemon must not trip it.
+	if (!serverNonceTag->IsCustom() || !serverPubTag->IsCustom() ||
+		serverNonceTag->GetTagDataLen() != ECCrypt::NONCE_TAG_LEN ||
 		serverPubTag->GetTagDataLen() != ECCrypt::X25519_KEY_LEN) {
-		AddDebugLogLineN(logEC, "AEAD: daemon nonce or public key has a bad length");
+		AddDebugLogLineN(logEC, "AEAD: daemon nonce or public key has a bad type or length");
 		return;
 	}
 

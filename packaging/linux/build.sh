@@ -334,7 +334,8 @@ build_static() {
     for b in amuled amulecmd amuleapi amule-media-probe; do
         cp "${outdir}/${b}" "${outdir}/${stem}/"
     done
-    cp -R "${outdir}/licenses" "${outdir}/${stem}/licenses"
+    cp "${REPO_ROOT}/LICENSE.md" "${REPO_ROOT}/docs/THIRDPARTY.md" "${outdir}/${stem}/"
+    cp -R "${outdir}/licenses" "${outdir}/${stem}/"
 
     # The WebUI ships inside this bundle. amuleapi serves no assets of its
     # own, so a static-binary operator who fetched this tarball had a daemon

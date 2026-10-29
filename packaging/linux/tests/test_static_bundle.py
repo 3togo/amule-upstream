@@ -22,6 +22,9 @@ class StaticBundleTests(unittest.TestCase):
                 path = webui / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text('fixture')
+            (root / 'docs').mkdir()
+            for name in ('LICENSE.md', 'docs/THIRDPARTY.md'):
+                (root / name).write_text('fixture')
             commands = root / 'commands'
             commands.mkdir()
             scripts = {
@@ -32,8 +35,8 @@ output = sys.argv[sys.argv.index('--output') + 1].split('dest=', 1)[1]
 root = Path(output)
 for name in ('amuled', 'amulecmd', 'amuleapi', 'amule-media-probe'):
     (root / name).write_text('fixture executable')
-(root / 'licenses').mkdir()
-(root / 'licenses' / 'MediaInfoLib.html').write_text('fixture notice')
+(root / 'licenses' / 'amule-media-probe').mkdir(parents=True)
+(root / 'licenses' / 'amule-media-probe' / 'MediaInfoLib.html').write_text('fixture notice')
 ''',
                 'file': '#!/bin/sh\necho "ELF statically linked"\n',
                 'git': '''#!/bin/sh
@@ -58,7 +61,8 @@ fi
                 names = {Path(name).relative_to(archive.getnames()[0]).as_posix()
                          for name in archive.getnames()}
             for name in ('amuled', 'amulecmd', 'amuleapi', 'amule-media-probe',
-                         'licenses/MediaInfoLib.html', 'amuleapi-static/index.html'):
+                         'licenses/amule-media-probe/MediaInfoLib.html', 'LICENSE.md', 'THIRDPARTY.md',
+                         'amuleapi-static/index.html'):
                 self.assertIn(name, names)
 
 

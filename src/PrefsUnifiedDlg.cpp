@@ -154,6 +154,7 @@ wxBEGIN_EVENT_TABLE(PrefsUnifiedDlg, wxDialog)
 	EVT_CHECKBOX(IDC_REMOVEDEAD, PrefsUnifiedDlg::OnCheckBoxChange)
 	EVT_CHECKBOX(IDC_AUTOSERVER, PrefsUnifiedDlg::OnCheckBoxChange)
 	EVT_CHECKBOX(IDC_AUTOIPFILTER, PrefsUnifiedDlg::OnCheckBoxChange)
+	EVT_CHECKBOX(IDC_MSGADVSPAM, PrefsUnifiedDlg::OnCheckBoxChange)
 	EVT_CHECKBOX(IDC_MSGFILTER, PrefsUnifiedDlg::OnCheckBoxChange)
 	EVT_CHECKBOX(IDC_MSGFILTER_ALL, PrefsUnifiedDlg::OnCheckBoxChange)
 	EVT_CHECKBOX(IDC_MSGFILTER_WORD, PrefsUnifiedDlg::OnCheckBoxChange)
@@ -202,6 +203,12 @@ wxBEGIN_EVENT_TABLE(PrefsUnifiedDlg, wxDialog)
 	EVT_BUTTON(IDC_PATHMAP_ADD, PrefsUnifiedDlg::OnPathMappingAdd)
 	EVT_BUTTON(IDC_PATHMAP_REMOVE, PrefsUnifiedDlg::OnPathMappingRemove)
 	EVT_BUTTON(IDC_PATHMAP_BROWSE, PrefsUnifiedDlg::OnPathMappingBrowse)
+#else
+	// The allowed-remote-roots editor is local config, shown only on monolithic amule (on the
+	// remote GUI the same list is read-only, reported by the daemon).
+	EVT_BUTTON(IDC_ALLOWED_ROOT_ADD, PrefsUnifiedDlg::OnAllowedRootAdd)
+	EVT_BUTTON(IDC_ALLOWED_ROOT_REMOVE, PrefsUnifiedDlg::OnAllowedRootRemove)
+	EVT_BUTTON(IDC_ALLOWED_ROOT_BROWSE, PrefsUnifiedDlg::OnAllowedRootBrowse)
 #endif
 	EVT_BUTTON(IDC_SELBROWSER, PrefsUnifiedDlg::OnButtonBrowseApplication)
 	EVT_BUTTON(IDC_TWEAKS_RESET, PrefsUnifiedDlg::OnButtonTweaksReset)
@@ -320,7 +327,6 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 	s_openPrefsDlg = this;
 	m_sharedDirsDirty = false;
 	m_sharedDirsLoaded = false;
-	m_pathMappingHintWrapWidth = 0;
 #endif
 	preferencesDlgTop(this, false);
 
@@ -810,6 +816,11 @@ bool PrefsUnifiedDlg::TransferToWindow()
 						 : static_cast<int>(CamuleGuiBase::AppearanceChoice::System));
 	}
 
+	// Allowed roots for remote folder changes: read-only on the remote GUI (the daemon reports
+	// them in its preferences), editable on monolithic amule (local config). The list widget
+	// exists in only one of the two builds; PopulateAllowedRootsList no-ops if it is absent.
+	PopulateAllowedRootsList();
+
 	// Autostart checkbox: state lives in the OS, never aMule.conf, so read live
 	// each time the dialog opens. The thePrefs Cfg machinery does not know it.
 	wxCheckBox *autostartCb = static_cast<wxCheckBox *>(FindWindow(IDC_AUTOSTART_LOGIN));
@@ -971,6 +982,22 @@ bool PrefsUnifiedDlg::TransferToWindow()
 		if (wxWindow *w = FindWindow(id)) {
 			w->Hide();
 		}
+	}
+	// follow_symlinks is daemon-local too -- it widens what a share exposes on the host, so it is
+	// not remotely settable. Show the daemon's value but disable the checkbox (amulegui no longer
+	// sends this tag), so it does not look editable while silently doing nothing.
+	if (wxWindow *followSymlinks = FindWindow(IDC_FOLLOW_SYMLINKS_SHARED)) {
+		followSymlinks->Enable(false);
+		followSymlinks->SetToolTip(
+			_("Set in the daemon's own configuration (amule.conf); not editable remotely."));
+	}
+	// The online-signature folder is daemon-local as well (the daemon writes its signature files
+	// there, and amulegui no longer sends this tag): make the field read-only. Its Browse button
+	// (IDC_SELOSDIR, a local file picker) is already hidden above.
+	if (wxTextCtrl *osdir = CastChild(IDC_OSDIR, wxTextCtrl)) {
+		osdir->SetEditable(false);
+		osdir->SetToolTip(
+			_("Set in the daemon's own configuration (amule.conf); not editable remotely."));
 	}
 #endif
 
@@ -1172,6 +1199,10 @@ bool PrefsUnifiedDlg::CfgChanged(int ID)
 
 void PrefsUnifiedDlg::UpdateMessageFilterControls()
 {
+	FindWindow(IDC_MSGADVSPAM)->Enable(thePrefs::GetChatSpamFilterSupported());
+	FindWindow(IDC_MSGCAPTCHA)
+		->Enable(thePrefs::GetChatSpamFilterSupported() &&
+			 CastChild(IDC_MSGADVSPAM, wxCheckBox)->IsChecked());
 	const bool filtering = CastChild(IDC_MSGFILTER, wxCheckBox)->IsChecked();
 	const bool selective = filtering && !CastChild(IDC_MSGFILTER_ALL, wxCheckBox)->IsChecked();
 	FindWindow(IDC_MSGFILTER_ALL)->Enable(filtering);
@@ -1402,6 +1433,12 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 	// Path mappings (#843): harvest before Save(), same as the shared-dirs
 	// commit above, so this ends up persisted alongside the rest.
 	HarvestPathMappingList();
+#else
+	// Allowed roots for remote folder changes are local config in their own file (never over
+	// EC), so harvest the editor and persist them here. The remote GUI shows the daemon's roots
+	// read-only, so it has nothing to harvest.
+	HarvestAllowedRootsList();
+	theApp->glob_prefs->SaveAllowedRemoteDirRoots();
 #endif
 
 	// This belongs to the local GUI, including amulegui's remote.conf. It must
@@ -1942,15 +1979,16 @@ void PrefsUnifiedDlg::OnCheckBoxChange(wxCommandEvent &event)
 	case IDC_AUTOSERVER:
 		if (thePrefs::GetServerListURLs().empty() &&
 			CastChild(event.GetId(), wxCheckBox)->IsChecked()) {
-			wxMessageBox(_("Your Auto-update servers list is in blank.\nPlease fill in at least "
-				       "one URL to point to a valid server.met file.\nClick on the button "
-				       "\"List\" by this checkbox to enter an URL."),
+			wxMessageBox(_("Your server list sources are empty.\nPlease add at least one URL "
+				       "of a valid server.met file.\nClick the \"Edit sources...\" "
+				       "button next to this checkbox to add one."),
 				_("Message"),
 				wxOK | wxICON_INFORMATION);
 			CastChild(event.GetId(), wxCheckBox)->SetValue(false);
 		}
 		break;
 
+	case IDC_MSGADVSPAM:
 	case IDC_MSGFILTER:
 	case IDC_MSGFILTER_ALL:
 	case IDC_MSGFILTER_WORD:
@@ -2181,6 +2219,10 @@ void PrefsUnifiedDlg::OnButtonBrowseApplication(wxCommandEvent &event)
 #endif
 
 	if (!str.IsEmpty()) {
+		// The player and browser fields are command templates, split into words.
+		if (str.find_first_of(" \t") != wxString::npos) {
+			str = "\"" + str + "\"";
+		}
 		wxTextCtrl *widget = CastChild(id, wxTextCtrl);
 		widget->SetValue(str);
 	}
@@ -3386,53 +3428,9 @@ void PrefsUnifiedDlg::PopulatePathMappingList()
 		++row;
 	}
 
-	// muuli_wdr.cpp wraps the paragraph above the list once, so the page has a sane minimum
-	// width; from here on it follows the page. Bound on the page rather than on the
-	// paragraph, and idempotently, since this page's controls do not exist until
-	// PreferencesPathMappingTab() builds them and Populate is the first point afterwards
-	// that runs.
-	if (wxStaticText *hint = CastChild(IDC_PATHMAP_HINT, wxStaticText)) {
-		if (m_pathMappingHintText.IsEmpty()) {
-			// Arrives already wrapped, so the breaks come back out: Wrap() would otherwise
-			// keep them forever and could only ever narrow the text further.
-			m_pathMappingHintText = hint->GetLabel();
-			m_pathMappingHintText.Replace("\n", " ");
-		}
-		if (wxWindow *page = hint->GetParent()) {
-			page->Unbind(wxEVT_SIZE, &PrefsUnifiedDlg::OnPathMappingPageResize, this);
-			page->Bind(wxEVT_SIZE, &PrefsUnifiedDlg::OnPathMappingPageResize, this);
-		}
-		WrapPathMappingHint();
+	if (auto *hint = dynamic_cast<WrappingStaticText *>(FindWindow(IDC_PATHMAP_HINT))) {
+		hint->SetLayoutCallback([hint] { RefreshPreferencesPage(hint); });
 	}
-}
-
-void PrefsUnifiedDlg::OnPathMappingPageResize(wxSizeEvent &evt)
-{
-	WrapPathMappingHint();
-	evt.Skip();
-}
-
-void PrefsUnifiedDlg::WrapPathMappingHint()
-{
-	wxStaticText *hint = CastChild(IDC_PATHMAP_HINT, wxStaticText);
-	if (hint == nullptr || m_pathMappingHintText.IsEmpty()) {
-		return;
-	}
-	wxWindow *page = hint->GetParent();
-	if (page == nullptr) {
-		return;
-	}
-	// The page's width, never the label's: the label's width is whatever the
-	// last SetLabel() made it, which is exactly the feedback this avoids.
-	const int width = page->GetClientSize().GetWidth();
-	if (width <= 0 || width == m_pathMappingHintWrapWidth) {
-		return;
-	}
-	m_pathMappingHintWrapWidth = width;
-	hint->SetLabel(m_pathMappingHintText);
-	hint->Wrap(width);
-	// The paragraph's height has changed, so the rest of the page moves.
-	RefreshPreferencesPage(page);
 }
 
 void PrefsUnifiedDlg::HarvestPathMappingList()
@@ -3511,6 +3509,100 @@ void PrefsUnifiedDlg::OnPathMappingBrowse(wxCommandEvent &WXUNUSED(evt))
 }
 
 #endif // CLIENT_GUI
+
+void PrefsUnifiedDlg::PopulateAllowedRootsList()
+{
+	wxListBox *list = CastChild(IDC_ALLOWED_ROOTS_LIST, wxListBox);
+	if (list == nullptr) {
+		// The list exists on only one of the two builds (read-only Directories page on the
+		// remote GUI, editable Remote Controls page on monolithic amule); no-op otherwise.
+		return;
+	}
+	list->Clear();
+	// Store the raw path as the item string so it round-trips on harvest; for the usual clean
+	// absolute roots the raw form reads the same as the printable one.
+	for (const CPath &root : theApp->glob_prefs->allowed_remote_dir_roots) {
+		list->Append(root.GetRaw());
+	}
+}
+
+#ifndef CLIENT_GUI
+void PrefsUnifiedDlg::HarvestAllowedRootsList()
+{
+	wxListBox *list = CastChild(IDC_ALLOWED_ROOTS_LIST, wxListBox);
+	if (list == nullptr) {
+		return;
+	}
+	CPreferences::PathList roots;
+	const unsigned int count = list->GetCount();
+	for (unsigned int i = 0; i < count; ++i) {
+		const CPath root(list->GetString(i));
+		if (root.IsOk()) {
+			roots.push_back(root);
+		}
+	}
+	theApp->glob_prefs->allowed_remote_dir_roots = roots;
+}
+
+void PrefsUnifiedDlg::OnAllowedRootAdd(wxCommandEvent &WXUNUSED(evt))
+{
+	wxTextCtrl *pathCtrl = CastChild(IDC_ALLOWED_ROOT_PATH, wxTextCtrl);
+	wxListBox *list = CastChild(IDC_ALLOWED_ROOTS_LIST, wxListBox);
+	if (pathCtrl == nullptr || list == nullptr) {
+		return;
+	}
+	const wxString path = pathCtrl->GetValue().Strip(wxString::both);
+	if (path.IsEmpty()) {
+		return;
+	}
+	// A root must be absolute: a relative one resolves against the daemon's working directory, so
+	// the core drops it on load. Refuse it here too rather than store a line that will be ignored.
+	if (!wxFileName(path).IsAbsolute()) {
+		wxMessageBox(_("Please enter an absolute path. A relative path would be resolved against "
+			       "the daemon's working directory, so it is not accepted."),
+			_("Allowed folders for remote clients"),
+			wxOK | wxICON_EXCLAMATION,
+			this);
+		return;
+	}
+	const CPath newRoot(path);
+	for (unsigned int i = 0; i < list->GetCount(); ++i) {
+		if (CPath(list->GetString(i)) == newRoot) {
+			return; // already listed
+		}
+	}
+	list->Append(newRoot.GetRaw());
+	pathCtrl->Clear();
+}
+
+void PrefsUnifiedDlg::OnAllowedRootRemove(wxCommandEvent &WXUNUSED(evt))
+{
+	wxListBox *list = CastChild(IDC_ALLOWED_ROOTS_LIST, wxListBox);
+	if (list == nullptr) {
+		return;
+	}
+	const int sel = list->GetSelection();
+	if (sel != wxNOT_FOUND) {
+		list->Delete(static_cast<unsigned int>(sel));
+	}
+}
+
+void PrefsUnifiedDlg::OnAllowedRootBrowse(wxCommandEvent &WXUNUSED(evt))
+{
+	wxTextCtrl *pathCtrl = CastChild(IDC_ALLOWED_ROOT_PATH, wxTextCtrl);
+	if (pathCtrl == nullptr) {
+		return;
+	}
+	const wxString dir = wxDirSelector(_("Choose a folder remote clients may use"),
+		pathCtrl->GetValue(),
+		wxDD_DEFAULT_STYLE,
+		wxDefaultPosition,
+		this);
+	if (!dir.IsEmpty()) {
+		pathCtrl->SetValue(dir);
+	}
+}
+#endif
 
 void PrefsUnifiedDlg::EndSharedDirsSession()
 {

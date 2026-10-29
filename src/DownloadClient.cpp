@@ -45,6 +45,7 @@
 #include "ListenSocket.h"    // Needed for CListenSocket
 #include "amule.h"           // Needed for theApp
 #include "PartFile.h"        // Needed for CPartFile
+#include "RequestPacing.h"   // Needed for PacedLastAskedTime
 #include "SharedFileList.h"
 #include "Statistics.h" // Needed for theStats
 #include "Logger.h"
@@ -155,6 +156,24 @@ void CUpDownClient::SendStartupLoadReq()
 	theStats::AddUpOverheadFileRequest(packet->GetPacketSize());
 	AddDebugLogLineN(logLocalClient, "Local Client: OP_STARTUPLOADREQ to " + GetFullIP());
 	SendPacket(packet, true, true);
+	m_lastPacedRequest = ::GetTickCount64();
+}
+
+void CUpDownClient::AskAgainSoon()
+{
+	SetDownloadState(DS_NONE);
+	m_dwLastAskedTime =
+		PacedLastAskedTime(::GetTickCount64(), m_lastPacedRequest, thePrefs::GetSourceReaskTime());
+}
+
+bool CUpDownClient::HasPartWeNeed() const
+{
+	for (uint16 i = 0; i < m_nPartCount; ++i) {
+		if (IsPartAvailable(i) && !m_reqfile->IsComplete(i)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 bool CUpDownClient::IsSourceRequestAllowed()
@@ -338,24 +357,28 @@ void CUpDownClient::ProcessFileInfo(const CMemFile *data, const CPartFile *file)
 		// even if the file is <= PARTSIZE, we _may_ need the hashset for that file (if the file size
 		// == PARTSIZE)
 		if (m_reqfile->IsHashSetNeeded()) {
-			if (m_socket) {
-				CPacket *packet = new CPacket(OP_HASHSETREQUEST, 16, OP_EDONKEYPROT);
-				packet->Copy16ToDataBuffer((const char *)m_reqfile->GetFileHash().GetHash());
-				theStats::AddUpOverheadFileRequest(packet->GetPacketSize());
-				AddDebugLogLineN(
-					logLocalClient, "Local Client: OP_HASHSETREQUEST to " + GetFullIP());
-				SendPacket(packet, true, true);
-				SetDownloadState(DS_REQHASHSET);
-				m_fHashsetRequesting = 1;
-				m_reqfile->SetHashSetNeeded(false);
-			} else {
-				wxFAIL;
-			}
+			SendHashsetRequest();
 		} else {
 			SendStartupLoadReq();
 		}
 		m_reqfile->UpdatePartsInfo();
 	}
+}
+
+void CUpDownClient::SendHashsetRequest()
+{
+	if (!m_socket) {
+		wxFAIL;
+		return;
+	}
+	CPacket *packet = new CPacket(OP_HASHSETREQUEST, 16, OP_EDONKEYPROT);
+	packet->Copy16ToDataBuffer((const char *)m_reqfile->GetFileHash().GetHash());
+	theStats::AddUpOverheadFileRequest(packet->GetPacketSize());
+	AddDebugLogLineN(logLocalClient, "Local Client: OP_HASHSETREQUEST to " + GetFullIP());
+	SendPacket(packet, true, true);
+	SetDownloadState(DS_REQHASHSET);
+	m_fHashsetRequesting = 1;
+	m_reqfile->HashsetRequested();
 }
 
 void CUpDownClient::ProcessFileStatus(bool bUdpPacket, const CMemFile *data, const CPartFile *file)
@@ -378,7 +401,8 @@ void CUpDownClient::ProcessFileStatus(bool bUdpPacket, const CMemFile *data, con
 	if (!nED2KPartCount) {
 		m_nPartCount = m_reqfile->GetPartCount();
 		m_downPartStatus.setsize(m_nPartCount, 1);
-		bPartsNeeded = true;
+		// Not always true: a file waiting for its hashset has no gaps left to fetch.
+		bPartsNeeded = HasPartWeNeed();
 		m_bCompleteSource = true;
 	} else {
 		if (!m_reqfile) {
@@ -431,24 +455,12 @@ void CUpDownClient::ProcessFileStatus(bool bUdpPacket, const CMemFile *data, con
 
 	// NOTE: This function is invoked from TCP and UDP socket!
 	if (!bUdpPacket) {
-		if (!bPartsNeeded) {
+		if (m_reqfile->IsHashSetNeeded()) {
+			// Even with no part needed: a file whose data failed the file-hash check waits
+			// for its hashset with the gap list complete.
+			SendHashsetRequest();
+		} else if (!bPartsNeeded) {
 			SetDownloadState(DS_NONEEDEDPARTS);
-		} else if (m_reqfile->IsHashSetNeeded()) {
-			// If we are using the eMule filerequest packets, this is taken care of in the
-			// Multipacket!
-			if (m_socket) {
-				CPacket *packet = new CPacket(OP_HASHSETREQUEST, 16, OP_EDONKEYPROT);
-				packet->Copy16ToDataBuffer((const char *)m_reqfile->GetFileHash().GetHash());
-				theStats::AddUpOverheadFileRequest(packet->GetPacketSize());
-				AddDebugLogLineN(
-					logLocalClient, "Local Client: OP_HASHSETREQUEST to " + GetFullIP());
-				SendPacket(packet, true, true);
-				SetDownloadState(DS_REQHASHSET);
-				m_fHashsetRequesting = 1;
-				m_reqfile->SetHashSetNeeded(false);
-			} else {
-				wxFAIL;
-			}
 		} else {
 			SendStartupLoadReq();
 		}
@@ -553,15 +565,25 @@ void CUpDownClient::ProcessHashSet(const uint8_t *packet, uint32 size)
 	CMemFile data(packet, size);
 	if (m_reqfile->LoadHashsetFromFile(&data, true)) {
 		m_fHashsetRequesting = 0;
+		m_reqfile->HashsetReceived();
 	} else {
 		m_reqfile->SetHashSetNeeded(true);
 		throw wxString("Corrupted or invalid hashset received");
 	}
-	SendStartupLoadReq();
+	if (m_reqfile->GetStatus() == PS_COMPLETING) {
+		// HashsetReceived() started the rehash; it asks the sources again when done.
+		SetDownloadState(DS_ONQUEUE);
+	} else if (HasPartWeNeed()) {
+		SendStartupLoadReq();
+	} else {
+		// Asked for the hashset alone (see ProcessFileStatus()).
+		SetDownloadState(DS_NONEEDEDPARTS);
+	}
 }
 
 void CUpDownClient::SendBlockRequests()
 {
+	m_writeBufferBlocked = false;
 	m_dwLastBlockReceived = ::GetTickCount64();
 
 	if (!m_reqfile) {
@@ -604,7 +626,7 @@ void CUpDownClient::SendBlockRequests()
 		if (inSystem < pendingCap) {
 			uint16 count = (uint16)(pendingCap - inSystem);
 			std::vector<Requested_Block_Struct *> toadd;
-			if (m_reqfile->GetNextRequestedBlock(this, toadd, count)) {
+			if (m_reqfile->GetNextRequestedBlock(this, toadd, count, &m_writeBufferBlocked)) {
 				for (uint16 i = 0; i < count; i++) {
 					m_DownloadBlocks_list.push_back(toadd[i]);
 				}
@@ -626,6 +648,11 @@ void CUpDownClient::SendBlockRequests()
 	}
 
 	if (m_PendingBlocks_list.empty()) {
+		if (m_writeBufferBlocked) {
+			// Keep the upload slot. The download tick retries after writes drain;
+			// buffered disk data does not mean the source has no needed parts.
+			return;
+		}
 
 		CUpDownClient *slower_client = NULL;
 
@@ -668,7 +695,7 @@ void CUpDownClient::SendBlockRequests()
 			wxASSERT(m_PendingBlocks_list.empty());
 			uint16 count = (uint16)pendingCap;
 			std::vector<Requested_Block_Struct *> toadd;
-			if (m_reqfile->GetNextRequestedBlock(this, toadd, count)) {
+			if (m_reqfile->GetNextRequestedBlock(this, toadd, count, &m_writeBufferBlocked)) {
 				for (int i = 0; i != count; i++) {
 					Pending_Block_Struct *pblock = new Pending_Block_Struct;
 					pblock->block = toadd[i];
@@ -681,6 +708,9 @@ void CUpDownClient::SendBlockRequests()
 					m_PendingBlocks_list.push_back(pblock);
 				}
 			} else {
+				if (m_writeBufferBlocked) {
+					return;
+				}
 				// It's possible the freed blocks were not available on our source.
 				// Just drop ourselves gracefully instead of crashing.
 				if (!GetSentCancelTransfer()) {
@@ -1332,6 +1362,7 @@ void CUpDownClient::UDPReaskForDownload()
 
 		CPacket *response = new CPacket(data, OP_EMULEPROT, OP_REASKFILEPING);
 		AddDebugLogLineN(logClientUDP, "Client UDP socket: send OP_REASKFILEPING");
+		m_lastPacedRequest = ::GetTickCount64();
 		theStats::AddUpOverheadFileRequest(response->GetPacketSize());
 		theApp->clientudp->SendPacket(response,
 			GetConnectIP(),
@@ -1637,6 +1668,7 @@ void CUpDownClient::SendAICHRequest(CPartFile *pForFile, uint16 nPart)
 	pForFile->GetAICHHashset()->GetMasterHash().Write(&data);
 	CPacket *packet = new CPacket(data, OP_EMULEPROT, OP_AICHREQUEST);
 	theStats::AddUpOverheadOther(packet->GetPacketSize());
+	m_lastPacedRequest = ::GetTickCount64();
 	AddDebugLogLineN(logLocalClient, "Local Client: OP_AICHREQUEST to" + GetFullIP());
 	SafeSendPacket(packet);
 }

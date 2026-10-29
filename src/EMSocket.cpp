@@ -89,7 +89,6 @@ CEMSocket::CEMSocket(const CProxyData *ProxyData)
 	m_bAccelerateUpload = false;
 
 	m_actualPayloadSize = 0;
-	m_actualPayloadSizeSent = 0;
 
 	m_bBusy = false;
 	m_hasSent = false;
@@ -334,16 +333,25 @@ void CEMSocket::WakeIfPaused()
 /**
  * Queues the packet up to be sent; another thread does the sending.
  *
- * A non-control packet may be refused when the socket decides its queue is full and @a forceAdd is
- * false; the caller then has to try again later.
+ * Disconnected sockets reject the packet. TrySendPacket reports that outcome;
+ * SendPacket preserves the fire-and-forget interface used by existing callers.
  *
  * @param packet the packet to add to the queue.
- * @param delpacket true transfers responsibility for deleting the packet once sent.
+ * @param delpacket true transfers ownership, including on rejection.
  * @param controlpacket the packet is a control packet.
- * @param forceAdd add the packet even if the queue is full, so the call cannot refuse.
- * @return true if the packet was added to the queue.
  */
 void CEMSocket::SendPacket(CPacket *packet, bool delpacket, bool controlpacket, uint32 actualPayloadSize)
+{
+	TrySendPacket(packet, delpacket, controlpacket, actualPayloadSize);
+}
+
+size_t CEMSocket::GetPendingControlPacketCount()
+{
+	std::lock_guard<std::mutex> lock(m_sendLocker);
+	return m_control_queue.size() + (sendbuffer && m_currentPacket_is_controlpacket ? 1 : 0);
+}
+
+bool CEMSocket::TrySendPacket(CPacket *packet, bool delpacket, bool controlpacket, uint32 actualPayloadSize)
 {
 	std::lock_guard<std::mutex> lock(m_sendLocker);
 
@@ -351,6 +359,7 @@ void CEMSocket::SendPacket(CPacket *packet, bool delpacket, bool controlpacket, 
 		if (delpacket) {
 			delete packet;
 		}
+		return false;
 	} else {
 		if (!delpacket) {
 			packet = new CPacket(*packet);
@@ -375,6 +384,7 @@ void CEMSocket::SendPacket(CPacket *packet, bool delpacket, bool controlpacket, 
 			}
 		}
 	}
+	return true;
 }
 
 uint64 CEMSocket::GetSentBytesCompleteFileSinceLastCallAndReset()
@@ -415,33 +425,20 @@ uint64 CEMSocket::GetSentFileBytesForDisplayAndReset()
 	return bytes;
 }
 
-uint64 CEMSocket::GetSentPayloadSinceLastCallAndReset()
+uint64 CEMSocket::QueuedUploadPayload() const
 {
 	std::lock_guard<std::mutex> lock(m_sendLocker);
-
-	uint64 sentBytes = m_actualPayloadSizeSent;
-	m_actualPayloadSizeSent = 0;
-
-	return sentBytes;
+	return m_uploadRefill.Queued();
 }
 
 void CEMSocket::SetUploadBufferTarget(uint32 payload)
 {
 	std::lock_guard<std::mutex> lock(m_sendLocker);
 	if (m_uploadRefill.SetTarget(payload) && theApp->uploadDiskIOThread) {
-		// PrepareRead's payload snapshot precedes this lock. If the target grew
-		// above the remaining queue, keep a refill pending for a fresh snapshot.
+		// A larger target can require another read even when no completion
+		// crosses the old threshold. Keep a fresh worker pass pending.
 		theApp->uploadDiskIOThread->SocketNeedsMoreData();
 	}
-}
-
-// Non-resetting peek at bytes sent since the last GetSentPayloadSinceLastCallAndReset(). Used by
-// the disk I/O thread for a fresh view without consuming the counter SendBlockData() drains every
-// CORE_TIMER_PERIOD. Must not be called with m_sendLocker already held.
-uint64 CEMSocket::PeekSentPayload()
-{
-	std::lock_guard<std::mutex> lock(m_sendLocker);
-	return m_actualPayloadSizeSent;
 }
 
 bool CEMSocket::HasQueues(bool bOnlyStandardPackets) const
@@ -728,7 +725,6 @@ SocketSentBytes CEMSocket::Send(
 				sendblen = 0;
 
 				if (!m_currentPacket_is_controlpacket) {
-					m_actualPayloadSizeSent += m_actualPayloadSize;
 					// Match the disk worker's send-ahead check. Wake once when the
 					// original payload crosses below its target, or the queue drains.
 					if (m_uploadRefill.Complete(m_actualPayloadSize) &&

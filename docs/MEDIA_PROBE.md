@@ -15,7 +15,8 @@ system sandbox. Pinned bundle builds disable curl and libmms readers.
 
 `MediaMetadata/FFProbePath` is obsolete: a nonempty old setting is logged once
 and the key is removed from `amule.conf`. The EC tag stays reserved and the frozen
-`/api/v1` field `files.ffprobe_path` accepts strings as a no-op and reads as empty.
+`/api/v1` field `files.ffprobe_path` reads as empty; a PATCH that would change it
+is `400 read_only_field`.
 The old path, Browse and Detect controls are removed.
 
 Files with a legacy ffprobe failure marker (`FT_MEDIA_PROBE_FAILED=1`) receive

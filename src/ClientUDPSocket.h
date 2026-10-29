@@ -26,10 +26,14 @@
 #ifndef CLIENTUDPSOCKET_H
 #define CLIENTUDPSOCKET_H
 
+class CUpDownClient;
+
 #include "MuleUDPSocket.h"
 #include "ReservedProtocolFrames.h" // Needed for CFrameLogThrottle
 
+#include <array>
 #include <memory>
+#include <cstdint>
 
 #if defined(ENABLE_NATT_SERVER_COORDINATION) && defined(AMULE_UTP_TRANSPORT)
 #include "LugdunumNatTraversal.h"
@@ -44,6 +48,13 @@
 #include "QuicNgtcp2Adapter.h"
 #include "NatRendezvousPolicy.h"
 #include "QuicStreamAcceptor.h"
+#include "QuicCapsRequestLedger.h"
+#include "QuicCapabilityCache.h"
+#include "NatKeyFrame.h"
+#endif
+#if defined(ENABLE_NATT_SERVER_COORDINATION) && defined(AMULE_UTP_TRANSPORT) && defined(AMULE_QUIC_TRANSPORT)
+#include "ClientRef.h" // Needed for a safe CAPS-holdoff owner reference
+#include <vector>
 #endif
 #ifdef ENABLE_NATT_SERVER_COORDINATION
 namespace LugdunumNatTraversal
@@ -67,7 +78,8 @@ public:
 	void TickUtp();
 	IUtpContext *GetUtpContext() { return &m_utp; }
 #if defined(ENABLE_NATT_SERVER_COORDINATION)
-	bool DialLowIdHolePunchPeer(uint32 ip, uint16 tcpPort, uint16 udpPort);
+	bool DialLowIdHolePunchPeer(
+		uint32 ip, uint16 tcpPort, uint16 udpPort, const std::array<std::uint8_t, 16> &userHash);
 	bool DialLugdunumNatCallbackPeer(const LugdunumNatTraversal::ForwardedCallback &callback);
 	bool IsLugdunumNatCallbackCoolingDown(const LugdunumNatTraversal::CallbackFailureKey &key);
 	void RecordLugdunumNatCallbackFailure(const LugdunumNatTraversal::CallbackFailureKey &key);
@@ -81,6 +93,26 @@ public:
 	//! datagram. Without this a connection that stops receiving ACKs would never retransmit
 	//! and never time out.
 	void TickQuic();
+	//! Sends one QUIC datagram, obfuscated with the peer's hash when it is known. A long header
+	//! is preceded by our key frame, so the peer can obfuscate its replies the same way.
+	bool SendQuicFrame(const uint8_t *payload, size_t length, uint32_t ip, uint16_t port);
+	//! A rendezvous says this peer is about to contact us from this UDP endpoint; only such an
+	//! endpoint may announce a key frame. When supplied, its server-vouched hash is authoritative.
+	void ExpectNatTPeer(
+		uint32_t ip, uint16_t udpPort, const std::array<uint8_t, 16> *vouchedHash = nullptr);
+	bool SendQuicCapsRequest(const std::array<uint8_t, 16> &peer,
+		uint32_t ipv4,
+		uint16_t udpPort,
+		const std::array<uint8_t, 16> &fileHash);
+	//! Sends CAPS for an unknown peer, but only dials QUIC for a cached compatible peer.
+	//! For a server-vouched LowID NAT-T dial (owner non-null) an unknown peer instead holds
+	//! the transport choice open -- see the CAPS holdoff serviced by TickQuic() -- and this
+	//! returns true for that case too, the same as a successful synchronous dial.
+	bool TryQuicDial(const std::array<uint8_t, 16> &peer,
+		uint32_t ipv4,
+		uint16_t udpPort,
+		const std::array<uint8_t, 16> &fileHash,
+		CUpDownClient *owner = nullptr);
 #endif
 
 protected:
@@ -112,6 +144,19 @@ private:
 	CQuicContext m_quic;
 	CQuicStreamAcceptor m_quicAcceptor;
 	NatRendezvous::CRequesterLimiter m_capsAckLimiter;
+	CQuicCapsRequestLedger m_capsRequestLedger{ 256 };
+	CQuicCapabilityCache m_capabilityCache{ 256 };
+	NatKeyFrame::CKeyFrameService m_keyFrames{ KeyFrameCallbacks() };
+#if defined(ENABLE_NATT_SERVER_COORDINATION) && defined(AMULE_UTP_TRANSPORT)
+	// Punch-dial temporary clients drop their last CClientRef once the dial starts and have no
+	// socket until the handoff; the holdoff's reference is the only thing keeping them alive.
+	CQuicCapsHoldoffs<CClientRef> m_quicCapsHoldoffs;
+	CQuicCapsHoldoffs<CClientRef>::SCallbacks QuicCapsHoldoffCallbacks();
+#endif
+#endif
+#ifdef AMULE_QUIC_TRANSPORT
+	NatKeyFrame::Callbacks KeyFrameCallbacks();
+	void HandleNatKeyFrame(const uint8_t *payload, size_t length, uint32_t ip, uint16_t port);
 #endif
 	void OnPacketReceived(
 		const CNetworkAddress &address, uint16 port, uint8_t *buffer, size_t length) override;
@@ -136,8 +181,10 @@ private:
 	 * @param frameLength  bytes available from there. Zero is a datagram that carried nothing
 	 * but the
 	 *                     protocol byte.
+	 * @param obfuscated  whether the datagram arrived under the UDP obfuscation layer.
 	 */
-	void ProcessReservedProt2Frame(const uint8_t *frame, size_t frameLength, uint32 ip, uint16 port);
+	void ProcessReservedProt2Frame(
+		const uint8_t *frame, size_t frameLength, uint32 ip, uint16 port, bool obfuscated);
 
 	//! One unknown-frame line per minute, with a suppressed count. A peer speaking a frame type
 	//! this build does not know retries, so the useful information is that it happened plus how

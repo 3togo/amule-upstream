@@ -237,8 +237,6 @@ CamuleApp::CamuleApp()
 	// Initialization
 	m_app_state = APP_STATE_STARTING;
 
-	theApp = &wxGetApp();
-
 	clientlist = NULL;
 	chatsessions = nullptr;
 	searchlist = NULL;
@@ -532,13 +530,6 @@ int CamuleApp::OnExit()
 	delete glob_prefs;
 	glob_prefs = NULL;
 	CPreferences::EraseItemList();
-
-	// Shut down disk I/O thread before throttler -- eMule ref: emule.cpp shutdown order
-	if (uploadDiskIOThread) {
-		uploadDiskIOThread->EndThread();
-		delete uploadDiskIOThread;
-		uploadDiskIOThread = NULL;
-	}
 
 	delete uploadBandwidthThrottler;
 	uploadBandwidthThrottler = NULL;
@@ -2454,6 +2445,7 @@ void CamuleApp::OnCoreTimer(CTimerEvent &WXUNUSED(evt))
 
 	uploadqueue->Process();
 	downloadqueue->Process();
+	sharedfiles->ProcessED2K(true);
 	// theApp->clientcredits->Process();
 	theStats::CalculateRates();
 
