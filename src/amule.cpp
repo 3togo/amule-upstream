@@ -3248,6 +3248,7 @@ wxString CamuleApp::GetLog(bool reset)
 		str = wxString(tmp_buffer);
 	}
 	delete[] tmp_buffer;
+	str = LogFileToEC(str);
 	if (reset) {
 		theLogger.CloseLogfile();
 		if (theLogger.OpenLogfile(logfileName)) {
