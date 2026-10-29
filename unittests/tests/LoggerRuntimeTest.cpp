@@ -84,10 +84,10 @@ int main()
 
 #ifndef LOGGER_CONSOLE_TEST
 	const wxString log = theLogger.GetUnwrittenLog();
-	Check(log.Contains("General: runtime-category-test"), "debug category name was lost");
-	Check(log.Contains(".20"), "file-only marker was lost");
-	Check(log.Contains("!20"), "critical marker was lost");
-	Check(log.Contains(" 20"), "normal marker was lost");
+	Check(log.Contains("[General] runtime-category-test"), "debug category name was lost");
+	Check(log.Contains("[log status=0 replay=0] [General]"), "file-only flags were lost");
+	Check(log.Contains("[log status=1 replay=1] [General]"), "critical flags were lost");
+	Check(log.Contains("[log status=0 replay=1] runtime-category-test"), "normal flags were lost");
 	Check(theLogger.GetDebugCategory(logGeneral).IsEnabled(), "verbose off cleared selection");
 
 	const wxString path = wxFileName::CreateTempFileName("amule-runtime-log");

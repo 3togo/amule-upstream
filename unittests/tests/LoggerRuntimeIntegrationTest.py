@@ -23,10 +23,15 @@ def verbose(ec, enabled):
     ])[0] == C['EC_OP_NOOP']
 
 
+def flags(logfile_only):
+    # The logfile keeps display policy after the severity; replay=0 means logfile only.
+    return f'[log status=0 replay={0 if logfile_only else 1}] '
+
+
 def emit(ec, root, message, expected, logfile_only):
     assert ec.call(C['EC_OP_ADDDEBUGLOGLINE'], [
         string(C['EC_TAG_STRING'], message)])[0] == C['EC_OP_NOOP']
-    # The whole-log EC read is a barrier and returns the raw file, including markers.
+    # The whole-log EC read is a barrier and returns the logfile with EC markers.
     op, tags = ec.call(C['EC_OP_GET_LOG'])
     assert op == C['EC_OP_LOG']
     ec_log = tags[C['EC_TAG_STRING']][0].decode()
@@ -34,7 +39,7 @@ def emit(ec, root, message, expected, logfile_only):
     matching = [line for line in lines if message in line]
     assert bool(matching) == expected, (message, matching)
     if expected:
-        assert matching[0][0] == ('.' if logfile_only else ' '), matching
+        assert flags(logfile_only) in matching[0], matching
     assert (message in ec_log) == expected, ec_log
 
 
@@ -52,7 +57,7 @@ def emit_peer_details(ec, root, port, expected, logfile_only):
                     and f'IP:Port 127.0.0.1:{peer_port} ' in line]
         assert bool(matching) == expected, (expected, lines)
         if expected:
-            assert matching[0][0] == ('.' if logfile_only else ' '), matching
+            assert flags(logfile_only) in matching[0], matching
 
 
 def run(binary):
