@@ -1,0 +1,26 @@
+name: WebUI unit tests
+
+on:
+  push:
+    paths:
+      - 'src/webapi/static/js/**'
+      - 'unittests/browser-tests/*.test.mjs'
+      - '.github/workflows/webui.yml'
+  pull_request:
+    paths:
+      - 'src/webapi/static/js/**'
+      - 'unittests/browser-tests/*.test.mjs'
+      - '.github/workflows/webui.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test unittests/browser-tests/*.test.mjs
