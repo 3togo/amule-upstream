@@ -25,13 +25,10 @@
 
 #include "CommentDialog.h" // Interface declarations
 #include "GuiEvents.h"
-#include "KnownFile.h" // Needed for CKnownFile
-#include "PartFile.h"  // Needed for CPartFile
-#ifndef CLIENT_GUI
-#include "amule.h"          // Needed for theApp
+#include "KnownFile.h"      // Needed for CKnownFile
 #include "SharedFileList.h" // Needed for CSharedFileList
-#endif
-#include "muuli_wdr.h" // Needed for commentDlg
+#include "amule.h"          // Needed for theApp
+#include "muuli_wdr.h"      // Needed for commentDlg
 
 #include <set>
 
@@ -78,9 +75,8 @@ wxString CCommentDialog::MenuLabel(const CKnownFile &file)
 bool CCommentDialog::CanEdit(const CKnownFile &file)
 {
 #ifdef CLIENT_GUI
-	// Completed transfer rows can still be CPartFile proxies, including after unsharing.
-	const auto *partFile = dynamic_cast<const CPartFile *>(&file);
-	return partFile == nullptr || partFile->IsShared();
+	// amulegui keeps this map in step with the daemon's shared list.
+	return theApp->sharedfiles->count(file.ECID()) != 0;
 #else
 	return theApp->sharedfiles->GetFileByID(file.GetFileHash()) != nullptr;
 #endif
