@@ -80,6 +80,8 @@ if (Python3_Interpreter_FOUND)
 		COMMAND ${Python3_EXECUTABLE}
 			${CMAKE_CURRENT_SOURCE_DIR}/ConsoleLoggerIdentityTest.py $<TARGET_FILE:ConsoleLoggerProbe>
 	)
+	# 60 s lane. On Windows runners a run of the probe has stalled past 10 s.
+	set_tests_properties (ConsoleLoggerIdentityTest PROPERTIES LABELS "slow")
 	add_test (NAME IntegrationFixtureUnitTest
 		COMMAND ${Python3_EXECUTABLE} -u ${CMAKE_CURRENT_SOURCE_DIR}/IntegrationFixtureUnitTest.py -v
 	)
@@ -3601,6 +3603,8 @@ find_program (AMULE_TEST_NODE_EXECUTABLE NAMES node nodejs)
 if (AMULE_TEST_NODE_EXECUTABLE)
 	add_test (NAME DownloadDeleteTest
 		COMMAND ${AMULE_TEST_NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/DownloadDeleteTest.mjs)
+	add_test (NAME MagnetLinkTest
+		COMMAND ${AMULE_TEST_NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/MagnetLinkTest.mjs)
 endif ()
 
 # Obfuscation cipher wire compatibility, using the production buffer and cipher.
