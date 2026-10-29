@@ -27,6 +27,7 @@
 
 #include "PartFile.h"            // Interface declarations.
 #include "PartFileBuffering.h"   // Needed for ordered buffered writes
+#include "SourceRetryPolicy.h"   // Needed for source reask eligibility
 #include "BlockReservation.h"    // Needed for selecting unreserved block intervals
 #include "PartFileWriteThread.h" // Needed for PB_READY etc.
 #include "PartMetWriter.h"       // Needed for CPartMetWriter
@@ -1776,9 +1777,10 @@ uint32 CPartFile::Process(uint8 m_icounter)
 					}
 				}
 				// doubled reasktime for no needed parts - save connections and traffic
-				if (!((!cur_src->GetLastAskedTime()) ||
-					    (dwCurTick - cur_src->GetLastAskedTime()) >
-						    thePrefs::GetSourceReaskTime() * 2)) {
+				if (!SourceRetryPolicy::IsDue(dwCurTick,
+					    cur_src->GetLastAskedTime(),
+					    SourceRetryPolicy::Reason::NoNeededParts,
+					    thePrefs::GetSourceReaskTime())) {
 					break;
 				}
 				// Recheck this client to see if still NNP..
@@ -1800,10 +1802,10 @@ uint32 CPartFile::Process(uint8 m_icounter)
 
 				// Give up to 1 min for UDP to respond..
 				// If we are within on min on TCP, do not try..
-				if (theApp->IsConnected() &&
-					((!cur_src->GetLastAskedTime()) ||
-						(dwCurTick - cur_src->GetLastAskedTime()) >
-							thePrefs::GetSourceReaskTime() - 20000)) {
+				if (theApp->IsConnected() && SourceRetryPolicy::IsDue(dwCurTick,
+								     cur_src->GetLastAskedTime(),
+								     SourceRetryPolicy::Reason::UdpProbe,
+								     thePrefs::GetSourceReaskTime())) {
 					cur_src->UDPReaskForDownload();
 				}
 
@@ -1815,10 +1817,10 @@ uint32 CPartFile::Process(uint8 m_icounter)
 			case DS_NONE:
 			case DS_WAITCALLBACK:
 			case DS_WAITCALLBACKKAD: {
-				if (theApp->IsConnected() &&
-					((!cur_src->GetLastAskedTime()) ||
-						(dwCurTick - cur_src->GetLastAskedTime()) >
-							thePrefs::GetSourceReaskTime())) {
+				if (theApp->IsConnected() && SourceRetryPolicy::IsDue(dwCurTick,
+								     cur_src->GetLastAskedTime(),
+								     SourceRetryPolicy::Reason::Reask,
+								     thePrefs::GetSourceReaskTime())) {
 					if (!cur_src->AskForDownload()) {
 						// I left this break here just as a reminder
 						// just in case re rearange things..
