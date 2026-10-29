@@ -4290,8 +4290,13 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		// configured allowed roots, keeping the old value and listing the refused raw paths
 		// here. The rest of the packet still applies (like the failed-port-rebind path below).
 		wxArrayString refusedDirs;
-		if (!static_cast<const CEC_Prefs_Packet *>(request)->Apply(&refusedDirs)) {
+		wxString validationError;
+		if (!static_cast<const CEC_Prefs_Packet *>(request)->Apply(&refusedDirs, &validationError)) {
 			response = new CECPacket(EC_OP_FAILED);
+			if (!validationError.empty()) {
+				response->AddTag(CECTag(EC_TAG_STRING, validationError));
+				break;
+			}
 			response->AddTag(CECTag(EC_TAG_STRING,
 				CFormat(_("Could not save server list sources to %s. Check the URLs and file "
 					  "permissions.")) %

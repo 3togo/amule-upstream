@@ -45,6 +45,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         # We don't ship the database — MaxMind's licence forbids
         # redistribution; users drop it in ~/.aMule/.
         libmaxminddb-dev \
+        libre2-dev \
         libreadline-dev \
         # libupnp-dev intentionally omitted: Ubuntu 22.04 only ships the
         # ancient 1.8.x line. The pinned 22.x is built from source below.

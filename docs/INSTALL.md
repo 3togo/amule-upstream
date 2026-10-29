@@ -31,6 +31,7 @@ the standard C library on most GNU systems.
 | `libgd`                    | 2.0.0   | statistics images in `cas`                                               |
 | `MediaInfoLib` and `ZenLib` | 21.09 / 0.4.39 | Media metadata helper (default ON): `libmediainfo-dev` and `libzen-dev` on Debian/Ubuntu, `libmediainfo-devel` and `libzen-devel` on Fedora, `libmediainfo` and `libzen` on Arch and Homebrew, `mingw-w64-<toolchain>-libmediainfo` and `mingw-w64-<toolchain>-libzen` on MSYS2. Ubuntu 22.04’s MediaInfoLib 21.09 and ZenLib 0.4.39 pass the helper suite. Bundles build pinned sources instead. |
 | `libupnp`                  | 1.6.6   | UPnP port forwarding                                                     |
+| `RE2` | 2022 series | Shared regular-expression support: `libre2-dev` on Debian/Ubuntu, `re2-devel` on Fedora, `re2` on Arch/Homebrew, `mingw-w64-<toolchain>-re2` on MSYS2. |
 | `libmaxminddb`             | 1.0     | country flags + IP→country mapping ([docs/IP2Country.md](IP2Country.md)) |
 | `gettext`                  | 0.11.5  | native-language support (NLS)                                            |
 | `libayatana-appindicator3` | —       | **Linux only.** StatusNotifierItem tray icon                             |

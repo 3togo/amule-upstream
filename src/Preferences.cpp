@@ -25,6 +25,7 @@
 
 #include <wx/wx.h>
 #include "Preferences.h"
+#include <common/Regex.h>
 #include "ServerListSources.h"
 #include <wx/file.h>
 
@@ -245,6 +246,12 @@ wxString CPreferences::s_IPFilterURL;
 CMD4Hash CPreferences::s_userhash;
 bool CPreferences::s_MustFilterMessages;
 wxString CPreferences::s_MessageFilterString;
+bool CPreferences::s_MessageUseRegex = false;
+wxString CPreferences::s_MessageRegexPattern;
+std::shared_ptr<const CRegex> CPreferences::s_MessageRegex;
+#ifdef CLIENT_GUI
+bool CPreferences::s_MessageRegexSupported = false;
+#endif
 bool CPreferences::s_FilterAllMessages;
 bool CPreferences::s_FilterComments;
 bool CPreferences::s_FilterSomeMessages;
@@ -1394,6 +1401,9 @@ void CPreferences::BuildItemList(const wxString &appdir)
 		(new Cfg_Bool("/eMule/MessageFromValidSourcesOnly", s_msgsecure, true)));
 	NewCfgItem(
 		IDC_MSGFILTER_WORD, (new Cfg_Bool("/eMule/FilterWordMessages", s_FilterSomeMessages, false)));
+	NewCfgItem(
+		IDC_MSGREGEX_ENABLED, new Cfg_Bool("/eMule/MessageFilterUseRegex", s_MessageUseRegex, false));
+	NewCfgItem(IDC_MSGREGEX_PATTERN, new Cfg_Str("/eMule/MessageFilterRegex", s_MessageRegexPattern, ""));
 	NewCfgItem(IDC_MSGWORD, (new Cfg_Str("/eMule/MessageFilter", s_MessageFilterString, "")));
 	NewCfgItem(IDC_MSGLOG, (new Cfg_Bool("/eMule/ShowMessagesInLog", s_ShowMessagesInLog, true)));
 	NewCfgItem(IDC_MSGADVSPAM,
@@ -1766,6 +1776,13 @@ void CPreferences::LoadAllItems(wxConfigBase *cfg)
 
 	// Compile the shared-file exclusion filter from the values just loaded.
 	RecompileShareExcludeFilter();
+	RecompileMessageRegex();
+	if (s_MessageUseRegex && (!s_MessageRegex || !s_MessageRegex->IsValid())) {
+		AddLogLineC(_("Invalid message regular expression: the regex rule has been disabled. Correct "
+			      "it in Preferences."));
+		// Keep regex mode selected: falling back to a saved word list (possibly "*")
+		// would change the policy. An invalid compiled matcher matches nothing.
+	}
 }
 
 void CPreferences::SaveAllItems(wxConfigBase *cfg)
@@ -2759,12 +2776,45 @@ bool CPreferences::HasExcludedFolderBelow(const CPath &root, const CPath &path)
 	return ShareExclude::HasExcludedFolderBelow(s_ShareExcludeFilter, root, path);
 }
 
+wxString CPreferences::ValidateMessageRegex(const wxString &pattern)
+{
+	if (pattern.empty())
+		return _("Enter a regular expression.");
+	CRegex::Options options;
+	options.caseSensitive = false;
+	CRegex candidate(pattern, options);
+	return candidate.IsValid() ? wxString() : candidate.GetError();
+}
+
+void CPreferences::RecompileMessageRegex()
+{
+	CRegex::Options options;
+	options.caseSensitive = false;
+	std::shared_ptr<const CRegex> compiled;
+	if (!s_MessageRegexPattern.empty())
+		compiled = std::make_shared<CRegex>(s_MessageRegexPattern, options);
+	std::atomic_store(&s_MessageRegex, std::move(compiled));
+}
+
+void CPreferences::SetMessageRegexSettings(bool enabled, const wxString &pattern)
+{
+	const bool changed = s_MessageRegexPattern != pattern;
+	s_MessageUseRegex = enabled;
+	s_MessageRegexPattern = pattern;
+	if (changed)
+		RecompileMessageRegex();
+}
+
 bool CPreferences::IsMessageFiltered(const wxString &message)
 {
 	if (s_FilterAllMessages) {
 		return true;
 	} else {
 		if (s_FilterSomeMessages) {
+			if (s_MessageUseRegex) {
+				const auto regex = std::atomic_load(&s_MessageRegex);
+				return regex && regex->Search(message);
+			}
 			if (s_MessageFilterString.IsSameAs("*")) {
 				// Filter anything
 				return true;

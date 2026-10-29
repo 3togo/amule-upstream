@@ -3253,7 +3253,7 @@ wxSizer *PreferencesFilteringTab( wxWindow *parent, bool call_fit, bool set_size
     item1->Add( item5, wxSizerFlags().CenterVertical().Border(wxLEFT, 25) );
     wxCheckBox *item6 = new wxCheckBox( item2, IDC_MSGFILTER_NONSECURE, _("Filter messages from unknown clients"), wxDefaultPosition, wxDefaultSize, 0 );
     item1->Add( item6, wxSizerFlags().CenterVertical().Border(wxLEFT, 25) );
-    wxCheckBox *item7 = new wxCheckBox( item2, IDC_MSGFILTER_WORD, _("Filter messages containing (use ',' as separator):"), wxDefaultPosition, wxDefaultSize, 0 );
+    wxCheckBox *item7 = new wxCheckBox( item2, IDC_MSGFILTER_WORD, _("Filter messages by content:"), wxDefaultPosition, wxDefaultSize, 0 );
     item1->Add( item7, wxSizerFlags().CenterVertical().Border(wxLEFT, 25) );
     wxTextCtrl *item8 = new wxTextCtrl( item2, IDC_MSGWORD, "", wxDefaultPosition, wxSize(80,-1), 0 );
     item7->SetToolTip(_("Discard chat messages containing any comma-separated term. Matching ignores case and "
@@ -3263,6 +3263,12 @@ wxSizer *PreferencesFilteringTab( wxWindow *parent, bool call_fit, bool set_size
                     "blocks every message."));
     item8->SetToolTip( item7->GetToolTipText() );
     item1->Add( item8, wxSizerFlags().Expand().CenterVertical().Border(wxLEFT, 50) );
+    wxCheckBox *regexMode = new wxCheckBox( item2, IDC_MSGREGEX_ENABLED, _("Use a regular expression instead of the word list") );
+    regexMode->SetToolTip( _("Search anywhere in the message, ignoring case. Use one RE2 expression; commas are not separators and spaces are significant.\nExamples: dog.* matches dog and hotdog; ^dog starts with dog; spam$ ends with spam.\nLookaround and backreferences are not supported. Existing chats remain exempt.") );
+    item1->Add( regexMode, wxSizerFlags().Border(wxLEFT, 50) );
+    wxTextCtrl *regexPattern = new wxTextCtrl( item2, IDC_MSGREGEX_PATTERN, wxEmptyString );
+    regexPattern->SetToolTip( regexMode->GetToolTipText() );
+    item1->Add( regexPattern, wxSizerFlags().Expand().Border(wxLEFT, 50) );
     wxCheckBox *advancedSpam = new wxCheckBox(item2, IDC_MSGADVSPAM, _("Enable advanced spam filter"));
     advancedSpam->SetToolTip(_("Block unsolicited links and repeated messages from non-friends."));
     item1->Add(advancedSpam, wxSizerFlags().CenterVertical());

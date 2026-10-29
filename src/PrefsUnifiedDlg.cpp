@@ -84,6 +84,7 @@
 #include "DirectoryTreeCtrl.h" // Needed for CDirectoryTreeCtrl
 #include "Preferences.h"
 #include "FilterSelectionSummary.h"
+#include <common/Regex.h>
 #include "SharedDirsApplyTask.h" // Recursive-share expansion worker
 #include "muuli_wdr.h"
 #include "Logger.h"
@@ -164,6 +165,8 @@ wxBEGIN_EVENT_TABLE(PrefsUnifiedDlg, wxDialog)
 	EVT_CHECKBOX(IDC_MSGFILTER_NONSECURE, PrefsUnifiedDlg::OnFilterSummaryChange)
 	EVT_CHECKBOX(IDC_MSGCAPTCHA, PrefsUnifiedDlg::OnFilterSummaryChange)
 	EVT_CHECKBOX(IDC_MSGLOG, PrefsUnifiedDlg::OnFilterSummaryChange)
+	EVT_CHECKBOX(IDC_MSGREGEX_ENABLED, PrefsUnifiedDlg::OnCheckBoxChange)
+	EVT_TEXT(IDC_MSGREGEX_PATTERN, PrefsUnifiedDlg::OnFilterSummaryChange)
 	EVT_TEXT(IDC_MSGWORD, PrefsUnifiedDlg::OnFilterSummaryChange)
 	EVT_TEXT(IDC_COMMENTWORD, PrefsUnifiedDlg::OnFilterSummaryChange)
 	EVT_CHECKBOX(IDC_STARTNEXTFILE, PrefsUnifiedDlg::OnCheckBoxChange)
@@ -1219,7 +1222,13 @@ void PrefsUnifiedDlg::UpdateMessageFilterControls()
 	FindWindow(IDC_MSGFILTER_NONSECURE)->Enable(selective);
 	FindWindow(IDC_MSGFILTER_NONFRIENDS)->Enable(selective);
 	FindWindow(IDC_MSGFILTER_WORD)->Enable(selective);
-	FindWindow(IDC_MSGWORD)->Enable(selective && CastChild(IDC_MSGFILTER_WORD, wxCheckBox)->IsChecked());
+	const bool content = selective && CastChild(IDC_MSGFILTER_WORD, wxCheckBox)->IsChecked();
+	const bool regex = CastChild(IDC_MSGREGEX_ENABLED, wxCheckBox)->IsChecked();
+	FindWindow(IDC_MSGREGEX_ENABLED)->Enable(content && thePrefs::GetMessageRegexSupported());
+	FindWindow(IDC_MSGREGEX_PATTERN)->Enable(content && regex && thePrefs::GetMessageRegexSupported());
+	FindWindow(IDC_MSGWORD)->Enable(content && !regex);
+	FindWindow(IDC_MSGFILTER_WORD)
+		->SetToolTip(FindWindow(regex ? IDC_MSGREGEX_ENABLED : IDC_MSGWORD)->GetToolTipText());
 	UpdateFilterSummary();
 }
 
@@ -1232,6 +1241,17 @@ void PrefsUnifiedDlg::UpdateFilterSummary()
 	settings.unknownClients = CastChild(IDC_MSGFILTER_NONSECURE, wxCheckBox)->IsChecked();
 	settings.messageWords = CastChild(IDC_MSGFILTER_WORD, wxCheckBox)->IsChecked();
 	settings.messageTerms = CastChild(IDC_MSGWORD, wxTextCtrl)->GetValue();
+	settings.messageRegex = CastChild(IDC_MSGREGEX_ENABLED, wxCheckBox)->IsChecked();
+	settings.regexSupported = thePrefs::GetMessageRegexSupported();
+	settings.messagePattern = CastChild(IDC_MSGREGEX_PATTERN, wxTextCtrl)->GetValue();
+	if (settings.messageRegex) {
+		settings.regexError = thePrefs::ValidateMessageRegex(settings.messagePattern);
+		if (settings.regexError.empty()) {
+			CRegex::Options options;
+			options.caseSensitive = false;
+			settings.regexMatchesEmpty = CRegex(settings.messagePattern, options).MatchesEmpty();
+		}
+	}
 	settings.advancedSpamSupported = thePrefs::GetChatSpamFilterSupported();
 	settings.advancedSpam = CastChild(IDC_MSGADVSPAM, wxCheckBox)->IsChecked();
 	settings.captcha = CastChild(IDC_MSGCAPTCHA, wxCheckBox)->IsChecked();
@@ -1276,7 +1296,20 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 	const uint16 previousTcpPort = thePrefs::GetPort();
 	const uint16 previousUdpPort = thePrefs::GetUDPPort();
 #endif
+	if (CastChild(IDC_MSGREGEX_ENABLED, wxCheckBox)->IsChecked()) {
+		const auto error = thePrefs::ValidateMessageRegex(
+			CastChild(IDC_MSGREGEX_PATTERN, wxTextCtrl)->GetValue());
+		if (!error.empty()) {
+			wxMessageBox(CFormat(_("Invalid message regular expression: %s")) % error,
+				_("Invalid regular expression"),
+				wxOK | wxICON_ERROR,
+				this);
+			FindWindow(IDC_MSGREGEX_PATTERN)->SetFocus();
+			return;
+		}
+	}
 	TransferFromWindow();
+	thePrefs::RecompileMessageRegex();
 
 	// Before the share commit below, whose reload must already use the new filter.
 	const bool excludeFilterChanged =
@@ -2031,6 +2064,7 @@ void PrefsUnifiedDlg::OnCheckBoxChange(wxCommandEvent &event)
 	case IDC_MSGFILTER:
 	case IDC_MSGFILTER_ALL:
 	case IDC_MSGFILTER_WORD:
+	case IDC_MSGREGEX_ENABLED:
 		UpdateMessageFilterControls();
 		break;
 

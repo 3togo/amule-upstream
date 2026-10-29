@@ -1055,5 +1055,8 @@
   "prefs_sources_apply_first": "Apply your changes first",
   "prefs_sources_saved_help": "Downloads from the saved sources.",
   "prefs_sources_one_off": "One-off URL",
-  "prefs_sources_download_once": "Download once"
+  "prefs_sources_download_once": "Download once",
+  "prefs_field_message_filter_use_regex": "Use a regular expression instead of the word list",
+  "prefs_field_message_filter_regex_pattern": "Regular expression",
+  "prefs_field_message_filter_regex_pattern_help": "Search anywhere, ignoring case. Examples: dog.*, ^dog, spam$. One RE2 expression; commas are not separators and spaces are significant. Lookaround and backreferences are not supported."
 }

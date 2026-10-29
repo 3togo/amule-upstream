@@ -1,3 +1,8 @@
+add_executable (RegexTest RegexTest.cpp)
+target_include_directories (RegexTest PRIVATE ${CMAKE_SOURCE_DIR}/src/libs)
+target_link_libraries (RegexTest muleunit mulecommon)
+add_test (NAME RegexTest COMMAND RegexTest)
+
 # CI picks a test's time budget by label (.github/workflows/ccpp.yml): unlabelled tests get
 # 10 s, "slow" 60 s, "integration" 300 s, and "reverify" runs in a step of its own. Label a
 # test next to its add_test, so adding one never touches the workflow.
@@ -3150,6 +3155,15 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				${CMAKE_CURRENT_SOURCE_DIR}/ShareWatcherMoveIntegrationTest.py $<TARGET_FILE:amuled>
 		)
 		set_tests_properties (ShareWatcherMoveIntegrationTest PROPERTIES LABELS "integration")
+		add_test (NAME MessageRegexIntegrationTest
+			COMMAND ${Python3_EXECUTABLE} -u ${CMAKE_CURRENT_SOURCE_DIR}/MessageRegexIntegrationTest.py $<TARGET_FILE:amuled>)
+		set_tests_properties (MessageRegexIntegrationTest PROPERTIES LABELS "integration")
+		if (BUILD_AMULEAPI)
+			add_test (NAME MessageRegexApiIntegrationTest
+				COMMAND ${Python3_EXECUTABLE} -u ${CMAKE_CURRENT_SOURCE_DIR}/MessageRegexIntegrationTest.py
+					$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>)
+			set_tests_properties (MessageRegexApiIntegrationTest PROPERTIES LABELS "integration")
+		endif ()
 		add_test (NAME ChatSpamFilterIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}
 				${CMAKE_CURRENT_SOURCE_DIR}/ChatSpamFilterIntegrationTest.py

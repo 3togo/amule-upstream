@@ -2757,9 +2757,9 @@ TEST(Refresher, PrefsSchemaIsWellFormed)
 			++emitted;
 	}
 
-	// The documented payload is 137 fields. A row added or dropped without
+	// The documented payload is 140 fields. A row added or dropped without
 	// updating docs/api/REFERENCE.md should trip this.
-	ASSERT_EQUALS(static_cast<std::size_t>(137), emitted);
+	ASSERT_EQUALS(static_cast<std::size_t>(140), emitted);
 }
 
 // The schema's irregularities are enumerated rather than merely counted: each is deliberate and
@@ -4042,4 +4042,27 @@ TEST(Refresher, AmuleLogExportsStripTransportMarkers)
 		ASSERT_EQUALS(std::string(line.utf8_str()), lines[i]);
 	}
 	ASSERT_EQUALS(std::string("ERROR: cannot open logfile"), lines.back());
+}
+
+TEST(Refresher, MessageRegexCapabilityAndValuesRemainDistinct)
+{
+	for (unsigned enabled = 0; enabled < 2; ++enabled) {
+		CECPacket response(EC_OP_SET_PREFERENCES);
+		CECEmptyTag group(EC_TAG_PREFS_MESSAGEFILTER);
+		group.AddTag(CECTag(EC_TAG_MSGFILTER_REGEX_ENABLED, static_cast<uint8>(enabled)));
+		group.AddTag(CECTag(EC_TAG_MSGFILTER_REGEX_PATTERN, wxString("dog.*|spam$")));
+		response.AddTag(group);
+		PreferencesSnapshot prefs;
+		std::vector<CategorySnapshot> categories;
+		ParsePreferencesFromPacket(&response, prefs, categories);
+		ASSERT_TRUE(prefs.message_filter.regex_supported);
+		ASSERT_EQUALS(enabled != 0, prefs.message_filter.use_regex);
+		ASSERT_EQUALS(std::string("dog.*|spam$"), prefs.message_filter.regex_pattern);
+	}
+	CECPacket oldCore(EC_OP_SET_PREFERENCES);
+	oldCore.AddTag(CECEmptyTag(EC_TAG_PREFS_MESSAGEFILTER));
+	PreferencesSnapshot prefs;
+	std::vector<CategorySnapshot> categories;
+	ParsePreferencesFromPacket(&oldCore, prefs, categories);
+	ASSERT_TRUE(!prefs.message_filter.regex_supported);
 }

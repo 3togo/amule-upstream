@@ -57,6 +57,16 @@ RUN apk add --no-cache \
 RUN printf 'tries = 4\nwaitretry = 10\nretry_on_http_error = 408,429,500,502,503,504\n' > /etc/wgetrc-retry
 ENV WGETRC=/etc/wgetrc-retry
 
+# RE2: Alpine 3.20 ships shared-only RE2/Abseil packages. Build the same
+# pre-Abseil release as Flatpak to keep the portable binary fully static.
+RUN wget -O /tmp/re2.tar.gz https://github.com/google/re2/archive/refs/tags/2022-06-01.tar.gz \
+ && echo "f89c61410a072e5cbcf8c27e3a778da7d6fd2f2b5b1445cd4f4508bee946ab0f  /tmp/re2.tar.gz" | sha256sum -c - \
+ && mkdir /tmp/re2 && tar -xzf /tmp/re2.tar.gz -C /tmp/re2 --strip-components=1 \
+ && cmake -S /tmp/re2 -B /tmp/re2/build -DRE2_BUILD_TESTING=OFF \
+        -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_INSTALL_LIBDIR=lib \
+ && cmake --build /tmp/re2/build -j"$(nproc)" && cmake --install /tmp/re2/build
+
 # --- Crypto++ (static libcryptopp.a) ---
 RUN git clone --depth 1 --branch "CRYPTOPP_${CRYPTOPP_TAG_SUFFIX}" \
         https://github.com/weidai11/cryptopp.git /tmp/cryptopp \
@@ -153,11 +163,12 @@ RUN for b in amuled amulecmd amuleapi amule-media-probe; do \
 # License files for what the binaries link statically. The libraries built
 # from source above keep their own files. Alpine packages ship no license
 # texts, so list each one's version, SPDX license and upstream instead.
-RUN mkdir -p /out/licenses/cryptopp /out/licenses/wxwidgets /out/licenses/libupnp \
+RUN mkdir -p /out/licenses/cryptopp /out/licenses/wxwidgets /out/licenses/libupnp /out/licenses/re2 \
  && cp /tmp/cryptopp/License.txt /out/licenses/cryptopp/ \
  && cp /tmp/wx/docs/licence.txt /tmp/wx/docs/licendoc.txt /tmp/wx/docs/lgpl.txt \
         /tmp/wx/docs/gpl.txt /tmp/wx/docs/preamble.txt /out/licenses/wxwidgets/ \
  && cp /tmp/libupnp/COPYING /out/licenses/libupnp/ \
+ && cp /tmp/re2/LICENSE /out/licenses/re2/ \
  && for p in musl-dev libstdc++-dev libgcc zlib-static curl-static openssl-libs-static \
         nghttp2-static brotli-static c-ares-static zstd-static libidn2-static \
         libunistring-static libpsl-static binutils-dev libmaxminddb-static \

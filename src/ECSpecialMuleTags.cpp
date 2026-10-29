@@ -225,6 +225,15 @@ CEC_Prefs_Packet::CEC_Prefs_Packet(
 			msg_prefs.AddTag(CECEmptyTag(EC_TAG_MSGFILTER_BY_KEYWORD));
 		}
 		msg_prefs.AddTag(CECTag(EC_TAG_MSGFILTER_KEYWORDS, thePrefs::GetMessageFilterString()));
+#ifdef CLIENT_GUI
+		if (thePrefs::GetMessageRegexSupported()) {
+#endif
+			msg_prefs.AddTag(
+				CECTag(EC_TAG_MSGFILTER_REGEX_ENABLED, thePrefs::MessageUsesRegex()));
+			msg_prefs.AddTag(CECTag(EC_TAG_MSGFILTER_REGEX_PATTERN, thePrefs::GetMessageRegex()));
+#ifdef CLIENT_GUI
+		}
+#endif
 		if (thePrefs::ShowMessagesInLog()) {
 			msg_prefs.AddTag(CECEmptyTag(EC_TAG_MSGFILTER_SHOW_IN_LOG));
 		}
@@ -652,16 +661,39 @@ static void ApplyRemoteDirChange(
  * Sets every preference except the categories, which work as follows: the remote GUI loads them
  * at startup and then changes them on command, and the webserver is not supposed to change them.
  */
-bool CEC_Prefs_Packet::Apply(wxArrayString *refusedDirs) const
+bool CEC_Prefs_Packet::Apply(wxArrayString *refusedDirs, wxString *validationError) const
 {
 #ifdef CLIENT_GUI
 	// Refusals are produced only by the core; amulegui applies the daemon's own state for
 	// display and never refuses a folder here.
 	(void)refusedDirs;
+	(void)validationError;
 #endif
 	const CECTag *thisTab = NULL;
 	const CECTag *oneTag = NULL;
+#ifndef CLIENT_GUI
+	// The core validates requests. amulegui must still accept the daemon's
+	// authoritative invalid startup state so the user can see and correct it.
+	// Validate the complete proposed regex pair before mutating any preference.
+	if (const auto *filters = GetTagByName(EC_TAG_PREFS_MESSAGEFILTER)) {
+		const auto *mode = filters->GetTagByName(EC_TAG_MSGFILTER_REGEX_ENABLED);
+		const auto *pattern = filters->GetTagByName(EC_TAG_MSGFILTER_REGEX_PATTERN);
+		wxString error;
+		if ((mode && (!mode->IsInt() || mode->GetInt() > 1)) || (pattern && !pattern->IsString())) {
+			error = _("Invalid message regex preference type.");
+		} else if ((mode || pattern) && (mode ? mode->GetInt() != 0 : thePrefs::MessageUsesRegex())) {
+			error = thePrefs::ValidateMessageRegex(
+				pattern ? pattern->GetStringData() : thePrefs::GetMessageRegex());
+		}
+		if (!error.empty()) {
+			if (validationError)
+				*validationError =
+					CFormat(_("Invalid message regular expression: %s")) % error;
+			return false;
+		}
+	}
 
+#endif
 	// Persist/validate the source list before changing any other preference.
 	if (const auto *servers = GetTagByName(EC_TAG_PREFS_SERVERS)) {
 		if (const auto *sources = servers->GetTagByName(EC_TAG_SERVERS_URL_LIST)) {
@@ -822,6 +854,19 @@ bool CEC_Prefs_Packet::Apply(wxArrayString *refusedDirs) const
 		thePrefs::SetChatSpamFilterSupported(thisTab->GetTagByName(EC_TAG_MSGFILTER_ADVANCED) &&
 						     thisTab->GetTagByName(EC_TAG_MSGFILTER_CAPTCHA));
 #endif
+#ifdef CLIENT_GUI
+		thePrefs::SetMessageRegexSupported(thisTab->GetTagByName(EC_TAG_MSGFILTER_REGEX_ENABLED) &&
+						   thisTab->GetTagByName(EC_TAG_MSGFILTER_REGEX_PATTERN));
+		if (!thePrefs::GetMessageRegexSupported())
+			thePrefs::SetMessageRegexSettings(false, thePrefs::GetMessageRegex());
+#endif
+		const auto *regexMode = thisTab->GetTagByName(EC_TAG_MSGFILTER_REGEX_ENABLED);
+		const auto *regexPattern = thisTab->GetTagByName(EC_TAG_MSGFILTER_REGEX_PATTERN);
+		if (regexMode || regexPattern) {
+			thePrefs::SetMessageRegexSettings(
+				regexMode ? regexMode->GetInt() != 0 : thePrefs::MessageUsesRegex(),
+				regexPattern ? regexPattern->GetStringData() : thePrefs::GetMessageRegex());
+		}
 		// These new options use explicit values at every detail level. An older
 		// GUI saving the message group must not turn either option off by omission.
 		if (const auto *tag = thisTab->GetTagByName(EC_TAG_MSGFILTER_ADVANCED)) {

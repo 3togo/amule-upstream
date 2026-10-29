@@ -97,6 +97,9 @@ const char *const kIp2CountrySources[] = { "dbip", "maxmind", "custom", nullptr 
 #define PREF_STR(cat, key, tag, acc, memb) \
 	{cat, key, tag, PrefType::String, PrefEnc::Value, false, acc, 0u, nullptr, nullptr, PREF_MEMBER(memb, std::string), 0}
 
+#define PREF_STR_GATED(cat, key, tag, acc, memb, gate) \
+ {cat, key, tag, PrefType::String, PrefEnc::Value, false, acc, 0u, nullptr, gate, PREF_MEMBER(memb, std::string), 0}
+
 #define PREF_STRARR(cat, key, tag, acc, memb) \
 	{cat, key, tag, PrefType::StringArray, PrefEnc::Value, false, acc, 0u, nullptr, nullptr, PREF_MEMBER(memb, std::vector<std::string>), 0}
 
@@ -225,6 +228,9 @@ const PrefField kSchema[] = {
 	PREF_BOOL("security", "system_ipfilter_enabled", EC_TAG_IPFILTER_SYSTEM, PrefEnc::Presence, false, PrefAccess::ReadWrite, security.system_ipfilter_enabled),
 
 	// [message_filter]
+ PREF_BOOL("message_filter", "regex_supported", EC_TAG_MSGFILTER_REGEX_ENABLED, PrefEnc::Presence, false, PrefAccess::ReadOnly, message_filter.regex_supported),
+ PREF_BOOL_GATED("message_filter", "use_regex", EC_TAG_MSGFILTER_REGEX_ENABLED, PrefEnc::Value, false, PrefAccess::ReadWrite, message_filter.use_regex, "regex_supported"),
+ PREF_STR_GATED("message_filter", "regex_pattern", EC_TAG_MSGFILTER_REGEX_PATTERN, PrefAccess::ReadWrite, message_filter.regex_pattern, "regex_supported"),
 	PREF_BOOL("message_filter", "advanced_spam_filter_supported", EC_TAG_MSGFILTER_ADVANCED, PrefEnc::Presence, false, PrefAccess::ReadOnly, message_filter.advanced_spam_filter_supported),
 	PREF_BOOL_GATED("message_filter", "advanced_spam_filter", EC_TAG_MSGFILTER_ADVANCED, PrefEnc::Value, false, PrefAccess::ReadWrite, message_filter.advanced_spam_filter, "advanced_spam_filter_supported"),
 	PREF_BOOL_GATED("message_filter", "use_captchas", EC_TAG_MSGFILTER_CAPTCHA, PrefEnc::Value, false, PrefAccess::ReadWrite, message_filter.use_captchas, "advanced_spam_filter_supported"),

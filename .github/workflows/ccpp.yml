@@ -66,7 +66,7 @@ env:
     libgd-dev \
     libglib2.0-dev \
     libgnutls28-dev \
-    libmediainfo-dev libmaxminddb-dev \
+    libmediainfo-dev libmaxminddb-dev libre2-dev \
     libreadline-dev \
     libupnp-dev \
     libwxgtk3.2-dev \
@@ -83,7 +83,7 @@ env:
     cryptopp \
     gd \
     gettext \
-    libmediainfo libmaxminddb \
+    libmediainfo libmaxminddb re2 \
     libupnp \
     pkg-config \
     wxwidgets
@@ -101,6 +101,7 @@ env:
     mingw-w64-clang-x86_64-libgd
     mingw-w64-clang-x86_64-libmediainfo
     mingw-w64-clang-x86_64-libmaxminddb
+    mingw-w64-clang-x86_64-re2
     mingw-w64-clang-x86_64-ngtcp2
     mingw-w64-clang-x86_64-ninja
     mingw-w64-clang-x86_64-pkgconf

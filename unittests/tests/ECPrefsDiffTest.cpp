@@ -305,3 +305,22 @@ TEST(ECPrefsDiff, ServerSourcesRemainAListWhenEditedOrCleared)
 		ASSERT_EQUALS(clear ? 0u : 1u, list->GetTagCount());
 	}
 }
+
+TEST(ECPrefsDiff, RegexChangesPreserveExplicitFalseAndUneditedPattern)
+{
+	CECPacket base(EC_OP_SET_PREFERENCES, EC_DETAIL_UPDATE);
+	CECEmptyTag before(EC_TAG_PREFS_MESSAGEFILTER);
+	before.AddTag(CECTag(EC_TAG_MSGFILTER_REGEX_ENABLED, static_cast<uint8>(1)));
+	before.AddTag(CECTag(EC_TAG_MSGFILTER_REGEX_PATTERN, wxString("spam$")));
+	base.AddTag(before);
+	CECPacket current(EC_OP_SET_PREFERENCES, EC_DETAIL_UPDATE);
+	CECEmptyTag after(EC_TAG_PREFS_MESSAGEFILTER);
+	after.AddTag(CECTag(EC_TAG_MSGFILTER_REGEX_ENABLED, static_cast<uint8>(0)));
+	after.AddTag(CECTag(EC_TAG_MSGFILTER_REGEX_PATTERN, wxString("spam$")));
+	current.AddTag(after);
+	const auto diff = MakePrefsDiffPacket(base, current);
+	const auto *mode = Find(*diff, EC_TAG_PREFS_MESSAGEFILTER, EC_TAG_MSGFILTER_REGEX_ENABLED);
+	ASSERT_TRUE(mode != nullptr && mode->IsInt());
+	ASSERT_EQUALS(static_cast<uint64>(0), mode->GetInt());
+	ASSERT_TRUE(Find(*diff, EC_TAG_PREFS_MESSAGEFILTER, EC_TAG_MSGFILTER_REGEX_PATTERN) == nullptr);
+}

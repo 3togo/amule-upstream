@@ -1150,6 +1150,9 @@ struct PreferencesSnapshot
 	// [MessageFilter] EC_TAG_PREFS_MESSAGEFILTER
 	struct MessageFilterPrefs
 	{
+		bool regex_supported = false;
+		bool use_regex = false;
+		std::string regex_pattern;
 		bool advanced_spam_filter_supported = false;
 		bool advanced_spam_filter = false;
 		bool use_captchas = false;

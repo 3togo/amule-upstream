@@ -31,6 +31,8 @@
 #include <wx/arrstr.h> // Needed for wxArrayString
 
 #include <map>
+#include <memory>
+class CRegex;
 
 #include "Proxy.h"
 #include "ShareExclude.h"
@@ -707,6 +709,17 @@ public:
 	static const wxString &GetMessageFilterString() { return s_MessageFilterString; }
 	static void SetMessageFilterString(const wxString &val) { s_MessageFilterString = val; }
 	static bool IsMessageFiltered(const wxString &message);
+	static bool MessageUsesRegex() { return s_MessageUseRegex; }
+	static const wxString &GetMessageRegex() { return s_MessageRegexPattern; }
+	static void SetMessageRegexSettings(bool enabled, const wxString &pattern);
+	static wxString ValidateMessageRegex(const wxString &pattern);
+	static void RecompileMessageRegex();
+#ifdef CLIENT_GUI
+	static bool GetMessageRegexSupported() { return s_MessageRegexSupported; }
+	static void SetMessageRegexSupported(bool value) { s_MessageRegexSupported = value; }
+#else
+	static bool GetMessageRegexSupported() { return true; }
+#endif
 	static bool ShowMessagesInLog() { return s_ShowMessagesInLog; }
 	static void SetShowMessagesInLog(bool val) { s_ShowMessagesInLog = val; }
 	static bool IsAdvancedSpamfilterEnabled() { return s_IsAdvancedSpamfilterEnabled; }
@@ -1185,6 +1198,12 @@ protected:
 	// Message Filtering
 	static bool s_MustFilterMessages;
 	static wxString s_MessageFilterString;
+	static bool s_MessageUseRegex;
+	static wxString s_MessageRegexPattern;
+	static std::shared_ptr<const CRegex> s_MessageRegex;
+#ifdef CLIENT_GUI
+	static bool s_MessageRegexSupported;
+#endif
 	static bool s_FilterAllMessages;
 	static bool s_FilterSomeMessages;
 	static bool s_ShowMessagesInLog;

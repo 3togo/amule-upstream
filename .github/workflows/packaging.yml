@@ -350,7 +350,7 @@ jobs:
       # What the .app build needs from Homebrew. On x86_64 the keg cache is
       # limited to these and their dependency closure.
       # freetype, jpeg-turbo and libpng are for the libgd built below.
-      BREW_DEPS: cmake wxwidgets cryptopp libupnp freetype jpeg-turbo libpng gettext boost dylibbundler libmaxminddb
+      BREW_DEPS: cmake wxwidgets cryptopp libupnp freetype jpeg-turbo libpng gettext boost dylibbundler libmaxminddb re2
     steps:
       - uses: actions/checkout@v7
         with:
@@ -844,6 +844,7 @@ jobs:
             ${{ matrix.pkg_prefix }}-gettext
             ${{ matrix.pkg_prefix }}-libjpeg-turbo
             ${{ matrix.pkg_prefix }}-libmaxminddb
+            ${{ matrix.pkg_prefix }}-re2
             ${{ matrix.pkg_prefix }}-libpng
             ${{ matrix.pkg_prefix }}-make
             ${{ matrix.pkg_prefix }}-ninja

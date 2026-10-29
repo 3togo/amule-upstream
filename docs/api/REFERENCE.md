@@ -2420,7 +2420,8 @@ Returns every preference category amuled carries over EC. The `general` and `con
     "accept_from_friends_only": false, "accept_from_known_clients_only": false,
     "filter_by_keyword": false, "keywords": "",
     "log_filtered_messages": true, "filter_comments": false, "comment_keywords": "",
-    "advanced_spam_filter_supported": true, "advanced_spam_filter": false, "use_captchas": false
+    "advanced_spam_filter_supported": true, "advanced_spam_filter": false, "use_captchas": false,
+    "regex_supported": true, "use_regex": false, "regex_pattern": "spam$"
   },
   "remote_controls": {
     "webserver": {
@@ -2483,6 +2484,16 @@ The `connection.proxy_*` fields configure the proxy the **daemon** routes its P2
 **Errors:** `503 ec_unavailable`.
 
 #### `PATCH /api/v1/preferences`
+
+Message content filtering accepts `message_filter.use_regex` and
+`message_filter.regex_pattern`. The read-only `regex_supported` flag advertises
+support on the connected daemon. Regex settings are stored independently from
+`keywords`. One RE2 expression searches anywhere, ignoring case: `dog.*` matches
+`hotdog`, while `spam$` matches text ending in `spam`. Invalid active expressions
+return HTTP 400 with the daemon's diagnostic and leave all preferences in that
+request unchanged. Changing these fields on an unsupported daemon returns
+HTTP 409. See [regex filtering](../REGEX_FILTERS.md).
+
 
 **Auth:** `ADMIN`
 

@@ -2284,6 +2284,15 @@ msgid "Invalid eD2k link! ERROR: %s"
 msgstr ""
 
 #: src/ECSpecialMuleTags.cpp
+msgid "Invalid message regex preference type."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp src/PrefsUnifiedDlg.cpp
+#, c-format
+msgid "Invalid message regular expression: %s"
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
 msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
 msgstr ""
 
@@ -2313,6 +2322,20 @@ msgstr ""
 
 #: src/FilterSelectionSummary.h
 #, c-format
+msgid "Invalid message regular expression: %s. Correct it before applying these settings."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "Messages matching the regular expression %s will be discarded (ignoring case)."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "This expression matches empty text and can match every message."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, c-format
 msgid "Messages containing any of these terms will be discarded (ignoring case): %s."
 msgstr ""
 
@@ -2326,6 +2349,10 @@ msgstr ""
 
 #: src/FilterSelectionSummary.h
 msgid "Current chats are exempt from these rules."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "The connected core does not support message regular expressions."
 msgstr ""
 
 #: src/FilterSelectionSummary.h
@@ -6094,7 +6121,7 @@ msgid "Filter messages from unknown clients"
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Filter messages containing (use ',' as separator):"
+msgid "Filter messages by content:"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -6102,6 +6129,17 @@ msgid ""
 "Discard chat messages containing any comma-separated term. Matching ignores case and spaces around each term.\n"
 "Terms match anywhere in a message: dog matches hotdog and black dog spotted.\n"
 "Wildcards are not supported. A * is literal, except that a word list of exactly * blocks every message."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Use a regular expression instead of the word list"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Search anywhere in the message, ignoring case. Use one RE2 expression; commas are not separators and spaces are significant.\n"
+"Examples: dog.* matches dog and hotdog; ^dog starts with dog; spam$ ends with spam.\n"
+"Lookaround and backreferences are not supported. Existing chats remain exempt."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -6742,6 +6780,10 @@ msgid "Media metadata: FFProbePath is obsolete; aMule now uses its bundled Media
 msgstr ""
 
 #: src/Preferences.cpp
+msgid "Invalid message regular expression: the regex rule has been disabled. Correct it in Preferences."
+msgstr ""
+
+#: src/Preferences.cpp
 msgid "Invalid path mapping found, skipping"
 msgstr ""
 
@@ -6761,6 +6803,10 @@ msgstr ""
 #: src/Preferences.cpp
 #, c-format
 msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
+msgstr ""
+
+#: src/Preferences.cpp
+msgid "Enter a regular expression."
 msgstr ""
 
 #: src/BandwidthLimitSlider.h
@@ -6881,11 +6927,11 @@ msgid "No password set."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "The shared-file exclusion pattern is not a valid regular expression. The filter has been left disabled."
+msgid "Invalid regular expression"
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Invalid regular expression"
+msgid "The shared-file exclusion pattern is not a valid regular expression. The filter has been left disabled."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp

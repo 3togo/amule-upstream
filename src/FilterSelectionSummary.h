@@ -18,6 +18,11 @@ struct Settings
 	bool unknownClients = false;
 	bool messageWords = false;
 	wxString messageTerms;
+	bool messageRegex = false;
+	bool regexSupported = true;
+	wxString messagePattern;
+	wxString regexError;
+	bool regexMatchesEmpty = false;
 	bool advancedSpamSupported = true;
 	bool advancedSpam = false;
 	bool captcha = false;
@@ -59,7 +64,8 @@ inline wxString Describe(const Settings &settings)
 	const auto messageTerms = ParseTerms(settings.messageTerms);
 	// The legacy '*' shortcut tests the complete, untrimmed message list.
 	const bool all = settings.messages &&
-			 (settings.allMessages || (settings.messageWords && settings.messageTerms == "*"));
+			 (settings.allMessages || (settings.messageWords && !settings.messageRegex &&
+							  settings.messageTerms == "*"));
 	if (!settings.messages) {
 		messages.Add(_("The message filter is off; its selected rules are saved."));
 	} else if (all) {
@@ -71,7 +77,21 @@ inline wxString Describe(const Settings &settings)
 		if (settings.unknownClients) {
 			messages.Add(_("Messages from unknown clients will be discarded."));
 		}
-		if (settings.messageWords && !messageTerms.empty()) {
+		if (settings.messageWords && settings.messageRegex) {
+			if (!settings.regexError.empty()) {
+				messages.Add(wxString::Format(_("Invalid message regular expression: %s. "
+								"Correct it before applying these settings."),
+					settings.regexError));
+			} else {
+				messages.Add(wxString::Format(_("Messages matching the regular expression %s "
+								"will be discarded (ignoring case)."),
+					settings.messagePattern));
+				if (settings.regexMatchesEmpty)
+					messages.Add(_("This expression matches empty text and can match "
+						       "every message."));
+			}
+		}
+		if (settings.messageWords && !settings.messageRegex && !messageTerms.empty()) {
 			messages.Add(wxString::Format(_("Messages containing any of these terms will be "
 							"discarded (ignoring case): %s."),
 				Join(messageTerms, ", ")));
@@ -84,6 +104,9 @@ inline wxString Describe(const Settings &settings)
 		} else {
 			messages.Add(_("Current chats are exempt from these rules."));
 		}
+	}
+	if (!settings.regexSupported) {
+		messages.Add(_("The connected core does not support message regular expressions."));
 	}
 	if (settings.advancedSpamSupported && settings.advancedSpam && !all) {
 		messages.Add(_("Advanced spam filtering for non-friends is also enabled."));

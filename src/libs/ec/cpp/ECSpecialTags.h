@@ -263,7 +263,7 @@ public:
 	// (nullptr) suits callers that do not report refusals, such as amulegui applying the
 	// daemon's own state for display.
 	// Returns false when a setting could not be saved.
-	bool Apply(wxArrayString *refusedDirs = nullptr) const;
+	bool Apply(wxArrayString *refusedDirs = nullptr, wxString *validationError = nullptr) const;
 };
 
 class CEC_Server_Tag : public CECTag

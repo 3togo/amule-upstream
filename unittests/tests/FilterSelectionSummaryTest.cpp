@@ -106,3 +106,20 @@ TEST(FilterSelectionSummary, ListsPreserveLiteralSpacesAndBackslashes)
 	ASSERT_TRUE(summary.Contains("hot dog, C:\\spam."));
 	ASSERT_TRUE(summary.Contains("message text will also be written to the log"));
 }
+
+TEST(FilterSelectionSummary, RegexDoesNotUseLegacyStarOrCommaParsing)
+{
+	Settings settings;
+	settings.messages = settings.messageWords = settings.messageRegex = true;
+	settings.messageTerms = "*";
+	settings.messagePattern = "dog.*|spam$";
+	auto summary = Describe(settings);
+	ASSERT_TRUE(summary.Contains("regular expression dog.*|spam$"));
+	ASSERT_TRUE(!summary.Contains("All incoming messages"));
+	settings.regexMatchesEmpty = true;
+	ASSERT_TRUE(Describe(settings).Contains("can match every message"));
+	settings.regexError = "missing parenthesis";
+	ASSERT_TRUE(Describe(settings).Contains("Correct it before applying"));
+	settings.regexSupported = false;
+	ASSERT_TRUE(Describe(settings).Contains("connected core does not support"));
+}
