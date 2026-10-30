@@ -670,7 +670,7 @@ bool CPath::BackupFile(const CPath &src, const wxString &appendix)
 		ok = output.Flush() && ok;
 		ok = output.Close() && ok;
 		if (ok) {
-			ok = wxRenameFile(temporary, dst.m_filesystem, true);
+			ok = ReplaceEntry(CPath(temporary), dst);
 		}
 		if (!ok) {
 			wxRemoveFile(temporary);

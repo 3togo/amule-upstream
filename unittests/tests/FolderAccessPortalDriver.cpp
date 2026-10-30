@@ -1,4 +1,23 @@
-// This file is part of aMule. Licensed under GPL-2.0-or-later.
+//
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+//
+
 // Small GUI client for the fake-portal integration test; never uses a real profile.
 #include <wx/app.h>
 #include <cstdio>
@@ -7,6 +26,11 @@
 #include <unistd.h>
 #include <cerrno>
 #include <sys/resource.h>
+#include <linux/filter.h>
+#include <linux/seccomp.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <cstddef>
 #include <wx/file.h>
 #include <wx/log.h>
 #include "CamuleFileConfig.h"
@@ -61,6 +85,43 @@ bool CheckAtomicSave(const wxString &profile)
 	       CPath::BackupFile(CPath(path), ".credits.bak");
 }
 
+// Fail the rename after writing the complete temporary file. A copy fallback
+// could still open and overwrite the existing destination.
+bool CheckRejectedPromotion(const wxString &profile)
+{
+	const wxString path = profile + "/atomic.conf";
+	const wxString backup = path + ".bak";
+	for (const auto &name : { path, backup }) {
+		wxFile file;
+		if (!file.Create(name, true, 0600) || !file.Write("old=1\n"))
+			return false;
+	}
+	CamuleFileConfig config("", "", path);
+	config.Write("value", "new contents");
+	std::vector<sock_filter> filter = { BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(seccomp_data, nr)) };
+	const unsigned operations[] = {
+#ifdef __NR_rename
+		__NR_rename,
+#endif
+		__NR_renameat,
+		__NR_renameat2
+	};
+	for (const unsigned operation : operations) {
+		filter.push_back(BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, operation, 0, 1));
+		filter.push_back(BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | EXDEV));
+	}
+	filter.push_back(BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
+	const sock_fprog program = { static_cast<unsigned short>(filter.size()), filter.data() };
+	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &program) != 0)
+		return false;
+	const bool profileRejected = !config.Flush();
+	const bool backupRejected = !FolderAccess::BackupConfig(path);
+	wxString originalContents, backupContents;
+	wxFile original(path), saved(backup);
+	return profileRejected && backupRejected && original.ReadAll(&originalContents) &&
+	       saved.ReadAll(&backupContents) && originalContents == "old=1\n" && backupContents == "old=1\n";
+}
+
 int main(int argc, char **argv)
 {
 	if (argc != 4 || !wxEntryStart(argc, argv)) {
@@ -74,6 +135,12 @@ int main(int argc, char **argv)
 		std::fprintf(stderr, "%s\n", sandboxError.utf8_str().data());
 		wxEntryCleanup();
 		return 77;
+	}
+	if (std::string(argv[3]) == "renamefail") {
+		const bool ok = CheckRejectedPromotion(wxString::FromUTF8(argv[1]));
+		wxTheApp->OnExit();
+		wxEntryCleanup();
+		return ok ? 0 : 1;
 	}
 	if (std::string(argv[3]) == "atomic") {
 		const bool ok = CheckAtomicSave(wxString::FromUTF8(argv[1]));

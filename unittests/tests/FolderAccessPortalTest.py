@@ -119,6 +119,19 @@ class PortalTest(unittest.TestCase):
                     self.assertIn("Folder2=" + str(downloads), contents)
                     self.assertNotIn("Folder0=", contents)
 
+    def test_failed_rename_preserves_profile_and_backup(self):
+        with tempfile.TemporaryDirectory(prefix="amule-profile-rename-") as directory:
+            env = dict(os.environ, FLATPAK_ID="org.amule.aMule",
+                GIO_USE_VFS="local", GSETTINGS_BACKEND="memory", NO_AT_BRIDGE="1")
+            proc = subprocess.run([DRIVER, directory, "", "renamefail"], env=env,
+                capture_output=True, text=True, timeout=15)
+            if proc.returncode == 77:
+                self.skipTest(proc.stderr)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            for name in ("atomic.conf", "atomic.conf.bak"):
+                self.assertEqual((Path(directory) / name).read_bytes(), b"old=1\n")
+            self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+
     def test_failed_atomic_save_preserves_profile_and_can_retry(self):
         with tempfile.TemporaryDirectory(prefix="amule-profile-save-") as directory:
             env = dict(os.environ, FLATPAK_ID="org.amule.aMule",
