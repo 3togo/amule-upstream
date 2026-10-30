@@ -2232,6 +2232,9 @@ add_executable (FatalAbortBacktraceTest
 	FatalAbortBacktraceTest.cpp
 )
 add_test (NAME FatalAbortBacktraceTest COMMAND FatalAbortBacktraceTest)
+# Exercises deliberate child-process timeouts and blocked-console recovery;
+# all 17 cases can exceed the 10-second fast lane even without contention.
+set_tests_properties (FatalAbortBacktraceTest PROPERTIES LABELS "slow")
 target_link_libraries (FatalAbortBacktraceTest
 	muleunit
 	mulecommon
