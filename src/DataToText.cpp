@@ -149,13 +149,26 @@ wxString GetSoftName(unsigned int software_ident, const wxString &modVersion)
 	return GetSoftName(software_ident);
 }
 
-wxString FormatClientSoftware(const wxString &name, const wxString &modVersion)
+wxString FormatClientSoftware(const wxString &name, const wxString &modVersion, const wxString &version)
 {
-	if (modVersion.IsEmpty() || name == modVersion ||
-		(name.StartsWith(modVersion + " (") && name.EndsWith(")"))) {
-		return name;
+	wxString label = name;
+	if (!modVersion.IsEmpty() && name != modVersion &&
+		!(name.StartsWith(modVersion + " (") && name.EndsWith(")"))) {
+		label += " (" + modVersion + ")";
 	}
-	return name + " (" + modVersion + ")";
+	if (!version.IsEmpty()) {
+		if (!label.IsEmpty()) {
+			label += " ";
+		}
+		label += version;
+	}
+	return label;
+}
+
+wxString FormatClientSoftware(
+	unsigned int software_ident, const wxString &modVersion, const wxString &version)
+{
+	return FormatClientSoftware(GetSoftName(software_ident, modVersion), modVersion, version);
 }
 
 wxString OriginToText(unsigned int source_from)

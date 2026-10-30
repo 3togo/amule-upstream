@@ -110,7 +110,7 @@ TEST(ClientVersionString, ModIdentityBelongsWithSoftware)
 	ASSERT_EQUALS(wxString("eMule"), FormatClientSoftware("eMule", ""));
 	ASSERT_EQUALS(wxString("aMule SVN"), FormatClientSoftware("aMule SVN", "aMule SVN"));
 	ASSERT_EQUALS(wxString("eMule (AI v1.6) v0.70b"),
-		FormatClientSoftware("eMule", "AI v1.6") + " " + FormatClientVersion(SO_EMULE, 0, 70, 1));
+		FormatClientSoftware(SO_EMULE, "AI v1.6", FormatClientVersion(SO_EMULE, 0, 70, 1)));
 }
 
 TEST(ClientVersionString, SoftwareNameSelectionMatchesLiveAndStoredPeers)
@@ -119,8 +119,7 @@ TEST(ClientVersionString, SoftwareNameSelectionMatchesLiveAndStoredPeers)
 	ASSERT_EQUALS(wxString("aMule SVN"), GetSoftName(SO_AMULE, "aMule SVN"));
 	ASSERT_EQUALS(wxString("aMule"), GetSoftName(SO_AMULE, ""));
 	ASSERT_EQUALS(wxString("eMule"), GetSoftName(SO_OLDEMULE, "old-mod"));
-	ASSERT_EQUALS(
-		wxString("aMule SVN"), FormatClientSoftware(GetSoftName(SO_AMULE, "aMule SVN"), "aMule SVN"));
+	ASSERT_EQUALS(wxString("aMule SVN"), FormatClientSoftware(SO_AMULE, "aMule SVN"));
 }
 
 TEST(ClientVersionString, DecoratedModNamesDoNotRepeatTheMod)
@@ -129,4 +128,13 @@ TEST(ClientVersionString, DecoratedModNamesDoNotRepeatTheMod)
 		FormatClientSoftware("xMule mod (Fake eMule)", "xMule mod"));
 	ASSERT_EQUALS(wxString("mod (Fake eMule version 0x30)"),
 		FormatClientSoftware("mod (Fake eMule version 0x30)", "mod"));
+}
+
+TEST(ClientVersionString, SharedSoftwareFormatterJoinsOptionalVersion)
+{
+	ASSERT_EQUALS(wxString("eMule (AI v1.6) v0.70b"), FormatClientSoftware("eMule", "AI v1.6", "v0.70b"));
+	ASSERT_EQUALS(wxString("aMule SVN v2.3.3"), FormatClientSoftware(SO_AMULE, "aMule SVN", "v2.3.3"));
+	ASSERT_EQUALS(wxString("eMule"), FormatClientSoftware(SO_EMULE, "", ""));
+	ASSERT_EQUALS(wxString("v0.70b"), FormatClientSoftware("", "", "v0.70b"));
+	ASSERT_EQUALS(wxString(), FormatClientSoftware("", "", ""));
 }

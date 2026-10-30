@@ -2722,8 +2722,7 @@ void CUpDownClient::ReGetClientSoft()
 	}
 
 	m_clientVersionString = m_clientVerString;
-	m_fullClientVerString =
-		FormatClientSoftware(m_clientSoftString, m_strModVersion) + " " + m_clientVerString;
+	m_fullClientVerString = FormatClientSoftware(m_clientSoftString, m_strModVersion, m_clientVerString);
 
 	UpdateStats();
 }

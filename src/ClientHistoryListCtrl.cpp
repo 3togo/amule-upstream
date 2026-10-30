@@ -340,9 +340,7 @@ bool CClientHistoryListCtrl::PeerForItem(wxUIntPtr data, PeerIdentity &out) cons
 	out.detail.userName = row->name;
 	out.detail.userHash = row->hash;
 	out.detail.softStr =
-		row->identityKnown
-			? FormatClientSoftware(GetSoftName(row->clientSoft, row->modVersion), row->modVersion)
-			: wxString();
+		row->identityKnown ? FormatClientSoftware(row->clientSoft, row->modVersion) : wxString();
 	out.detail.softVerStr = row->version;
 	// Left empty when unknown, so the dialog says so rather than rendering a
 	// literal 0.0.0.0.
@@ -387,10 +385,8 @@ wxString CClientHistoryListCtrl::GetItemColumnText(wxUIntPtr item, unsigned colu
 		return DisplayNameFor(*row);
 
 	case COLUMN_HISTORY_SOFTWARE:
-		return row->identityKnown
-			       ? FormatClientSoftware(
-					 GetSoftName(row->clientSoft, row->modVersion), row->modVersion)
-			       : wxString();
+		return row->identityKnown ? FormatClientSoftware(row->clientSoft, row->modVersion)
+					  : wxString();
 
 	case COLUMN_HISTORY_VERSION:
 		return row->version;

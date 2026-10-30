@@ -3339,9 +3339,9 @@ void CUpDownClientListRem::ProcessItemUpdate(const CEC_UpDownClient_Tag *tag, CC
 		if (client->m_clientSoftString == _("Unknown")) {
 			client->m_fullClientVerString = client->m_clientSoftString;
 		} else {
-			client->m_fullClientVerString =
-				FormatClientSoftware(client->m_clientSoftString, client->m_strModVersion) +
-				" " + client->m_clientVerString;
+			client->m_fullClientVerString = FormatClientSoftware(client->m_clientSoftString,
+				client->m_strModVersion,
+				client->m_clientVerString);
 		}
 	}
 	// User hash
