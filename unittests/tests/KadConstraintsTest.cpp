@@ -78,3 +78,14 @@ TEST(KadConstraints, CustomConstraintsAreCoherentAndPersist)
 		ASSERT_EQUALS(policy.*(setting.member), roundTrip.*(setting.member));
 	}
 }
+
+TEST(KadConstraints, DeadlineAndGraceCannotOverflowTheRttRepresentation)
+{
+	wxStringInputStream empty("");
+	wxFileConfig cfg(empty);
+	cfg.Write("/Kad/RequestTimeoutMs", wxString("4294967294"));
+	cfg.Write("/Kad/LateReplyGraceMs", wxString("4294967295"));
+	const auto policy = LoadKadConstraints(cfg, 100, 3);
+	ASSERT_EQUALS(uint32_t(1), policy.sampleGraceMs);
+	ASSERT_EQUALS(uint64_t(UINT32_MAX), uint64_t(policy.requestTimeoutMs) + policy.sampleGraceMs);
+}

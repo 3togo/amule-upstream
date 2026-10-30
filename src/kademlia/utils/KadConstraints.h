@@ -38,7 +38,7 @@ namespace Kademlia
 	X(lookupPending, LookupPendingPerSearch, 64, 1, INT32_MAX) \
 	X(globalLookupActive, LookupActiveGlobal, 0, 0, INT32_MAX) \
 	X(globalLookupPending, LookupPendingGlobal, 0, 0, INT32_MAX) \
-	X(requestTimeoutMs, RequestTimeoutMs, 3000, 1, UINT32_MAX) \
+	X(requestTimeoutMs, RequestTimeoutMs, 3000, 1, UINT32_MAX - 1) \
 	X(sampleGraceMs, LateReplyGraceMs, 10000, 1, UINT32_MAX) \
 	X(wideningReasks, WideningReasks, 4, 0, INT32_MAX)
 
@@ -87,6 +87,7 @@ struct SKadConstraints
 		lookupPending = std::min(lookupPending, globalLookupPending);
 		lookupConcurrency = std::min(lookupConcurrency, std::min(lookupPending, globalLookupActive));
 		nodeConcurrency = std::min(nodeConcurrency, lookupConcurrency);
+		sampleGraceMs = std::min(sampleGraceMs, UINT32_MAX - requestTimeoutMs);
 		contactsPerSubnet = std::min(contactsPerSubnet, globalContactsPerSubnet);
 		contactsPerIP = std::min(contactsPerIP, contactsPerSubnet);
 	}
