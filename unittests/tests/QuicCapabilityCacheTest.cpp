@@ -77,6 +77,19 @@ TEST(QuicCapabilityCache, ExpiryAndCooldownBecomeUnknown)
 	ASSERT_TRUE(cache.Lookup(Peer(2), 10).state == QuicCapabilityState::Unknown);
 }
 
+TEST(QuicCapabilityCache, NonFailureDialResultsPreserveOptionsAndOriginalExpiry)
+{
+	CQuicCapabilityCache cache(2);
+	cache.Remember(Peer(1), 0xff, 0, 10);
+	cache.NoteDialResult(Peer(1), QuicDialResult::AtCapacity, 1, 30000);
+	cache.NoteDialResult(Peer(1), QuicDialResult::Started, 2, 30000);
+	ASSERT_TRUE(cache.Lookup(Peer(1), 9).state == QuicCapabilityState::Compatible);
+	ASSERT_EQUALS(0xff, cache.Lookup(Peer(1), 9).options);
+	ASSERT_TRUE(cache.Lookup(Peer(1), 10).state == QuicCapabilityState::Unknown);
+	cache.NoteDialResult(Peer(2), QuicDialResult::AtCapacity, 10, 30000);
+	ASSERT_TRUE(cache.Lookup(Peer(2), 10).state == QuicCapabilityState::Unknown);
+}
+
 TEST(QuicCapabilityCache, EvictsLeastRecentlyUsedAndZeroCapacityStoresNothing)
 {
 	CQuicCapabilityCache cache(2);

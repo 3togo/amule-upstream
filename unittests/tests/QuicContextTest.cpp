@@ -194,7 +194,7 @@ TEST(QuicContext, OutboundDialCreatesOwnedConnection)
 	factory.next = std::make_unique<FakeConnection>();
 	CQuicContext context(&factory, ConnectionLimit);
 
-	ASSERT_TRUE(context.Dial(kPeer, 4672, kPeerIdentity, 0));
+	ASSERT_TRUE(context.Dial(kPeer, 4672, kPeerIdentity, 0) == QuicDialResult::Started);
 	ASSERT_EQUALS(1u, factory.outboundCalls);
 	ASSERT_TRUE(factory.lastAddress == kPeer);
 	ASSERT_EQUALS(4672u, factory.lastPort);
@@ -487,10 +487,12 @@ TEST(QuicContext, CapsOutboundConnectionsBeforeCreatingHandshake)
 	CQuicContext context(&factory, ConnectionLimit);
 	for (unsigned i = 0; i < kConnectionLimit; ++i) {
 		factory.next = std::make_unique<FakeConnection>();
-		ASSERT_TRUE(context.Dial(PeerNumber(i + 1), 4662, kPeerIdentity, 0));
+		ASSERT_TRUE(
+			context.Dial(PeerNumber(i + 1), 4662, kPeerIdentity, 0) == QuicDialResult::Started);
 	}
 	factory.next = std::make_unique<FakeConnection>();
-	ASSERT_TRUE(!context.Dial(PeerNumber(kConnectionLimit + 1), 4662, kPeerIdentity, 0));
+	ASSERT_TRUE(context.Dial(PeerNumber(kConnectionLimit + 1), 4662, kPeerIdentity, 0) ==
+		    QuicDialResult::AtCapacity);
 	ASSERT_EQUALS(kConnectionLimit, factory.outboundCalls);
 	ASSERT_EQUALS(kConnectionLimit, context.ConnectionCount());
 }
@@ -507,11 +509,13 @@ TEST(QuicContext, IncomingAndOutgoingConnectionsShareCapacity)
 				payload.data(), payload.size(), PeerNumber(i + 1), 4662, 0));
 		} else {
 			factory.next = std::make_unique<FakeConnection>();
-			ASSERT_TRUE(context.Dial(PeerNumber(i + 1), 4662, kPeerIdentity, 0));
+			ASSERT_TRUE(context.Dial(PeerNumber(i + 1), 4662, kPeerIdentity, 0) ==
+				    QuicDialResult::Started);
 		}
 	}
 	factory.next = std::make_unique<FakeConnection>();
-	ASSERT_TRUE(!context.Dial(PeerNumber(kConnectionLimit + 1), 4662, kPeerIdentity, 0));
+	ASSERT_TRUE(context.Dial(PeerNumber(kConnectionLimit + 1), 4662, kPeerIdentity, 0) ==
+		    QuicDialResult::AtCapacity);
 	ASSERT_TRUE(!context.ProcessDatagram(
 		payload.data(), payload.size(), PeerNumber(kConnectionLimit + 2), 4662, 0));
 	ASSERT_EQUALS(kConnectionLimit / 2, factory.calls);
@@ -531,7 +535,8 @@ TEST(QuicContext, ClosedConnectionsReleaseCapacityForOutboundDial)
 	}
 	factory.created[0]->closed = true;
 	factory.next = std::make_unique<FakeConnection>();
-	ASSERT_TRUE(context.Dial(PeerNumber(kConnectionLimit + 1), 4662, kPeerIdentity, 0));
+	ASSERT_TRUE(context.Dial(PeerNumber(kConnectionLimit + 1), 4662, kPeerIdentity, 0) ==
+		    QuicDialResult::Started);
 	ASSERT_EQUALS(1u, factory.outboundCalls);
 	ASSERT_EQUALS(kConnectionLimit, context.ConnectionCount());
 }
@@ -545,11 +550,11 @@ TEST(QuicContext, ConnectionBudgetChangesApplyToBothDirectionsWithoutClosingTran
 	auto payload = Initial(0x78);
 	ASSERT_TRUE(context.ProcessDatagram(payload.data(), payload.size(), PeerNumber(1), 4662, 0));
 	factory.next = std::make_unique<FakeConnection>();
-	ASSERT_TRUE(context.Dial(PeerNumber(2), 4662, kPeerIdentity, 0));
+	ASSERT_TRUE(context.Dial(PeerNumber(2), 4662, kPeerIdentity, 0) == QuicDialResult::Started);
 
 	limit = 1;
 	factory.next = std::make_unique<FakeConnection>();
-	ASSERT_TRUE(!context.Dial(PeerNumber(3), 4662, kPeerIdentity, 0));
+	ASSERT_TRUE(context.Dial(PeerNumber(3), 4662, kPeerIdentity, 0) == QuicDialResult::AtCapacity);
 	ASSERT_TRUE(!context.ProcessDatagram(payload.data(), payload.size(), PeerNumber(4), 4662, 0));
 	context.Tick(1);
 	ASSERT_EQUALS(2u, context.ConnectionCount());
@@ -557,13 +562,22 @@ TEST(QuicContext, ConnectionBudgetChangesApplyToBothDirectionsWithoutClosingTran
 	ASSERT_TRUE(!factory.created[1]->closed);
 	ASSERT_EQUALS(1u, factory.calls);
 	ASSERT_EQUALS(1u, factory.outboundCalls);
+	// Retransmitted Initials and stream traffic must still reach existing connections.
+	ASSERT_TRUE(context.ProcessDatagram(payload.data(), payload.size(), PeerNumber(1), 4662, 1));
+	const auto streamPacket = ShortPacket();
+	ASSERT_TRUE(
+		context.ProcessDatagram(streamPacket.data(), streamPacket.size(), PeerNumber(1), 4662, 1));
+	ASSERT_TRUE(
+		context.ProcessDatagram(streamPacket.data(), streamPacket.size(), PeerNumber(2), 4662, 1));
+	ASSERT_EQUALS(3u, factory.created[0]->calls);
+	ASSERT_EQUALS(1u, factory.created[1]->calls);
 
 	limit = 3;
 	ASSERT_TRUE(context.ProcessDatagram(payload.data(), payload.size(), PeerNumber(4), 4662, 1));
 	factory.next = std::make_unique<FakeConnection>();
-	ASSERT_TRUE(!context.Dial(PeerNumber(3), 4662, kPeerIdentity, 1));
+	ASSERT_TRUE(context.Dial(PeerNumber(3), 4662, kPeerIdentity, 1) == QuicDialResult::AtCapacity);
 	limit = 4;
-	ASSERT_TRUE(context.Dial(PeerNumber(3), 4662, kPeerIdentity, 1));
+	ASSERT_TRUE(context.Dial(PeerNumber(3), 4662, kPeerIdentity, 1) == QuicDialResult::Started);
 	ASSERT_EQUALS(4u, context.ConnectionCount());
 }
 
@@ -573,7 +587,7 @@ TEST(QuicContext, ZeroConnectionBudgetDeclinesBothDirections)
 	factory.next = std::make_unique<FakeConnection>();
 	CQuicContext context(&factory, [] { return 0; });
 	auto payload = Initial(0x79);
-	ASSERT_TRUE(!context.Dial(kPeer, 4662, kPeerIdentity, 0));
+	ASSERT_TRUE(context.Dial(kPeer, 4662, kPeerIdentity, 0) == QuicDialResult::AtCapacity);
 	ASSERT_TRUE(!context.ProcessDatagram(payload.data(), payload.size(), kPeer, 4662, 0));
 	ASSERT_EQUALS(0u, factory.calls);
 	ASSERT_EQUALS(0u, factory.outboundCalls);
@@ -586,10 +600,55 @@ TEST(QuicContext, MissingConnectionBudgetDeclinesBothDirections)
 	factory.next = std::make_unique<FakeConnection>();
 	CQuicContext context(&factory, {});
 	auto payload = Initial(0x7a);
-	ASSERT_TRUE(!context.Dial(kPeer, 4662, kPeerIdentity, 0));
+	ASSERT_TRUE(context.Dial(kPeer, 4662, kPeerIdentity, 0) == QuicDialResult::AtCapacity);
 	ASSERT_TRUE(!context.ProcessDatagram(payload.data(), payload.size(), kPeer, 4662, 0));
 	ASSERT_EQUALS(0u, factory.calls);
 	ASSERT_EQUALS(0u, factory.outboundCalls);
+}
+
+TEST(QuicContext, CapacityRefusalDoesNotCoolDownThePeer)
+{
+	FakeFactory factory;
+	factory.next = std::make_unique<FakeConnection>();
+	CQuicContext context(&factory, [] { return 1; });
+	ASSERT_TRUE(context.Dial(PeerNumber(1), 4662, kPeerIdentity, 0) == QuicDialResult::Started);
+	CQuicCapabilityCache cache(2);
+	cache.Remember(kPeerIdentity, QuicNatt::EAQC_CAP_QUIC, 0, 60000);
+	factory.next = std::make_unique<FakeConnection>();
+	const QuicDialResult result = context.Dial(PeerNumber(2), 4662, kPeerIdentity, 1);
+	ASSERT_TRUE(result == QuicDialResult::AtCapacity);
+	cache.NoteDialResult(kPeerIdentity, result, 1, 30000);
+	ASSERT_TRUE(cache.Lookup(kPeerIdentity, 1).state == QuicCapabilityState::Compatible);
+	ASSERT_EQUALS(1u, factory.outboundCalls);
+
+	factory.created[0]->closed = true;
+	ASSERT_TRUE(context.Dial(PeerNumber(2), 4662, kPeerIdentity, 2) == QuicDialResult::Started);
+	ASSERT_EQUALS(2u, factory.outboundCalls);
+	ASSERT_EQUALS(1u, context.ConnectionCount());
+}
+
+TEST(QuicContext, FailedHandshakeCreationIsDistinctFromLocalCapacity)
+{
+	FakeFactory factory;
+	CQuicContext context(&factory, ConnectionLimit);
+	const QuicDialResult result = context.Dial(kPeer, 4662, kPeerIdentity, 0);
+	ASSERT_TRUE(result == QuicDialResult::Failed);
+	CQuicCapabilityCache cache(2);
+	cache.Remember(kPeerIdentity, QuicNatt::EAQC_CAP_QUIC, 0, 60000);
+	cache.NoteDialResult(kPeerIdentity, result, 1, 30000);
+	ASSERT_TRUE(cache.Lookup(kPeerIdentity, 1).state == QuicCapabilityState::Cooldown);
+	ASSERT_EQUALS(1u, factory.outboundCalls);
+	ASSERT_EQUALS(0u, context.ConnectionCount());
+}
+
+TEST(QuicContext, InvalidOutboundArgumentsFailWithoutCreatingAHandshake)
+{
+	FakeFactory factory;
+	CQuicContext context(&factory, ConnectionLimit);
+	ASSERT_TRUE(context.Dial(kPeer, 0, kPeerIdentity, 0) == QuicDialResult::Failed);
+	ASSERT_EQUALS(0u, factory.outboundCalls);
+	CQuicContext withoutFactory(nullptr, ConnectionLimit);
+	ASSERT_TRUE(withoutFactory.Dial(kPeer, 4662, kPeerIdentity, 0) == QuicDialResult::Failed);
 }
 
 TEST(QuicContext, IPv6PeerIsKeyedByItsOwnAddress)

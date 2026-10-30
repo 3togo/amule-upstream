@@ -26,6 +26,7 @@
 
 #include "NatRendezvousPolicy.h"
 #include "NetworkAddress.h"
+#include "QuicDialResult.h"
 
 #include <array>
 #include <cstddef>
@@ -127,7 +128,7 @@ public:
 		uint64_t nowMs);
 	//! Starts one authenticated outbound connection. The peer identity is only
 	//! the one learned from its ed2k hello; endpoint data never substitutes it.
-	bool Dial(const CNetworkAddress &address,
+	QuicDialResult Dial(const CNetworkAddress &address,
 		uint16_t port,
 		const std::array<uint8_t, 16> &expectedPeerIdentity,
 		uint64_t nowMs,

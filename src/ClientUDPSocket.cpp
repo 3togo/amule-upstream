@@ -254,10 +254,10 @@ bool CClientUDPSocket::TryQuicDial(const std::array<uint8_t, 16> &peer,
 	if (result.state != QuicCapabilityState::Compatible || ipv4 == 0 || udpPort == 0 || !Ok())
 		return false;
 	m_keyFrames.NoteDialled(ipv4, udpPort, peer, now);
-	if (m_quic.Dial(CNetworkAddress::FromIPv4NetworkOrder(ipv4), udpPort, peer, now, owner))
-		return true;
-	m_capabilityCache.RememberFailure(peer, now, 30000);
-	return false;
+	const QuicDialResult resultCode =
+		m_quic.Dial(CNetworkAddress::FromIPv4NetworkOrder(ipv4), udpPort, peer, now, owner);
+	m_capabilityCache.NoteDialResult(peer, resultCode, now, 30000);
+	return resultCode == QuicDialResult::Started;
 }
 
 #if defined(ENABLE_NATT_SERVER_COORDINATION) && defined(AMULE_UTP_TRANSPORT)
@@ -272,12 +272,14 @@ CQuicCapsHoldoffs<CClientRef>::SCallbacks CClientUDPSocket::QuicCapsHoldoffCallb
 			SendQuicCapsRequest(target.peer, target.ipv4, target.udpPort, target.fileHash);
 		},
 		[this](const Target &target, CClientRef &owner, uint64_t nowMs) {
-			return target.ipv4 != 0 && target.udpPort != 0 && Ok() &&
-			       m_quic.Dial(CNetworkAddress::FromIPv4NetworkOrder(target.ipv4),
-				       target.udpPort,
-				       target.peer,
-				       nowMs,
-				       owner.GetClientChecked());
+			if (target.ipv4 == 0 || target.udpPort == 0 || !Ok()) {
+				return QuicDialResult::Failed;
+			}
+			return m_quic.Dial(CNetworkAddress::FromIPv4NetworkOrder(target.ipv4),
+				target.udpPort,
+				target.peer,
+				nowMs,
+				owner.GetClientChecked());
 		},
 		[this](const Target &target, CClientRef &owner, uint64_t nowMs) {
 			m_capabilityCache.RememberFailure(target.peer, nowMs, 30000);

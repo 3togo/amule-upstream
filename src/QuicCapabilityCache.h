@@ -25,6 +25,7 @@
 #define QUIC_CAPABILITY_CACHE_H
 
 #include "QuicNattProtocol.h"
+#include "QuicDialResult.h"
 
 #include <array>
 #include <cstddef>
@@ -87,6 +88,17 @@ public:
 	void RememberFailure(const std::array<uint8_t, 16> &peer, uint64_t nowMs, uint64_t cooldownMs)
 	{
 		Store(peer, 0, QuicCapabilityState::Cooldown, nowMs, cooldownMs);
+	}
+
+	//! Local admission pressure says nothing about the peer's QUIC support.
+	void NoteDialResult(const std::array<uint8_t, 16> &peer,
+		QuicDialResult result,
+		uint64_t nowMs,
+		uint64_t cooldownMs)
+	{
+		if (result == QuicDialResult::Failed) {
+			RememberFailure(peer, nowMs, cooldownMs);
+		}
 	}
 
 	std::size_t Size(uint64_t nowMs)
@@ -208,8 +220,7 @@ public:
 		std::function<bool(Owner &)> isAlive;
 		std::function<QuicCapabilityState(const std::array<uint8_t, 16> &, uint64_t)> lookup;
 		std::function<void(const STarget &)> sendCaps;
-		//! False when the dial did not start.
-		std::function<bool(const STarget &, Owner &, uint64_t)> dialQuic;
+		std::function<QuicDialResult(const STarget &, Owner &, uint64_t)> dialQuic;
 		std::function<void(const STarget &, Owner &, uint64_t)> quicDialFailed;
 		std::function<void(Owner &)> fallBackToUtp;
 	};
@@ -255,8 +266,14 @@ public:
 			RemoveAt(i);
 			if (decision.resolveUtp) {
 				m_callbacks.fallBackToUtp(resolved.owner);
-			} else if (!m_callbacks.dialQuic(resolved.target, resolved.owner, nowMs)) {
-				m_callbacks.quicDialFailed(resolved.target, resolved.owner, nowMs);
+			} else {
+				const QuicDialResult result =
+					m_callbacks.dialQuic(resolved.target, resolved.owner, nowMs);
+				if (result == QuicDialResult::AtCapacity) {
+					m_callbacks.fallBackToUtp(resolved.owner);
+				} else if (result == QuicDialResult::Failed) {
+					m_callbacks.quicDialFailed(resolved.target, resolved.owner, nowMs);
+				}
 			}
 		}
 	}
