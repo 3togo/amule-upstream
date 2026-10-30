@@ -60,6 +60,12 @@ on:
         type: string
         default: ''
 
+# A newer master push supersedes the running packages; each one holds macOS runners
+# for up to an hour. A cancelled Intel build still saves the kegs it compiled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
 permissions:
   contents: read
   # cache-save-newest lists the repository's caches and deletes the generations
@@ -139,6 +145,8 @@ jobs:
         env:
           APPIMAGE_CACHE_SCOPE: ${{ github.event_name != 'workflow_call' && format('appimage-{0}', matrix.arch) || '' }}
         run: packaging/linux/build.sh appimage
+      - name: Test packaged media runtime
+        run: python3 packaging/media/test-runtime.py --appimage "$(ls dist/aMule-*-Linux-*.AppImage | head -1)"
       - name: Validate via cross-distro Docker matrix
         run: packaging/linux/build.sh validate
       - name: Save ccache
@@ -180,6 +188,9 @@ jobs:
         with:
           fetch-depth: 0  # git describe for the version string
 
+      - name: Check Linux packaging wrappers
+        run: python3 -m unittest discover -s packaging/linux/tests -v
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -192,6 +203,12 @@ jobs:
         env:
           STATIC_CACHE_SCOPE: ${{ github.event_name != 'workflow_call' && format('linux-static-{0}', matrix.arch) || '' }}
         run: packaging/linux/build.sh static
+      - name: Test packaged media runtime
+        run: |
+          STAGE=$(mktemp -d)
+          tar -xzf "$(ls dist/aMule-*-Linux-*-static.tar.gz | head -1)" -C "$STAGE"
+          BUNDLE=$(find "$STAGE" -mindepth 1 -maxdepth 1 -type d | head -1)
+          python3 packaging/media/test-runtime.py --bin-dir "$BUNDLE" --licenses "$BUNDLE/licenses/amule-media-probe"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -262,8 +279,16 @@ jobs:
         run: |
           mkdir -p "$CCACHE_DIR"
           echo "max_size = 1.0G" > "$CCACHE_DIR/ccache.conf"
+      - name: Check Flatpak source provenance
+        run: python3 -m unittest discover -s packaging/linux/tests -p test_flatpak_source.py -v
       - name: Build Flatpak
         run: packaging/linux/build.sh flatpak
+      - name: Test packaged media runtime
+        run: |
+          flatpak install --user --noninteractive "$(ls dist/aMule-*-Linux-*.flatpak | head -1)"
+          LOCATION=$(flatpak info --user --show-location org.amule.aMule)
+          python3 packaging/media/test-runtime.py --flatpak org.amule.aMule \
+            --licenses "$LOCATION/files/share/licenses/amule-media-probe"
       - name: Save flatpak-builder ccache
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: ./.github/actions/cache-save-newest
@@ -324,7 +349,8 @@ jobs:
     env:
       # What the .app build needs from Homebrew. On x86_64 the keg cache is
       # limited to these and their dependency closure.
-      BREW_DEPS: cmake wxwidgets cryptopp libupnp gd gettext boost dylibbundler libmaxminddb
+      # freetype, jpeg-turbo and libpng are for the libgd built below.
+      BREW_DEPS: cmake wxwidgets cryptopp libupnp freetype jpeg-turbo libpng gettext boost dylibbundler libmaxminddb
     steps:
       - uses: actions/checkout@v7
         with:
@@ -440,6 +466,10 @@ jobs:
           # NOT --quiet: when the next formula loses its Intel bottle,
           # the reason has to be in the log.
           ${{ matrix.archcmd }} $BREW install $BREW_DEPS
+          # A restored x86_64 keg can link a bottled formula that the cache does
+          # not carry (libtiff links zstd); install it unless something else
+          # pulled it in.
+          ${{ matrix.archcmd }} $BREW install $(${{ matrix.archcmd }} $BREW deps --union $BREW_DEPS)
           # Native on both legs: ccache 4.14.1 has no Intel bottle and builds with gcc, which has
           # none either. It only launches the compiler, so an arm64 ccache serves the x86_64 build.
           /opt/homebrew/bin/brew install ccache
@@ -571,7 +601,38 @@ jobs:
       - name: Zero ccache stats
         if: github.event_name != 'workflow_call'
         run: ccache --zero-stats
+      # Homebrew's gd links libavif, which bundled aom, dav1d and libvmaf that
+      # nothing in aMule uses. Only cas links libgd, and it needs PNG, JPEG and
+      # FreeType. build.sh finds this one through LIBGD_PREFIX.
+      - name: Build libgd from source
+        run: |
+          set -euo pipefail
+          . packaging/linux/versions.env
+          . packaging/macos/versions.env
+          SRC="$RUNNER_TEMP/libgd-src"
+          PREFIX="$RUNNER_TEMP/libgd"
+          curl -fsSL -o "$RUNNER_TEMP/libgd.tar.xz" "$LIBGD_TARBALL_URL"
+          echo "$LIBGD_SHA256  $RUNNER_TEMP/libgd.tar.xz" | shasum -a 256 -c -
+          mkdir -p "$SRC"
+          tar -xf "$RUNNER_TEMP/libgd.tar.xz" -C "$SRC" --strip-components=1
+          # An absolute install name, so dylibbundler can follow it from cas.
+          ${{ matrix.archcmd }} cmake -S "$SRC" -B "$SRC/build" -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_PNG=ON -DENABLE_JPEG=ON -DENABLE_FREETYPE=ON \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET" \
+            -DCMAKE_PREFIX_PATH=${{ matrix.brew_prefix }} \
+            -DCMAKE_MACOSX_RPATH=OFF -DCMAKE_INSTALL_NAME_DIR="$PREFIX/lib" \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX"
+          ${{ matrix.archcmd }} cmake --build "$SRC/build" -j"$(sysctl -n hw.ncpu)"
+          ${{ matrix.archcmd }} cmake --install "$SRC/build"
+          mkdir -p "$PREFIX/share/licenses/libgd"
+          cp "$SRC/COPYING" "$PREFIX/share/licenses/libgd/"
+          echo "LIBGD_PREFIX=$PREFIX" >> "$GITHUB_ENV"
       - name: Build native-arch .app
+        # dylibbundler asks on stdin for a library it cannot find and loops on
+        # an empty answer, so a missing dylib would otherwise hold the runner.
+        # Two hours: an x86_64 build under Rosetta can need more than one.
+        timeout-minutes: 120
         env:
           MACOS_ARCHITECTURES: ${{ matrix.arch }}
         run: ${{ matrix.archcmd }} packaging/macos/build.sh
@@ -598,6 +659,9 @@ jobs:
           # next to aMule.app via make_dmg, so its absence would mean
           # BUILD_REMOTEGUI didn't actually produce a bundle.
           [ -d "${MNT}/aMuleGUI.app" ] || { echo "aMuleGUI.app missing from per-arch dmg" >&2; exit 1; }
+          python3 packaging/media/test-runtime.py \
+              --bin-dir "${MNT}/aMule.app/Contents/MacOS" \
+              --licenses "${MNT}/aMule.app/Contents/Resources/licenses/amule-media-probe"
           hdiutil detach "${MNT}"
       - name: Save ccache
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
@@ -709,6 +773,17 @@ jobs:
           ln -s /Applications "${STAGE}/Applications"
           packaging/macos/create-dmg.sh "aMule ${VERSION}" "${STAGE}" \
               "dist/aMule-${VERSION}-macOS-universal2.dmg"
+      - name: Test Universal2 packaged media runtime
+        run: |
+          sudo softwareupdate --install-rosetta --agree-to-license
+          MNT=$(mktemp -d)
+          hdiutil attach -nobrowse -mountpoint "$MNT" "$(ls dist/*-universal2.dmg | head -1)"
+          for ARCH in arm64 x86_64; do
+            python3 packaging/media/test-runtime.py --arch "$ARCH" \
+                --bin-dir "$MNT/aMule.app/Contents/MacOS" \
+                --licenses "$MNT/aMule.app/Contents/Resources/licenses/amule-media-probe"
+          done
+          hdiutil detach "$MNT"
       - uses: actions/upload-artifact@v7
         with:
           name: macos-universal2
@@ -766,17 +841,21 @@ jobs:
             ${{ matrix.pkg_prefix }}-ccache
             ${{ matrix.pkg_prefix }}-cmake
             ${{ matrix.pkg_prefix }}-crypto++
+            ${{ matrix.pkg_prefix }}-freetype
             ${{ matrix.pkg_prefix }}-gettext
-            ${{ matrix.pkg_prefix }}-libgd
+            ${{ matrix.pkg_prefix }}-libjpeg-turbo
             ${{ matrix.pkg_prefix }}-libmaxminddb
+            ${{ matrix.pkg_prefix }}-libpng
             ${{ matrix.pkg_prefix }}-make
             ${{ matrix.pkg_prefix }}-ninja
             ${{ matrix.pkg_prefix }}-pkgconf
+            ${{ matrix.pkg_prefix }}-python
             ${{ matrix.pkg_prefix }}-readline
             ${{ matrix.pkg_prefix }}-toolchain
             ${{ matrix.pkg_prefix }}-wxwidgets3.3-msw
             ${{ matrix.pkg_prefix }}-zlib
             git
+            python
             zip
         run: |
           set -euo pipefail
@@ -834,6 +913,26 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="$MINGW_PREFIX"
           cmake --build /tmp/libupnp/build
           cmake --install /tmp/libupnp/build
+          # No package owns it, so packaging/windows/build.sh takes its
+          # license from here.
+          install -Dm644 /tmp/libupnp/COPYING "$MINGW_PREFIX/share/licenses/libupnp/COPYING"
+      # MSYS2's libgd is built with HEIF and AVIF support, which bundled
+      # x264, x265, AV1 and other codec DLLs that nothing in aMule uses. Only
+      # cas links libgd, and it needs PNG, JPEG and FreeType.
+      - name: Build libgd from source
+        run: |
+          set -euo pipefail
+          . packaging/linux/versions.env
+          curl -L -o /tmp/libgd.tar.xz "$LIBGD_TARBALL_URL"
+          echo "$LIBGD_SHA256  /tmp/libgd.tar.xz" | sha256sum -c -
+          mkdir -p /tmp/libgd
+          tar -xf /tmp/libgd.tar.xz -C /tmp/libgd --strip-components=1
+          cmake -S /tmp/libgd -B /tmp/libgd/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_PNG=ON -DENABLE_JPEG=ON -DENABLE_FREETYPE=ON \
+            -DCMAKE_INSTALL_PREFIX="$MINGW_PREFIX"
+          cmake --build /tmp/libgd/build
+          cmake --install /tmp/libgd/build
+          install -Dm644 /tmp/libgd/COPYING "$MINGW_PREFIX/share/licenses/libgd/COPYING"
       - name: Build portable .zip
         env:
           WINDOWS_MSYSTEM: ${{ matrix.msystem }}
@@ -855,6 +954,14 @@ jobs:
           # Pattern accepts the dev placeholder ("aMuleD GIT ...") and
           # any tagged-release banner ("aMuleD 3.0.0 ...", etc.).
           grep -q '^aMuleD ' /tmp/version.txt
+      - name: Test packaged media runtime
+        run: |
+          # Test an extraction of the final zip at a relocated path.
+          STAGE=$(mktemp -d)
+          unzip -q "$(ls dist/aMule-*-Windows-${{ matrix.arch }}.zip | head -1)" -d "$STAGE"
+          BUNDLE=$(find "$STAGE" -mindepth 1 -maxdepth 1 -type d | head -1)
+          "$MINGW_PREFIX/bin/python.exe" packaging/media/test-runtime.py \
+              --bin-dir "$BUNDLE/bin" --licenses "$BUNDLE/share/licenses/amule-media-probe"
       - name: Save ccache
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: ./.github/actions/cache-save-newest
@@ -919,6 +1026,10 @@ jobs:
           # The action's package cache saves on every event, with no way to limit
           # it to master, and these packages are only ~50 MB.
           cache: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          architecture: ${{ matrix.arch }}
       - name: Install NSIS
         # NSIS isn't packaged for every MSYS2 environment (e.g. no
         # clangarm64 build), so install the Windows-native NSIS via
@@ -985,6 +1096,8 @@ jobs:
             echo Uninstall.exe missing after silent install
             exit /b 1
           )
+          python packaging\media\test-runtime.py --bin-dir C:\amule-installtest\bin --licenses C:\amule-installtest\share\licenses\amule-media-probe
+          if errorlevel 1 exit /b 1
           rem _? keeps the uninstaller from spawning a copy of itself
           rem in %TEMP% and returning before the work is done.
           "C:\amule-installtest\Uninstall.exe" /S _?=C:\amule-installtest

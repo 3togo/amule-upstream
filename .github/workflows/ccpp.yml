@@ -8,12 +8,12 @@ on:
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'unittests/**'
-      - 'po/**'
       - 'config.h.cm'
       - 'scripts/check-unique-ids.py'
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
       - '.github/apt-ci.conf'
+      - '.github/actions/apt-install/**'
   pull_request:
     branches: [ "**" ]
     paths:
@@ -21,12 +21,12 @@ on:
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'unittests/**'
-      - 'po/**'
       - 'config.h.cm'
       - 'scripts/check-unique-ids.py'
       - 'scripts/check-tray-backend-build.py'
       - '.github/workflows/ccpp.yml'
       - '.github/apt-ci.conf'
+      - '.github/actions/apt-install/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/master' && github.sha || '' }}
@@ -40,7 +40,6 @@ permissions:
   pull-requests: write
 
 env:
-  ctest_shared_file_reverify: '^SharedFileReverifyIntegrationTest$'
   # Do not count a skipped artwork test as native GUI coverage.
   AMULE_ICON_TEST_REQUIRE_GUI: "1"
   CCACHE_DIR: ${{ github.workspace }}/.ccache
@@ -54,6 +53,7 @@ env:
   # in MuleTrayIcon.cpp is #ifdef'd out and never compiled here -- only
   # packaging.yml built it, and that runs after merge, so a break in that
   # half landed on master before anything noticed.
+  # Only Boost headers are used; avoid unused MPI and GPU runtime downloads.
   cmake_ubuntu_deps: |-
     binutils-dev \
     build-essential \
@@ -61,12 +61,12 @@ env:
     cmake \
     gettext \
     libayatana-appindicator3-dev \
-    libboost-all-dev \
+    libboost-dev \
     libcrypto++-dev \
     libgd-dev \
     libglib2.0-dev \
     libgnutls28-dev \
-    libmaxminddb-dev \
+    libmediainfo-dev libmaxminddb-dev \
     libreadline-dev \
     libupnp-dev \
     libwxgtk3.2-dev \
@@ -83,7 +83,7 @@ env:
     cryptopp \
     gd \
     gettext \
-    libmaxminddb \
+    libmediainfo libmaxminddb \
     libupnp \
     pkg-config \
     wxwidgets
@@ -99,6 +99,7 @@ env:
     mingw-w64-clang-x86_64-crypto++
     mingw-w64-clang-x86_64-gettext
     mingw-w64-clang-x86_64-libgd
+    mingw-w64-clang-x86_64-libmediainfo
     mingw-w64-clang-x86_64-libmaxminddb
     mingw-w64-clang-x86_64-ngtcp2
     mingw-w64-clang-x86_64-ninja
@@ -141,19 +142,10 @@ env:
   ctest_flags: |-
     --test-dir build \
     --output-on-failure
-  # CredentialsTest and AmuleApiConfigTest run the production 210,000-iteration PBKDF2.
-  # IntegrationFixtureUnitTest also needs room for Python startup and temporary-file I/O
-  # on Windows runners. UnicodeCommandLineIntegrationTest launches three daemon processes,
-  # each with a 15 s watchdog. AmuleApiPasswordInputTest exercises setup and native
-  # terminal input without a daemon. ConnectorConfigPathTest launches multiple offline clients.
-  # Give these tests 60 s; fast unit tests keep their 10 s budget.
-  # Keep the budgets here rather than in TIMEOUT properties, which would also cap distro
-  # builds that run ctest with no limit.
-  ctest_slow_unit_tests: '^(CredentialsTest|AmuleApiConfigTest|IntegrationFixtureUnitTest|UnicodeCommandLineIntegrationTest|AmuleApiPasswordInputTest|ConnectorConfigPathTest-(amulecmd|amuleweb))$'
-  # Integration tests start and restart real processes. Run them separately
-  # on Ubuntu outside the fast unit-test time budget, with 300 s each so a hung daemon
-  # still fails the job. AllSearchIntegrationTest takes about 15 s on the runners.
-  ctest_fast_exclude: '^(NetworkPreferencesIntegrationTest|ConnectorConfigPathTest-(amulecmd|amuleweb)|AmuleApiPasswordInputTest|AmuleApiEcPasswordIntegrationTest|CredentialsTest|AmuleApiConfigTest|IntegrationFixtureUnitTest|UnicodeCommandLineIntegrationTest|AmuleApiRestartIntegrationTest|AllSearchIntegrationTest|AllSearchClientCapabilityTest|SearchParamsRestoreIntegrationTest|ChatCaptchaIntegrationTest|PathDefaultsIntegrationTest|LogfilePathIntegrationTest|KadIndexLifecycleECTest|ShareWatcherMoveIntegrationTest|DisplayRatesIntegrationTest|DownloadDisplayRatesIntegrationTest|DownloadLimitHelloIntegrationTest|UploadRefillIntegrationTest|UploadRefillCompressedIntegrationTest|KnownHistoryIntegrationTest|GlobalSourceRequestIntegrationTest|ServerListSourcesIntegrationTest|ServerListGuiIntegrationTest|ServerListFallbackIntegrationTest|ServerListFallbackApiIntegrationTest|KadDistributionECTest|KadPopulatedDistributionECTest|KadLookupECTest|KadPopulatedLookupECTest|CompletedFileDeleteIntegrationTest|CompletedFileDeleteCapabilityTest|SharedMembershipIntegrationTest)$'
+  # Each test's lane is its CTest label, set next to it in unittests/tests/CMakeLists.txt:
+  # unlabelled tests get 10 s, "slow" 60 s and "integration" 300 s, so a hung daemon still
+  # fails the job. Keep the budgets here rather than in TIMEOUT properties, which would also
+  # cap distro builds that run ctest with no limit.
 
 jobs:
   # Window IDs in muuli_wdr.h and each EC enum in the .abstract files must not repeat a value. Two
@@ -191,11 +183,13 @@ jobs:
           restore-keys: ${{ runner.os }}-${{ matrix.build_type }}-ccache-
       - name: install deps
         id: ubuntu-deps
-        timeout-minutes: 15
+        uses: ./.github/actions/apt-install
+        with:
+          packages: ${{ env.cmake_ubuntu_deps }}
+          # Both build types install the same packages; one save is enough.
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && matrix.build_type == 'Debug' }}
+      - name: generate test locales
         run: |
-          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
-          sudo apt-get update
-          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
           # Exercise grouped numbers and decimal commas in the calculator tests.
           sudo localedef -i en_US -f UTF-8 en_US.UTF-8
           sudo localedef -i it_IT -f UTF-8 it_IT.UTF-8
@@ -230,15 +224,18 @@ jobs:
         run: ccache --show-stats
       - name: run tests
         run: |
-          xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' &&
-          xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 60 -R '${{ env.ctest_slow_unit_tests }}'
+          # One sequential read of the image's cold node binary. Paging it in on first
+          # run takes seconds while the disk is busy after the build (DownloadDeleteTest).
+          cat "$(command -v node)" > /dev/null
+          xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 10 -LE '^(slow|integration|reverify)$' &&
+          xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 60 -L '^slow$'
       - name: run integration tests
-        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '^(NetworkPreferencesIntegration|AmuleApiRestartIntegration|AllSearch(Integration|ClientCapability)|SearchParamsRestoreIntegration|ChatCaptchaIntegration|PathDefaultsIntegration|LogfilePathIntegration|KadIndexLifecycleEC|ShareWatcherMoveIntegration|(Download)?DisplayRatesIntegration|DownloadLimitHelloIntegration|UploadRefill(Compressed)?Integration|KnownHistoryIntegration|GlobalSourceRequestIntegration|ServerListSourcesIntegration|ServerListGuiIntegration|ServerListFallback(Api)?Integration|KadDistributionEC|KadPopulatedDistributionEC|Kad(Populated)?LookupEC|CompletedFileDelete(Integration|Capability)|SharedMembershipIntegration|AmuleApiEcPasswordIntegration)Test$'
+        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -L '^integration$'
       - name: run shared-file reverify integration test
-        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '${{ env.ctest_shared_file_reverify }}'
+        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -L '^reverify$'
       # amuleapi_curl_smoke drives these two against a live daemon rather than
-      # compiling its own copy. Release only: the smoke times SSE windows, and
-      # a Debug daemon makes those flaky.
+      # compiling its own copy, with the media helper amuled finds beside itself.
+      # Release only: the smoke times SSE windows, and a Debug daemon makes those flaky.
       #
       # A tar rather than the two paths directly, because the artifact upload
       # drops the executable bit (packaging.yml chmods every mach-o back after
@@ -255,11 +252,12 @@ jobs:
           mkdir -p "$shlibdeps/debian"
           printf 'Source: amule\n\nPackage: amule\nArchitecture: any\n' > "$shlibdeps/debian/control"
           depends=$(cd "$shlibdeps" && dpkg-shlibdeps -O \
-            "$GITHUB_WORKSPACE/build/src/amuled" "$GITHUB_WORKSPACE/build/src/webapi/amuleapi")
+            "$GITHUB_WORKSPACE/build/src/amuled" "$GITHUB_WORKSPACE/build/src/webapi/amuleapi" \
+            "$GITHUB_WORKSPACE/build/src/amule-media-probe")
           printf '%s\n' "${depends#shlibs:Depends=}" > runtime-deps.txt
           cat runtime-deps.txt
           tar -cf curl-smoke-binaries.tar \
-            build/src/amuled build/src/webapi/amuleapi runtime-deps.txt
+            build/src/amuled build/src/amule-media-probe build/src/webapi/amuleapi runtime-deps.txt
       - uses: actions/upload-artifact@v7
         if: matrix.build_type == 'Release'
         with:
@@ -309,11 +307,11 @@ jobs:
           restore-keys: ${{ runner.os }}-experimental-${{ matrix.build_type }}-ccache-
       - name: install deps
         id: ubuntu-deps
-        timeout-minutes: 15
+        uses: ./.github/actions/apt-install
+        with:
+          packages: ${{ env.cmake_ubuntu_deps }}
+      - name: generate test locales
         run: |
-          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
-          sudo apt-get update
-          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
           # Exercise grouped numbers and decimal commas in the calculator tests.
           sudo localedef -i en_US -f UTF-8 en_US.UTF-8
           sudo localedef -i it_IT -f UTF-8 it_IT.UTF-8
@@ -342,12 +340,15 @@ jobs:
         run: ccache --show-stats
       - name: run tests
         run: |
-          xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' &&
-          xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 60 -R '${{ env.ctest_slow_unit_tests }}'
+          # One sequential read of the image's cold node binary. Paging it in on first
+          # run takes seconds while the disk is busy after the build (DownloadDeleteTest).
+          cat "$(command -v node)" > /dev/null
+          xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 10 -LE '^(slow|integration|reverify)$' &&
+          xvfb-run -a ctest ${{ env.ctest_flags }} --timeout 60 -L '^slow$'
       - name: run integration tests
-        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '^(NetworkPreferencesIntegration|AmuleApiRestartIntegration|AllSearch(Integration|ClientCapability)|SearchParamsRestoreIntegration|ChatCaptchaIntegration|PathDefaultsIntegration|LogfilePathIntegration|KadIndexLifecycleEC|ShareWatcherMoveIntegration|(Download)?DisplayRatesIntegration|DownloadLimitHelloIntegration|UploadRefill(Compressed)?Integration|KnownHistoryIntegration|GlobalSourceRequestIntegration|ServerListSourcesIntegration|ServerListGuiIntegration|ServerListFallback(Api)?Integration|KadDistributionEC|KadPopulatedDistributionEC|Kad(Populated)?LookupEC|CompletedFileDelete(Integration|Capability)|SharedMembershipIntegration|AmuleApiEcPasswordIntegration)Test$'
+        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -L '^integration$'
       - name: run shared-file reverify integration test
-        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -R '${{ env.ctest_shared_file_reverify }}'
+        run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -L '^reverify$'
 
   # Configures with the oldest CMake that CMakeLists.txt declares, so the floor stays
   # true. Configure only: the build itself does not depend on the CMake version.
@@ -356,18 +357,16 @@ jobs:
   cmake_minimum_version:
     name: CMake minimum version (configure only)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       CMAKE_MIN: 3.12.4
       CMAKE_MIN_SHA256: 486edd6710b5250946b4b199406ccbf8f567ef0e23cfe38f7938b8c78a2ffa5f
     steps:
       - uses: actions/checkout@v7
       - name: install deps
-        timeout-minutes: 15
-        run: |
-          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
-          sudo apt-get update
-          sudo apt-get install -y ${{ env.cmake_ubuntu_deps }}
+        uses: ./.github/actions/apt-install
+        with:
+          packages: ${{ env.cmake_ubuntu_deps }}
       - uses: ./.github/actions/ngtcp2
       - name: fetch CMake ${{ env.CMAKE_MIN }}
         run: |
@@ -415,12 +414,16 @@ jobs:
       # The build job derived runtime-deps.txt from these exact binaries, so it
       # stays matched without installing compilers and development headers here.
       # apt-get satisfy takes it as a Depends field, versions included.
-      - name: install runtime deps
+      - name: read runtime deps
+        id: runtime-deps
         run: |
-          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
-          sudo apt-get update
           test -s runtime-deps.txt
-          sudo apt-get satisfy -y "$(cat runtime-deps.txt)" jq
+          echo "depends=$(cat runtime-deps.txt)" >> "$GITHUB_OUTPUT"
+      - name: install runtime deps
+        uses: ./.github/actions/apt-install
+        with:
+          packages: jq
+          satisfy: ${{ steps.runtime-deps.outputs.depends }}
       # Every peer-to-peer switch is off, so the daemon joins no ed2k server,
       # bootstraps no Kad and opens no UPnP mapping. It still makes the two
       # ordinary startup fetches over HTTPS -- the release check and the GeoIP
@@ -433,6 +436,11 @@ jobs:
           set -euo pipefail
           CONF="$RUNNER_TEMP/amuled-conf"
           mkdir -p "$CONF/Incoming" "$CONF/Temp"
+          # Opt a scratch root into the allowed-remote roots so the curl smoke exercises the
+          # positive folder-write assertions (phases 18 and 31 use paths under /tmp), not only
+          # the empty-roots refusals. Without this the daemon refuses every remote folder change
+          # and those assertions are skipped.
+          printf '%s\n' /tmp > "$CONF/allowed-remote-dirs.dat"
           # amuled stores the EC password as its md5. Derive it from the
           # plaintext run-all.sh expects so the two cannot drift apart.
           EC_HASH=$(printf '%s' amule | md5sum | cut -d' ' -f1)
@@ -560,7 +568,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build_type: [Debug, Release]
+        # macOS runners have a lower concurrency limit than Linux ones. PRs build Debug only,
+        # which also runs the asserts; master builds both.
+        build_type: ${{ github.event_name == 'pull_request' && fromJSON('["Debug"]') || fromJSON('["Debug", "Release"]') }}
     steps:
       - uses: actions/checkout@v7
       - name: restore ccache
@@ -591,6 +601,13 @@ jobs:
             ${{ env.cmake_macos_config_flags }}
       - name: zero ccache stats
         run: ccache --zero-stats
+      # Exercise the native API and command-routing changes before spending
+      # the rest of the job compiling unrelated application/test targets.
+      - name: native tray and artwork regression tests
+        run: |
+          cmake --build build --target NativeTrayIconMacTest IconArtworkTest --parallel 3
+          ctest --test-dir build --output-on-failure --timeout 30 --no-tests=error \
+            -R '^(NativeTrayIconMacTest|IconArtworkTest)$'
       - name: make
         run: cmake --build build
       - name: save ccache
@@ -604,8 +621,8 @@ jobs:
         run: ccache --show-stats
       - name: run tests
         run: |
-          ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' &&
-          ctest ${{ env.ctest_flags }} --timeout 60 -R '${{ env.ctest_slow_unit_tests }}'
+          ctest ${{ env.ctest_flags }} --timeout 10 -LE '^(slow|integration|reverify)$' &&
+          ctest ${{ env.ctest_flags }} --timeout 60 -L '^slow$'
 
   build_cmake_windows_mingw_w64:
     name: Build CMake mingw-w64 (${{ matrix.build_type }})
@@ -711,8 +728,8 @@ jobs:
           # IconArtworkTest's watchdog writes a minidump here if the test hangs.
           mkdir -p build/hang-dumps
           export AMULE_ICON_TEST_DUMP_DIR="$(cygpath -w "$PWD/build/hang-dumps")"
-          ctest ${{ env.ctest_flags }} --timeout 10 -E '${{ env.ctest_fast_exclude }}|${{ env.ctest_shared_file_reverify }}' &&
-          ctest ${{ env.ctest_flags }} --timeout 60 -R '${{ env.ctest_slow_unit_tests }}'
+          ctest ${{ env.ctest_flags }} --timeout 10 -LE '^(slow|integration|reverify)$' &&
+          ctest ${{ env.ctest_flags }} --timeout 60 -L '^slow$'
       # The test binary is needed to symbolize the dump.
       - uses: actions/upload-artifact@v7
         if: failure() && hashFiles('build/hang-dumps/*.dmp') != ''

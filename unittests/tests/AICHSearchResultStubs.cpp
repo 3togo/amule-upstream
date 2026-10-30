@@ -68,20 +68,16 @@ void CPartFile::RequestAICHRecovery(uint16)
 	FAIL_M("AICH consensus test unexpectedly requested recovery");
 }
 
-#ifdef __DEBUG__
 wxString CUpDownClient::GetClientFullInfo()
 {
 	FAIL_M("AICH consensus test unexpectedly inspected a recovery client");
 	return wxString();
 }
 
-#endif
-
 // Search model tests do not query live queues, clients, or Kad notes. UI
 // notifications are intentionally ignored by this headless fixture.
 #include <KnownFileList.h>
 #include <HashListFile.h>
-#include <GuiEvents.h>
 
 std::atomic<uint32> CECID::s_IDCounter{ 0 };
 bool CPreferences::s_filterLanIP = false;
@@ -126,8 +122,16 @@ bool CHashListFile::Contains(const CMD4Hash &) const
 	return false;
 }
 
+// Declared here, not through GuiEvents.h: its inline CMuleGUIEvent needs MULE_EVT_NOTIFY, which
+// this test does not link, and LTO keeps that reference alive.
 namespace MuleNotify
 {
+class CMuleNotiferBase;
+void SearchFileBeingDestroyed(CSearchFile *);
+void Search_Add_Result(CSearchFile *);
+void Search_Update_Sources(CSearchFile *);
+void HandleNotification(const CMuleNotiferBase &);
+
 void SearchFileBeingDestroyed(CSearchFile *) {}
 void Search_Add_Result(CSearchFile *) {}
 void Search_Update_Sources(CSearchFile *) {}

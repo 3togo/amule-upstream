@@ -1,7 +1,6 @@
 # Flatpak manifest TEMPLATE for aMule.
 #
-# DO NOT EDIT VERSIONS HERE. Pinned values come from
-# packaging/linux/versions.env, rendered into this file by
+# Pinned values come from packaging/linux/versions.env, rendered into this file by
 # packaging/linux/build.sh via envsubst. Hand-editing this template
 # is fine for structural changes (modules, finish-args, build steps),
 # but version pins belong in versions.env.
@@ -97,6 +96,7 @@ modules:
     build-commands:
       - make -j2 shared
       - make install PREFIX=/app
+      - install -Dm644 -t /app/share/licenses/cryptopp License.txt
     # Upstream's cryptopp890.zip has filename-case collisions that
     # break flatpak-builder's extractor ("File already exists" on
     # TestVectors/Readme.txt). Fetch via git instead — same content,
@@ -127,6 +127,8 @@ modules:
       - -Dreuseaddr=ON
       - -Dipv6=ON
       - -DCMAKE_INSTALL_LIBDIR=lib
+    post-install:
+      - install -Dm644 -t /app/share/licenses/libupnp COPYING
     sources:
       - type: archive
         url: ${LIBUPNP_TARBALL_URL}
@@ -143,6 +145,7 @@ modules:
     build-commands:
       - ./bootstrap.sh --prefix=/app --with-libraries=system
       - ./b2 -j2 install --prefix=/app
+      - install -Dm644 -t /app/share/licenses/boost LICENSE_1_0.txt
     sources:
       - type: archive
         url: ${BOOST_TARBALL_URL}
@@ -158,6 +161,12 @@ modules:
       - --without-webp
       - --without-xpm
       - --without-fontconfig
+      # The runtime has libheif and libavif, which configure would pick up;
+      # cas only reads and writes PNG and JPEG.
+      - --without-heif
+      - --without-avif
+    post-install:
+      - install -Dm644 -t /app/share/licenses/libgd COPYING
     sources:
       - type: archive
         url: ${LIBGD_TARBALL_URL}
@@ -224,6 +233,8 @@ modules:
     make-args:
       - 'CFLAGS=-Wall -O2 -g -fPIC -Wno-error'
       - 'CXXFLAGS=-Wall -O2 -g -fPIC -Wno-error'
+    post-install:
+      - install -Dm644 -t /app/share/licenses/libdbusmenu COPYING*
     sources:
       - type: archive
         # libdbusmenu 16.04.0 is only on launchpad.net — Debian/Ubuntu
@@ -248,6 +259,8 @@ modules:
     config-opts:
       - -DENABLE_TESTS=OFF
       - -DCMAKE_INSTALL_LIBDIR=lib
+    post-install:
+      - install -Dm644 -t /app/share/licenses/ayatana-ido COPYING*
     sources:
       - type: archive
         url: https://github.com/AyatanaIndicators/ayatana-ido/archive/refs/tags/0.10.4.tar.gz
@@ -258,6 +271,8 @@ modules:
     config-opts:
       - -DENABLE_TESTS=OFF
       - -DCMAKE_INSTALL_LIBDIR=lib
+    post-install:
+      - install -Dm644 -t /app/share/licenses/libayatana-indicator COPYING*
     sources:
       - type: archive
         url: https://github.com/AyatanaIndicators/libayatana-indicator/archive/refs/tags/0.9.4.tar.gz
@@ -278,6 +293,8 @@ modules:
       # needed for our runtime use of the lib. Note: spelling is
       # ENABLE_GTKDOC (one word), not ENABLE_GTK_DOC.
       - -DENABLE_GTKDOC=OFF
+    post-install:
+      - install -Dm644 -t /app/share/licenses/libayatana-appindicator COPYING*
     sources:
       - type: archive
         # 0.6.0, not 0.5.94: 0.6.0 is the first release that answers the
@@ -298,6 +315,8 @@ modules:
     config-opts:
       - --disable-static
       - --disable-tests
+    post-install:
+      - install -Dm644 -t /app/share/licenses/libmaxminddb LICENSE NOTICE
     sources:
       - type: archive
         url: https://github.com/maxmind/libmaxminddb/releases/download/1.13.3/libmaxminddb-1.13.3.tar.gz
@@ -320,10 +339,32 @@ modules:
       - --without-libmspack
       - --without-opengl
       - --with-libcurl
+    post-install:
+      - install -Dm644 -t /app/share/licenses/wxwidgets docs/licence.txt docs/licendoc.txt docs/lgpl.txt docs/gpl.txt docs/preamble.txt
     sources:
       - type: archive
         url: ${WX_TARBALL_URL}
         sha256: ${WX_SHA256}
+
+  - name: media-zenlib
+    buildsystem: cmake-ninja
+    subdir: Project/CMake
+    config-opts: [-DCMAKE_CXX_STANDARD=17, -DBUILD_SHARED_LIBS=ON, -DCMAKE_INSTALL_LIBDIR=lib, -DCMAKE_POLICY_VERSION_MINIMUM=3.10]
+    sources:
+      - type: archive
+        url: ${ZENLIB_TARBALL_URL}
+        dest-filename: ZenLib-${ZENLIB_VERSION}.tar.gz
+        sha256: ${ZENLIB_SHA256}
+
+  - name: media-mediainfo
+    buildsystem: cmake-ninja
+    subdir: Project/CMake
+    config-opts: [-DCMAKE_CXX_STANDARD=17, -DBUILD_SHARED_LIBS=ON, -DBUILD_ZENLIB=OFF, -DBUILD_ZLIB=OFF, -DCMAKE_DISABLE_FIND_PACKAGE_TinyXML=ON, -DCMAKE_DISABLE_FIND_PACKAGE_CURL=ON, '-DCMAKE_CXX_FLAGS=-DMEDIAINFO_LIBCURL_NO -DMEDIAINFO_LIBMMS_NO']
+    sources:
+      - type: archive
+        url: ${MEDIAINFO_TARBALL_URL}
+        dest-filename: MediaInfoLib-${MEDIAINFO_VERSION}.tar.gz
+        sha256: ${MEDIAINFO_SHA256}
 
   - name: amule
     buildsystem: cmake-ninja
@@ -357,17 +398,13 @@ modules:
       - -DENABLE_NLS=YES
       - -DENABLE_UPNP=YES
       - -DENABLE_IP2COUNTRY=YES
-    # AMULE_REVISION (in versions.env) controls what gets built:
-    #   - "master" or another branch -> branch: <name> at flatpak-builder time
-    #   - a release tag like "2.3.3" -> branch: <tag-name> works because flatpak's
-    #     git fetcher resolves any ref. For Flathub release builds this can be
-    #     swapped to `tag: ${AMULE_REVISION}` if stricter pinning is preferred.
-    # flatpak-external-data-checker uses x-checker-data to auto-bump when new
-    # release tags are pushed upstream.
+    # Standalone rendering follows AMULE_REVISION from versions.env upstream.
+    # build.sh flatpak overrides these two fields with the local repository URL
+    # and exact HEAD commit, so CI packages the revision being tested.
     sources:
       - type: git
-        url: https://github.com/amule-org/amule.git
-        branch: ${AMULE_REVISION}
+        url: ${AMULE_SOURCE_URL}
+        ${AMULE_SOURCE_REF}
         # Default flatpak-builder fetch is a shallow clone, which strips
         # all tags. Without tags `git describe --tags` (called from
         # cmake/git-rev.cmake at configure time) returns empty, leaving

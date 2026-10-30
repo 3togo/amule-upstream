@@ -51,6 +51,7 @@
 #include "Logger.h"
 #include <common/Format.h>   // Needed for CFormat
 #include <common/TextFile.h> // Needed for CTextFile
+#include <wx/filename.h>     // Needed for wxFileName::IsAbsolute in LoadAllowedRemoteDirRoots
 #include <common/ClientVersion.h>
 
 #include "UserEvents.h"
@@ -73,6 +74,7 @@
 #include "UserHash.h"
 #include "PlatformSpecific.h" // Needed for PlatformSpecific::GetMaxConnections()
 #include "SharedFileList.h"   // Needed for theApp->sharedfiles->Reload()
+#include "MediaProbe.h"       // Needed for MediaProbe::DetectedPath
 #endif
 
 // Needed for IP filtering prefs
@@ -250,6 +252,9 @@ bool CPreferences::s_FilterSomeMessages;
 bool CPreferences::s_ShowMessagesInLog;
 bool CPreferences::s_IsAdvancedSpamfilterEnabled;
 bool CPreferences::s_IsChatCaptchaEnabled;
+#ifdef CLIENT_GUI
+bool CPreferences::s_chatSpamFilterSupported = false;
+#endif
 bool CPreferences::s_ShareHiddenFiles;
 bool CPreferences::s_AutoRescanSharedDirs;
 bool CPreferences::s_FollowSymlinksInShares;
@@ -262,9 +267,19 @@ bool CPreferences::s_NewVersionCheck;
 // prefs-apply.
 bool CPreferences::s_versionCheckAvailable = true;
 bool CPreferences::s_MediaMetadataEnabled;
-wxString CPreferences::s_MediaMetadataFFProbePath;
+bool CPreferences::s_MediaMetadataAvailable = true;
+
+bool CPreferences::IsMediaMetadataAvailable()
+{
+#ifdef CLIENT_GUI
+	return s_MediaMetadataAvailable;
+#else
+	return !MediaProbe::DetectedPath().empty();
+#endif
+}
 bool CPreferences::s_ConnectToKad;
 bool CPreferences::s_ConnectToED2K;
+bool CPreferences::s_ED2KAcceleratedPublication;
 bool CPreferences::s_KadProtocol10;
 bool CPreferences::s_KadStrictAichPublishers;
 bool CPreferences::s_KadProtocol10Supported = true;
@@ -275,6 +290,9 @@ bool CPreferences::s_bCryptLayerRequested;
 bool CPreferences::s_IsClientCryptLayerRequired;
 uint32 CPreferences::s_dwKadUDPKey;
 uint8 CPreferences::s_byCryptTCPPaddingLength;
+#ifdef AMULE_QUIC_TRANSPORT
+bool CPreferences::s_QuicNatTEnabled;
+#endif
 #ifdef ENABLE_NATT_SERVER_COORDINATION
 bool CPreferences::s_LugdunumNatCallbackEnabled;
 bool CPreferences::s_LowIdHolePunchEnabled;
@@ -1084,6 +1102,8 @@ CPreferences::CPreferences()
 	// Not ReloadSharedFolders(): expanding recursive roots walks their whole trees before
 	// anything is on screen, and the startup scan does it again anyway.
 	LoadSavedSharedFolders();
+	// Local-only roots that confine remote folder changes; empty unless the operator configured it.
+	LoadAllowedRemoteDirRoots();
 #else
 	// GUI-local only (see LoadPathMappings' declaration): loaded here, alongside the core's
 	// equivalent local-config reads above, rather than through LoadRemote()'s EC round-trip
@@ -1122,12 +1142,10 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	/** Misc */
 	NewCfgItem(IDC_QUEUESIZE, (MkCfg_Int("/eMule/QueueSizePref", s_iQueueSize, 50)));
 
-#ifdef __DEBUG__
 	/** Debugging */
 	NewCfgItem(ID_VERBOSEDEBUG, (new Cfg_Bool("/eMule/VerboseDebug", s_bVerbose, false)));
 	NewCfgItem(ID_VERBOSEDEBUGLOGFILE,
 		(new Cfg_Bool("/eMule/VerboseDebugLogfile", s_bVerboseLogfile, false)));
-#endif
 
 	/** Connection settings */
 	NewCfgItem(IDC_MAXUP, (MkCfg_Int("/eMule/MaxUpload", s_maxupload, 0)));
@@ -1379,11 +1397,9 @@ void CPreferences::BuildItemList(const wxString &appdir)
 		IDC_MSGFILTER_WORD, (new Cfg_Bool("/eMule/FilterWordMessages", s_FilterSomeMessages, false)));
 	NewCfgItem(IDC_MSGWORD, (new Cfg_Str("/eMule/MessageFilter", s_MessageFilterString, "")));
 	NewCfgItem(IDC_MSGLOG, (new Cfg_Bool("/eMule/ShowMessagesInLog", s_ShowMessagesInLog, true)));
-	// Todo NewCfgItem(IDC_MSGADVSPAM, (new Cfg_Bool("/eMule/AdvancedSpamFilter",
-	// s_IsAdvancedSpamfilterEnabled, true ))); Todo NewCfgItem(IDC_MSGCAPTCHA, (new
-	// Cfg_Bool("/eMule/MessageUseCaptchas", s_IsChatCaptchaEnabled, true )));
-	s_MiscList.push_back(new Cfg_Bool("/eMule/AdvancedSpamFilter", s_IsAdvancedSpamfilterEnabled, true));
-	s_MiscList.push_back(new Cfg_Bool("/eMule/MessageUseCaptchas", s_IsChatCaptchaEnabled, true));
+	NewCfgItem(IDC_MSGADVSPAM,
+		(new Cfg_Bool("/eMule/AdvancedSpamFilter", s_IsAdvancedSpamfilterEnabled, true)));
+	NewCfgItem(IDC_MSGCAPTCHA, (new Cfg_Bool("/eMule/MessageUseCaptchas", s_IsChatCaptchaEnabled, true)));
 	s_MiscList.push_back(
 		new Cfg_Bool("/GUI/AppImageIntegrationDeclined", s_appimageIntegrationDeclined, false));
 	s_MiscList.push_back(new Cfg_Bool("/eMule/FirstRunWizardDone", s_firstRunWizardDone, false));
@@ -1417,21 +1433,13 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	 * Shared-file exclusion by name. A '|'-separated list of wildcard patterns, or a
 	 * single regex when ExcludeSharePatternsUseRegex is on.
 	 *
-	 * The default excludes OS-generated metadata junk that no peer wants to download.
-	 * Matching is case-insensitive. Configs missing the key pick this up on load (not
-	 * just fresh installs) -- intentional for this junk, which should never have been
-	 * shared: macOS .DS_Store, ._* (AppleDouble), .Spotlight-V100, .Trashes, .fseventsd,
-	 * .DocumentRevisions-V100, .TemporaryItems, .apdisk; Windows Thumbs.db, ehthumbs.db,
-	 * desktop.ini; Linux .directory (KDE folder metadata). Deliberately NOT included:
-	 * broad download-temp globs (*.part, *.tmp, *.!ut, *INCOMPLETE*) -- those can match
-	 * real user files, so they are left for the user to add.
+	 * Missing keys use the OS-metadata and office-document defaults in ShareExclude.h.
+	 * A saved list is kept, so profiles with a saved value do not gain the office globs.
 	 */
 	NewCfgItem(IDC_EXCLUDE_SHARE_PATTERNS,
 		(new Cfg_Str("/eMule/ExcludeSharePatterns",
 			s_ExcludeSharePatterns,
-			".DS_Store|._*|.Spotlight-V100|.Trashes|.fseventsd|"
-			".DocumentRevisions-V100|.TemporaryItems|.apdisk|"
-			"Thumbs.db|ehthumbs.db|desktop.ini|.directory")));
+			ShareExclude::kDefaultPatterns)));
 	NewCfgItem(IDC_EXCLUDE_SHARE_REGEX,
 		(new Cfg_Bool("/eMule/ExcludeSharePatternsUseRegex", s_ExcludeSharePatternsUseRegex, false)));
 
@@ -1461,9 +1469,9 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	 * benefits other people is one almost nobody enables. It is also undiscoverable on a
 	 * headless amuled + amuleapi deployment, where there is no dialog to stumble across.
 	 *
-	 * Enabling it does not require ffprobe to exist: detection is memoised for the life
-	 * of the process, and with nothing found the worker drops every job after a single
-	 * log line.
+	 * Enabling it does not require the helper to exist: detection is memoised for the life
+	 * of the process, and with nothing found the scheduler skips probe jobs after a
+	 * single log line.
 	 *
 	 * No migration accompanies this. Cfg_Bool applies a default only when the key is
 	 * ABSENT, and the key does not exist in 3.0.0 or 3.0.1 -- so every config written by
@@ -1473,8 +1481,6 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	 */
 	NewCfgItem(IDC_MEDIAMETA_ENABLED,
 		(new Cfg_Bool("/MediaMetadata/Enabled", s_MediaMetadataEnabled, true)));
-	NewCfgItem(IDC_MEDIAMETA_FFPROBEPATH,
-		(new Cfg_Str("/MediaMetadata/FFProbePath", s_MediaMetadataFFProbePath, "")));
 
 	/** Obfuscation */
 	NewCfgItem(IDC_SUPPORT_PO,
@@ -1491,6 +1497,12 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	s_MiscList.push_back(MkCfg_Int("/Obfuscation/CryptoKadUDPKey", s_dwKadUDPKey, GetRandomUint32()));
 #endif
 
+#ifdef AMULE_QUIC_TRANSPORT
+	// Runtime opt-in for QUIC NAT traversal. Keep this independent from the
+	// server-coordinated NAT settings so QUIC-only builds can opt in explicitly.
+	s_MiscList.push_back(new Cfg_Bool("/eMule/QuicNatT", s_QuicNatTEnabled, false));
+#endif
+
 #ifdef ENABLE_NATT_SERVER_COORDINATION
 	// Runtime opt-in for Lugdunum's NAT callback: off by default, so turning on
 	// ENABLE_NATT_SERVER_COORDINATION (e.g. via ENABLE_ALL_EXPERIMENTAL in CI/tester builds) does
@@ -1500,6 +1512,9 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	// the Lugdunum setting -- a server speaks one protocol or the other, never both.
 	s_MiscList.push_back(new Cfg_Bool("/eMule/LowIdHolePunch", s_LowIdHolePunchEnabled, false));
 #endif
+
+	NewCfgItem(IDC_ED2K_ACCELERATED_PUBLICATION,
+		(new Cfg_Bool("/eMule/ED2KAcceleratedPublication", s_ED2KAcceleratedPublication, true)));
 
 	/** Power management */
 	NewCfgItem(IDC_PREVENT_SLEEP,
@@ -1612,6 +1627,15 @@ void CPreferences::EraseItemList()
 
 void CPreferences::LoadAllItems(wxConfigBase *cfg)
 {
+	if (cfg->HasEntry("/MediaMetadata/FFProbePath")) {
+		const wxString oldPath = cfg->Read("/MediaMetadata/FFProbePath", wxEmptyString);
+		if (!oldPath.empty()) {
+			AddLogLineN(_("Media metadata: FFProbePath is obsolete; aMule now uses its bundled "
+				      "MediaInfo parser. Removing the old setting."));
+		}
+		cfg->DeleteEntry("/MediaMetadata/FFProbePath");
+		cfg->Flush();
+	}
 #ifndef CLIENT_GUI
 	// Preserve values from old config. The global config object may not be set yet
 	// when BuildItemList() is called, so we need to provide defaults later - here.
@@ -1682,7 +1706,6 @@ void CPreferences::LoadAllItems(wxConfigBase *cfg)
 		cfg->DeleteEntry("/SkinGUIOptions/UseSkinFiles");
 	}
 
-#ifdef __DEBUG__
 	// Load debug-categories
 	int count = theLogger.GetDebugCategoryCount();
 
@@ -1694,7 +1717,9 @@ void CPreferences::LoadAllItems(wxConfigBase *cfg)
 
 		theLogger.SetEnabled(cat.GetType(), enabled);
 	}
-#endif
+
+	SetVerbose(s_bVerbose);
+	SetVerboseLogfile(s_bVerboseLogfile);
 
 	// Now do some post-processing / sanity checking on the values we just loaded
 #ifndef CLIENT_GUI
@@ -1757,8 +1782,7 @@ void CPreferences::SaveAllItems(wxConfigBase *cfg)
 	for (; it_b != s_MiscList.end(); ++it_b)
 		(*it_b)->SaveToFile(cfg);
 
-// Save debug-categories
-#ifdef __DEBUG__
+	// Save debug-categories
 	int count = theLogger.GetDebugCategoryCount();
 
 	for (int i = 0; i < count; i++) {
@@ -1766,7 +1790,18 @@ void CPreferences::SaveAllItems(wxConfigBase *cfg)
 
 		cfg->Write("/Debug/Cat_" + cat.GetName(), cat.IsEnabled());
 	}
-#endif
+}
+
+void CPreferences::SetVerbose(bool val)
+{
+	s_bVerbose = val;
+	theLogger.SetVerbose(val);
+}
+
+void CPreferences::SetVerboseLogfile(bool val)
+{
+	s_bVerboseLogfile = val;
+	theLogger.SetVerboseLogfile(val);
 }
 
 void CPreferences::SetMaxUpload(uint32 in)
@@ -2536,6 +2571,48 @@ void LoadSharedFolderIntents(const wxString &configDir,
 }
 
 } // namespace
+
+void CPreferences::LoadAllowedRemoteDirRoots()
+{
+	// One path per line, like shareddir.dat -- a path can contain any delimiter, so no CSV. Absent
+	// file -> empty list -> every remote folder change refused.
+	LoadDirListFile(GetAllowedRemoteDirsFile(), allowed_remote_dir_roots);
+
+	// A root must be an absolute path: a relative one resolves against the daemon's working
+	// directory, so it would name different places over time and could be escaped. Drop and log
+	// any relative line rather than silently honouring it.
+	PathList absolute;
+	for (const CPath &root : allowed_remote_dir_roots) {
+		if (root.IsOk() && wxFileName(root.GetRaw()).IsAbsolute()) {
+			absolute.push_back(root);
+		} else {
+			AddLogLineC(CFormat(_("Ignoring a relative path in allowed-remote-dirs.dat "
+					      "(only absolute paths are accepted): %s")) %
+				    root.GetPrintable());
+		}
+	}
+	allowed_remote_dir_roots.swap(absolute);
+}
+
+void CPreferences::SaveAllowedRemoteDirRoots()
+{
+	CTextFile f;
+	if (f.Open(GetAllowedRemoteDirsFile(), CTextFile::write)) {
+		for (const CPath &root : allowed_remote_dir_roots) {
+			f.WriteLine(root.GetRaw(), wxConvUTF8);
+		}
+	}
+}
+
+bool CPreferences::IsRemoteDirChangeAllowed(const CPath &dir) const
+{
+	for (const CPath &root : allowed_remote_dir_roots) {
+		if (dir.IsContainedIn(root)) {
+			return true;
+		}
+	}
+	return false;
+}
 
 void CPreferences::ReloadSharedFolders()
 {

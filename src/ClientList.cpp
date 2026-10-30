@@ -1075,6 +1075,15 @@ CClientList::ChatSendResult CClientList::SendChatMessage(
 	return client->SendChatMessage(message) ? ChatSendResult::Sent : ChatSendResult::Queued;
 }
 
+void CClientList::CloseChatSession(const CChatPeer &peer)
+{
+	if (theApp->chatsessions) {
+		theApp->chatsessions->CloseSession(peer);
+	}
+	SetChatState(peer, MS_NONE);
+	Notify_Chat_SessionRemoved(peer);
+}
+
 void CClientList::SetChatState(const CChatPeer &peer, uint8 state)
 {
 	CUpDownClient *client = FindChatClient(peer);
@@ -1299,8 +1308,10 @@ void CClientList::CleanUpClientList()
 #endif
 			}
 		}
+#ifdef __DEBUG__
 		AddDebugLogLineN(logClient,
 			CFormat("Cleaned ClientList, removed %i not used known clients") % cDeleted);
+#endif
 	}
 }
 

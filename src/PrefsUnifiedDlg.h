@@ -144,22 +144,6 @@ protected:
 	//! daemon's path, nothing here to browse to), but the local side is a real folder on this
 	//! machine.
 	void OnPathMappingBrowse(wxCommandEvent &evt);
-	//! Re-flows the explanatory paragraph above the path-mapping list on resize. Bound on the
-	//! PAGE, not on the paragraph: wxStaticText::SetLabel() resizes the control to fit its
-	//! label, so a handler on the paragraph that rewrites the paragraph feeds itself (stack
-	//! exhaustion inside SetLabel). The page's width is set by the dialog and unmoved by
-	//! anything the label does.
-	void OnPathMappingPageResize(wxSizeEvent &evt);
-	//! Wraps that paragraph to the page's current client width.
-	void WrapPathMappingHint();
-
-	//! The paragraph with no line breaks in it. wxStaticText::Wrap() only ever inserts breaks
-	//! and treats any newline already there as hard, so re-flowing to a WIDER page has to start
-	//! from unwrapped text.
-	wxString m_pathMappingHintText;
-	//! Width last wrapped to, so a resize that leaves the width alone (a
-	//! height-only change, say) does no work.
-	int m_pathMappingHintWrapWidth;
 
 public:
 	//! Repaint the editor when a GET_SHARED_DIRS reply lands while the dialog is open. A no-op
@@ -168,6 +152,19 @@ public:
 	static void RefreshSharedDirsIfOpen();
 
 private:
+#endif
+
+private:
+	//! Fill the allowed-remote-roots list widget from glob_prefs. Read-only on the remote GUI
+	//! (the daemon's reported roots, for display); the editable source on monolithic amule. The
+	//! list widget exists in only one of the two builds, so this no-ops when it is absent.
+	void PopulateAllowedRootsList();
+#ifndef CLIENT_GUI
+	//! Copy the list widget's rows back into glob_prefs' allowed roots (monolithic only).
+	void HarvestAllowedRootsList();
+	void OnAllowedRootAdd(wxCommandEvent &evt);
+	void OnAllowedRootRemove(wxCommandEvent &evt);
+	void OnAllowedRootBrowse(wxCommandEvent &evt);
 #endif
 
 public:
@@ -247,7 +244,6 @@ private:
 	void OnButtonExcludePreview(wxCommandEvent &event);
 #endif
 	void OnButtonEditAddr(wxCommandEvent &event);
-	void OnButtonMediaMetaDetect(wxCommandEvent &event);
 	void OnButtonTweaksReset(wxCommandEvent &event);
 	void OnButtonColorChange(wxCommandEvent &event);
 	void OnButtonIPFilterReload(wxCommandEvent &event);

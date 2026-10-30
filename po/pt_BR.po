@@ -16,7 +16,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-19 09:22+0000\n"
+"PO-Revision-Date: 2026-10-29 21:57+0000\n"
 "Last-Translator: Marcelo Jimenez <mroberto@users.sourceforge.com>\n"
 "Language-Team: Português (Brasileiro) <pt@li.org>\n"
 "Language: pt_BR\n"
@@ -202,6 +202,10 @@ msgstr "Reiniciar agora"
 #: src/AppImageIntegration.cpp
 msgid "Later"
 msgstr "Mais tarde"
+
+#: src/GuiEvents.cpp src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr "O download selecionado mudou. Atualize e tente novamente."
 
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
@@ -1054,11 +1058,11 @@ msgstr "Up: %.1f%s | Down: %.1f%s"
 
 #: src/amuleDlg.cpp
 msgid "Transfer speeds are reported by the daemon. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
-msgstr ""
+msgstr "Velocidades de transferências são relatadas pelo daemon. O upload total inclui controle de trafego; as velocidade de controle por pares incluem apenas pastas de arquivos. Valores em parênteses indicam sobrecarga de protocolo em KiB/s."
 
 #: src/amuleDlg.cpp
 msgid "Live speeds are averaged over the last second. Total upload includes control traffic; peer upload speeds include file packets only. Values in parentheses show protocol overhead in KiB/s."
-msgstr ""
+msgstr "As velocidades em tempo real são médias do último segundo. O upload total inclui o tráfego de controle; as velocidades de upload dos clientes incluem apenas pacotes de arquivos. Os valores entre parênteses mostram o overhead do protocolo em KiB/s."
 
 #: src/amuleDlg.cpp
 #, c-format
@@ -1291,6 +1295,15 @@ msgstr "*** CAPTCHA incorreto; não restam tentativas."
 msgid "All"
 msgstr "Tudo"
 
+#: src/amule-remote-gui.cpp src/muuli_wdr.cpp
+msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
+msgstr "Para permitir uma pasta, adicione-a ao allowed-remote-dirs.dat na pasta de configuração do daemon, um caminho absoluto por linha, e depois reinicie o daemon."
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
+msgstr "O daemon recusou estas pastas porque estão fora das pastas que ele permite (configuradas no daemon):%s"
+
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
 msgstr "O daemon não conseguiu aplicar as alterações das portas de conexão."
@@ -1298,6 +1311,10 @@ msgstr "O daemon não conseguiu aplicar as alterações das portas de conexão."
 #: src/amule-remote-gui.cpp
 msgid "not readable"
 msgstr "não é possível ler"
+
+#: src/amule-remote-gui.cpp
+msgid "outside the folders the daemon allows (configured on the daemon)"
+msgstr "fora das pastas que o daemon permite (configuradas no daemon)"
 
 #: src/amule-remote-gui.cpp
 msgid "not found"
@@ -1325,6 +1342,15 @@ msgstr "Não foi possível excluir a categoria: %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Não foi possível criar o diretório '%s' para a categoria '%s'; mantendo o diretório '%s'."
+
+#: src/amule-remote-gui.cpp
+msgid "the daemon refused the request"
+msgstr "o daemon recusou a solicitação"
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused the category: %s"
+msgstr "O daemon recusou a categoria: %s"
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
 msgid "Invalid URL"
@@ -1834,6 +1860,14 @@ msgstr "Usuário %s (%u) negou o acesso a lista de arquivos compartilhados"
 msgid "File Comments"
 msgstr "Comentários do arquivo"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Adicionar Comentário/Avaliação"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Editar Comentário/Avaliação"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Nome do usuário"
@@ -2331,25 +2365,38 @@ msgstr[1] "Não foi possível adicionar %u links (veja o log para detalhes)."
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Link eD2k inválido! ERRO: %s"
 
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
+msgstr "Solicitação remota para definir o modelo web recusada: o valor deve ser um nome de modelo simples, não um caminho."
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
+msgstr "Solicitação remota para alterar a pasta da assinatura online recusada: ela só pode ser definida na configuração do próprio daemon."
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
+msgstr "Solicitação remota para alterar a opção de seguir links simbólicos nas pastas compartilhadas recusada: ela só pode ser definida na configuração do próprio daemon."
+
 #: src/EditServerListDlg.cpp
-#, fuzzy
 msgid "Edit server list sources"
-msgstr "Editar lista de servidores"
+msgstr "Editar fontes da lista de servidores"
 
 #: src/EditServerListDlg.cpp
 msgid ""
 "Enter one server.met URL per line.\n"
 "Saving replaces the source list and removes comment lines."
 msgstr ""
+"Informe uma URL de server.met por linha.\n"
+"Salvar substitui a lista de fontes e remove as linhas de comentário."
 
 #: src/EditServerListDlg.cpp src/ExternalConn.cpp
 #, c-format
 msgid "Could not save server list sources to %s. Check the URLs and file permissions."
-msgstr ""
+msgstr "Não foi possível salvar as fontes da lista de servidores em %s. Verifique as URLs e as permissões de arquivo."
 
 #: src/EditServerListDlg.cpp
 msgid "addresses.dat in the daemon configuration directory"
-msgstr ""
+msgstr "addresses.dat no diretório de configuração do daemon"
 
 #: src/ExternalConn.cpp
 msgid "Client sent packet after authentication failed."
@@ -2362,6 +2409,11 @@ msgstr "Conexão externa encerrada."
 #: src/ExternalConn.cpp
 msgid "External connections disabled due to empty password!"
 msgstr "Conexões externas desativadas por não ter sido definida uma senha!"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Remote clients cannot change folders: no folder is listed in %s"
+msgstr "Clientes remotos não podem alterar pastas: nenhuma pasta está listada em %s"
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
@@ -2467,8 +2519,8 @@ msgstr "Hash do arquivo não encontrado: %s"
 
 #: src/ExternalConn.cpp
 #, c-format
-msgid "Cannot cancel a finished download: %s"
-msgstr "Não é possível cancelar um download concluído: %s"
+msgid "Cannot cancel a hashing or finished download: %s"
+msgstr "Não é possível cancelar um download em cálculo de hash ou concluído: %s"
 
 #: src/ExternalConn.cpp
 msgid "The selected download has changed or is completing. Refresh and try again."
@@ -2592,6 +2644,14 @@ msgid "Could not save the amuleapi password: %s"
 msgstr "Não foi possível salvar a senha do amuleapi: %s"
 
 #: src/ExternalConn.cpp
+msgid "One or more folders were outside the allowed remote directories and were left unchanged."
+msgstr "Uma ou mais pastas estavam fora das pastas remotas permitidas e não foram alteradas."
+
+#: src/ExternalConn.cpp
+msgid "The category folder is outside the allowed remote directories."
+msgstr "A pasta da categoria está fora das pastas remotas permitidas."
+
+#: src/ExternalConn.cpp
 msgid "No such category."
 msgstr "Não existe tal categoria."
 
@@ -2614,6 +2674,10 @@ msgstr "Sessão de chat inexistente"
 #: src/ExternalConn.cpp
 msgid "Media metadata extraction is disabled in preferences"
 msgstr "A extração de metadados de mídia está desativada nas preferências"
+
+#: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr "Este aMule não tem o auxiliar de mídia (amule-media-probe)"
 
 #: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
@@ -3172,10 +3236,6 @@ msgid "Browse"
 msgstr "Procurar"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Todos os arquivos nesta pasta são compartilhados com outros pares)"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
 msgstr "Pasta dos arquivos temporários de download"
 
@@ -3309,6 +3369,11 @@ msgstr "Baixando..."
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "Download HTTP cancelado"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "Refusing to download %s: only http and https URLs are supported."
+msgstr "Recusando o download de %s: apenas URLs http e https são suportadas."
 
 #: src/HTTPDownload.cpp
 #, c-format
@@ -4035,22 +4100,9 @@ msgstr "Soquete de escuta: Ok."
 msgid "ERROR: Could not listen to TCP port."
 msgstr "ERRO: Não foi possível escutar na porta TCP."
 
-#: src/Logger.cpp
-msgid "ERROR: "
-msgstr "ERRO: "
-
-#: src/Logger.cpp
-msgid "WARNING: "
-msgstr "AVISO: "
-
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: not using %s, because another user owns it or a folder above it."
-msgstr "Metadados de mídia: %s não será usado, pois ele ou uma pasta acima dele pertence a outro usuário."
-
-#: src/MediaProbe.cpp
-msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
-msgstr "Metadados de mídia: binário do ffprobe não encontrado. Instale o ffmpeg ou configure o caminho do ffprobe nas preferências; a duração, a taxa de bits e o codec não serão extraídos."
+msgid "Media metadata: bundled amule-media-probe helper is unavailable."
+msgstr "Metadados de mídia: o auxiliar embutido amule-media-probe não está disponível."
 
 #: src/MediaProbe.cpp
 #, c-format
@@ -4059,33 +4111,13 @@ msgstr "Metadados de mídia: %s sumiu, nada a extrair"
 
 #: src/MediaProbe.cpp
 #, c-format
-msgid "Extracting media metadata with ffprobe: %s"
-msgstr "Extraindo os metadados da mídia com ffprobe: %s"
+msgid "Extracting media metadata: %s"
+msgstr "Extraindo os metadados da mídia: %s"
 
 #: src/MediaProbe.cpp
 #, c-format
-msgid "Media metadata: ffprobe timed out or was cancelled for %s"
-msgstr "Metadados de mídia: tempo do ffprobe esgotado ou cancelado para %s"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
-msgstr "Metadados de mídia: ignorando saída do ffprobe implausivelmente grande para %s"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
-msgstr "Metadados de mídia: não foi possível rodar o ffprobe (%s) -- confira as configurações de metadados de mídia"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe failed (code %d) for %s"
-msgstr "Metadados de mídia: o ffprobe falhou (código %d) para %s"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe found nothing usable in %s"
-msgstr "Metadados de mídia: o ffprobe não achou nada usável em %s"
+msgid "Media metadata: parser failed for %s"
+msgstr "Metadados de mídia: o analisador falhou para %s"
 
 #: src/MediaProbeThread.cpp
 #, c-format
@@ -4128,13 +4160,12 @@ msgid "Fit visible columns to contents"
 msgstr "Ajustar colunas visíveis ao conteúdo"
 
 #: src/MuleDataViewCtrl.cpp
-#, fuzzy
 msgid "Show all columns (keep widths)"
-msgstr "Exibir todos os comentários"
+msgstr "Exibir todas as colunas (manter larguras)"
 
 #: src/MuleDataViewCtrl.cpp
 msgid "Restore default columns and widths"
-msgstr ""
+msgstr "Restaurar colunas e larguras padrão"
 
 #: src/MuleTextCtrl.cpp
 msgid "Cut"
@@ -5059,9 +5090,8 @@ msgid "Slot Allocation"
 msgstr "Alocação de Slots"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
 msgid "Bandwidth calculator..."
-msgstr "Limites de banda"
+msgstr "Calculador de banda..."
 
 #: src/muuli_wdr.cpp
 msgid "Ports"
@@ -5160,9 +5190,8 @@ msgid "retries"
 msgstr "tentativas"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
-msgid "Edit sources…"
-msgstr "Fontes de arquivos:"
+msgid "Edit sources..."
+msgstr "Editar fontes…"
 
 #: src/muuli_wdr.cpp
 msgid "Update server list when connecting to a server"
@@ -5191,6 +5220,14 @@ msgstr "Auto-conectar somente em servidores da lista estática"
 #: src/muuli_wdr.cpp
 msgid "Set manually added servers to High Priority"
 msgstr "Definir servidores adicionados manualmente com prioridade Alta"
+
+#: src/muuli_wdr.cpp
+msgid "Publish shared files faster on servers that allow it"
+msgstr "Publicar arquivos compartilhados mais rápido nos servidores que permitem"
+
+#: src/muuli_wdr.cpp
+msgid "Follow the publication pace that the server advertises. Other servers get the standard pace."
+msgstr "Seguir o ritmo de publicação anunciado pelo servidor. Os demais servidores recebem o ritmo padrão."
 
 #: src/muuli_wdr.cpp
 msgid "Add files to download in pause mode"
@@ -5332,7 +5369,7 @@ msgstr ""
 "\n"
 "Detalhe técnico: rejeita tags de publicação AICH de nós que anunciam versões do protocolo Kad inferiores a 0x09."
 
-#: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
+#: src/muuli_wdr.cpp
 msgid "Media metadata extraction"
 msgstr "Extração de metadados da mídia"
 
@@ -5341,24 +5378,8 @@ msgid "Extract length / bitrate / codec from shared audio and video files"
 msgstr "Extrair duração / taxa de bits / codec dos arquivos de áudio e vídeo compartilhados"
 
 #: src/muuli_wdr.cpp
-msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
-msgstr "Quando habilitado, o aMule roda o ffprobe em cada arquivo de mídia compartilhado para preencher as colunas Duração / Taxa de bits / Codec que os outros clientes veem quando acham o arquivo em uma busca. Requer que o ffmpeg (o binário ffprobe) esteja instalado."
-
-#: src/muuli_wdr.cpp
-msgid "Path to ffprobe:"
-msgstr "Caminho para ffprobe:"
-
-#: src/muuli_wdr.cpp
-msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
-msgstr "Caminho completo para o binário ffprobe. Deixe vazio para que o aMule detecte automaticamente quando iniciar."
-
-#: src/muuli_wdr.cpp
-msgid "Detect"
-msgstr "Detectar"
-
-#: src/muuli_wdr.cpp
-msgid "Search the standard install locations for an ffprobe binary and fill the path field."
-msgstr "Procura nos locais de instalação padrão por um binário do ffprobe e preenche o campo de caminho."
+msgid "When enabled, aMule uses its bundled MediaInfo parser to extract metadata from shared media files."
+msgstr "Quando habilitado, o aMule usa seu analisador MediaInfo embutido para extrair metadados dos arquivos de mídia compartilhados."
 
 #: src/muuli_wdr.cpp
 msgid ""
@@ -5431,6 +5452,14 @@ msgstr "Quando ligado, o campo inteiro é uma única expressão regular: '|' é 
 #: src/muuli_wdr.cpp
 msgid "Show how many of the files and folders in your shared folders the current pattern would exclude, counted over the last scan."
 msgstr "Mostra quantos arquivos e pastas das suas pastas compartilhadas o padrão atual excluiria, contados na última varredura."
+
+#: src/muuli_wdr.cpp
+msgid "Folders the daemon allows remote changes in"
+msgstr "Pastas em que o daemon permite alterações remotas"
+
+#: src/muuli_wdr.cpp
+msgid "(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"
+msgstr "(Somente leitura. Configurado no daemon; se vazio, o daemon recusa qualquer alteração remota de pasta.)"
 
 #: src/muuli_wdr.cpp
 msgid "When the connected core's files live on a different machine, map a path prefix it reports to where that filesystem is reachable from here (a network share, say) so \"Open\" and \"Show in folder\" work."
@@ -5697,6 +5726,18 @@ msgid "Require encrypted connections (rejects clients that cannot encrypt)"
 msgstr "Requerer conexões criptografadas (rejeita clientes que não conseguem criptografar)"
 
 #: src/muuli_wdr.cpp
+msgid "Folders remote clients may use"
+msgstr "Pastas que os clientes remotos podem usar"
+
+#: src/muuli_wdr.cpp
+msgid "(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"
+msgstr "(Clientes remotos só podem definir as pastas de entrada, temporária, compartilhadas e de categorias dentro destas. Vazio significa que nenhuma alteração remota de pasta é permitida. Alterações locais feitas aqui nunca são restringidas.)"
+
+#: src/muuli_wdr.cpp
+msgid "Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."
+msgstr "Caminho absoluto de uma pasta, p.ex. /home/user/aMule. Um cliente remoto poderá então definir qualquer pasta nela ou abaixo dela."
+
+#: src/muuli_wdr.cpp
 msgid "aMule API server parameters"
 msgstr "Parâmetros do servidor da API do aMule"
 
@@ -5813,18 +5854,16 @@ msgid "Click this button to reset the log."
 msgstr "Clique nesse botão para limpar o log."
 
 #: src/muuli_wdr.cpp src/ServerWnd.cpp
-#, fuzzy
 msgid "Update server list"
-msgstr "Editar lista de servidores"
+msgstr "Atualizar lista de servidores"
 
 #: src/muuli_wdr.cpp
 msgid "One-off URL:"
-msgstr ""
+msgstr "URL de uso único:"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
 msgid "Download once"
-msgstr "Baixado"
+msgstr "Baixar uma vez"
 
 #: src/muuli_wdr.cpp
 msgid "Add server manually: Name"
@@ -6149,6 +6188,22 @@ msgid "add here the words amule should filter and block messages including it"
 msgstr "adicione aqui as palavras que o amule deve filtrar e bloquear nas mensagens"
 
 #: src/muuli_wdr.cpp
+msgid "Enable advanced spam filter"
+msgstr "Habilitar filtro avançado de spam"
+
+#: src/muuli_wdr.cpp
+msgid "Block unsolicited links and repeated messages from non-friends."
+msgstr "Bloqueia links não solicitados e mensagens repetidas de quem não é amigo."
+
+#: src/muuli_wdr.cpp
+msgid "Require a CAPTCHA for first messages from non-friends"
+msgstr "Exigir CAPTCHA na primeira mensagem de quem não é amigo"
+
+#: src/muuli_wdr.cpp
+msgid "Withhold the message until the sender solves the challenge. Clients without CAPTCHA support cannot start a chat."
+msgstr "Retém a mensagem até que o remetente resolva o desafio. Clientes sem suporte a CAPTCHA não conseguem iniciar um chat."
+
+#: src/muuli_wdr.cpp
 msgid "Show received messages in the log"
 msgstr "Mostrar mensagens recebidas no log"
 
@@ -6388,6 +6443,10 @@ msgstr "%u kbps"
 #, c-format
 msgid "%s:"
 msgstr "%s:"
+
+#: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Todos os arquivos nesta pasta são compartilhados com outros pares)"
 
 #: src/OtherFunctions.cpp
 msgid "all"
@@ -6655,6 +6714,11 @@ msgstr[1] "Encontradas partes corrompidas (%d) em %d arquivo .part %s - Resultad
 
 #: src/PartFile.cpp
 #, c-format
+msgid "'%s' does not match its file hash, and without the part hashset the corrupt part cannot be found. Waiting for the hashset."
+msgstr "'%s' não corresponde ao hash do arquivo e, sem o hashset das partes, não é possível encontrar a parte corrompida. Aguardando o hashset."
+
+#: src/PartFile.cpp
+#, c-format
 msgid "Found completed part (%i) in %s"
 msgstr "Encontrada parte completa (%i) em %s"
 
@@ -6748,6 +6812,10 @@ msgid "no options available"
 msgstr "nenhuma opção disponível"
 
 #: src/Preferences.cpp
+msgid "Media metadata: FFProbePath is obsolete; aMule now uses its bundled MediaInfo parser. Removing the old setting."
+msgstr "Metadados de mídia: FFProbePath está obsoleto; o aMule agora usa seu analisador MediaInfo embutido. Removendo a configuração antiga."
+
+#: src/Preferences.cpp
 msgid "Invalid path mapping found, skipping"
 msgstr "Mapeamento de caminho inválido encontrado, pulando"
 
@@ -6763,6 +6831,11 @@ msgstr "A porta TCP não pode ser maior que 65532, pois o socket UDP de servidor
 #, c-format
 msgid "Default port will be used (%d)"
 msgstr "Porta padrão será utilizada (%d)"
+
+#: src/Preferences.cpp
+#, c-format
+msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
+msgstr "Ignorando um caminho relativo em allowed-remote-dirs.dat (apenas caminhos absolutos são aceitos): %s"
 
 #: src/BandwidthLimitSlider.h
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
@@ -6837,7 +6910,7 @@ msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "No system tray found. Use a desktop with a system tray, or build aMule with libayatana-appindicator3."
-msgstr ""
+msgstr "Nenhuma bandeja do sistema encontrada. Use um ambiente de trabalho com bandeja do sistema ou compile o aMule com libayatana-appindicator3."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Not available on Wayland: the protocol does not report when a window is minimized, so this option cannot intercept the system minimize button. Workaround: launch aMule with `GDK_BACKEND=x11` to use XWayland instead."
@@ -6870,8 +6943,16 @@ msgid "Failed to transfer data from Cfg to Widget with the ID %d and key %s"
 msgstr "Falha ao transferir dados de Cfg para o widget com o ID %d e a chave %s"
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot extract media metadata."
+msgstr "Este aMule não tem o auxiliar de mídia (amule-media-probe), portanto não pode extrair metadados de mídia."
+
+#: src/PrefsUnifiedDlg.cpp
 msgid "The type of proxy you are connecting to"
 msgstr "O tipo de proxy ao qual você está se conectando"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Set in the daemon's own configuration (amule.conf); not editable remotely."
+msgstr "Definido na configuração do próprio daemon (amule.conf); não pode ser editado remotamente."
 
 #: src/PrefsUnifiedDlg.cpp
 #, c-format
@@ -7070,13 +7151,13 @@ msgstr "O servidor web do aMule está obsoleto. Considere usar a API do aMule em
 
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
-"Your Auto-update servers list is in blank.\n"
-"Please fill in at least one URL to point to a valid server.met file.\n"
-"Click on the button \"List\" by this checkbox to enter an URL."
+"Your server list sources are empty.\n"
+"Please add at least one URL of a valid server.met file.\n"
+"Click the \"Edit sources...\" button next to this checkbox to add one."
 msgstr ""
-"Sua lista de servidores para atualização automática está vazia.\n"
-"Preencha pelo menos uma URL que aponte para um arquivo server.met válido.\n"
-"Clique no botão \"Lista\" ao lado desta caixa de seleção para informar uma URL."
+"Suas fontes da lista de servidores estão vazias.\n"
+"Adicione pelo menos uma URL de um arquivo server.met válido.\n"
+"Clique no botão \"Editar fontes…\" ao lado desta caixa de seleção para adicionar uma."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Temporary files"
@@ -7128,17 +7209,9 @@ msgid "Select browser"
 msgstr "Selecione o navegador"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Select ffprobe binary"
-msgstr "Selecione o binário ffprobe"
-
-#: src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "Executable%s"
 msgstr "Executável%s"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
-msgstr "O ffprobe não foi encontrado no PATH nem nos locais de instalação padrão. Instale o ffmpeg (que inclui o ffprobe) ou use Procurar para escolher um binário manualmente."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset the settings on this page to their default values?"
@@ -7227,23 +7300,20 @@ msgid "Server connection refresh interval: Disabled"
 msgstr "Intervalo de renovação da conexão com o servidor: desativado"
 
 #: src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid "Bandwidth calculator"
-msgstr "Limites de banda"
+msgstr "Calculador de banda"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Enter limits in Mbit/s. Zero means unlimited."
-msgstr ""
+msgstr "Informe os limites em Mbit/s. Zero significa ilimitado."
 
 #: src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid "Download (Mbit/s)"
-msgstr "Downloads (%i)"
+msgstr "Download (Mbit/s)"
 
 #: src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid "Upload (Mbit/s)"
-msgstr "Limite de envio"
+msgstr "Upload (Mbit/s)"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "disabled"
@@ -7333,6 +7403,18 @@ msgstr "Este prefixo remoto já foi mapeado."
 #: src/PrefsUnifiedDlg.cpp
 msgid "Choose the local folder"
 msgstr "Escolha a pasta local"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Please enter an absolute path. A relative path would be resolved against the daemon's working directory, so it is not accepted."
+msgstr "Informe um caminho absoluto. Um caminho relativo seria resolvido a partir do diretório de trabalho do daemon, por isso não é aceito."
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Allowed folders for remote clients"
+msgstr "Pastas permitidas para clientes remotos"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Choose a folder remote clients may use"
+msgstr "Escolha uma pasta que os clientes remotos podem usar"
 
 #: src/SearchDlg.cpp
 msgid "Clear Search History"
@@ -7655,9 +7737,9 @@ msgid "ERROR: Socket invalid at timeout check"
 msgstr "ERRO: Socket inválido na verificação de tempo limite"
 
 #: src/ServerConnect.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Connection attempt to %s (%s:%i) timed out; retrying without obfuscation."
-msgstr "Expirado tempo de espera para conectar a %s (%s:%i)."
+msgstr "Tempo esgotado na tentativa de conexão a %s (%s:%i); tentando novamente sem ofuscação."
 
 #: src/ServerConnect.cpp
 #, c-format
@@ -7749,11 +7831,11 @@ msgstr "Erro de I/O escrevendo o arquivo 'server.met': %s"
 
 #: src/ServerList.cpp
 msgid "A server list download is already in progress."
-msgstr ""
+msgstr "Já há um download da lista de servidores em andamento."
 
 #: src/ServerList.cpp
 msgid "No server list sources configured"
-msgstr ""
+msgstr "Nenhuma fonte de lista de servidores configurada"
 
 #: src/ServerList.cpp
 #, c-format
@@ -7974,11 +8056,11 @@ msgstr "Log do aMuleGUI"
 
 #: src/ServerWnd.cpp
 msgid "Download and merge every saved source"
-msgstr ""
+msgstr "Baixar e mesclar todas as fontes salvas"
 
 #: src/ServerWnd.cpp
 msgid "Download this server.met URL once without saving it."
-msgstr ""
+msgstr "Baixar esta URL de server.met uma vez, sem salvá-la."
 
 #: src/ServerWnd.cpp
 msgid "Server not added: No IP or hostname specified."
@@ -8154,6 +8236,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr "Extração de metadados da mídia está desabilitada nas preferências, assim, não há nada para re-extrair."
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr "Este aMule não tem o auxiliar de mídia (amule-media-probe), portanto não pode extrair novamente os metadados de mídia."
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8205,6 +8291,11 @@ msgid_plural "Discovered %u new shared files"
 msgstr[0] "Encontrado %u novo arquivo compartilhado"
 msgstr[1] "Encontrados %u novos arquivos compartilhados"
 
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Refused to rename '%s' to '%s': the new name must be a plain file name, not a path."
+msgstr "Renomear '%s' para '%s' foi recusado: o novo nome deve ser um nome de arquivo simples, não um caminho."
+
 #: src/SharedFilePeersListCtrl.cpp src/SourceListCtrl.cpp
 msgid "User Name"
 msgstr "Nome de Usuário"
@@ -8240,14 +8331,6 @@ msgstr "Caminho do diretório"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Arquivos Compartilhados"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Adicionar Comentário/Avaliação"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Editar Comentário/Avaliação"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
@@ -9397,6 +9480,16 @@ msgstr "Hashset solicitado para arquivo desconhecido: %s"
 
 #: src/UploadDiskIOThread.cpp
 #, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Não foi possível iniciar os leitores de disco de upload: %s"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr "Erro no leitor de disco de upload: %s"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
 msgid "Failed to open file (%s), removing from list of shared files."
 msgstr "Falha ao abrir o arquivo (%s), removendo-o da lista de arquivos compartilhados."
 
@@ -10202,6 +10295,65 @@ msgstr "O Kad não conseguiu carregar seu índice salvo. Os arquivos de índice 
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr "O Kad não conseguiu salvar um índice. A cópia anterior desse arquivo foi preservada."
+
+#~ msgid "Refused a remote request to change the media-probe (ffprobe) path: it can only be set in the daemon's own configuration."
+#~ msgstr "Solicitação remota para alterar o caminho do analisador de mídia (ffprobe) recusada: ele só pode ser definido na configuração do próprio daemon."
+
+#~ msgid "ERROR: "
+#~ msgstr "ERRO: "
+
+#~ msgid "WARNING: "
+#~ msgstr "AVISO: "
+
+#, c-format
+#~ msgid "Media metadata: not using %s, because another user owns it or a folder above it."
+#~ msgstr "Metadados de mídia: %s não será usado, pois ele ou uma pasta acima dele pertence a outro usuário."
+
+#~ msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
+#~ msgstr "Metadados de mídia: binário do ffprobe não encontrado. Instale o ffmpeg ou configure o caminho do ffprobe nas preferências; a duração, a taxa de bits e o codec não serão extraídos."
+
+#, c-format
+#~ msgid "Media metadata: ffprobe timed out or was cancelled for %s"
+#~ msgstr "Metadados de mídia: tempo do ffprobe esgotado ou cancelado para %s"
+
+#, c-format
+#~ msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
+#~ msgstr "Metadados de mídia: ignorando saída do ffprobe implausivelmente grande para %s"
+
+#, c-format
+#~ msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
+#~ msgstr "Metadados de mídia: não foi possível rodar o ffprobe (%s) -- confira as configurações de metadados de mídia"
+
+#, c-format
+#~ msgid "Media metadata: ffprobe found nothing usable in %s"
+#~ msgstr "Metadados de mídia: o ffprobe não achou nada usável em %s"
+
+#~ msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
+#~ msgstr "Quando habilitado, o aMule roda o ffprobe em cada arquivo de mídia compartilhado para preencher as colunas Duração / Taxa de bits / Codec que os outros clientes veem quando acham o arquivo em uma busca. Requer que o ffmpeg (o binário ffprobe) esteja instalado."
+
+#~ msgid "Path to ffprobe:"
+#~ msgstr "Caminho para ffprobe:"
+
+#~ msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
+#~ msgstr "Caminho completo para o binário ffprobe. Deixe vazio para que o aMule detecte automaticamente quando iniciar."
+
+#~ msgid "Detect"
+#~ msgstr "Detectar"
+
+#~ msgid "Search the standard install locations for an ffprobe binary and fill the path field."
+#~ msgstr "Procura nos locais de instalação padrão por um binário do ffprobe e preenche o campo de caminho."
+
+#~ msgid "That file does not look like ffprobe. Choose a binary named ffprobe (or ffprobe.exe) that reports an \"ffprobe version\" banner, leave the field empty to auto-detect, or set the path directly in amule.conf."
+#~ msgstr "Esse arquivo não parece ser o ffprobe. Escolha um binário chamado ffprobe (ou ffprobe.exe) que exiba o cabeçalho \"ffprobe version\", deixe o campo vazio para detecção automática ou defina o caminho diretamente no amule.conf."
+
+#~ msgid "Invalid ffprobe path"
+#~ msgstr "Caminho do ffprobe inválido"
+
+#~ msgid "Select ffprobe binary"
+#~ msgstr "Selecione o binário ffprobe"
+
+#~ msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
+#~ msgstr "O ffprobe não foi encontrado no PATH nem nos locais de instalação padrão. Instale o ffmpeg (que inclui o ffprobe) ou use Procurar para escolher um binário manualmente."
 
 #~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
 #~ msgstr "O suporte para ícone da bandeja do sistema requer libayatana-appindicator3 em tempo de compilação."

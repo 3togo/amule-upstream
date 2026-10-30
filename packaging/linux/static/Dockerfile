@@ -115,8 +115,10 @@ RUN for l in bfd opcodes ctf sframe zstd z maxminddb intl; do \
 # (static) libcurl webrequest backend.
 COPY . /src
 WORKDIR /src
+RUN packaging/media/build-static.sh /usr/local
 RUN export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
  && cmake -S . -B build-static \
+        -DMEDIA_PROBE_STATIC=ON \
         -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_MONOLITHIC=OFF \
         -DBUILD_DAEMON=ON \
@@ -135,17 +137,36 @@ RUN export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
         -DCMAKE_CXX_STANDARD_LIBRARIES="$(pkg-config --static --libs libcurl)" \
  && cmake --build build-static -j"$(nproc)" \
  && mkdir -p /out \
- && for b in amuled amulecmd amuleapi; do \
+ && for b in amuled amulecmd amuleapi amule-media-probe; do \
         cp "$(find build-static -type f -name "$b" | head -1)" /out/; \
     done \
- && strip /out/amuled /out/amulecmd /out/amuleapi
+ && strip /out/amuled /out/amulecmd /out/amuleapi /out/amule-media-probe \
+ && mkdir -p /out/licenses && cp -r /usr/local/share/licenses/amule-media-probe /out/licenses/
 
 # Sanity gate: fail the build unless each binary is a static executable.
-RUN for b in amuled amulecmd amuleapi; do \
+RUN for b in amuled amulecmd amuleapi amule-media-probe; do \
         file "/out/$b"; \
         ldd "/out/$b" 2>&1 | grep -qE "Not a valid dynamic program|not a dynamic executable" \
           || { echo "FAIL: $b is dynamically linked"; ldd "/out/$b"; exit 1; }; \
     done
+
+# License files for what the binaries link statically. The libraries built
+# from source above keep their own files. Alpine packages ship no license
+# texts, so list each one's version, SPDX license and upstream instead.
+RUN mkdir -p /out/licenses/cryptopp /out/licenses/wxwidgets /out/licenses/libupnp \
+ && cp /tmp/cryptopp/License.txt /out/licenses/cryptopp/ \
+ && cp /tmp/wx/docs/licence.txt /tmp/wx/docs/licendoc.txt /tmp/wx/docs/lgpl.txt \
+        /tmp/wx/docs/gpl.txt /tmp/wx/docs/preamble.txt /out/licenses/wxwidgets/ \
+ && cp /tmp/libupnp/COPYING /out/licenses/libupnp/ \
+ && for p in musl-dev libstdc++-dev libgcc zlib-static curl-static openssl-libs-static \
+        nghttp2-static brotli-static c-ares-static zstd-static libidn2-static \
+        libunistring-static libpsl-static binutils-dev libmaxminddb-static \
+        gettext-static boost-dev; do \
+        printf '%s\t%s\t%s\n' "$(apk info -e -v "$p" 2>/dev/null)" \
+            "$(apk info --license "$p" 2>/dev/null | sed -n 2p)" \
+            "$(apk info --webpage "$p" 2>/dev/null | sed -n 2p)"; \
+    done > /out/licenses/alpine-packages.tsv \
+ && ! grep -q "^[[:space:]]" /out/licenses/alpine-packages.tsv
 
 FROM scratch AS export
 COPY --from=builder /out/ /

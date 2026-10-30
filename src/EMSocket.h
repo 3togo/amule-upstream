@@ -56,6 +56,14 @@ public:
 		bool delpacket = true,
 		bool controlpacket = true,
 		uint32 actualPayloadSize = 0);
+	// Reports queue acceptance under the same lock as disconnect handling.
+	// With delpacket=true, ownership transfers even when the packet is rejected.
+	bool TrySendPacket(CPacket *packet,
+		bool delpacket = true,
+		bool controlpacket = true,
+		uint32 actualPayloadSize = 0);
+	// Includes the partially sent control packet, excludes kernel/Asio buffers.
+	size_t GetPendingControlPacketCount();
 	// The extra term is guarded so the TCP path keeps answering exactly as it
 	// did: byConnected is this class's own state machine, and only a stream the
 	// asio socket does not own can disagree with it.
@@ -85,9 +93,8 @@ public:
 	uint64 GetSentBytesControlPacketSinceLastCallAndReset();
 	// Separate from accounting: a file/session switch can discard its old display bytes.
 	uint64 GetSentFileBytesForDisplayAndReset();
-	uint64 GetSentPayloadSinceLastCallAndReset();
-	uint64 PeekSentPayload(); // Non-resetting peek -- for disk I/O thread buffer check
 	void SetUploadBufferTarget(uint32 payload);
+	uint64 QueuedUploadPayload() const;
 	void TruncateQueues();
 
 	SocketSentBytes SendControlData(uint32 maxNumberOfBytesToSend, uint32 minFragSize) override
@@ -197,7 +204,6 @@ private:
 	uint64 lastFinishedStandard;
 
 	uint32 m_actualPayloadSize;
-	uint32 m_actualPayloadSizeSent;
 
 	// atomic: IsBusyQuickCheck() reads it on the disk I/O thread without m_sendLocker
 	std::atomic<bool> m_bBusy;

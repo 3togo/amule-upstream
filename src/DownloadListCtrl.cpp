@@ -32,6 +32,7 @@
 
 #include "amule.h"            // Needed for theApp
 #include "amuleDlg.h"         // Needed for CamuleDlg
+#include "CommentDialog.h"    // Needed for CCommentDialog
 #include "CommentDialogLst.h" // Needed for CCommentDialogLst
 #include "DataToText.h"       // Needed for PriorityToStr
 #include "DownloadQueue.h"
@@ -186,6 +187,7 @@ wxBEGIN_EVENT_TABLE(CDownloadListCtrl, CMuleVirtualDataViewCtrl)
 	EVT_MENU(MP_VIEW, CDownloadListCtrl::OnPreviewFile)
 	EVT_MENU(MP_SHOWINFOLDER, CDownloadListCtrl::OnShowInFolder)
 	EVT_MENU(MP_VIEWFILECOMMENTS, CDownloadListCtrl::OnViewFileComments)
+	EVT_MENU(MP_CMT, CDownloadListCtrl::OnEditComment)
 
 	EVT_MENU(MP_WS, CDownloadListCtrl::OnGetFeedback)
 wxEND_EVENT_TABLE()
@@ -505,6 +507,8 @@ void CDownloadListCtrl::OnItemRightClicked(wxDataViewEvent &event)
 	AppendMenuIcon(m_menu, MP_SHOWINFOLDER, _("Show in file manager"), MenuIcon::Folder);
 	AppendMenuIcon(m_menu, MP_METINFO, _("Show file &details"), MenuIcon::Info);
 	AppendMenuIcon(m_menu, MP_VIEWFILECOMMENTS, _("Show all comments"), MenuIcon::Comments);
+	AppendMenuIcon(m_menu, MP_CMT, CCommentDialog::MenuLabel(*file), MenuIcon::Comments);
+	m_menu->Enable(MP_CMT, selected.size() == 1 && CCommentDialog::CanEdit(*file));
 	m_menu->AppendSeparator();
 	AppendMenuIcon(m_menu, MP_GETMAGNETLINK, _("Copy magnet URI to clipboard"), MenuIcon::Link);
 	AppendMenuIcon(m_menu, MP_GETED2KLINK, _("Copy eD2k &link to clipboard"), MenuIcon::Link);
@@ -598,21 +602,13 @@ void CDownloadListCtrl::OnItemRightClicked(wxDataViewEvent &event)
 
 void CDownloadListCtrl::OnCancelFile(wxCommandEvent &WXUNUSED(event))
 {
-	std::vector<wxUIntPtr> files = GetSelectedItemData();
-	files.erase(std::remove_if(files.begin(),
-			    files.end(),
-			    [](wxUIntPtr data) {
-				    switch (reinterpret_cast<CPartFile *>(data)->GetStatus()) {
-				    case PS_WAITING_FOR_HASH:
-				    case PS_HASHING:
-				    case PS_COMPLETING:
-				    case PS_COMPLETE:
-					    return true;
-				    default:
-					    return false;
-				    }
-			    }),
-		files.end());
+	std::vector<CDownloadTarget> files;
+	for (wxUIntPtr data : GetSelectedItemData()) {
+		const CPartFile *file = reinterpret_cast<CPartFile *>(data);
+		if (CanCancelDownload(file->GetStatus())) {
+			files.push_back(MuleNotify::Download_Target(file));
+		}
+	}
 	if (files.empty()) {
 		return;
 	}
@@ -621,8 +617,8 @@ void CDownloadListCtrl::OnCancelFile(wxCommandEvent &WXUNUSED(event))
 		files.size() == 1 ? wxString(_("Are you sure that you wish to delete the selected file?"))
 				  : wxString(_("Are you sure that you wish to delete the selected files?"));
 	if (wxMessageBox(question, _("Cancel"), wxICON_QUESTION | wxYES_NO | wxNO_DEFAULT, this) == wxYES) {
-		for (wxUIntPtr data : files) {
-			CoreNotify_PartFile_Delete(reinterpret_cast<CPartFile *>(data));
+		for (const CDownloadTarget &target : files) {
+			MuleNotify::DoNotify(&MuleNotify::Download_Execute, target, DownloadCommand::Cancel);
 		}
 	}
 }
@@ -705,19 +701,28 @@ void CDownloadListCtrl::OnSetCategory(wxCommandEvent &event)
 
 void CDownloadListCtrl::OnSetStatus(wxCommandEvent &event)
 {
+	DownloadCommand command;
+	switch (event.GetId()) {
+	case MP_PAUSE:
+		command = DownloadCommand::Pause;
+		break;
+	case MP_RESUME:
+		command = DownloadCommand::Resume;
+		break;
+	case MP_STOP:
+		command = DownloadCommand::Stop;
+		break;
+	default:
+		return;
+	}
+
+	std::vector<CDownloadTarget> selected;
 	for (wxUIntPtr data : GetSelectedItemData()) {
-		CPartFile *file = reinterpret_cast<CPartFile *>(data);
-		switch (event.GetId()) {
-		case MP_PAUSE:
-			CoreNotify_PartFile_Pause(file);
-			break;
-		case MP_RESUME:
-			CoreNotify_PartFile_Resume(file);
-			break;
-		case MP_STOP:
-			CoreNotify_PartFile_Stop(file);
-			break;
-		}
+		const CPartFile *file = reinterpret_cast<CPartFile *>(data);
+		selected.push_back(MuleNotify::Download_Target(file));
+	}
+	for (const CDownloadTarget &target : selected) {
+		MuleNotify::DoNotify(&MuleNotify::Download_Execute, target, command);
 	}
 }
 
@@ -773,6 +778,18 @@ void CDownloadListCtrl::OnViewFileComments(wxCommandEvent &WXUNUSED(event))
 	if (selected.size() == 1) {
 		CCommentDialogLst dialog(this, reinterpret_cast<CPartFile *>(selected.front()));
 		dialog.ShowModal();
+	}
+}
+
+void CDownloadListCtrl::OnEditComment(wxCommandEvent &WXUNUSED(event))
+{
+	// PopupMenu runs a nested event loop: the clicked file may have been removed.
+	if (m_menuItem != 0 && HasItemData(m_menuItem)) {
+		CPartFile *file = reinterpret_cast<CPartFile *>(m_menuItem);
+		if (CCommentDialog::CanEdit(*file)) {
+			CCommentDialog dialog(this, file);
+			dialog.ShowModal();
+		}
 	}
 }
 

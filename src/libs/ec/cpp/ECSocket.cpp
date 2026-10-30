@@ -264,6 +264,7 @@ CECSocket::CECSocket(bool use_events)
 , m_crypt_enabled(false)
 , m_crypt_enable_after_write(false)
 , m_last_rx_encrypted(false)
+, m_rx_sealed_seen(false)
 ,
 // setup initial state: 4 flags + 4 length
 m_bytes_needed(EC_HEADER_SIZE)
@@ -326,6 +327,7 @@ void CECSocket::ResetProtocolState()
 	m_crypt_enabled = false;
 	m_crypt_enable_after_write = false;
 	m_last_rx_encrypted = false;
+	m_rx_sealed_seen = false;
 	m_bytes_needed = EC_HEADER_SIZE;
 	m_in_header = true;
 	m_curr_packet_len = 0;
@@ -475,6 +477,11 @@ void CECSocket::OnConnect() {}
 
 void CECSocket::OnInput()
 {
+	// A dispatch stop leaves the parser mid-packet; a later input event must not
+	// parse that stale buffer.
+	if (!IsSocketConnected()) {
+		return;
+	}
 	size_t bytes_rx = 0;
 	do {
 		bytes_rx = m_curr_rx_data->ReadFromSocket(this, m_bytes_needed);
@@ -496,14 +503,16 @@ void CECSocket::OnInput()
 			} else {
 				CSmartPtr<const CECPacket> packet(ReadPacket());
 				m_curr_rx_data->Rewind();
-				if (packet.get()) {
-					CSmartPtr<const CECPacket> reply(
-						OnPacketReceived(packet.get(), m_curr_packet_len));
-					if (reply.get()) {
-						SendPacket(reply.get());
-					}
-				} else {
-					AddDebugLogLineN(logEC, "OnInput: no packet");
+				if (!packet.get() || !IsSocketConnected()) {
+					return;
+				}
+				CSmartPtr<const CECPacket> reply(
+					OnPacketReceived(packet.get(), m_curr_packet_len));
+				if (reply.get() && IsSocketConnected()) {
+					SendPacket(reply.get());
+				}
+				if (!IsSocketConnected()) {
+					return;
 				}
 				m_bytes_needed = EC_HEADER_SIZE;
 				m_in_header = true;
@@ -1224,6 +1233,14 @@ const CECPacket *CECSocket::ReadPacket()
 			CloseAndDispatchLost();
 			return nullptr;
 		}
+		m_rx_sealed_seen = true;
+	} else if (m_rx_sealed_seen) {
+		// Every reader goes through here, including SendRecvPacket, which no app-level check
+		// covers. A failed login's clear AUTH_FAIL comes before any sealed packet, so this only
+		// catches packets injected into the established session.
+		AddDebugLogLineN(logEC, "ReadPacket: cleartext packet on an encrypted session, dropping");
+		CloseAndDispatchLost();
+		return nullptr;
 	}
 
 	if (flags & EC_FLAG_ZLIB) {

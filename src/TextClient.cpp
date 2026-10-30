@@ -25,6 +25,7 @@
 
 #include "config.h" // Needed for VERSION
 #include "TextClient.h"
+#include "LogText.h"
 
 #include "SearchProgressReport.h"
 
@@ -782,7 +783,11 @@ int CamulecmdApp::ProcessCommand(int CmdId)
 		while (it != request_list.end()) {
 			CECPacket *curr = *it++;
 			if (curr->GetOpCode() == EC_OP_SHUTDOWN) {
-				SendPacket(curr);
+				// Keep the connection alive until the core acknowledges shutdown or
+				// closes it. Exiting immediately can reset the stream before delivery.
+				// The monolithic app closes EC without a reply.
+				ExpectClose();
+				delete SendRecvMsg_v2(curr);
 				delete curr;
 				return CMD_ID_QUIT;
 			}
@@ -1032,9 +1037,10 @@ void CamulecmdApp::Process_Answer_v2(const CECPacket *response)
 	case EC_OP_LOG:
 		for (CECPacket::const_iterator it = response->begin(); it != response->end(); ++it) {
 			const CECTag &tag = *it;
-			s << tag.GetStringData() << "\n";
+			Show(ECLogToText(tag.GetStringData()));
 		}
-		break;
+		// Log records must start with the timestamp, without the command reply decoration.
+		return;
 	case EC_OP_SERVER_LIST:
 		for (CECPacket::const_iterator it = response->begin(); it != response->end(); ++it) {
 			const CECTag &tag = *it;

@@ -66,9 +66,9 @@ namespace
 enum class MediaRefreshEligibility
 {
 	Eligible,
-	FeatureDisabled, //!< media metadata extraction is switched off in preferences
+	FeatureDisabled, //!< switched off in preferences, or the core has no media helper
 	Incomplete,      //!< an in-progress download has no complete file to read
-	NotMedia,        //!< nothing for ffprobe to extract
+	NotMedia,        //!< nothing for the helper to extract
 };
 
 MediaRefreshEligibility ClassifyForMediaRefresh(const CKnownFile *file)
@@ -79,8 +79,8 @@ MediaRefreshEligibility ClassifyForMediaRefresh(const CKnownFile *file)
 	//
 	// Correct in amulegui too: the daemon sends this preference over EC as a presence tag and
 	// the receiving side maps an absent tag to false, so a remote GUI reports the DAEMON's
-	// setting rather than its own default.
-	if (!thePrefs::GetMediaMetadataEnabled()) {
+	// setting rather than its own default. Availability arrives from the daemon the same way.
+	if (!thePrefs::GetMediaMetadataEnabled() || !thePrefs::IsMediaMetadataAvailable()) {
 		return MediaRefreshEligibility::FeatureDisabled;
 	}
 	// IsPartFile() is answered correctly in both binaries: amulegui files a shared partfile
@@ -252,11 +252,8 @@ void CSharedFilesCtrl::OnItemRightClicked(wxDataViewEvent &event)
 		m_menu->AppendSeparator();
 
 		CKnownFile *file = reinterpret_cast<CKnownFile *>(m_menuItem);
-		if (file->GetFileComment().IsEmpty() && !file->GetFileRating()) {
-			AppendMenuIcon(m_menu, MP_CMT, _("Add Comment/Rating"), MenuIcon::Comments);
-		} else {
-			AppendMenuIcon(m_menu, MP_CMT, _("Edit Comment/Rating"), MenuIcon::Comments);
-		}
+		AppendMenuIcon(m_menu, MP_CMT, CCommentDialog::MenuLabel(*file), MenuIcon::Comments);
+		m_menu->Enable(MP_CMT, CCommentDialog::CanEdit(*file));
 
 		m_menu->AppendSeparator();
 		m_menu->Append(MP_RENAME, _("Rename"));
@@ -366,7 +363,7 @@ void CSharedFilesCtrl::OnItemRightClicked(wxDataViewEvent &event)
 			!file->IsPartFile() && theApp->sharedfiles->CanDeleteFileFromDisk());
 		// Same two conditions the scheduler applies, asked through the shared predicate
 		// rather than a second copy of the rule: an in-progress download has no complete
-		// file for ffprobe to read, and a file that is not audio or video has nothing to
+		// file for the helper to read, and a file that is not audio or video has nothing to
 		// extract. Greyed out rather than accepted and silently dropped, so the state is
 		// visible before the click (issue #1079).
 		//
@@ -524,9 +521,9 @@ CSharedFilesCtrl::MediaRefreshSelection CSharedFilesCtrl::PartitionForMediaRefre
 		CKnownFile *file = reinterpret_cast<CKnownFile *>(data);
 		switch (ClassifyForMediaRefresh(file)) {
 		case MediaRefreshEligibility::FeatureDisabled:
-			// Global rather than per-file: with the feature off every file lands here,
-			// the eligible list comes back empty, and the entry is greyed for the whole
-			// selection.
+			// Global rather than per-file: with the feature off or no helper, every file
+			// lands here, the eligible list comes back empty, and the entry is greyed
+			// for the whole selection.
 			break;
 		case MediaRefreshEligibility::Incomplete:
 			++out.incomplete;
@@ -1238,8 +1235,10 @@ void CSharedFilesCtrl::OnEditComment(wxCommandEvent &WXUNUSED(event))
 	const std::vector<wxUIntPtr> selected = GetSelectedItemData();
 	if (!selected.empty()) {
 		CKnownFile *file = reinterpret_cast<CKnownFile *>(selected.front());
-		CCommentDialog dialog(this, file);
-		dialog.ShowModal();
+		if (CCommentDialog::CanEdit(*file)) {
+			CCommentDialog dialog(this, file);
+			dialog.ShowModal();
+		}
 	}
 }
 

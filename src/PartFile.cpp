@@ -70,6 +70,7 @@
 #include "PartStatusWriter.h" // Needed for WritePartBitmap
 #include "Preferences.h"      // Needed for CPreferences
 #include "DownloadQueue.h"    // Needed for CDownloadQueue
+#include "DownloadCommand.h"  // Needed for CanCancelDownload
 #include "amule.h"            // Needed for theApp
 #include "ED2KLink.h"         // Needed for CED2KLink
 #include "Packet.h"           // Needed for CTag
@@ -97,6 +98,9 @@
 #include "LugdunumNatTraversal.h" // Needed for ShouldKeepLowIdServerSource
 #include "NatServerHolePunch.h"   // Needed for ShouldKeepLowIdServerSource
 #endif
+
+// How long a source may hold a hashset request before another source is asked.
+static const uint64 HASHSET_REQUEST_TIMEOUT = 60000; // ms
 
 SFileRating::SFileRating(const wxString &u, const wxString &f, sint16 r, const wxString &c)
 : UserName(u)
@@ -1371,6 +1375,28 @@ void CPartFile::PartFileHashFinished(CKnownFile *result)
 				errorfound = true;
 			}
 		}
+	} else if (GetHashCount() != GetED2KPartHashCount()) {
+		// No part hashset, so nothing to compare part by part. The file hash still binds the
+		// data: for a multi-part file it is the MD4 of the part hashes.
+		if (IsComplete(0, GetFileSize() - 1)) {
+			if (result->GetFileHash() == GetFileHash() &&
+				result->GetHashCount() == GetED2KPartHashCount()) {
+				m_hashlist.clear();
+				for (size_t i = 0; i < result->GetHashCount(); ++i) {
+					m_hashlist.push_back(result->GetPartHash(static_cast<uint16>(i)));
+				}
+				m_hashsetneeded = false;
+			} else {
+				AddLogLineC(
+					CFormat(_("'%s' does not match its file hash, and without the part "
+						  "hashset the corrupt part cannot be found. Waiting for the "
+						  "hashset.")) %
+					GetFileName());
+				errorfound = true;
+				m_hashsetneeded = true;
+				m_completionAwaitsHashset = true;
+			}
+		}
 	} else {
 		for (size_t i = 0; i < m_hashlist.size(); ++i) {
 			// Kry - trel_ar's completed-parts check on rehashing: if a file is
@@ -1439,8 +1465,10 @@ void CPartFile::PartFileHashFinished(CKnownFile *result)
 			AddLogLineN(CFormat(_("Finished rehashing %s")) % GetFileName());
 		}
 	} else {
-		SetStatus(PS_READY);
+		SetStatus(m_completionAwaitsHashset ? PS_EMPTY : PS_READY);
 		SavePartFile();
+		// Sources asked during the rehash found nothing to download; the gaps are open now.
+		AskQueuedSourcesAgain();
 		// A part can pass its per-part hash during download yet fail this final full-file
 		// re-hash -- a block rewritten after the part completed, as happens when endgame
 		// source rotation splices a block across two sources. AddGap() above re-opens the
@@ -1649,11 +1677,24 @@ uint32 CPartFile::Process(uint8 m_icounter)
 	uint16 old_trans;
 	uint64 dwCurTick = ::GetTickCount64();
 
+	// A source asked for the hashset can hold the request open without answering, and the
+	// flag cleared on sending it stops every other source from being asked. Ask again.
+	if (m_hashsetRequestedAt != 0 && dwCurTick - m_hashsetRequestedAt > HASHSET_REQUEST_TIMEOUT) {
+		m_hashsetRequestedAt = 0;
+		if (GetHashCount() != GetED2KPartHashCount()) {
+			m_hashsetneeded = true;
+			if (m_completionAwaitsHashset) {
+				AskQueuedSourcesAgain();
+			}
+		}
+	}
+
 	// Flush on buffer-full, time-limit, or pending hash drain. The HasPendingHashWork()
 	// bypass drains Phase 3 at Process()-tick rate (~100 ms) instead of every 60 s when the
 	// file is idle.
 	if ((m_nTotalBufferData > thePrefs::GetFileBufferSize()) ||
-		(dwCurTick > (m_nLastBufferFlushTime + BUFFER_TIME_LIMIT)) || HasPendingHashWork()) {
+		(dwCurTick > (m_nLastBufferFlushTime + BUFFER_TIME_LIMIT)) || HasPendingHashWork() ||
+		(m_nTotalBufferData != 0 && WriteBufferBudget::Get().ShouldFlush())) {
 		FlushBuffer();
 	}
 
@@ -2241,9 +2282,24 @@ void CPartFile::UpdatePartsInfo()
 }
 
 // [Maella -Enhanced Chunk Selection- (based on jicxicmic)]
-bool CPartFile::GetNextRequestedBlock(
-	CUpDownClient *sender, std::vector<Requested_Block_Struct *> &toadd, uint16 &count)
+bool CPartFile::GetNextRequestedBlock(CUpDownClient *sender,
+	std::vector<Requested_Block_Struct *> &toadd,
+	uint16 &count,
+	bool *writeLimited)
 {
+	if (writeLimited != nullptr) {
+		*writeLimited = false;
+	}
+
+	// Only resident dirty payload applies backpressure. Outstanding requests do
+	// not occupy memory and must not constrain a healthy network pipeline.
+	if (WriteBufferBudget::Get().IsPressured()) {
+		if (writeLimited != nullptr) {
+			*writeLimited = true;
+		}
+		count = 0;
+		return false;
+	}
 
 	// Returns a list of blocks (~180KB) to download. To avoid prematurely stopping the
 	// download, all blocks requested from the same source must lie within the same chunk
@@ -2510,6 +2566,9 @@ void CPartFile::CompleteFile(bool bIsHashingDone)
 		wxString("CPartFile::CompleteFile: Hash ") + (bIsHashingDone ? "done" : "not done"));
 
 	if (!bIsHashingDone) {
+		if (m_completionAwaitsHashset) {
+			return; // HashsetReceived() completes it
+		}
 		kBpsDown = 0.0;
 		m_displayDownloadRate = 0;
 		SetStatus(PS_COMPLETING);
@@ -2662,10 +2721,11 @@ void CPartFile::RemoveAllSources(bool bTryToSwap)
 
 void CPartFile::Delete()
 {
-	// Once complete, m_fullname is the file in Incoming. While completing, the completion
+	// Once complete, m_fullname is the file in Incoming. While completing or hashing, a
 	// task still holds this object.
-	if (status == PS_COMPLETE || status == PS_COMPLETING) {
-		AddDebugLogLineC(logPartFile, CFormat("Not deleting finished download '%s'") % GetFileName());
+	if (!CanCancelDownload(status)) {
+		AddDebugLogLineC(logPartFile,
+			CFormat("Not deleting finished or hashing download '%s'") % GetFileName());
 		return;
 	}
 
@@ -2691,7 +2751,9 @@ void CPartFile::Delete()
 	uint16 removed =
 #endif
 		theApp->uploadqueue->SuspendUpload(GetFileHash(), true);
+#ifdef __DEBUG__
 	AddDebugLogLineN(logPartFile, CFormat("\tSuspended upload to %d clients") % removed);
+#endif
 	theApp->sharedfiles->RemoveFile(this);
 	AddDebugLogLineN(logPartFile, "\tRemoved from shared");
 	theApp->downloadqueue->RemoveFile(this);
@@ -2778,6 +2840,34 @@ void CPartFile::Delete()
 	AddDebugLogLineN(logPartFile, "Done");
 
 	delete this;
+}
+
+void CPartFile::AskQueuedSourcesAgain()
+{
+	for (const CClientRef &ref : m_SrcList) {
+		CUpDownClient *cur_src = ref.GetClient();
+		const uint8 state = cur_src->GetDownloadState();
+		if (state == DS_ONQUEUE || state == DS_NONEEDEDPARTS) {
+			cur_src->AskAgainSoon();
+		}
+	}
+}
+
+void CPartFile::HashsetRequested()
+{
+	m_hashsetneeded = false;
+	m_hashsetRequestedAt = ::GetTickCount64();
+}
+
+void CPartFile::HashsetReceived()
+{
+	m_hashsetRequestedAt = 0;
+	if (m_completionAwaitsHashset) {
+		m_completionAwaitsHashset = false;
+		if (m_gaplist.IsComplete()) {
+			CompleteFile(false);
+		}
+	}
 }
 
 bool CPartFile::HashSinglePart(uint16 partnumber)
@@ -3029,8 +3119,8 @@ void CPartFile::ResumeFile()
 	SetActive(theApp->IsConnected());
 
 	if (m_gaplist.IsComplete() && (GetStatus() == PS_ERROR)) {
-		// The file has already been hashed at this point
-		CompleteFile(true);
+		// Already hashed, unless its parts were never checked against a part hashset.
+		CompleteFile(GetED2KPartHashCount() == 0 || GetHashCount() == GetED2KPartHashCount());
 	}
 
 	UpdateDisplayedInfo(true);
@@ -3063,7 +3153,8 @@ void CPartFile::PauseForSpace()
 bool CPartFile::PutBackRefusedWrites()
 {
 	bool refused = false;
-	for (PartFileBufferedData *item : m_BufferedData_list) {
+	for (const auto &entry : m_BufferedData_list) {
+		PartFileBufferedData *item = entry.second;
 		if (item->flushed == PB_NOSPACE) {
 			item->flushed = PB_READY;
 			refused = true;
@@ -3511,48 +3602,69 @@ uint32 CPartFile::WriteToBuffer(uint32 transize,
 		}
 	}
 
-	// log transferinformation in our "blackbox"
-	m_CorruptionBlackBox->TransferredData(start, end, client->GetIP());
-
-	// Stamp for FlushBuffer's Phase 3 quiescent guard, and for the download-list "Last
-	// Reception" column. The latter must stamp on real data arrival, not on every periodic
-	// FlushBuffer call, or idle/paused/stalled files all read "now" and the column stops
-	// being useful.
+	// A cancelled or invalidated range must not create new dirty payload.
+	if (std::find(m_requestedblocks_list.begin(), m_requestedblocks_list.end(), block) ==
+		m_requestedblocks_list.end()) {
+		return 0;
+	}
+	// Stamp real accepted reception, rather than periodic flushing.
 	m_nLastBlockReceivedTick = GetTickCount64();
 	m_lastDateChanged = wxDateTime::GetTimeNow();
 
-	// Create a new buffered queue entry
-	PartFileBufferedData *item = new PartFileBufferedData(m_hpartfile, data, start, end, block);
-
-	InsertPartFileBufferedWrite(m_BufferedData_list, item);
-
-	// Increment buffer size marker
-	m_nTotalBufferData += lenData;
-
-	// Mark this small section of the file as filled
-	FillGap(item->start, item->end);
-
-	// Update the flushed mark on the requested block
-	// The loop here is unfortunate but necessary to detect deleted blocks.
-
-	std::list<Requested_Block_Struct *>::iterator it2 = m_requestedblocks_list.begin();
-	for (; it2 != m_requestedblocks_list.end(); ++it2) {
-		if (*it2 == item->block) {
-			item->block->transferred += lenData;
+	struct Fragment
+	{
+		uint64 start;
+		uint64 end;
+	};
+	std::vector<Fragment> fragments;
+	for (auto gap = m_gaplist.begin(); gap != m_gaplist.end(); ++gap) {
+		if (gap.start() > end) {
+			break;
+		}
+		if (gap.end() >= start) {
+			fragments.push_back({ std::max(start, gap.start()), std::min(end, gap.end()) });
 		}
 	}
+	uint32 buffered = 0;
+	for (const auto &fragment : fragments) {
+		auto *item = new PartFileBufferedData(m_hpartfile,
+			data + fragment.start - start,
+			fragment.start,
+			fragment.end,
+			block,
+			WriteBufferBudget::Get().Charge(fragment.end - fragment.start + 1));
+		InsertPartFileBufferedWrite(m_BufferedData_list, item);
+		const uint32 bytes = static_cast<uint32>(fragment.end - fragment.start + 1);
+		m_nTotalBufferData += bytes;
+		buffered += bytes;
+		// Attribute only the bytes actually retained, not overlapping duplicates.
+		m_CorruptionBlackBox->TransferredData(fragment.start, fragment.end, client->GetIP());
+		FillGap(fragment.start, fragment.end);
+	}
+	block->transferred += buffered;
+	m_nBufferedSinceFlush += buffered;
+	m_nWritesSinceFlush += fragments.size();
 
-	if (m_gaplist.IsComplete()) {
+	// Start draining on reception instead of waiting for the periodic file
+	// tick; at high rates that delay alone can fill a healthy volume's budget.
+	// FlushBuffer walks every buffered write, so wait for a full-size packet's
+	// worth of data: tiny packets would otherwise make reception quadratic.
+	// Byte thresholds never trip for tiny packets, so also flush by count to
+	// bound their per-write bookkeeping.
+	if (m_gaplist.IsComplete() || m_nWritesSinceFlush >= 4096 ||
+		(m_nBufferedSinceFlush >= 10240 && WriteBufferBudget::Get().ShouldFlush())) {
 		FlushBuffer();
 	}
 
 	// Return the length of data written to the buffer
-	return lenData;
+	return buffered;
 }
 
 void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 {
 	m_nLastBufferFlushTime = GetTickCount64();
+	m_nBufferedSinceFlush = 0;
+	m_nWritesSinceFlush = 0;
 
 	uint32 partCount = GetPartCount();
 	// Persistent tracking of parts needing hash verification (eMule ref: m_aChangedPart).
@@ -3579,10 +3691,8 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 
 	// eMule ref: PartFile.cpp:4102-4127 -- Phase 1: queue PB_READY items to the write thread
 	if (threaded) {
-		for (std::list<PartFileBufferedData *>::iterator it = m_BufferedData_list.begin();
-			it != m_BufferedData_list.end();
-			++it) {
-			PartFileBufferedData *item = *it;
+		for (const auto &entry : m_BufferedData_list) {
+			PartFileBufferedData *item = entry.second;
 			if (item->flushed == PB_READY) {
 				item->flushed = PB_PENDING;
 				++m_iWrites;
@@ -3598,9 +3708,8 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 	// eMule ref: PartFile.cpp:4129-4145 -- Phase 2: harvest completed writes
 	bool refusedNow = false;
 	bool failed = false;
-	for (std::list<PartFileBufferedData *>::iterator it = m_BufferedData_list.begin();
-		it != m_BufferedData_list.end();) {
-		PartFileBufferedData *item = *it;
+	for (auto it = m_BufferedData_list.begin(); it != m_BufferedData_list.end();) {
+		PartFileBufferedData *item = it->second;
 
 		switch (item->flushed) {
 		case PB_READY:
@@ -3727,7 +3836,8 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 			const uint64 partStart = (uint64)partNumber * PARTSIZE;
 			const uint64 partEnd = std::min<uint64>(partStart + PARTSIZE - 1, GetFileSize() - 1);
 			bool pendingWrite = false;
-			for (const PartFileBufferedData *item : m_BufferedData_list) {
+			for (const auto &entry : m_BufferedData_list) {
+				const PartFileBufferedData *item = entry.second;
 				if (item->flushed == PB_WRITTEN) {
 					continue;
 				}
@@ -3827,9 +3937,8 @@ void CPartFile::FlushBuffer(bool fromAICHRecoveryDataAvailable)
 	// below runs. Without this sweep, the gap-closing write at completion would leave
 	// m_BufferedData_list non-empty, fail the trailing check, and stick the download at
 	// 99.9% for another 60 s.
-	for (std::list<PartFileBufferedData *>::iterator it = m_BufferedData_list.begin();
-		it != m_BufferedData_list.end();) {
-		PartFileBufferedData *item = *it;
+	for (auto it = m_BufferedData_list.begin(); it != m_BufferedData_list.end();) {
+		PartFileBufferedData *item = it->second;
 		if (item->flushed == PB_WRITTEN) {
 			uint32 lenData = (uint32)(item->end - item->start + 1);
 			for (uint32 curpart = (item->start / PARTSIZE); curpart <= (item->end / PARTSIZE);

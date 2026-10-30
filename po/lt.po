@@ -197,6 +197,10 @@ msgstr "Paleisti iš naujo dabar"
 msgid "Later"
 msgstr "Vėliau"
 
+#: src/GuiEvents.cpp src/ExternalConn.cpp
+msgid "The selected download has changed. Refresh and try again."
+msgstr ""
+
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
 msgstr ""
@@ -1281,6 +1285,15 @@ msgstr ""
 msgid "All"
 msgstr "Viskas"
 
+#: src/amule-remote-gui.cpp src/muuli_wdr.cpp
+msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
+msgstr ""
+
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
 msgstr ""
@@ -1288,6 +1301,10 @@ msgstr ""
 #: src/amule-remote-gui.cpp
 msgid "not readable"
 msgstr "neskaitomas"
+
+#: src/amule-remote-gui.cpp
+msgid "outside the folders the daemon allows (configured on the daemon)"
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 msgid "not found"
@@ -1315,6 +1332,15 @@ msgstr "Failas %s jau yra atsiunčiamų failų sąraše"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Nepavyksta sukurti aplanko „%s“ kategorijai „%s“, paliekamas aplankas „%s“."
+
+#: src/amule-remote-gui.cpp
+msgid "the daemon refused the request"
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, fuzzy, c-format
+msgid "The daemon refused the category: %s"
+msgstr "Failas %s jau yra atsiunčiamų failų sąraše"
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
 msgid "Invalid URL"
@@ -1844,6 +1870,14 @@ msgstr "Naudotojas %s (%u) nesuteikė prieigos prie dalinamų aplankų/failų s�
 msgid "File Comments"
 msgstr "Failo komentarai"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Įdėti komentarą/įvertinimą"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Keisti komentarą/įvertinimą"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Vardas"
@@ -2345,6 +2379,18 @@ msgstr[2] "Nepavyko pridėti %u nuorodų (išsamiau žr. žurnale)."
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Klaidinga eD2k nuoroda! KLAIDA: %s"
 
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
+msgstr ""
+
 #: src/EditServerListDlg.cpp
 #, fuzzy
 msgid "Edit server list sources"
@@ -2376,6 +2422,11 @@ msgstr "Išorinis ryšys nutrauktas."
 #: src/ExternalConn.cpp
 msgid "External connections disabled due to empty password!"
 msgstr "Išoriniai ryšiai atjungti, nes slaptažodis tuščias!"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Remote clients cannot change folders: no folder is listed in %s"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
@@ -2482,7 +2533,7 @@ msgstr "Failo maišos funkcija nerasta: %s"
 
 #: src/ExternalConn.cpp
 #, fuzzy, c-format
-msgid "Cannot cancel a finished download: %s"
+msgid "Cannot cancel a hashing or finished download: %s"
 msgstr "Atsiųsta: %s"
 
 #: src/ExternalConn.cpp
@@ -2608,6 +2659,14 @@ msgid "Could not save the amuleapi password: %s"
 msgstr "Nepavyko išsaugoti amuleapi slaptažodžio: %s"
 
 #: src/ExternalConn.cpp
+msgid "One or more folders were outside the allowed remote directories and were left unchanged."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "The category folder is outside the allowed remote directories."
+msgstr ""
+
+#: src/ExternalConn.cpp
 #, fuzzy
 msgid "No such category."
 msgstr "Baigti pokalbį ir užverti pokalbio kortelę."
@@ -2634,6 +2693,10 @@ msgstr "Baigti pokalbį ir užverti pokalbio kortelę."
 #, fuzzy
 msgid "Media metadata extraction is disabled in preferences"
 msgstr "Kademlia išjungta parinktyse."
+
+#: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
@@ -3193,10 +3256,6 @@ msgid "Browse"
 msgstr "Naršyti"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Visi šio aplanko failai dalinami su kitais mazgais)"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
 msgstr "Laikinųjų atsiuntimo failų aplankas"
 
@@ -3330,6 +3389,11 @@ msgstr "Atsiunčiama..."
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "HTTP atsiuntimas atšauktas"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "Refusing to download %s: only http and https URLs are supported."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 #, c-format
@@ -4073,21 +4137,8 @@ msgstr "ListenSocket: gerai."
 msgid "ERROR: Could not listen to TCP port."
 msgstr "KLAIDA: nepavyko klausytis TCP prievado."
 
-#: src/Logger.cpp
-msgid "ERROR: "
-msgstr "KLAIDA: "
-
-#: src/Logger.cpp
-msgid "WARNING: "
-msgstr "DĖMESIO: "
-
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: not using %s, because another user owns it or a folder above it."
-msgstr ""
-
-#: src/MediaProbe.cpp
-msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
+msgid "Media metadata: bundled amule-media-probe helper is unavailable."
 msgstr ""
 
 #: src/MediaProbe.cpp
@@ -4097,33 +4148,13 @@ msgstr ""
 
 #: src/MediaProbe.cpp
 #, c-format
-msgid "Extracting media metadata with ffprobe: %s"
+msgid "Extracting media metadata: %s"
 msgstr ""
 
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe timed out or was cancelled for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe failed (code %d) for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe found nothing usable in %s"
-msgstr ""
+#, fuzzy, c-format
+msgid "Media metadata: parser failed for %s"
+msgstr "Medijos metaduomenų išgavimas"
 
 #: src/MediaProbeThread.cpp
 #, c-format
@@ -5213,7 +5244,7 @@ msgstr "bandymų"
 
 #: src/muuli_wdr.cpp
 #, fuzzy
-msgid "Edit sources…"
+msgid "Edit sources..."
 msgstr "Failo šaltiniai:"
 
 #: src/muuli_wdr.cpp
@@ -5243,6 +5274,14 @@ msgstr "Automatiškai jungtis tik prie serverių iš pastovaus sąrašo"
 #: src/muuli_wdr.cpp
 msgid "Set manually added servers to High Priority"
 msgstr "Naudotojo įdėtiems serveriams nurodyti aukštą prioritetą"
+
+#: src/muuli_wdr.cpp
+msgid "Publish shared files faster on servers that allow it"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow the publication pace that the server advertises. Other servers get the standard pace."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Add files to download in pause mode"
@@ -5373,7 +5412,7 @@ msgid ""
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
 msgstr ""
 
-#: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
+#: src/muuli_wdr.cpp
 msgid "Media metadata extraction"
 msgstr "Medijos metaduomenų išgavimas"
 
@@ -5382,24 +5421,8 @@ msgid "Extract length / bitrate / codec from shared audio and video files"
 msgstr "Išgauti trukmę / bitų spartą / kodeką iš dalinamų garso ir vaizdo failų"
 
 #: src/muuli_wdr.cpp
-msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
-msgstr "Kai įjungta, aMule paleidžia ffprobe kiekvienam dalinamam medijos failui, kad užpildytų Trukmės / Bitų spartos / Kodeko stulpelius, kuriuos mato kiti klientai, radę failą paieškoje. Reikalinga įdiegta ffmpeg (ffprobe vykdomasis failas)."
-
-#: src/muuli_wdr.cpp
-msgid "Path to ffprobe:"
-msgstr "Kelias iki ffprobe:"
-
-#: src/muuli_wdr.cpp
-msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
-msgstr "Pilnas kelias iki ffprobe vykdomojo failo. Palikite tuščią, kad aMule jį automatiškai aptiktų paleidimo metu."
-
-#: src/muuli_wdr.cpp
-msgid "Detect"
-msgstr "Aptikti"
-
-#: src/muuli_wdr.cpp
-msgid "Search the standard install locations for an ffprobe binary and fill the path field."
-msgstr "Ieškoti ffprobe vykdomojo failo standartinėse diegimo vietose ir užpildyti kelio lauką."
+msgid "When enabled, aMule uses its bundled MediaInfo parser to extract metadata from shared media files."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid ""
@@ -5471,6 +5494,14 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Show how many of the files and folders in your shared folders the current pattern would exclude, counted over the last scan."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders the daemon allows remote changes in"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5737,6 +5768,18 @@ msgstr "Slaptažodis"
 
 #: src/muuli_wdr.cpp
 msgid "Require encrypted connections (rejects clients that cannot encrypt)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders remote clients may use"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -6198,6 +6241,22 @@ msgid "add here the words amule should filter and block messages including it"
 msgstr "Įrašykite žodžius, kurių aMule ieškos žinutės tekste ir filtruos žinutę"
 
 #: src/muuli_wdr.cpp
+msgid "Enable advanced spam filter"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Block unsolicited links and repeated messages from non-friends."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Require a CAPTCHA for first messages from non-friends"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Withhold the message until the sender solves the challenge. Clients without CAPTCHA support cannot start a chat."
+msgstr ""
+
+#: src/muuli_wdr.cpp
 msgid "Show received messages in the log"
 msgstr "Rodyti gautas žinutes žurnale"
 
@@ -6441,6 +6500,10 @@ msgstr ""
 #, c-format
 msgid "%s:"
 msgstr ""
+
+#: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Visi šio aplanko failai dalinami su kitais mazgais)"
 
 #: src/OtherFunctions.cpp
 msgid "all"
@@ -6717,6 +6780,11 @@ msgstr[2] "Aptikta klaidinga dalis (%d) %d dalių faile %s – failo rezultatų 
 
 #: src/PartFile.cpp
 #, c-format
+msgid "'%s' does not match its file hash, and without the part hashset the corrupt part cannot be found. Waiting for the hashset."
+msgstr ""
+
+#: src/PartFile.cpp
+#, c-format
 msgid "Found completed part (%i) in %s"
 msgstr "Aptikta baigta dalis (%i) %s"
 
@@ -6811,6 +6879,10 @@ msgid "no options available"
 msgstr "nėra prieinamų parinkčių"
 
 #: src/Preferences.cpp
+msgid "Media metadata: FFProbePath is obsolete; aMule now uses its bundled MediaInfo parser. Removing the old setting."
+msgstr ""
+
+#: src/Preferences.cpp
 msgid "Invalid path mapping found, skipping"
 msgstr ""
 
@@ -6826,6 +6898,11 @@ msgstr "TCP prievadas negali būti didesnis nei 65532, nes serverio UDP prievada
 #, c-format
 msgid "Default port will be used (%d)"
 msgstr "Bus naudojamas numatytas prievadas (%d)"
+
+#: src/Preferences.cpp
+#, c-format
+msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
+msgstr ""
 
 #: src/BandwidthLimitSlider.h
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
@@ -6932,8 +7009,16 @@ msgid "Failed to transfer data from Cfg to Widget with the ID %d and key %s"
 msgstr "Nepavyko perkelti duomenų iš Cfg į valdiklį, kurio ID %d ir raktas %s"
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot extract media metadata."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
 msgid "The type of proxy you are connecting to"
 msgstr "Atstovaujančio serverio, prie kurio jungsitės, tipas"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Set in the daemon's own configuration (amule.conf); not editable remotely."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 #, c-format
@@ -7133,10 +7218,11 @@ msgid "The aMule web server is deprecated. Consider running the aMule API instea
 msgstr "aMule žiniatinklio serveris yra pasenęs. Apsvarstykite galimybę naudoti aMule API."
 
 #: src/PrefsUnifiedDlg.cpp
+#, fuzzy
 msgid ""
-"Your Auto-update servers list is in blank.\n"
-"Please fill in at least one URL to point to a valid server.met file.\n"
-"Click on the button \"List\" by this checkbox to enter an URL."
+"Your server list sources are empty.\n"
+"Please add at least one URL of a valid server.met file.\n"
+"Click the \"Edit sources...\" button next to this checkbox to add one."
 msgstr ""
 "Automatiškai atnaujinamų serverių sąrašas tuščias.\n"
 "Įrašykite bent vieną server.met failo URL.\n"
@@ -7194,17 +7280,9 @@ msgid "Select browser"
 msgstr "Parinkite naršyklę"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Select ffprobe binary"
-msgstr "Pasirinkite ffprobe vykdomąjį failą"
-
-#: src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "Executable%s"
 msgstr "Vykdomas failas %s"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
-msgstr "ffprobe nerastas nei PATH kintamajame, nei standartinėse diegimo vietose. Įdiekite ffmpeg (kartu su juo pateikiamas ffprobe) arba naudokite „Naršyti“, kad pasirinktumėte vykdomąjį failą rankiniu būdu."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset the settings on this page to their default values?"
@@ -7402,6 +7480,19 @@ msgstr ""
 #, fuzzy
 msgid "Choose the local folder"
 msgstr "Parinkite aplanką %s"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Please enter an absolute path. A relative path would be resolved against the daemon's working directory, so it is not accepted."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Allowed folders for remote clients"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Choose a folder remote clients may use"
+msgstr "Nurodykite atsiųstų failų aplanką"
 
 #: src/SearchDlg.cpp
 #, fuzzy
@@ -8244,6 +8335,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr ""
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8299,6 +8394,11 @@ msgstr[0] "Aptiktas %i dalinamas failas"
 msgstr[1] "Aptikti %i dalinami failai"
 msgstr[2] "Aptikta %i dalinamų failų"
 
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Refused to rename '%s' to '%s': the new name must be a plain file name, not a path."
+msgstr ""
+
 #: src/SharedFilePeersListCtrl.cpp src/SourceListCtrl.cpp
 #, fuzzy
 msgid "User Name"
@@ -8337,14 +8437,6 @@ msgstr "Kelias"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Dalinami failai"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Įdėti komentarą/įvertinimą"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Keisti komentarą/įvertinimą"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
@@ -9500,6 +9592,16 @@ msgstr "Gautas prašymas nežinomo failo maišos f-jai: %s"
 
 #: src/UploadDiskIOThread.cpp
 #, fuzzy, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Nepavyko pradėti Kad paieškos"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr ""
+
+#: src/UploadDiskIOThread.cpp
+#, fuzzy, c-format
 msgid "Failed to open file (%s), removing from list of shared files."
 msgstr "Nurodykite kas gali pamatyti dalinamų failų sąrašą."
 
@@ -10300,6 +10402,37 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "ERROR: "
+#~ msgstr "KLAIDA: "
+
+#~ msgid "WARNING: "
+#~ msgstr "DĖMESIO: "
+
+#~ msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
+#~ msgstr "Kai įjungta, aMule paleidžia ffprobe kiekvienam dalinamam medijos failui, kad užpildytų Trukmės / Bitų spartos / Kodeko stulpelius, kuriuos mato kiti klientai, radę failą paieškoje. Reikalinga įdiegta ffmpeg (ffprobe vykdomasis failas)."
+
+#~ msgid "Path to ffprobe:"
+#~ msgstr "Kelias iki ffprobe:"
+
+#~ msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
+#~ msgstr "Pilnas kelias iki ffprobe vykdomojo failo. Palikite tuščią, kad aMule jį automatiškai aptiktų paleidimo metu."
+
+#~ msgid "Detect"
+#~ msgstr "Aptikti"
+
+#~ msgid "Search the standard install locations for an ffprobe binary and fill the path field."
+#~ msgstr "Ieškoti ffprobe vykdomojo failo standartinėse diegimo vietose ir užpildyti kelio lauką."
+
+#, fuzzy
+#~ msgid "Invalid ffprobe path"
+#~ msgstr "Klaidingas failo pavadinimas."
+
+#~ msgid "Select ffprobe binary"
+#~ msgstr "Pasirinkite ffprobe vykdomąjį failą"
+
+#~ msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
+#~ msgstr "ffprobe nerastas nei PATH kintamajame, nei standartinėse diegimo vietose. Įdiekite ffmpeg (kartu su juo pateikiamas ffprobe) arba naudokite „Naršyti“, kad pasirinktumėte vykdomąjį failą rankiniu būdu."
 
 #~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
 #~ msgstr "Dėklo ženkliuko palaikymui kompiliavimo metu reikalinga libayatana-appindicator3."

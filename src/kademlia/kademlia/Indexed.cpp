@@ -1029,6 +1029,7 @@ void CIndexed::SendValidKeywordResult(const CUInt128 &keyID,
 		packetdata.WriteUInt16(50);
 		const uint16_t maxResults = 300;
 		int count = 0 - startPosition;
+		uint64_t matchBudget = Kademlia::CKeyEntry::SEARCH_BUDGET;
 
 		// Two loops: the first ignores results with a trustvalue below 1, the second also
 		// considers those. That keeps the 300 max results from filling with spam. Sorting
@@ -1038,19 +1039,21 @@ void CIndexed::SendValidKeywordResult(const CUInt128 &keyID,
 		DEBUG_ONLY(uint32_t dbgResultsUntrusted = 0;)
 
 		do {
+			// Once the budget is spent, the results found so far are still sent.
 			for (CSourceKeyMap::iterator itSource = currKeyHash->m_Source_map.begin();
-				itSource != currKeyHash->m_Source_map.end();
+				itSource != currKeyHash->m_Source_map.end() && matchBudget > 0;
 				++itSource) {
 				Source *currSource = itSource->second;
 
 				for (CKadEntryPtrList::iterator itEntry = currSource->entryList.begin();
-					itEntry != currSource->entryList.end();
+					itEntry != currSource->entryList.end() && matchBudget > 0;
 					++itEntry) {
 					Kademlia::CKeyEntry *currName =
 						static_cast<Kademlia::CKeyEntry *>(*itEntry);
 					wxASSERT(currName->IsKeyEntry());
 					if ((onlyTrusted ^ (currName->GetTrustValue() < 1.0)) &&
-						(!pSearchTerms || currName->SearchTermsMatch(pSearchTerms))) {
+						(!pSearchTerms || currName->SearchTermsMatch(
+									  pSearchTerms, matchBudget))) {
 						if (count < 0) {
 							count++;
 						} else if ((uint16_t)count < maxResults) {
@@ -1099,10 +1102,12 @@ void CIndexed::SendValidKeywordResult(const CUInt128 &keyID,
 			}
 		} while (!onlyTrusted);
 
+#ifdef __DEBUG__
 		AddDebugLogLineN(logKadIndex,
 			CFormat("Kad keyword search result request: Sent %u trusted and %u untrusted "
 				"results") %
 				dbgResultsTrusted % dbgResultsUntrusted);
+#endif
 
 		if (count > 0) {
 			uint16_t countLeft = (uint16_t)count % 50;

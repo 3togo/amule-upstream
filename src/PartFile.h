@@ -28,11 +28,13 @@
 
 #include "KnownFile.h"     // Needed for CKnownFile
 #include "FileAutoClose.h" // Needed for CFileAutoClose
-#include "FileArea.h"      // Needed for CFileArea (PartFileBufferedData)
-#include <array>           // Needed for std::array (m_ecTickState)
-#include <atomic>          // Needed for std::atomic (m_iWrites, flushed)
-#include <memory>          // Needed for std::shared_ptr (m_metSave)
-#include <mutex>           // Needed for std::mutex (m_hpartfileMutex)
+#include "WriteBufferBudget.h"
+#include "FileArea.h" // Needed for CFileArea (PartFileBufferedData)
+#include <array>      // Needed for std::array (m_ecTickState)
+#include <atomic>     // Needed for std::atomic (m_iWrites, flushed)
+#include <map>        // Needed for std::multimap (m_BufferedData_list)
+#include <memory>     // Needed for std::shared_ptr (m_metSave)
+#include <mutex>      // Needed for std::mutex (m_hpartfileMutex)
 
 #include "OtherStructs.h"   // Needed for Requested_Block_Struct
 #include "DeadSourceList.h" // Needed for CDeadSourceList
@@ -80,6 +82,7 @@ typedef std::map<uint32, SourcenameItem> SourcenameItemMap;
 class PartFileBufferedData
 {
 public:
+	WriteBufferBudget::Credit writeCredit;
 	CFileArea area;                // File area to be written
 	uint64 start;                  // This is the start offset of the data
 	uint64 end;                    // This is the end offset of the data
@@ -92,8 +95,10 @@ public:
 		uint8_t *data,
 		uint64 _start,
 		uint64 _end,
-		Requested_Block_Struct *_block)
-	: start(_start)
+		Requested_Block_Struct *_block,
+		WriteBufferBudget::Credit credit)
+	: writeCredit(std::move(credit))
+	, start(_start)
 	, end(_end)
 	, block(_block)
 	, flushed(0)
@@ -160,8 +165,10 @@ public:
 
 	void UpdateCompletedInfos();
 
-	bool GetNextRequestedBlock(
-		CUpDownClient *sender, std::vector<Requested_Block_Struct *> &toadd, uint16 &count);
+	bool GetNextRequestedBlock(CUpDownClient *sender,
+		std::vector<Requested_Block_Struct *> &toadd,
+		uint16 &count,
+		bool *writeLimited = nullptr);
 #ifndef CLIENT_GUI
 	// Not 'override': no other override in this class is marked, and Clang builds error out on
 	// the mix (-Werror=inconsistent-missing-override).
@@ -458,10 +465,13 @@ private:
 
 	uint64 m_lastRefreshedDLDisplay;
 
-	// Buffered data to be written
-	std::list<class PartFileBufferedData *> m_BufferedData_list;
+	// Buffered data to be written, keyed by end offset. Inserts stay logarithmic when a
+	// source sends many tiny packets.
+	std::multimap<uint64, class PartFileBufferedData *> m_BufferedData_list;
 
 	uint32 m_nTotalBufferData;
+	uint32 m_nBufferedSinceFlush = 0;
+	size_t m_nWritesSinceFlush = 0;
 	uint64 m_nLastBufferFlushTime;
 	std::atomic<int32> m_iWrites; // eMule ref: count of items queued to write thread (not yet PB_WRITTEN)
 	std::vector<bool> m_aChangedPart; // eMule ref: persistent tracking of parts needing hash verification
@@ -542,6 +552,11 @@ private:
 	SourceSet m_SrcList;
 	SourceSet m_A4AFsrclist;
 	bool m_hashsetneeded;
+	// When the outstanding hashset request was sent; 0 when none is pending.
+	uint64 m_hashsetRequestedAt = 0;
+	// The downloaded data failed the whole-file hash and there was no part hashset to tell
+	// which part is bad, so completion waits for one.
+	bool m_completionAwaitsHashset = false;
 	uint64 m_lastsearchtime;
 	bool m_localSrcReqQueued;
 
@@ -567,6 +582,10 @@ public:
 public:
 	bool IsHashSetNeeded() const { return m_hashsetneeded; }
 	void SetHashSetNeeded(bool value) { m_hashsetneeded = value; }
+	void HashsetRequested();
+	// Sources asked while there was nothing to download are asked again now.
+	void AskQueuedSourcesAgain();
+	void HashsetReceived();
 
 	uint64 GetCompletedSize() const { return completedsize; }
 	void SetCompletedSize(uint64 size) { completedsize = size; }
