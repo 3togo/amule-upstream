@@ -267,7 +267,7 @@ protected:
 	// where the locality check would otherwise strip ZLIB.
 	bool m_forceZLIB;
 
-	// Select the spawned API token's verifier instead of the configured password's.
+	// Select the spawned API or web token's verifier instead of the configured password's.
 	uint8_t m_ECTokenCredential = 0;
 	// Advertise the multi-search EC capability (EC_TAG_CAN_MULTI_SEARCH) so the daemon
 	// addresses searches by ID and several can run at once. Off by default; only a connector

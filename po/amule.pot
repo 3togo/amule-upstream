@@ -2407,7 +2407,7 @@ msgid "Unknown version"
 msgstr ""
 
 #: src/ExternalConn.cpp
-msgid "An EC client of version 3.2.0 or later is required."
+msgid "An EC client of version 3.3.0 or later is required."
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2610,6 +2610,10 @@ msgstr ""
 #: src/ExternalConn.cpp
 #, c-format
 msgid "Could not save the amuleapi password: %s"
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "Could not update EC password verifier. The other preferences were saved."
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -4044,7 +4048,7 @@ msgid "Invalid SRP handshake or unsupported profile. Connection closed."
 msgstr ""
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "An EC daemon of version 3.2.0 or later is required."
+msgid "An EC daemon of version 3.3.0 or later is required."
 msgstr ""
 
 #: src/libs/ec/cpp/RemoteConnect.cpp

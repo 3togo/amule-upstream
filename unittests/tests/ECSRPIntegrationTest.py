@@ -132,6 +132,24 @@ def rate_limit_boundary(daemon, cmd, async_probe, root, env):
                 ec = connect_daemon(proc, port, directory, peer)
                 ec.sock.close()
 
+                # Unsupported clients must never consume the failure budget,
+                # even when an old GUI keeps retrying from the same address.
+                for _ in range(12):
+                    with socket.create_connection(('127.0.0.1', port), timeout=10) as sock:
+                        sock.sendall(W.packet('EC_OP_AUTH_REQ', [W.tag(
+                            'EC_TAG_PROTOCOL_VERSION',
+                            struct.pack('!H', C['EC_CURRENT_PROTOCOL_VERSION']), 3)]))
+                        op, tags = W.read(sock)
+                        assert op == C['EC_OP_AUTH_FAIL'] and b'3.3.0' in tags[C['EC_TAG_STRING']]
+                    with socket.create_connection(('127.0.0.1', port), timeout=10) as sock:
+                        sock.sendall(W.packet('EC_OP_AUTH_REQ', [
+                            W.tag('EC_TAG_SRP_A', W.pad(5)),
+                            W.tag('EC_TAG_PROTOCOL_VERSION', b'\x00\x00', 3)]))
+                        op, tags = W.read(sock)
+                        assert op == C['EC_OP_AUTH_FAIL'] and b'Too many' not in tags[C['EC_TAG_STRING']]
+                EC(port).sock.close()
+                print('PASS: legacy and incompatible clients do not lock out SRP logins; limit', threshold)
+
                 def abandon(tags):
                     raise StopChallenge()
 
@@ -282,7 +300,7 @@ def main(daemon,cmd,async_probe):
                     with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
                         sock.sendall(W.packet('EC_OP_AUTH_REQ',[W.tag('EC_TAG_PROTOCOL_VERSION',struct.pack('!H',C['EC_CURRENT_PROTOCOL_VERSION']),3)]))
                         op,tags=W.read(sock)
-                        assert op==C['EC_OP_AUTH_FAIL'] and b'3.2.0' in tags[C['EC_TAG_STRING']]
+                        assert op==C['EC_OP_AUTH_FAIL'] and b'3.3.0' in tags[C['EC_TAG_STRING']]
                     # Importing daemon settings must preserve a remembered client credential.
                     client_config=root/'config'/'remote.conf'
                     client_config.parent.mkdir(exist_ok=True)
@@ -291,6 +309,16 @@ def main(daemon,cmd,async_probe):
                     out=subprocess.run([cmd,'--config-file=remote.conf','--create-config-from='+str(root/'amule.conf')],cwd=root,env=env,capture_output=True,text=True,timeout=10)
                     assert out.returncode==0,out
                     assert 'Password='+remembered in client_config.read_text(), 'config import erased remembered credential'
+                    # The retired setting cannot opt a connector out of encrypted SRP.
+                    for encryption in ('0', '1'):
+                        client_config.write_text(
+                            f'[EC]\nHost=127.0.0.1\nPort={port}\n'
+                            f'Password={remembered}\nEncryption={encryption}\n')
+                        out = subprocess.run(
+                            [cmd, '--config-file=remote.conf', '-c', 'status'],
+                            cwd=root, env=env, capture_output=True, text=True, timeout=20)
+                        assert out.returncode == 0 and 'Succeeded!' in out.stdout + out.stderr, out
+                    print('PASS: remote.conf Encryption=0 and Encryption=1 are ignored on load')
                     # Missing token follows a full SRP exchange and rejects a guess.
                     with socket.create_connection(('127.0.0.1',port),timeout=10) as sock:
                         encrypted,op,_=W.authenticate(sock,os.urandom(16),credential=1)
@@ -384,7 +412,7 @@ def main(daemon,cmd,async_probe):
             old.extra=None
             threading.Thread(target=old.serve_forever,daemon=True).start()
             out=subprocess.run([cmd,'-h','127.0.0.1','-p',str(old.server_address[1]),'-P','regression','-c','status'],env=env,capture_output=True,text=True,timeout=10)
-            assert '3.2.0 or later' in out.stdout+out.stderr,out
+            assert '3.3.0 or later' in out.stdout+out.stderr,out
             old.shutdown()
             assert old.extra==b'',old.extra
         with FixtureServer(('127.0.0.1',0),OldDaemon) as malicious:

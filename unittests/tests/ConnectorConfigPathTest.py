@@ -28,6 +28,7 @@ def run(binary, root, *args, expect_failure=False):
 
 def read_config(path):
     config = configparser.ConfigParser(interpolation=None)
+    config.optionxform = str  # Preserve wxConfig key spelling when writing stale settings.
     text = path.read_text()
     # wxFileConfig also writes ungrouped keys (Locale) before the first section.
     config.read_string(text[text.index('['):])
@@ -53,12 +54,17 @@ def check_path(binary, root, argument, expected):
         config.write(stream)
     if os.name != 'nt':
         expected.chmod(0o644)
-    run(binary, root, *args, '--write-config', '--port=48124')
-    config = read_config(expected)
-    assert config['EC']['Port'] == '48124', expected
-    assert config['EC']['Host'] == 'config-path-test.invalid', expected
-    if os.name != 'nt':
-        assert expected.stat().st_mode & 0o777 == 0o600, expected
+    for encryption in ('0', '1'):
+        config['EC']['Encryption'] = encryption
+        with expected.open('w') as stream:
+            config.write(stream)
+        run(binary, root, *args, '--write-config', '--port=48124')
+        config = read_config(expected)
+        assert 'Encryption' not in config['EC'], (expected, config.items('EC'))
+        assert config['EC']['Port'] == '48124', expected
+        assert config['EC']['Host'] == 'config-path-test.invalid', expected
+        if os.name != 'nt':
+            assert expected.stat().st_mode & 0o777 == 0o600, expected
 
 
 def main():

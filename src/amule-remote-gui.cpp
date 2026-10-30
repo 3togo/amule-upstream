@@ -1134,6 +1134,7 @@ void CamuleRemoteGuiApp::Startup()
 		wxConfig::Get()->Write("/EC/Port", dialog->Port());
 		wxConfig::Get()->Write("/EC/Password", dialog->PassHash());
 		wxConfig::Get()->Write("/EC/ForceZLIB", dialog->ForceZlib() ? 1l : 0l);
+		wxConfig::Get()->DeleteEntry("/EC/Encryption");
 	}
 	// Capture the EC connection params so a post-startup reconnect
 	// (issue #444) can re-dial without the (about-to-be-destroyed) dialog.

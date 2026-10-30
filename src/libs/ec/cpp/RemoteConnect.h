@@ -135,10 +135,8 @@ private:
 	std::vector<uint8_t> m_aeadEphPriv;
 	std::vector<uint8_t> m_aeadEphPub;
 
-	// Our confirmation, sent with EC_OP_AUTH_PASSWD, and the daemon's, which must
-	// come back in EC_OP_AUTH_OK. With the key no longer derived from the password,
-	// these are what a relay cannot produce: it runs a different exchange on each
-	// leg, so the transcripts differ and at least one check fails.
+	// Our SRP proof, sent with EC_OP_AUTH_PASSWD. It binds the password exchange
+	// to the transport transcript so a relay cannot reuse it on a different leg.
 	std::vector<uint8_t> m_srpClientProof;
 
 	/// Set when the daemon named a cipher and the keys derived cleanly.

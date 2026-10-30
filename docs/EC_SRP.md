@@ -1,11 +1,11 @@
 # EC authentication, verifier format v1
 
-Upgrade the core and every EC client together to 3.2.0 or later. Authentication
+Upgrade the core and every EC client together to 3.3.0 or later. Authentication
 requires both SRP-6a and the encrypted X25519 channel, including on loopback.
 There is no legacy password challenge or plaintext fallback. The removed
 `--disable-ec-encryption` option is an unknown option. Old `Encryption` and
 `RequireEncryption` config keys are ignored. An old client receives an error
-requiring a 3.2.0 client; a new client facing an old daemon requires a 3.2.0 daemon.
+requiring a 3.3.0 client; a new client facing an old daemon requires a 3.3.0 daemon.
 
 ## Exact construction
 
@@ -107,11 +107,12 @@ all-zero digests are rejected before changing preferences. A combined remote
 password/port edit commits its password only after port rebinding succeeds.
 The local dialog commits the password only after validation and cancellable
 work. Remote preference snapshots never consume or retain a pending EC digest;
-the edit is sent explicitly at commit and cleared only on acknowledgement.
-Confirmed changes update the GUI's reconnect credential and, only if the active
-credential was already saved for that endpoint, its saved client password.
-Failed requests preserve the pending edit only while the preferences dialog stays
-open. Closing or cancelling the dialog discards it.
+the edit is sent explicitly when OK is pressed. Closing the dialog, including
+with OK, discards the pending edit. The request handler retains the submitted
+digest until the reply and updates the GUI's reconnect credential only after
+acknowledgement. It updates a saved client password only if that credential was
+already saved for the active endpoint. A failed request is not retried when the
+dialog is reopened.
 
 Config backups and saved client digests are not revoked by deleting the live
 key. A downgrade has no ECPassword and requires setting a password again with

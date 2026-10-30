@@ -36,9 +36,9 @@ inline wxString Display(const wxString &pending)
 	return pending.IsEmpty() ? wxString() : wxString("********");
 }
 
-// A pending digest can survive a rejected/aborted request and a reopened dialog.
-// Only newly entered text is a password; the displayed mask must preserve that
-// pending digest so retrying never hashes a digest or the mask itself.
+// Preserve a pending digest while the dialog remains open. Only newly entered
+// text is a password; the displayed mask must never be hashed as one. Closing
+// the dialog discards the pending edit.
 inline bool ReadInput(wxString &pending, const wxString &text, bool modified)
 {
 	if (modified || text != Display(pending)) {

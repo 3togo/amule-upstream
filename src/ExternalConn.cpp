@@ -655,9 +655,8 @@ void CECServerSocket::NegotiateAEAD(const CECPacket *request, CECPacket *respons
 	}
 	if (clientPubTag == nullptr || !clientPubTag->IsCustom() ||
 		clientPubTag->GetTagDataLen() != ECCrypt::X25519_KEY_LEN) {
-		// Not an older client -- encryption has never shipped, so anything that offers
-		// it at all is new enough to send a key. A keyless offer is therefore malformed,
-		// or a middlebox stripped the key, and the login is refused rather than degraded.
+		// Every encryption-capable client supplies an X25519 public key.
+		// A keyless offer is malformed or was altered in transit; refuse the login.
 		AddDebugLogLineN(logEC, "AEAD: offer without a usable public key, refusing the login");
 		return;
 	}
@@ -1055,8 +1054,6 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 			failure->AddTag(CECTag(EC_TAG_STRING, error));
 			return failure;
 		}
-		// Reserve an attempt before expensive work; abandoned challenges count too.
-		theApp->ECServerHandler->AuthRateLimiter().NoteFailure(peerIp);
 		// cppcheck-suppress unreadVariable
 		const CECTag *clientName = request->GetTagByName(EC_TAG_CLIENT_NAME);
 		// cppcheck-suppress unreadVariable
@@ -1071,7 +1068,7 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 			m_conn_state = CONN_FAILED;
 			auto *failure = new CECPacket(EC_OP_AUTH_FAIL);
 			failure->AddTag(CECTag(EC_TAG_STRING,
-				wxTRANSLATE("An EC client of version 3.2.0 or later is required.")));
+				wxTRANSLATE("An EC client of version 3.3.0 or later is required.")));
 			return failure;
 		}
 		const CECTag *protocol = request->GetTagByName(EC_TAG_PROTOCOL_VERSION);
@@ -1113,6 +1110,9 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 					ECSRP::Field(*request, EC_TAG_CAN_AEAD, offer->GetTagDataLen());
 					ECSRP::Field(*request, EC_TAG_AEAD_CLIENT_NONCE, 32);
 					ECSRP::Field(*request, EC_TAG_AEAD_CLIENT_PUBKEY, 32);
+					// Reserve only compatible handshakes before expensive work;
+					// abandoned challenges still count toward the lockout.
+					theApp->ECServerHandler->AuthRateLimiter().NoteFailure(peerIp);
 					NegotiateAEAD(request, response);
 					const auto A = ECSRP::Field(*request, EC_TAG_SRP_A, ECSRP::WIDTH);
 					const auto credential =
@@ -4321,7 +4321,8 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 			if (!thePrefs::SetECPasswordVerifier(preparedVerifier)) {
 				response = new CECPacket(EC_OP_FAILED);
 				response->AddTag(CECTag(EC_TAG_STRING,
-					wxTRANSLATE("Could not update EC password verifier.")));
+					wxTRANSLATE("Could not update EC password verifier. The other "
+						    "preferences were saved.")));
 				break;
 			}
 			AddLogLineN(CFormat(_("EC password changed by %s")) % GetPeer());

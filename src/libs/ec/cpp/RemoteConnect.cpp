@@ -141,9 +141,8 @@ CECLoginPacket::CECLoginPacket(const wxString &client,
 	// Transport encryption: our ciphers in preference order, our half of the
 	// derivation salt, and our ephemeral public key. An older daemon that ignores
 	// these tags cannot authenticate this client. The public key needs no
-	// capability tag of its own: encryption has never shipped, so anything offering
-	// EC_TAG_CAN_AEAD can do X25519, and a cipher list without a key is malformed
-	// rather than old.
+	// capability tag of its own: every client offering EC_TAG_CAN_AEAD supports
+	// X25519, and a cipher list without a key is malformed.
 	if (!clientNonce.empty() && !clientPubKey.empty()) {
 		const std::vector<uint8_t> ciphers = ECCrypt::SupportedCiphers();
 		AddTag(CECTag(EC_TAG_CAN_AEAD, ciphers.size(), ciphers.data()));
@@ -654,7 +653,7 @@ bool CRemoteConnect::ProcessAuthPacket(const CECPacket *reply)
 					reply->GetTagByName(EC_TAG_SRP_B)
 						? _("Invalid SRP handshake or unsupported profile. "
 						    "Connection closed.")
-						: _("An EC daemon of version 3.2.0 or later is required.");
+						: _("An EC daemon of version 3.3.0 or later is required.");
 				m_srp.Reset();
 				m_ec_state = EC_FAIL;
 				CloseSocket();
