@@ -100,6 +100,7 @@ class EC:
         proof = hashlib.md5((password_hash + salt_hash).encode()).digest()
         op, tags = self.call(C['EC_OP_AUTH_PASSWD'], [tag(C['EC_TAG_PASSWD_HASH'], proof, 9)])
         assert op == C['EC_OP_AUTH_OK'] and C['EC_TAG_CAN_SEARCH_ALL'] in tags, (op, tags)
+        self.auth_tags = tags
 
     def call(self, op, tags=()):
         payload = bytes([op]) + struct.pack('!H', len(tags)) + b''.join(tags)

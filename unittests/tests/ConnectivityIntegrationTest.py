@@ -14,11 +14,10 @@ from LogfilePathIntegrationTest import daemon_env, write_config
 
 
 class SnapshotClient(EC):
-    def call(self, opcode, tags=()):
-        result, reply = super().call(opcode, tags)
-        if result == C['EC_OP_AUTH_OK']:
-            assert C['EC_TAG_CAN_CONNECTIVITY'] in reply, 'capability not advertised'
-        return result, reply
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Authentication transports may bypass call(), as the SRP fixture does.
+        assert C['EC_TAG_CAN_CONNECTIVITY'] in self.auth_tags, 'capability not advertised'
 
 
 def run(binary):
