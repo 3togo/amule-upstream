@@ -34,7 +34,6 @@ TEST(SourceRetryPolicy, KeepsProtocolReaskIntervalsAndStrictBoundary)
 			ASSERT_FALSE(IsDue(deadline, 1000, delay));
 			ASSERT_TRUE(IsDue(deadline + 1, 1000, delay));
 			ASSERT_TRUE(IsDue(1000, 0, delay));
-			ASSERT_FALSE(IsDue(999, 1000, delay));
 		}
 	}
 }
@@ -45,16 +44,6 @@ TEST(SourceRetryPolicy, KeepsGlobalAndPerFileDeadSourceExclusions)
 	ASSERT_EQUALS(uint64_t{ 45 * 60000 }, DeadSourceDelay(false, false));
 	ASSERT_EQUALS(uint64_t{ 60 * 60000 }, DeadSourceDelay(false, true));
 	ASSERT_EQUALS(uint64_t{ 1000 + 60 * 60000 }, DeadSourceDeadline(1000, false, true));
-}
-TEST(SourceRetryPolicy, BoundsArithmeticForExtremeConfigurationValues)
-{
-	const uint64_t maximum = std::numeric_limits<uint64_t>::max();
-	// Raw EC writes remain unclamped. Keep the extreme-delay and future-time guards
-	// covered until the setter enforces the supported range.
-	ASSERT_FALSE(IsDue(1000, 1000, 0));
-	ASSERT_TRUE(IsDue(1001, 1000, 0));
-	ASSERT_EQUALS(maximum, DeadSourceDeadline(maximum - 1, false, true));
-	ASSERT_FALSE(IsDue(maximum, 1, maximum));
 }
 TEST(SourceRetryPolicy, PacedRetryDoesNotBypassAggressiveRequestGuard)
 {

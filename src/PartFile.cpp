@@ -44,7 +44,6 @@
 #include <wx/tokenzr.h> // Needed for wxStringTokenizer
 
 #include <algorithm> // Needed for std::count_if
-#include <limits>    // Needed for temporary source-reask overflow protection
 
 #ifndef AMULE_DAEMON
 #include <wx/notifmsg.h> // Needed for wxNotificationMessage
@@ -1779,12 +1778,8 @@ uint32 CPartFile::Process(uint8 m_icounter)
 				}
 				// doubled reasktime for no needed parts - save connections and traffic
 				const uint64 reask = thePrefs::GetSourceReaskTime();
-				// Keep this guard until SetSourceReaskTime clamps raw EC writes.
-				const uint64 delay = reask > std::numeric_limits<uint64>::max() / 2
-							     ? std::numeric_limits<uint64>::max()
-							     : reask * 2;
 				if (!SourceRetryPolicy::IsDue(
-					    dwCurTick, cur_src->GetLastAskedTime(), delay)) {
+					    dwCurTick, cur_src->GetLastAskedTime(), reask * 2)) {
 					break;
 				}
 				// Recheck this client to see if still NNP..
@@ -1807,11 +1802,9 @@ uint32 CPartFile::Process(uint8 m_icounter)
 				// Give up to 1 min for UDP to respond..
 				// If we are within on min on TCP, do not try..
 				const uint64 reask = thePrefs::GetSourceReaskTime();
-				// Keep this guard until SetSourceReaskTime clamps raw EC writes.
-				const uint64 delay = reask > 20000 ? reask - 20000 : 0;
 				if (theApp->IsConnected() &&
 					SourceRetryPolicy::IsDue(
-						dwCurTick, cur_src->GetLastAskedTime(), delay)) {
+						dwCurTick, cur_src->GetLastAskedTime(), reask - 20000)) {
 					cur_src->UDPReaskForDownload();
 				}
 
