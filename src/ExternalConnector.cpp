@@ -623,7 +623,7 @@ bool CaMuleExternalConnector::OnCmdLineParsed(wxCmdLineParser &parser)
 	if (createConfig) {
 		if (m_password.IsEmpty())
 			Show(_("The daemon verifier cannot supply a client password. Use -P or the password "
-			       "prompt. A saved client password will be preserved.\n"));
+			       "prompt.\n"));
 		SaveConfigFile();
 		exit(FlushConfigFile() ? 0 : 1);
 	}
@@ -733,8 +733,7 @@ bool CaMuleExternalConnector::FlushConfigFile()
 	if (!m_configFile || !m_configFile->Flush()) {
 		return false;
 	}
-	// The umask covers a new file; an existing one keeps its mode across the rewrite, and
-	// --create-config-from writes it without loading it first.
+	// The umask covers a new file; an existing one keeps its mode across the rewrite.
 	RestrictToOwner(CPath(m_configFileName));
 	return true;
 }
