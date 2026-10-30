@@ -80,6 +80,8 @@ if (Python3_Interpreter_FOUND)
 		COMMAND ${Python3_EXECUTABLE}
 			${CMAKE_CURRENT_SOURCE_DIR}/ConsoleLoggerIdentityTest.py $<TARGET_FILE:ConsoleLoggerProbe>
 	)
+	# 60 s lane. On Windows runners a run of the probe has stalled past 10 s.
+	set_tests_properties (ConsoleLoggerIdentityTest PROPERTIES LABELS "slow")
 	add_test (NAME IntegrationFixtureUnitTest
 		COMMAND ${Python3_EXECUTABLE} -u ${CMAKE_CURRENT_SOURCE_DIR}/IntegrationFixtureUnitTest.py -v
 	)
@@ -3607,6 +3609,8 @@ find_program (AMULE_TEST_NODE_EXECUTABLE NAMES node nodejs)
 if (AMULE_TEST_NODE_EXECUTABLE)
 	add_test (NAME DownloadDeleteTest
 		COMMAND ${AMULE_TEST_NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/DownloadDeleteTest.mjs)
+	add_test (NAME MagnetLinkTest
+		COMMAND ${AMULE_TEST_NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/MagnetLinkTest.mjs)
 endif ()
 
 # Obfuscation cipher wire compatibility, using the production buffer and cipher.
@@ -3724,3 +3728,7 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Li
 			$<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
 	set_tests_properties (WriteBackpressureIntegrationTest PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
 endif ()
+add_executable (ECSRPTest ECSRPTest.cpp ${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp)
+target_include_directories (ECSRPTest PRIVATE ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
+target_link_libraries (ECSRPTest PRIVATE ec mulecommon)
+add_test (NAME ECSRPTest COMMAND ECSRPTest)

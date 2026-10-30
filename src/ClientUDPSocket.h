@@ -26,6 +26,12 @@
 #ifndef CLIENTUDPSOCKET_H
 #define CLIENTUDPSOCKET_H
 
+// AMULE_UTP_TRANSPORT and AMULE_QUIC_TRANSPORT change this header and are defined only for
+// amule and amuled. A shared library unit would see another layout than the binary it links into.
+#ifdef AMULE_LIBRARY_UNIT
+#error "ClientUDPSocket.h depends on the amule/amuled transport defines; compile this unit in those targets"
+#endif
+
 class CUpDownClient;
 
 #include "MuleUDPSocket.h"
@@ -37,6 +43,7 @@ class CUpDownClient;
 
 #if defined(ENABLE_NATT_SERVER_COORDINATION) && defined(AMULE_UTP_TRANSPORT)
 #include "LugdunumNatTraversal.h"
+#include "NatServerHolePunch.h" // Needed for VouchedPeer
 #endif
 
 #ifdef AMULE_UTP_TRANSPORT
@@ -81,8 +88,11 @@ public:
 	IUtpContext *GetUtpContext() { return &m_utp; }
 #if defined(ENABLE_NATT_SERVER_COORDINATION)
 	bool DialLowIdHolePunchPeer(
-		uint32 ip, uint16 tcpPort, uint16 udpPort, const std::array<std::uint8_t, 16> &userHash);
+		uint32 ip, uint16 tcpPort, uint16 udpPort, const NatServerHolePunch::VouchedPeer &peer);
 	bool DialLugdunumNatCallbackPeer(const LugdunumNatTraversal::ForwardedCallback &callback);
+	//! A TCP 0x37 forward: on a hole-punch extension server it is a wake that waits for the 0x61,
+	//! anywhere else Lugdunum's callback, dialled at once.
+	void HandleForwardedCallback(const LugdunumNatTraversal::ForwardedCallback &callback);
 	bool IsLugdunumNatCallbackCoolingDown(const LugdunumNatTraversal::CallbackFailureKey &key);
 	void RecordLugdunumNatCallbackFailure(const LugdunumNatTraversal::CallbackFailureKey &key);
 	void ClearLugdunumNatCallbackFailure(const LugdunumNatTraversal::CallbackFailureKey &key);
@@ -96,6 +106,11 @@ public:
 	//! server-vouched hash is authoritative.
 	void ExpectNatTPeer(
 		uint32_t ip, uint16_t udpPort, const std::array<uint8_t, 16> *vouchedHash = nullptr);
+#endif
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+	//! Queues @a packet encrypted the server way, from this socket so the server sees the UDP port
+	//! peers must punch. Takes ownership; returns the bytes queued, for the caller's statistics.
+	uint32 SendServerWayObfuscated(CPacket *packet, uint32 serverIp, uint16 port, uint32 serverKeyUdp);
 #endif
 #ifdef AMULE_QUIC_TRANSPORT
 	//! Services every live QUIC connection's RFC 9002 timers, independently of any inbound
@@ -185,6 +200,7 @@ private:
 	bool TryProcessServerWayNatCallback(uint32 ip, uint8_t *buffer, size_t length);
 #ifdef AMULE_UTP_TRANSPORT
 	void HandleLowIdHolePunch(uint32 host, uint16 port);
+	bool AnswerHolePunchExtensionWake(const LugdunumNatTraversal::ForwardedCallback &callback);
 	void SendLugdunumNatCallbackRequest(const LugdunumNatTraversal::CallbackFailureKey &key);
 	void TickLugdunumCallbackRendezvous();
 #endif
