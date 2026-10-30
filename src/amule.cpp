@@ -147,7 +147,7 @@
 #include "amuleDlg.h"
 #include "PrefsUnifiedDlg.h" // For NotifyIP2CountryUpdateFailedIfOpen (GUI popup)
 #include "Connectivity.h"
-#include "FirstRunWizard.h"  // Needed for the first-run setup wizard (GUI-only)
+#include "FirstRunWizard.h" // Needed for the first-run setup wizard (GUI-only)
 
 // The splash is monolithic-only: amulegui has no local shared-file scan or part-file
 // load to wait on -- its startup cost is an EC round trip -- and the daemon has no GUI.

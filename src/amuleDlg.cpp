@@ -66,7 +66,7 @@
 #include "MuleLogCtrl.h"  // Needed for CMuleLogCtrl (the log/server-info panes)
 #include "MuleTrayIcon.h"
 #include "BandwidthRateConversion.h"
-#include "muuli_wdr.h"   // Needed for ID_BUTTON*
+#include "muuli_wdr.h" // Needed for ID_BUTTON*
 #include "Connectivity.h"
 #include "Preferences.h" // Needed for CPreferences
 #include "PrefsUnifiedDlg.h"
