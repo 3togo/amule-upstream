@@ -1,5 +1,23 @@
-// Copyright (c) 2026 aMule Team
-// SPDX-License-Identifier: GPL-2.0-or-later
+//
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+//
+
 #include <muleunit/test.h>
 #include "SourceRetryPolicy.h"
 #include "RequestPacing.h"
@@ -9,16 +27,15 @@ DECLARE_SIMPLE(SourceRetryPolicy)
 
 TEST(SourceRetryPolicy, KeepsProtocolReaskIntervalsAndStrictBoundary)
 {
-	const uint64_t reask = 29 * 60000;
-	ASSERT_EQUALS(reask, Delay(Reason::Reask, reask));
-	ASSERT_EQUALS(reask - 20000, Delay(Reason::UdpProbe, reask));
-	ASSERT_EQUALS(reask * 2, Delay(Reason::NoNeededParts, reask));
-	for (const auto reason : { Reason::Reask, Reason::UdpProbe, Reason::NoNeededParts }) {
-		const uint64_t deadline = 1000 + Delay(reason, reask);
-		ASSERT_FALSE(IsDue(deadline, 1000, reason, reask));
-		ASSERT_TRUE(IsDue(deadline + 1, 1000, reason, reask));
-		ASSERT_TRUE(IsDue(1000, 0, reason, reask));
-		ASSERT_FALSE(IsDue(999, 1000, reason, reask));
+	for (const uint64_t reask : { 15 * 60000, 29 * 60000, 60 * 60000 }) {
+		for (const uint64_t delay : { reask, reask - 20000, reask * 2 }) {
+			const uint64_t deadline = 1000 + delay;
+			ASSERT_FALSE(IsDue(deadline - 1, 1000, delay));
+			ASSERT_FALSE(IsDue(deadline, 1000, delay));
+			ASSERT_TRUE(IsDue(deadline + 1, 1000, delay));
+			ASSERT_TRUE(IsDue(1000, 0, delay));
+			ASSERT_FALSE(IsDue(999, 1000, delay));
+		}
 	}
 }
 TEST(SourceRetryPolicy, KeepsGlobalAndPerFileDeadSourceExclusions)
@@ -32,16 +49,18 @@ TEST(SourceRetryPolicy, KeepsGlobalAndPerFileDeadSourceExclusions)
 TEST(SourceRetryPolicy, BoundsArithmeticForExtremeConfigurationValues)
 {
 	const uint64_t maximum = std::numeric_limits<uint64_t>::max();
-	ASSERT_EQUALS(uint64_t{ 0 }, Delay(Reason::UdpProbe, 1));
-	ASSERT_EQUALS(maximum, Delay(Reason::NoNeededParts, maximum));
+	// Raw EC writes remain unclamped. Keep the extreme-delay and future-time guards
+	// covered until the setter enforces the supported range.
+	ASSERT_FALSE(IsDue(1000, 1000, 0));
+	ASSERT_TRUE(IsDue(1001, 1000, 0));
 	ASSERT_EQUALS(maximum, DeadSourceDeadline(maximum - 1, false, true));
-	ASSERT_FALSE(IsDue(maximum, 1, Reason::NoNeededParts, maximum));
+	ASSERT_FALSE(IsDue(maximum, 1, maximum));
 }
 TEST(SourceRetryPolicy, PacedRetryDoesNotBypassAggressiveRequestGuard)
 {
 	const uint64_t reask = 29 * 60000;
 	const uint64_t lastSent = reask * 2;
 	const uint64_t lastAsked = PacedLastAskedTime(lastSent + 1000, lastSent, reask);
-	ASSERT_FALSE(IsDue(lastSent + MIN_REQUESTTIME, lastAsked, Reason::Reask, reask));
-	ASSERT_TRUE(IsDue(lastSent + MIN_REQUESTTIME + 1, lastAsked, Reason::Reask, reask));
+	ASSERT_FALSE(IsDue(lastSent + MIN_REQUESTTIME, lastAsked, reask));
+	ASSERT_TRUE(IsDue(lastSent + MIN_REQUESTTIME + 1, lastAsked, reask));
 }

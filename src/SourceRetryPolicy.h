@@ -1,5 +1,23 @@
-// Copyright (c) 2026 aMule Team
-// SPDX-License-Identifier: GPL-2.0-or-later
+//
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+//
+
 #ifndef SOURCERETRYPOLICY_H
 #define SOURCERETRYPOLICY_H
 
@@ -11,33 +29,11 @@
 // existing eD2k intervals, not Shareaza's exponential backoff.
 namespace SourceRetryPolicy
 {
-enum class Reason
-{
-	Reask,
-	UdpProbe,
-	NoNeededParts
-};
-
-inline uint64_t Delay(Reason reason, uint64_t reaskTime)
-{
-	switch (reason) {
-	case Reason::UdpProbe:
-		return reaskTime > 20000 ? reaskTime - 20000 : 0;
-	case Reason::NoNeededParts:
-		return reaskTime > std::numeric_limits<uint64_t>::max() / 2
-			       ? std::numeric_limits<uint64_t>::max()
-			       : reaskTime * 2;
-	case Reason::Reask:
-		return reaskTime;
-	}
-	return reaskTime;
-}
-
-inline bool IsDue(uint64_t now, uint64_t lastAsked, Reason reason, uint64_t reaskTime)
+inline bool IsDue(uint64_t now, uint64_t lastAsked, uint64_t delay)
 {
 	// Zero retains the caller's explicit "ask on the next process tick" meaning.
 	// A future timestamp must not underflow into an immediately eligible retry.
-	return lastAsked == 0 || (now >= lastAsked && now - lastAsked > Delay(reason, reaskTime));
+	return lastAsked == 0 || (now >= lastAsked && now - lastAsked > delay);
 }
 
 inline uint64_t DeadSourceDelay(bool global, bool lowID)
