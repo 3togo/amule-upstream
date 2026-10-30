@@ -3722,3 +3722,38 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Li
 			$<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
 	set_tests_properties (WriteBackpressureIntegrationTest PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
 endif ()
+
+# Connectivity evidence and structured local/remote snapshots.
+add_executable (ConnectivityTest
+	ConnectivityTest.cpp
+	${CMAKE_SOURCE_DIR}/src/Connectivity.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+)
+add_test (NAME ConnectivityTest COMMAND ConnectivityTest)
+target_include_directories (ConnectivityTest PRIVATE
+	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
+target_link_libraries (ConnectivityTest muleunit ec muleappcommon mulecommon)
+
+if (TARGET wxWidgets::CORE)
+	add_executable (ConnectivityDialogTest
+		ConnectivityDialogTest.cpp
+		${CMAKE_SOURCE_DIR}/src/Connectivity.cpp
+		${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+	)
+	if (WIN32)
+		target_sources (ConnectivityDialogTest PRIVATE DialogLayoutTest.rc)
+	endif()
+	target_include_directories (ConnectivityDialogTest PRIVATE
+		${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+		${CMAKE_SOURCE_DIR}/src/libs)
+	target_link_libraries (ConnectivityDialogTest ec muleappcommon mulecommon wxWidgets::CORE)
+	add_test (NAME ConnectivityDialogTest COMMAND ConnectivityDialogTest)
+	set_tests_properties (ConnectivityDialogTest PROPERTIES SKIP_RETURN_CODE 77 LABELS "gui")
+endif()
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE AND Python3_Interpreter_FOUND)
+	add_test (NAME ConnectivityIntegrationTest
+		COMMAND ${Python3_EXECUTABLE}
+			${CMAKE_CURRENT_SOURCE_DIR}/ConnectivityIntegrationTest.py $<TARGET_FILE:amuled>)
+	set_tests_properties (ConnectivityIntegrationTest PROPERTIES TIMEOUT 120 LABELS "integration")
+endif()

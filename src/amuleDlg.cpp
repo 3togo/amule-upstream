@@ -67,6 +67,7 @@
 #include "MuleTrayIcon.h"
 #include "BandwidthRateConversion.h"
 #include "muuli_wdr.h"   // Needed for ID_BUTTON*
+#include "Connectivity.h"
 #include "Preferences.h" // Needed for CPreferences
 #include "PrefsUnifiedDlg.h"
 #include "SearchDlg.h"               // Needed for CSearchDlg
@@ -400,6 +401,11 @@ CamuleDlg::CamuleDlg(wxWindow *pParent, const wxString &title, wxPoint where, wx
 	navigateMenu->Append(ID_BUTTONSTATISTICS, _("Statistics") + "\tAlt+G");
 	navigateMenu->AppendSeparator();
 	navigateMenu->Append(ID_BUTTONNEWPREFERENCES, _("Preferences") + "\tAlt+P");
+	auto *connectivityItem = navigateMenu->Append(wxID_ANY, _("Check connectivity..."));
+	Bind(
+		wxEVT_MENU,
+		[this](wxCommandEvent &) { Connectivity::ShowAssistant(this); },
+		connectivityItem->GetId());
 
 	wxMenuBar *menuBar = new wxMenuBar();
 	menuBar->Append(navigateMenu, _("Navigate"));

@@ -24,6 +24,7 @@
 //
 
 #include "PrefsUnifiedDlg.h"
+#include "Connectivity.h"
 #include "DialogLayout.h"
 #include "BandwidthLimitSlider.h"
 #include "BandwidthRateConversion.h"
@@ -437,6 +438,12 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 		Widget->SetMinSize(minimumPageSize);
 		m_pageWidgets[i] = Widget;
 		pages[i].m_function(Widget, false, true);
+		if (pages[i].m_function == PreferencesConnectionTab) {
+			auto *check = new wxButton(Widget, wxID_ANY, _("Connectivity Assistant..."));
+			Widget->GetSizer()->Prepend(check, wxSizerFlags().Border(wxBOTTOM, FromDIP(8)));
+			check->Bind(wxEVT_BUTTON,
+				[this](wxCommandEvent &) { Connectivity::ShowAssistant(this); });
+		}
 		if (i == 0) {
 			DefaultWidget = Widget;
 		}

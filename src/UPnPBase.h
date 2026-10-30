@@ -32,6 +32,7 @@
 #include <sstream>
 
 #include "UPnPCompatibility.h"
+#include "Connectivity.h"
 
 #include <common/SmartPtr.h> // Needed for CSmartPtr
 
@@ -359,6 +360,7 @@ private:
 	// device. Lock order: m_RootDeviceListMutex first.
 	ServiceMap m_ServiceMap;
 	PortMappingMap m_ActivePortMappingsMap;
+	Connectivity::MappingDiagnostics m_mappingDiagnostics;
 	CUPnPMutex m_RootDeviceListMutex;
 	bool m_IGWDeviceDetected;
 	// #warning This variable is for testing purposes only and should disappear on release.
@@ -390,6 +392,7 @@ public:
 	}
 	// Drops a service being deleted.
 	void ForgetService(const CUPnPService *service);
+	Connectivity::RouterSnapshot GetMappingDiagnostics() const { return m_mappingDiagnostics.Get(); }
 
 	// Callback function
 	static int Callback(

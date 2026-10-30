@@ -50,6 +50,7 @@
 #include "UploadQueue.h"         // Needed for CUploadQueue
 #include "AmuleApiCredentials.h"
 #include "BrowseManager.h"
+#include "Connectivity.h"
 #include "amule.h"      // Needed for theApp
 #include "SearchList.h" // Needed for GetSearchResults
 #include "ClientVersionString.h"
@@ -1413,6 +1414,7 @@ const CECPacket *CECServerSocket::Authenticate(const CECPacket *request)
 				// ProcessRequest2's unknown-opcode branch and assert.
 				response->AddTag(CECEmptyTag(EC_TAG_CAN_SEARCH_LIST));
 				response->AddTag(CECEmptyTag(EC_TAG_CAN_KAD_LOOKUPS));
+				response->AddTag(CECEmptyTag(EC_TAG_CAN_CONNECTIVITY));
 				response->AddTag(CECEmptyTag(EC_TAG_CAN_SEARCH_ALL));
 			} else {
 				wxString err;
@@ -4196,6 +4198,15 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 			response = Get_EC_Response_Search_Results(
 				request, m_partialUpdateActive, m_lastSentSearchIds, sid);
 		}
+		break;
+	}
+
+	case EC_OP_GET_CONNECTIVITY: {
+		if (request->GetTagByName(EC_TAG_CONNECTIVITY_RECHECK)) {
+			Connectivity::RecheckKad();
+		}
+		response = new CECPacket(EC_OP_GET_CONNECTIVITY);
+		Connectivity::AddTags(*response, Connectivity::Capture());
 		break;
 	}
 

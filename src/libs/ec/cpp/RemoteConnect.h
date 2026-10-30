@@ -233,6 +233,7 @@ private:
 	// the list the GUI sees only the searches it started itself.
 	bool m_serverSearchList;
 	bool m_serverKadLookups;
+	bool m_serverConnectivity;
 	bool m_serverSearchAll;
 
 	// Steady-clock stamp of the last packet received from the daemon. Steady, not
@@ -335,6 +336,7 @@ public:
 
 	bool ServerSupportsSearchList() const { return m_serverSearchList; }
 	bool ServerSupportsKadLookups() const { return m_serverKadLookups; }
+	bool ServerSupportsConnectivity() const { return m_serverConnectivity; }
 	void ClearPeerNegotiatedFlags();
 	bool ServerSupportsSearchAll() const { return m_serverSearchAll; }
 

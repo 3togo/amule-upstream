@@ -189,6 +189,7 @@ private:
 	wxSpinCtrl *m_uploadCtrl = NULL;
 	wxSpinCtrl *m_downloadCtrl = NULL;
 	wxStaticText *m_derivedLabel = NULL;
+	wxCheckBox *m_checkConnectivityCtrl = nullptr;
 	wxCheckBox *m_ed2kCtrl = NULL;
 	wxCheckBox *m_kadCtrl = NULL;
 	wxSpinCtrl *m_tcpPortCtrl = NULL;
@@ -350,7 +351,7 @@ wxWizardPageSimple *CFirstRunWizard::BuildNetworkPage()
 	// every translator must redo.
 	grid->Add(new wxStaticText(page, wxID_ANY, _("Standard TCP Port ")), 0, wxALIGN_CENTER_VERTICAL);
 	m_tcpPortCtrl = new wxSpinCtrl(page, wxID_ANY);
-	m_tcpPortCtrl->SetRange(1, 65535);
+	m_tcpPortCtrl->SetRange(1, 65532);
 	m_tcpPortCtrl->SetValue(thePrefs::GetPort());
 	grid->Add(m_tcpPortCtrl, 0, wxEXPAND);
 
@@ -379,6 +380,18 @@ wxWizardPageSimple *CFirstRunWizard::BuildNetworkPage()
 		20);
 #endif
 
+	sizer->Add(new wxStaticText(page,
+			   wxID_ANY,
+			   _("After setup, use Preferences > Connection > Connectivity Assistant\n"
+			     "to verify High ID and Kad reachability, and get help with\n"
+			     "blocked ports.")),
+		0,
+		wxTOP,
+		12);
+	m_checkConnectivityCtrl =
+		new wxCheckBox(page, wxID_ANY, _("Show the connectivity assistant after setup"));
+	m_checkConnectivityCtrl->SetValue(true);
+	sizer->Add(m_checkConnectivityCtrl, 0, wxTOP, 8);
 	page->SetSizer(sizer);
 	return page;
 }
@@ -719,6 +732,7 @@ void CFirstRunWizard::Apply(FirstRunWizard::Result &res)
 	}
 
 	// Bootstrap downloads (only offered for files that are missing).
+	res.checkConnectivity = m_checkConnectivityCtrl->GetValue();
 	res.downloadServerMet = m_serverMetCtrl && m_serverMetCtrl->GetValue();
 	res.downloadNodesDat = m_nodesDatCtrl && m_nodesDatCtrl->GetValue();
 }

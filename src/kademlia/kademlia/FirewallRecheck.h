@@ -70,6 +70,12 @@ public:
 	//! Whether more IP answers are wanted; the UDP listener asks peers while this is true.
 	bool AwaitingAnswers() const { return m_answers < KADEMLIAFIREWALLCHECKS; }
 
+	bool IsChecking(time_t now) const
+	{
+		return m_confirmations < kConfirmations &&
+		       (AwaitingAnswers() || now < m_answeredAt + kGraceSeconds);
+	}
+
 	bool IsFirewalled(time_t now) const
 	{
 		if (m_confirmations >= kConfirmations) {

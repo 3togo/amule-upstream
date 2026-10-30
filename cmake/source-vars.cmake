@@ -21,6 +21,7 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		ClientList.cpp
 		ClientTCPSocket.cpp
 		ClientUDPSocket.cpp
+		ConnectivityCore.cpp
 		CorruptionBlackBox.cpp
 		CompletedFileDeletion.cpp
 		DownloadBandwidthThrottler.cpp
@@ -104,6 +105,7 @@ if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 		AboutDialog.cpp
 		VersionCheck.cpp
 		BrowseListModel.cpp
+		ConnectivityDlg.cpp
 		CatDialog.cpp
 		ChatSelector.cpp
 		ChatWnd.cpp
@@ -165,6 +167,7 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON OR BUILD_REMOTEGUI)
 		AutostartManager.cpp
 		ProtocolHandlerManager.cpp
 		$<$<BOOL:${APPLE}>:ProtocolHandlerManager_mac.mm>
+		Connectivity.cpp
 		ClientRef.cpp
 		ClientVersionString.cpp
 		ECSpecialMuleTags.cpp

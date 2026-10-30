@@ -959,3 +959,32 @@ tag leaves that setting unchanged, so older clients can still save the group.
 The CAPTCHA setting stores the user's choice independently, but takes effect
 only while the advanced filter is enabled. See [chat protection](ChatSpamFilter.md)
 for defaults and how incoming messages are handled.
+
+## Connectivity assistant snapshots
+
+A server advertising `EC_TAG_CAN_CONNECTIVITY` (`0x002D`) accepts
+`EC_OP_GET_CONNECTIVITY` (`0x6B`). Clients must check the capability before
+sending this opcode. Ordinary requests only read status. An optional empty
+`EC_TAG_CONNECTIVITY_RECHECK` asks the core to restart the existing Kad TCP
+and UDP firewall checks; it does not reconnect eD2k or change preferences.
+
+The reply uses the same opcode and the core's saved configuration and current network state:
+
+| Tag | Value |
+| --- | --- |
+| `EC_TAG_CONNECTIVITY_READ_AT` | Snapshot time, Unix seconds |
+| `EC_TAG_CONNECTIVITY_TCP_PORT`, `EC_TAG_CONNECTIVITY_UDP_PORT` | Configured peer TCP and extended UDP ports |
+| `EC_TAG_CONNECTIVITY_FLAGS` | Bit 0: TCP listening; 1: UDP listening; 2: UDP enabled; 3: UPnP compiled in; 4: UPnP enabled; 5: UPnP initialized; 6: compatible router service discovered; 7: Kad LAN mode |
+| `EC_TAG_CONNECTIVITY_ED2K`, `EC_TAG_CONNECTIVITY_KAD_TCP`, `EC_TAG_CONNECTIVITY_KAD_UDP` | 0 disabled, 1 disconnected, 2 checking, 3 reachable, 4 blocked, 5 unverified |
+| `EC_TAG_CONNECTIVITY_ADDRESS`, `EC_TAG_CONNECTIVITY_INTERFACE` | Configured bind address/interface, empty for any |
+| Repeated `EC_TAG_CONNECTIVITY_MAPPING` | A mapping attempt, with children described below |
+
+Each mapping contains `EC_TAG_CONNECTIVITY_TCP_PORT` (the port number for
+either protocol), `EC_TAG_CONNECTIVITY_FLAGS` (0 TCP, 1 UDP),
+`EC_TAG_CONNECTIVITY_MAPPING_STATE` (0 unattempted, 1 router accepted,
+2 failed), and `EC_TAG_CONNECTIVITY_READ_AT` (attempt time, Unix seconds).
+Up to four mappings may be present, including the separately enabled EC
+mapping. Mappings are keyed by both port and protocol. Router acceptance is
+not evidence that an Internet peer can reach the port; the three network
+states remain independent of mapping outcomes. Read times describe when the
+snapshot was collected, not when a peer last verified reachability.

@@ -112,6 +112,7 @@ CECLoginPacket::CECLoginPacket(const wxString &client,
 	// opcode, so the echo is what keeps the client from sending it.
 	AddTag(CECEmptyTag(EC_TAG_CAN_SEARCH_LIST));
 	AddTag(CECEmptyTag(EC_TAG_CAN_KAD_LOOKUPS));
+	AddTag(CECEmptyTag(EC_TAG_CAN_CONNECTIVITY));
 	// Client believes transit between us is fast (loopback / LAN), so the server may
 	// skip per-packet ZLIB up to the receiver gate. The decision lives here because
 	// only the client knows the IP it dialed: server-side peer-IP inspection would
@@ -206,6 +207,7 @@ m_req_fifo_thr(20)
 , m_serverSharedDirsConfig(false)
 , m_serverSearchList(false)
 , m_serverKadLookups(false)
+, m_serverConnectivity(false)
 , m_serverSearchAll(false)
 , m_serverSearchProgressUnion(false)
 , m_lastReplyAt(std::chrono::steady_clock::now())
@@ -216,6 +218,7 @@ void CRemoteConnect::ClearPeerNegotiatedFlags()
 {
 	CECSocket::ClearPeerNegotiatedFlags();
 	m_serverKadLookups = false;
+	m_serverConnectivity = false;
 }
 
 void CRemoteConnect::SetCapabilities(bool canZLIB, bool canUTF8numbers, bool canNotify)
@@ -764,6 +767,7 @@ bool CRemoteConnect::ProcessAuthPacket(const CECPacket *reply)
 				m_serverSearchList = true;
 			}
 			m_serverKadLookups = reply->GetTagByName(EC_TAG_CAN_KAD_LOOKUPS) != nullptr;
+			m_serverConnectivity = reply->GetTagByName(EC_TAG_CAN_CONNECTIVITY) != nullptr;
 			// Unknown search kinds silently become local on older daemons.
 			m_serverSearchAll = reply->GetTagByName(EC_TAG_CAN_SEARCH_ALL) != nullptr;
 			// Server serves the shared-directory config ops. Without the echo the GUI keeps

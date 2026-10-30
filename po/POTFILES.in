@@ -34,6 +34,8 @@ src/DownloadListCtrl.cpp
 src/DownloadQueue.cpp
 src/ECSpecialMuleTags.cpp
 src/EditServerListDlg.cpp
+src/Connectivity.cpp
+src/ConnectivityDlg.cpp
 src/ExternalConn.cpp
 src/ExternalConnector.cpp
 src/FileDetailDialog.cpp

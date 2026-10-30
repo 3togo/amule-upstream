@@ -39,6 +39,7 @@ namespace FirstRunWizard
 // the server list and sockets the caller initialises afterwards.
 struct Result
 {
+	bool checkConnectivity = false; // show diagnostics after the network stack starts
 	bool finished = false;          // false if the user cancelled
 	bool downloadServerMet = false; // fetch eD2k server list (server.met)
 	bool downloadNodesDat = false;  // fetch Kad bootstrap nodes (nodes.dat)

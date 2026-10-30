@@ -107,16 +107,26 @@ configuration steps are still worth doing on day one:
 
 ### 1. Open the ports — get a HighID
 
-aMule needs **TCP 4662** and **UDP 4665** + **UDP 4672** reachable from
-the internet to be a full peer on the network. If they're not, you'll
-get a *LowID*, which makes you reachable from far fewer sources.
+Open **Preferences → Connection → Connectivity Assistant** for the connectivity
+assistant. It shows local listeners, each UPnP mapping attempt, eD2k High/Low ID,
+and separate Kad TCP and UDP results. It can also open after first-run setup.
+With `amulegui`, the report describes the connected daemon's machine.
 
-* **Behind a router**: forward the three ports to the machine running
-  aMule (or use UPnP — `Preferences → Connection → UPnP enabled`).
-* **Behind a firewall**: allow inbound on those ports.
+The default ports are **TCP 4662** for peer connections, **UDP 4672** for Kad
+and protocol extensions, and **UDP 4665** (TCP+3) for server queries. High ID
+requires reachable inbound TCP; Kad checks TCP and UDP separately. Server UDP
+is recommended but is not required for High ID.
 
-The [network connectivity guide][network] has detailed walkthroughs for
-getting a HighID and setting up firewall rules.
+* **Behind a router**: enable UPnP, or forward the ports to the machine running
+  the core. Router acceptance alone does not establish Internet reachability.
+* **Behind a firewall**: allow inbound on the corresponding ports.
+* **After changing rules**: use **Recheck Kad** in the assistant. Disconnect and
+  reconnect eD2k for a fresh server-assigned ID. Pending or unverified checks
+  are shown separately from blocked ports.
+
+The [network connectivity guide][network] has detailed firewall, router, VPN,
+and container instructions. The assistant uses existing network checks; it
+cannot automatically overcome an ISP's CGNAT or a VPN without port forwarding.
 
 [network]: https://amule-org.github.io/docs/manual/configuration/network-connectivity
 

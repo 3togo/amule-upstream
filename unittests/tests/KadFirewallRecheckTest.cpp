@@ -259,3 +259,18 @@ TEST(KadUDPVerificationExpiry, ResetClearsAgeAndZeroIsAValidResultTime)
 	expiry.Reset();
 	ASSERT_FALSE(expiry.ShouldExpire(CUDPVerificationExpiry::kMaxVerificationAgeMs));
 }
+
+TEST(KadFirewallRecheck, DiagnosticsKeepGracePeriodPending)
+{
+	CFirewallRecheck fw = OpenNode();
+	ASSERT_FALSE(fw.IsChecking(kStart));
+	fw.Start(kStart);
+	ASSERT_TRUE(fw.IsChecking(kStart));
+	AddAllAnswers(fw, kStart + 1);
+	ASSERT_TRUE(fw.IsChecking(kStart + CFirewallRecheck::kGraceSeconds));
+	ASSERT_FALSE(fw.IsChecking(kStart + 1 + CFirewallRecheck::kGraceSeconds));
+	fw.Start(kStart + 100);
+	fw.AddConfirmation();
+	fw.AddConfirmation();
+	ASSERT_FALSE(fw.IsChecking(kStart + 101));
+}

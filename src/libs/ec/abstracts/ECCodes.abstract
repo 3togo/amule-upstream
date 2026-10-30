@@ -219,6 +219,10 @@ EC_OP_GET_KAD_LOOKUPS               0x69
 ## Identity/path are checked before unlink. NOOP on success; FAILED + STRING
 ## on failure, leaving the file shared/listed. Never calls CPartFile::Delete.
 EC_OP_KNOWNFILE_DELETE              0x6A
+
+## Capability-gated core snapshot. Optional EC_TAG_CONNECTIVITY_RECHECK asks
+## for a Kad firewall recheck; ordinary polling has no network side effects.
+EC_OP_GET_CONNECTIVITY              0x6B
 [/Section]
 
 [Section Content]
@@ -255,6 +259,7 @@ EC_TAG_ED2K_CONNECTED_SINCE               0x0018
 EC_TAG_KAD_CONNECTED_SINCE                0x0019
 EC_TAG_CAN_SEARCH_LIST                    0x001A
 EC_TAG_CAN_KAD_LOOKUPS                    0x002A
+EC_TAG_CAN_CONNECTIVITY                   0x002D
 ## Server accepts EC_SEARCH_ALL; older servers silently treat unknown kinds as local.
 EC_TAG_CAN_SEARCH_ALL                     0x0029
 EC_TAG_CAN_AEAD                           0x001B
@@ -818,6 +823,19 @@ EC_TAG_SELECT_PREFS                       0x1000
 		EC_TAG_SHAREDDIR_RECURSIVE                0x2001
 	EC_TAG_SHAREDDIR_REJECTED                 0x2002
 		EC_TAG_SHAREDDIR_ERROR                    0x2003
+
+	EC_TAG_CONNECTIVITY_READ_AT               0x2200
+	EC_TAG_CONNECTIVITY_TCP_PORT              0x2201
+	EC_TAG_CONNECTIVITY_UDP_PORT              0x2202
+	EC_TAG_CONNECTIVITY_FLAGS                 0x2203
+	EC_TAG_CONNECTIVITY_ED2K                  0x2204
+	EC_TAG_CONNECTIVITY_KAD_TCP               0x2205
+	EC_TAG_CONNECTIVITY_KAD_UDP               0x2206
+	EC_TAG_CONNECTIVITY_ADDRESS               0x2207
+	EC_TAG_CONNECTIVITY_INTERFACE             0x2208
+	EC_TAG_CONNECTIVITY_MAPPING               0x2209
+	EC_TAG_CONNECTIVITY_MAPPING_STATE         0x220A
+	EC_TAG_CONNECTIVITY_RECHECK               0x220B
 
 	EC_TAG_KAD_LOOKUP                         0x2100
 		EC_TAG_KAD_LOOKUP_TARGET                  0x2101

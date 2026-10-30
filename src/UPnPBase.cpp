@@ -841,64 +841,15 @@ bool CUPnPControlPoint::AddPortMappings(std::vector<CUPnPPortMapping> &upnpPortM
 		return false;
 	}
 
-	int n = upnpPortMapping.size();
-	unsigned int expectedEntries = 0;
-	bool ok = false;
-
-	std::istringstream PortMappingNumberOfEntries(
-		m_WanService->GetStateVariable("PortMappingNumberOfEntries"));
-	unsigned long oldNumberOfEntries;
-	PortMappingNumberOfEntries >> oldNumberOfEntries;
-
-	for (int i = 0; i < n; ++i) {
-		if (upnpPortMapping[i].getEnabled() == "1") {
-			++expectedEntries;
-			m_ActivePortMappingsMap[upnpPortMapping[i].getKey()] = upnpPortMapping[i];
-
-			PrivateAddPortMapping(upnpPortMapping[i]);
+	bool ok = true;
+	for (auto &mapping : upnpPortMapping) {
+		if (mapping.getEnabled() == "1") {
+			m_ActivePortMappingsMap[mapping.getKey()] = mapping;
+			// Always attempt every port, even when an earlier request failed.
+			const bool accepted = PrivateAddPortMapping(mapping);
+			ok = accepted && ok;
 		}
 	}
-
-	// Test some variables, this is deprecated, might not work
-	// with some routers
-	m_WanService->GetStateVariable("ConnectionType");
-	m_WanService->GetStateVariable("PossibleConnectionTypes");
-	m_WanService->GetStateVariable("ConnectionStatus");
-	m_WanService->GetStateVariable("Uptime");
-	m_WanService->GetStateVariable("LastConnectionError");
-	m_WanService->GetStateVariable("RSIPAvailable");
-	m_WanService->GetStateVariable("NATEnabled");
-	m_WanService->GetStateVariable("ExternalIPAddress");
-	m_WanService->GetStateVariable("PortMappingNumberOfEntries");
-	m_WanService->GetStateVariable("PortMappingLeaseDuration");
-
-	std::vector<CUPnPArgumentValue> argval;
-	argval.resize(0);
-	m_WanService->Execute("GetStatusInfo", argval);
-
-#if 0
-	// These do not work. Their value must be requested for a
-	// specific port mapping.
-	m_WanService->GetStateVariable("PortMappingEnabled");
-	m_WanService->GetStateVariable("RemoteHost");
-	m_WanService->GetStateVariable("ExternalPort");
-	m_WanService->GetStateVariable("InternalPort");
-	m_WanService->GetStateVariable("PortMappingProtocol");
-	m_WanService->GetStateVariable("InternalClient");
-	m_WanService->GetStateVariable("PortMappingDescription");
-#endif
-
-	msg.str("");
-	msg << "CUPnPControlPoint::AddPortMappings: "
-	       "m_ActivePortMappingsMap.size() == "
-	    << m_ActivePortMappingsMap.size();
-	AddDebugLogLineN(logUPnP, msg);
-
-	PortMappingNumberOfEntries.str(m_WanService->GetStateVariable("PortMappingNumberOfEntries"));
-	unsigned long newNumberOfEntries;
-	PortMappingNumberOfEntries >> newNumberOfEntries;
-	ok = newNumberOfEntries - oldNumberOfEntries == expectedEntries;
-
 	return ok;
 }
 
@@ -908,10 +859,6 @@ void CUPnPControlPoint::RefreshPortMappings()
 		it != m_ActivePortMappingsMap.end();
 		++it) {
 		PrivateAddPortMapping(it->second);
-	}
-
-	if (m_WanService) {
-		m_WanService->GetStateVariable("PortMappingNumberOfEntries");
 	}
 }
 
@@ -939,10 +886,17 @@ bool CUPnPControlPoint::PrivateAddPortMapping(CUPnPPortMapping &upnpPortMapping)
 	argval[7].SetArgument("NewLeaseDuration");
 	argval[7].SetValue("0");
 
-	bool ret = true;
-	for (ServiceMap::iterator it = m_ServiceMap.begin(); it != m_ServiceMap.end(); ++it) {
-		ret &= it->second->Execute(actionName, argval);
+	bool ret = false;
+	for (const auto &entry : m_ServiceMap) {
+		// A gateway may expose both WANIPConnection and WANPPPConnection. One
+		// service accepting the mapping is enough; a different service failing
+		// must not turn that into a failure.
+		ret = entry.second->Execute(actionName, argval) || ret;
 	}
+	m_mappingDiagnostics.Record(static_cast<uint16_t>(std::stoi(upnpPortMapping.getPort())),
+		upnpPortMapping.getProtocol() == "UDP",
+		ret,
+		static_cast<uint64_t>(time(nullptr)));
 
 	return ret;
 }
@@ -959,45 +913,16 @@ bool CUPnPControlPoint::DeletePortMappings(std::vector<CUPnPPortMapping> &upnpPo
 		return false;
 	}
 
-	int n = upnpPortMapping.size();
-	unsigned int expectedEntries = 0;
-	bool ok = false;
-
-	std::istringstream PortMappingNumberOfEntries(
-		m_WanService->GetStateVariable("PortMappingNumberOfEntries"));
-	unsigned long oldNumberOfEntries;
-	PortMappingNumberOfEntries >> oldNumberOfEntries;
-
-	for (int i = 0; i < n; ++i) {
-		if (upnpPortMapping[i].getEnabled() == "1") {
-			++expectedEntries;
-			PortMappingMap::iterator it =
-				m_ActivePortMappingsMap.find(upnpPortMapping[i].getKey());
-			if (it != m_ActivePortMappingsMap.end()) {
-				m_ActivePortMappingsMap.erase(it);
-			} else {
-				msg << "UPnP Error: "
-				       "CUPnPControlPoint::DeletePortMapping: "
-				       "Mapping was not found in the active "
-				       "mapping map.";
-				AddDebugLogLineC(logUPnP, msg);
-			}
-
-			PrivateDeletePortMapping(upnpPortMapping[i]);
+	bool ok = true;
+	for (auto &mapping : upnpPortMapping) {
+		if (mapping.getEnabled() == "1") {
+			m_ActivePortMappingsMap.erase(mapping.getKey());
+			m_mappingDiagnostics.Forget(static_cast<uint16_t>(std::stoi(mapping.getPort())),
+				mapping.getProtocol() == "UDP");
+			const bool removed = PrivateDeletePortMapping(mapping);
+			ok = removed && ok;
 		}
 	}
-
-	msg.str("");
-	msg << "CUPnPControlPoint::DeletePortMappings: "
-	       "m_ActivePortMappingsMap.size() == "
-	    << m_ActivePortMappingsMap.size();
-	AddDebugLogLineN(logUPnP, msg);
-
-	PortMappingNumberOfEntries.str(m_WanService->GetStateVariable("PortMappingNumberOfEntries"));
-	unsigned long newNumberOfEntries;
-	PortMappingNumberOfEntries >> newNumberOfEntries;
-	ok = oldNumberOfEntries - newNumberOfEntries == expectedEntries;
-
 	return ok;
 }
 
@@ -1487,6 +1412,9 @@ void CUPnPControlPoint::ForgetService(const CUPnPService *service)
 	if (m_WanService == service) {
 		m_WanService = m_ServiceMap.empty() ? nullptr : m_ServiceMap.begin()->second;
 	}
+	if (m_ServiceMap.empty()) {
+		m_mappingDiagnostics.RouterUnavailable();
+	}
 }
 
 bool CUPnPControlPoint::ShouldSkipAdvertisementFetch(const std::string &location)
@@ -1532,6 +1460,7 @@ void CUPnPControlPoint::Subscribe(CUPnPService &service)
 		{
 			CUPnPMutexLocker lock(m_ServiceMapMutex);
 			m_ServiceMap[service.GetAbsEventSubURL()] = &service;
+			m_mappingDiagnostics.RouterDetected();
 		}
 		msg << "Successfully retrieved SCPD Document for service " << service.GetServiceType()
 		    << ", absEventSubURL: " << service.GetAbsEventSubURL() << ".";
@@ -1574,6 +1503,9 @@ void CUPnPControlPoint::Unsubscribe(CUPnPService &service)
 			return;
 		}
 		m_ServiceMap.erase(it);
+		if (m_ServiceMap.empty()) {
+			m_mappingDiagnostics.RouterUnavailable();
+		}
 	}
 	UpnpUnSubscribe(m_UPnPClientHandle, service.GetSID());
 }

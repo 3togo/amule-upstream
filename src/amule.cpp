@@ -146,6 +146,7 @@
 
 #include "amuleDlg.h"
 #include "PrefsUnifiedDlg.h" // For NotifyIP2CountryUpdateFailedIfOpen (GUI popup)
+#include "Connectivity.h"
 #include "FirstRunWizard.h"  // Needed for the first-run setup wizard (GUI-only)
 
 // The splash is monolithic-only: amulegui has no local shared-file scan or part-file
@@ -884,6 +885,7 @@ bool CamuleApp::OnInit()
 	bool firstRunWizardShown = false;
 	bool wizardWantsServerMet = false;
 	bool wizardWantsNodesDat = false;
+	bool wizardWantsConnectivity = false;
 	// Gate on the explicit "wizard completed" flag rather than the inferred first-run flag:
 	// a cancelled wizard leaves the flag unset, so it reappears next launch until the user
 	// actually finishes it.
@@ -901,6 +903,7 @@ bool CamuleApp::OnInit()
 		firstRunWizardShown = true;
 		wizardWantsServerMet = wiz.downloadServerMet;
 		wizardWantsNodesDat = wiz.downloadNodesDat;
+		wizardWantsConnectivity = wiz.checkConnectivity;
 	}
 #endif
 
@@ -1284,6 +1287,9 @@ bool CamuleApp::OnInit()
 
 	{
 #ifndef AMULE_DAEMON
+		if (wizardWantsConnectivity) {
+			CallAfter([]() { Connectivity::ShowAssistant(theApp->amuledlg); });
+		}
 		if (firstRunWizardShown) {
 			// The first-run wizard already collected the user's bootstrap choices (and
 			// UPnP / port settings, which were applied before ReinitializeNetwork ran).
@@ -1922,7 +1928,7 @@ bool CamuleApp::RebindP2PSockets(bool tcpPortChanged, bool udpPortChanged, uint1
 			if (udpPortChanged) {
 				m_upnpMappings[3] = CUPnPPortMapping(udpPort,
 					"UDP",
-					thePrefs::GetUPnPEnabled(),
+					thePrefs::GetUPnPEnabled() && !thePrefs::IsUDPDisabled(),
 					"aMule UDP Extended eMule Socket");
 			}
 			changedMappings.clear();
@@ -2053,7 +2059,7 @@ void CamuleApp::StartUPnP()
 			thePrefs::GetPort(), "TCP", thePrefs::GetUPnPEnabled(), "aMule TCP Listen Socket");
 		m_upnpMappings[3] = CUPnPPortMapping(thePrefs::GetUDPPort(),
 			"UDP",
-			thePrefs::GetUPnPEnabled(),
+			thePrefs::GetUPnPEnabled() && !thePrefs::IsUDPDisabled(),
 			"aMule UDP Extended eMule Socket");
 		m_upnp = new CUPnPControlPoint(thePrefs::GetUPnPTCPPort());
 
