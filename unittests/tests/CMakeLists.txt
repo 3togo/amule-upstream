@@ -3763,3 +3763,9 @@ add_executable (KadConstraintsTest KadConstraintsTest.cpp)
 target_include_directories (KadConstraintsTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (KadConstraintsTest muleunit mulecommon)
 add_test (NAME KadConstraintsTest COMMAND KadConstraintsTest)
+
+if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND Python3_Interpreter_FOUND AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	add_test (NAME KadConstraintsIntegrationTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadConstraintsIntegrationTest.py $<TARGET_FILE:amuled>)
+	set_tests_properties (KadConstraintsIntegrationTest PROPERTIES LABELS "integration")
+endif ()

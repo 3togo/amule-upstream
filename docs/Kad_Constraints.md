@@ -42,7 +42,8 @@ protocol constants.
 Times use milliseconds; request rates use packets per minute. An omitted,
 malformed, negative, overflowing or invalid-zero value falls back to its default.
 Capacity fields must be positive and fit a signed 32-bit count. Times must be
-positive and fit unsigned 32-bit milliseconds. Rates range from 1 to 60,000 so
+positive and fit unsigned 32-bit milliseconds. The timeout/grace sum is reduced
+to fit the recorded 32-bit round-trip duration. Rates range from 1 to 60,000 so
 the millisecond accounting interval never becomes zero. Flood multipliers are
 bounded by the representable counter product. Subnet prefixes range from 1 to
 32. `WideningReasks=0` disables optional widening.
