@@ -52,6 +52,7 @@ there client on the eMule forum..
 #include "../routing/RoutingZone.h"
 #include "../utils/KadUDPKey.h"
 #include "../utils/KadClientSearcher.h"
+#include "../../ClientList.h"
 #include "../../amule.h"
 #include "../../Logger.h"
 #include <protocol/kad2/Client2Client/UDP.h>
@@ -132,6 +133,7 @@ void CKademlia::Stop()
 	AddDebugLogLineN(logKadMain, "Stopping Kademlia");
 
 	m_running = false;
+	theApp->clientlist->ResetBuddyRetry();
 
 	CUDPFirewallTester::Reset();
 
