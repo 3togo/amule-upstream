@@ -1846,6 +1846,14 @@ msgstr ""
 msgid "File Comments"
 msgstr "Komentari fajla"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr ""
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr ""
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Ime korisnika"
@@ -3187,10 +3195,6 @@ msgstr ""
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Pretrazi :"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr ""
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6454,6 +6458,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr ""
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "svi"
 
@@ -8379,14 +8387,6 @@ msgstr ""
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Dijeljeni fajlovi"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr ""
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr ""
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

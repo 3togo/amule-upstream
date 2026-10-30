@@ -1862,6 +1862,14 @@ msgstr "Utilizatorul %s (%u) interzice accesul la lista directoarelor/fișierelo
 msgid "File Comments"
 msgstr "Comentarii fișier"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Adaugă comentariu/evaluare"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Editare comentariu/evaluare"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Utilizator"
@@ -3240,10 +3248,6 @@ msgstr "Dosar destinație pentru descărcări"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Navigare"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Toate fișierele din acest dosar sunt partajate cu alți parteneri)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6499,6 +6503,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Toate fișierele din acest dosar sunt partajate cu alți parteneri)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "toţi"
 
@@ -8430,14 +8438,6 @@ msgstr "Cale director"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Fișiere partajate"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Adaugă comentariu/evaluare"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Editare comentariu/evaluare"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

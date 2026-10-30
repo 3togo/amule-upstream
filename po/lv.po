@@ -1854,6 +1854,14 @@ msgstr "Dalībnieks %s (%u) liedza piekļuvi kopīgoto mapju/datņu sarakstam"
 msgid "File Comments"
 msgstr "Datnes komentāri"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Pievienot komentāru/vērtējumu"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Rediģēt komentāru/vērtējumu"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Dalībniekvārds"
@@ -3225,10 +3233,6 @@ msgstr "Lejupielāžu mērķa mape"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Pārlūkot"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Visas šajā mapē esošās datnes tiek kopīgotas ar citiem dalībniekiem)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6473,6 +6477,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Visas šajā mapē esošās datnes tiek kopīgotas ar citiem dalībniekiem)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "visi"
 
@@ -8381,14 +8389,6 @@ msgstr "Mapes ceļš"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Kopīgotās datnes"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Pievienot komentāru/vērtējumu"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Rediģēt komentāru/vērtējumu"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
