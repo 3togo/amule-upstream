@@ -3289,7 +3289,7 @@ wxSizer *PreferencesFilteringTab( wxWindow *parent, bool call_fit, bool set_size
     wxStaticBoxSizer *summaryBox = new wxStaticBoxSizer( wxVERTICAL, parent, _("With these settings") );
     wxTextCtrl *summary = new wxTextCtrl( summaryBox->GetStaticBox(), IDC_FILTER_SUMMARY, wxEmptyString,
         wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY );
-    summary->SetName( _("Filter selection summary") );
+    summary->SetName( "Filter selection summary" );
     // Reserve a stable, font-scaled area. Long lists wrap and scroll instead of resizing the page.
     summary->SetMinSize( wxSize( -1, summary->GetCharHeight() * 6 + summary->FromDIP(12) ) );
     summaryBox->Add( summary, wxSizerFlags(1).Expand() );

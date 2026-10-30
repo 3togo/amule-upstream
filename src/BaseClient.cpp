@@ -3900,6 +3900,7 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 
 // Prefs-based and GUI-free, so it's shared by both builds -- the daemon's
 // read-only chat relay applies the same message filter the monolithic GUI does.
+// Keep FilterSelectionSummary::Describe() in sync with changes to these filtering rules.
 bool CUpDownClient::IsMessageFiltered(const wxString &message)
 {
 	bool filtered = false;
