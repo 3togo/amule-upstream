@@ -50,3 +50,16 @@ for ROW in created list; do
 done
 curl -fsS --max-time 10 -X DELETE -H "$AUTH" "$API/search/$SID"
 echo 'PASS: default media filters remain zero and empty strings on recorded forms'
+
+# JSON integers can exceed INT64_MAX; size filters must keep their unsigned value.
+curl -fsS --max-time 10 -X POST -H "$AUTH" -H 'Content-Type: application/json' \
+	-d '{"query":"offlineunsignedsizes","type":"kad","min_size_bytes":9223372036854775808,"max_size_bytes":18446744073709549568}' "$API/search" >"$TMP/created"
+SID=$(jq -er .search_id "$TMP/created")
+for ROW in created list; do
+	if [ "$ROW" = list ]; then
+		curl -fsS --max-time 10 -H "$AUTH" "$API/search" | jq --argjson sid "$SID" '.searches[] | select(.search_id == $sid)' >"$TMP/list"
+	fi
+	jq -e '.min_size_bytes == 9223372036854775808 and .max_size_bytes == 18446744073709549568' "$TMP/$ROW" >/dev/null
+done
+curl -fsS --max-time 10 -X DELETE -H "$AUTH" "$API/search/$SID"
+echo 'PASS: unsigned 64-bit size filters retain their value in creation and listing rows'

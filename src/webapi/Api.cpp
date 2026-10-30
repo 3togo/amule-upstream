@@ -3255,8 +3255,8 @@ void WriteSearchListRow(CJsonWriter &w, const SearchListRow &row)
 	// than a fabricated all-default form; "" and 0 mean the form had no such filter.
 	WriteStringOrNull(w, "file_type", row.has_form, row.file_type);
 	WriteStringOrNull(w, "extension", row.has_form, row.extension);
-	WriteIntOrNull(w, "min_size_bytes", row.has_form, static_cast<int64_t>(row.min_size));
-	WriteIntOrNull(w, "max_size_bytes", row.has_form, static_cast<int64_t>(row.max_size));
+	WriteUIntOrNull(w, "min_size_bytes", row.has_form, row.min_size);
+	WriteUIntOrNull(w, "max_size_bytes", row.has_form, row.max_size);
 	WriteIntOrNull(w, "min_source_count", row.has_form, static_cast<int64_t>(row.min_source_count));
 	WriteIntOrNull(w,
 		"min_bitrate_kilobits_per_second",
