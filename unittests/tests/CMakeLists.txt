@@ -3730,3 +3730,8 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND Python3_Interpreter_FOUND)
 			${CMAKE_CURRENT_SOURCE_DIR}/AICHPruneIntegrationTest.py $<TARGET_FILE:amuled>)
 	set_tests_properties (AICHPruneIntegrationTest PROPERTIES LABELS "integration")
 endif ()
+
+add_executable (ECSRPTest ECSRPTest.cpp ${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp)
+target_include_directories (ECSRPTest PRIVATE ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
+target_link_libraries (ECSRPTest PRIVATE ec mulecommon)
+add_test (NAME ECSRPTest COMMAND ECSRPTest)
