@@ -1873,6 +1873,14 @@ msgstr "O usuario %s (%u) denegou o acceso á lista de ficheiros e directorios c
 msgid "File Comments"
 msgstr "Comentarios do ficheiro"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Engadir Comentario/Calificación"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Editar Comentario/Calificación"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Nome de usuario"
@@ -3246,10 +3254,6 @@ msgstr "Cartafol de destino para descargas"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Navegador"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Compartiranse todos os ficheiros do cartafol co resto de parceiros)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6483,6 +6487,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Compartiranse todos os ficheiros do cartafol co resto de parceiros)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "todo"
 
@@ -8394,14 +8402,6 @@ msgstr "Ruta do directorio"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Ficheiros compartidos"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Engadir Comentario/Calificación"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Editar Comentario/Calificación"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

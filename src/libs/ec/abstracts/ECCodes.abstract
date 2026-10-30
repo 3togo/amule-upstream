@@ -258,7 +258,7 @@ EC_TAG_CAN_KAD_LOOKUPS                    0x002A
 ## Server accepts EC_SEARCH_ALL; older servers silently treat unknown kinds as local.
 EC_TAG_CAN_SEARCH_ALL                     0x0029
 ## Server accepts and validates all six media search filters.
-EC_TAG_CAN_SEARCH_METADATA                0x002D
+EC_TAG_CAN_SEARCH_METADATA                0x0035
 EC_TAG_CAN_AEAD                           0x001B
 EC_TAG_AEAD_CIPHER                        0x001C
 EC_TAG_AEAD_CLIENT_NONCE                  0x001D
@@ -288,6 +288,13 @@ EC_TAG_CAN_CHAT_PEER_HASH                 0x0028
 EC_TAG_CAN_DELETE_COMPLETE                0x002B
 ## Optional child of EC_TAG_CONNSTATE: uint8, ED2K = bit 0, Kad = bit 1.
 EC_TAG_NETWORKS_ENABLED                   0x002C
+EC_TAG_SRP_A                              0x002D
+EC_TAG_SRP_B                              0x002E
+EC_TAG_SRP_PROFILE                        0x002F
+EC_TAG_SRP_SALT                           0x0030
+EC_TAG_SRP_CREDENTIAL                     0x0031
+EC_TAG_SRP_M1                             0x0032
+EC_TAG_SRP_M2                             0x0033
 
 
 EC_TAG_CLIENT_NAME                        0x0100

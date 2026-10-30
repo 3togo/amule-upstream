@@ -1834,6 +1834,14 @@ msgstr "ব্যবহারকারী %s (%u) শেয়ার করা �
 msgid "File Comments"
 msgstr "ফাইল মন্তব্য"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "মন্তব্য/রেটিং যোগ করুন"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "মন্তব্য/রেটিং সম্পাদনা করুন"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "ব্যবহারকারীর নাম"
@@ -3202,10 +3210,6 @@ msgstr "ডাউনলোডের গন্তব্য ফোল্ডার"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "ব্রাউজ করুন"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(এই ফোল্ডারের সব ফাইল অন্যান্য পিয়ারদের সাথে শেয়ার করা হয়)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6423,6 +6427,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(এই ফোল্ডারের সব ফাইল অন্যান্য পিয়ারদের সাথে শেয়ার করা হয়)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "সব"
 
@@ -8311,14 +8319,6 @@ msgstr "ডিরেক্টরি পথ"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "শেয়ার করা ফাইল"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "মন্তব্য/রেটিং যোগ করুন"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "মন্তব্য/রেটিং সম্পাদনা করুন"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
