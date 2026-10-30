@@ -335,6 +335,12 @@ add_test (NAME KadPublishPolicyTest COMMAND KadPublishPolicyTest)
 target_include_directories (KadPublishPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (KadPublishPolicyTest muleunit mulecommon)
 
+# EC writes reach these setters directly, so they must clamp to the shared limits.
+add_executable (SourceSearchLimitsTest SourceSearchLimitsTest.cpp)
+add_test (NAME SourceSearchLimitsTest COMMAND SourceSearchLimitsTest)
+target_include_directories (SourceSearchLimitsTest PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${Boost_INCLUDE_DIR})
+target_link_libraries (SourceSearchLimitsTest muleunit mulecommon)
+
 add_executable (AdvertisedIPv6Test AdvertisedIPv6Test.cpp)
 add_test (NAME AdvertisedIPv6Test COMMAND AdvertisedIPv6Test)
 target_include_directories (AdvertisedIPv6Test PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -818,6 +824,7 @@ target_link_libraries (ServerMetTest
 # it was online. Needs no app and no daemon.
 add_executable (ClientVersionStringTest
 	ClientVersionStringTest.cpp
+	${CMAKE_SOURCE_DIR}/src/DataToText.cpp
 	${CMAKE_SOURCE_DIR}/src/ClientVersionString.cpp
 )
 
@@ -2458,6 +2465,23 @@ target_link_libraries (RefresherTest
 	wxWidgets::NET
 )
 
+# The WebUI hard-codes its preference ranges; keep them inside amuleapi's schema.
+add_executable (PrefsWebUiBoundsTest
+	PrefsWebUiBoundsTest.cpp
+	${CMAKE_SOURCE_DIR}/src/webapi/PrefsSchema.cpp
+)
+add_test (NAME PrefsWebUiBoundsTest COMMAND PrefsWebUiBoundsTest)
+target_compile_definitions (PrefsWebUiBoundsTest
+	PRIVATE "PREFERENCES_JS=\"${CMAKE_SOURCE_DIR}/src/webapi/static/js/views/preferences.js\""
+)
+target_include_directories (PrefsWebUiBoundsTest
+	PRIVATE ${CMAKE_SOURCE_DIR}/src/webapi
+	PRIVATE ${CMAKE_SOURCE_DIR}/src
+	PRIVATE ${CMAKE_SOURCE_DIR}/src/include
+	PRIVATE ${CMAKE_BINARY_DIR}
+)
+target_link_libraries (PrefsWebUiBoundsTest muleunit ec mulecommon)
+
 # CompleteSourcesNeedRecompute decides whether the complete-sources throttle
 # must be bypassed because the upload list went empty. #1052 added that bypass
 # but guarded it on the scalar alone, leaving Hi stale (#1065), so the
@@ -3043,6 +3067,8 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/ShortBlockPacketIntegrationTest.py $<TARGET_FILE:amuled>
 			)
+			# Starts 20 authenticated daemon profiles; use the process integration budget.
+			set_tests_properties (ShortBlockPacketIntegrationTest PROPERTIES LABELS "integration")
 			add_test (NAME TinyBlockPacketIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/TinyBlockPacketIntegrationTest.py $<TARGET_FILE:amuled>
@@ -3171,6 +3197,12 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 					--amuled $<TARGET_FILE:amuled> --amuleapi $<TARGET_FILE:amuleapi>
 			)
 			set_tests_properties (ChatCaptchaIntegrationTest PROPERTIES LABELS "integration")
+			add_test (NAME ClientModHistoryIntegrationTest
+				COMMAND ${Python3_EXECUTABLE}
+					${CMAKE_CURRENT_SOURCE_DIR}/ClientModHistoryIntegrationTest.py
+					--amuled $<TARGET_FILE:amuled> --amuleapi $<TARGET_FILE:amuleapi>
+			)
+			set_tests_properties (ClientModHistoryIntegrationTest PROPERTIES LABELS "integration")
 		endif ()
 		if (BUILD_MONOLITHIC AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
 			find_program (AMULE_XVFB_RUN xvfb-run)
@@ -3613,6 +3645,8 @@ endif ()
 
 find_program (AMULE_TEST_NODE_EXECUTABLE NAMES node nodejs)
 if (AMULE_TEST_NODE_EXECUTABLE)
+	add_test (NAME ClientSoftwareTest
+		COMMAND ${AMULE_TEST_NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/ClientSoftwareTest.mjs)
 	add_test (NAME DownloadDeleteTest
 		COMMAND ${AMULE_TEST_NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/DownloadDeleteTest.mjs)
 	add_test (NAME MagnetLinkTest
@@ -3671,6 +3705,34 @@ if (ENABLE_INTEGRATION_TESTS AND ENABLE_IP2COUNTRY AND BUILD_DAEMON AND BUILD_AM
 				$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>)
 	endif ()
 endif ()
+
+add_executable (ECAsyncProbe ECAsyncProbe.cpp ${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp ${CMAKE_SOURCE_DIR}/src/NetworkFunctions.cpp)
+target_include_directories (ECAsyncProbe PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
+target_link_libraries (ECAsyncProbe PRIVATE ec mulesocket mulecommon)
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULECMD AND Python3_Interpreter_FOUND)
+	add_test (NAME ECSRPIntegrationTest COMMAND ${Python3_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/ECSRPIntegrationTest.py
+		$<TARGET_FILE:amuled> $<TARGET_FILE:amulecmd> $<TARGET_FILE:ECAsyncProbe>)
+	set_tests_properties (ECSRPIntegrationTest PROPERTIES SKIP_RETURN_CODE 77 LABELS "integration")
+endif()
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_AMULEAPI AND Python3_Interpreter_FOUND AND UNIX)
+	add_test (NAME ECSRPApiIntegrationTest COMMAND ${Python3_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/ECSRPApiIntegrationTest.py
+		$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>)
+	set_tests_properties (ECSRPApiIntegrationTest PROPERTIES SKIP_RETURN_CODE 77 LABELS "integration")
+endif()
+
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND BUILD_WEBSERVER AND Python3_Interpreter_FOUND AND UNIX)
+	set (ec_srp_web_args $<TARGET_FILE:amuled> $<TARGET_FILE:amuleweb>)
+	if (BUILD_AMULEAPI)
+		list (APPEND ec_srp_web_args $<TARGET_FILE:amuleapi>)
+	endif()
+	add_test (NAME ECSRPWebIntegrationTest COMMAND ${Python3_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/ECSRPWebIntegrationTest.py ${ec_srp_web_args})
+	set_tests_properties (ECSRPWebIntegrationTest PROPERTIES SKIP_RETURN_CODE 77 LABELS "integration")
+endif()
 
 if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 	add_executable (WindowGeometryTest WindowGeometryTest.cpp)
@@ -3734,6 +3796,7 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Li
 			$<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
 	set_tests_properties (WriteBackpressureIntegrationTest PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
 endif ()
+
 add_executable (ECSRPTest ECSRPTest.cpp ${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp)
 target_include_directories (ECSRPTest PRIVATE ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
 target_link_libraries (ECSRPTest PRIVATE ec mulecommon)
@@ -3743,3 +3806,73 @@ add_executable (ECSRPConfigTest ECSRPConfigTest.cpp ${CMAKE_SOURCE_DIR}/src/Logg
 target_include_directories (ECSRPConfigTest PRIVATE ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
 target_link_libraries (ECSRPConfigTest PRIVATE ec mulecommon)
 add_test (NAME ECSRPConfigTest COMMAND ECSRPConfigTest)
+set_tests_properties (ECSRPConfigTest PROPERTIES LABELS "slow")
+
+# ECWire exits 77 when Python cryptography is unavailable. Preserve that skip
+# through every fixture that imports its EC helper, including indirect imports.
+foreach (ec_wire_test IN ITEMS
+	AllSearchClientCapabilityTest
+	AllSearchIntegrationTest
+	AmuleApiEcPasswordIntegrationTest
+	AmuleApiRestartIntegrationTest
+	AmulecmdShutdownTest
+	CallbackCooldownIntegrationTest
+	CancelCompletedIntegrationTest
+	CategoryTagECTest
+	ChatCaptchaIntegrationTest
+	ChatSpamFilterIntegrationTest
+	CompletedFileDeleteCapabilityTest
+	CompletedFileDeleteIntegrationTest
+	DisplayRatesIntegrationTest
+	DownloadDisplayRatesIntegrationTest
+	DownloadLimitHelloIntegrationTest
+	ECAeadTagTypeIntegrationTest
+	ECDisconnectIntegrationTest
+	ECSRPApiIntegrationTest
+	ECSRPIntegrationTest
+	ECSRPWebIntegrationTest
+	ED2KLinkIntegrationTest
+	GlobalSourceRequestIntegrationTest
+	HashingCancelIntegrationTest
+	IntegrationFixtureUnitTest
+	KadDistributionECTest
+	KadIndexLifecycleECTest
+	KadLookupECTest
+	KadPacketValidationIntegrationTest
+	KadPopulatedDistributionECTest
+	KadPopulatedLookupECTest
+	KadSourceTagsECTest
+	KnownHistoryIntegrationTest
+	LogfilePathIntegrationTest
+	LoggerRuntimeIntegrationTest
+	LoggingFormatIntegrationTest
+	MediaProbeUnavailableTest
+	MetricsIntegrationTest
+	NetworkPreferencesIntegrationTest
+	OfferFilesLiveLimitsTest
+	PacketReceiveIntegrationTest
+	PathDefaultsIntegrationTest
+	SearchParamsRestoreIntegrationTest
+	ServerListFallbackApiIntegrationTest
+	ServerListFallbackIntegrationTest
+	ServerListGuiIntegrationTest
+	ServerListSourcesIntegrationTest
+	ServerTrustIntegrationTest
+	ShareExcludeDefaultsIntegrationTest
+	ShareExclusionLifecycleIntegrationTest
+	ShareWatcherMoveIntegrationTest
+	SharedFileReverifyIntegrationTest
+	SharedMembershipIntegrationTest
+	ShortBlockPacketIntegrationTest
+	TinyBlockPacketIntegrationTest
+	UnwritableTagIntegrationTest
+	UpdateUrlPrivacyTest
+	UploadRefillCompressedIntegrationTest
+	UploadRefillIntegrationTest
+	UploadSlotScopeIntegrationTest
+	WriteBackpressureIntegrationTest
+)
+	if (TEST ${ec_wire_test})
+		set_tests_properties (${ec_wire_test} PROPERTIES SKIP_RETURN_CODE 77)
+	endif ()
+endforeach ()

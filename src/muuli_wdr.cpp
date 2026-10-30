@@ -44,6 +44,7 @@
 #include "DialogLayout.h" // Scrollable details dialogs
 #include "TextClearButton.h"
 #include "OtherFunctions.h" // Needed for LabelWithColon
+#include "SourceSearchLimits.h"
 
 #include <wx/artprov.h> // Needed for the "amule:" art ids (status bar + transfer window icons)
 #include <wx/intl.h>
@@ -2172,11 +2173,11 @@ wxSizer *PreferencesaMuleTweaksTab( wxWindow *parent, bool call_fit, bool set_si
     item6->Add( new wxStaticText( item5, -1, _("Max new connections / 5 secs"), wxDefaultPosition, wxDefaultSize, 0 ), wxSizerFlags().CenterVertical() );
     item6->Add( new wxSpinCtrl( item5, IDC_MAXCON5SEC, "50", wxDefaultPosition, wxDefaultSize, 0, 20, 500, 50 ), wxSizerFlags().CenterVertical() );
     item6->Add( new wxStaticText( item5, -1, _("Concurrent Kad source lookups"), wxDefaultPosition, wxDefaultSize, 0 ), wxSizerFlags().CenterVertical() );
-    item6->Add( new wxSpinCtrl( item5, IDC_KADMAXSEARCHES, "30", wxDefaultPosition, wxDefaultSize, 0, 5, 50, 30 ), wxSizerFlags().CenterVertical() );
+    item6->Add( new wxSpinCtrl( item5, IDC_KADMAXSEARCHES, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0, KAD_MAX_SOURCE_SEARCHES.min, KAD_MAX_SOURCE_SEARCHES.max, KAD_MAX_SOURCE_SEARCHES.def ), wxSizerFlags().CenterVertical() );
     item6->Add( new wxStaticText( item5, -1, _("Kad source re-search interval (minutes)"), wxDefaultPosition, wxDefaultSize, 0 ), wxSizerFlags().CenterVertical() );
-    item6->Add( new wxSpinCtrl( item5, IDC_KADREASKTIME, "30", wxDefaultPosition, wxDefaultSize, 0, 30, 60, 30 ), wxSizerFlags().CenterVertical() );
+    item6->Add( new wxSpinCtrl( item5, IDC_KADREASKTIME, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0, KAD_SOURCE_REASK_MINUTES.min, KAD_SOURCE_REASK_MINUTES.max, KAD_SOURCE_REASK_MINUTES.def ), wxSizerFlags().CenterVertical() );
     item6->Add( new wxStaticText( item5, -1, _("Source re-ask interval (minutes)"), wxDefaultPosition, wxDefaultSize, 0 ), wxSizerFlags().CenterVertical() );
-    item6->Add( new wxSpinCtrl( item5, IDC_SOURCEREASKTIME, "15", wxDefaultPosition, wxDefaultSize, 0, 15, 60, 15 ), wxSizerFlags().CenterVertical() );
+    item6->Add( new wxSpinCtrl( item5, IDC_SOURCEREASKTIME, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0, SOURCE_REASK_MINUTES.min, SOURCE_REASK_MINUTES.max, SOURCE_REASK_MINUTES.def ), wxSizerFlags().CenterVertical() );
     item4->Add( item6, wxSizerFlags().Border(wxTOP, 5) );
 
     wxStaticText *item8 = new wxStaticText( item5, IDC_FILEBUFFERSIZE_STATIC, _("File Buffer Size: 240000 bytes"), wxDefaultPosition, wxDefaultSize, 0 );
@@ -2357,8 +2358,6 @@ wxSizer *PreferencesRemoteControlsTab( wxWindow *parent, bool call_fit, bool set
     CMuleTextCtrl *item13 = new CMuleTextCtrl( item2, IDC_EXT_CONN_PASSWD, "", wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD );
     item11->Add( item13, wxSizerFlags(1).Center().Border(wxLEFT, 5) );
     item1->Add( item11, wxSizerFlags().Expand().CenterVertical() );
-    wxCheckBox *item13b = new wxCheckBox( item2, IDC_EXT_CONN_REQUIRE_ENCRYPTION, _("Require encrypted connections (rejects clients that cannot encrypt)"), wxDefaultPosition, wxDefaultSize, 0 );
-    item1->Add( item13b, wxSizerFlags().CenterVertical().Border(wxALL, 5) );
     item0->Add( item1, wxSizerFlags().Expand().Border(wxALL, 0) );
 
 #ifndef CLIENT_GUI
@@ -3394,9 +3393,6 @@ wxSizer *CoreConnect( wxWindow *parent, bool call_fit, bool set_sizer )
     wxCheckBox *item13 = new wxCheckBox( parent, ID_EC_SAVE, _("Remember those settings"), wxDefaultPosition, wxDefaultSize, 0 );
     item13->SetValue( TRUE );
     item0->Add( item13, wxSizerFlags().CenterVertical().Border(wxALL, 5) );
-    wxCheckBox *item13a = new wxCheckBox( parent, ID_EC_ENCRYPTION, _("Encrypt the connection (recommended)"), wxDefaultPosition, wxDefaultSize, 0 );
-    item13a->SetValue( TRUE );
-    item0->Add( item13a, wxSizerFlags().CenterVertical().Border(wxALL, 5) );
     wxCheckBox *item13b = new wxCheckBox( parent, ID_EC_FORCE_ZLIB, _("Force ZLIB compression"), wxDefaultPosition, wxDefaultSize, 0 );
     item0->Add( item13b, wxSizerFlags().CenterVertical().Border(wxALL, 5) );
     wxBoxSizer *item14 = new wxBoxSizer( wxHORIZONTAL );
