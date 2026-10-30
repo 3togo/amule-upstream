@@ -1774,6 +1774,10 @@ void CPreferences::LoadAllItems(wxConfigBase *cfg)
 	}
 #endif
 
+#ifndef CLIENT_GUI
+	kadConstraints = Kademlia::LoadKadConstraints(*cfg, GetMaxConnections(), GetKadMaxSourceSearches());
+#endif
+
 	// Compile the shared-file exclusion filter from the values just loaded.
 	RecompileShareExcludeFilter();
 }
