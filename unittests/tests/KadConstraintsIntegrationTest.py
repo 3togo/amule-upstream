@@ -57,7 +57,10 @@ PingRequestsPerMinute=7
                     # Seven replies prove that the configured rate replaces the default two.
                     for _ in range(7):
                         first.sendto(b'\xe4\x60', target)
-                        data, _ = first.recvfrom(1024)
+                        try:
+                            data, _ = first.recvfrom(1024)
+                        except socket.timeout as error:
+                            raise AssertionError(f'Configured ping {_ + 1}/7 received no reply') from error
                         assert data[:2] == b'\xe4\x61', data
                     for peer in (first, second):
                         peer.settimeout(0.3)
