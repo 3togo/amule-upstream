@@ -93,13 +93,12 @@ CPartMetSaveResult WritePartMet(CPartMetSaveRequest &req)
 		CPath::RemoveFile(req.tmpPath);
 		return { CPartMetSaveResult::Failed, "Incomplete part.met.tmp file" };
 	}
-	return InstallPartMet(req, { CPath::BackupFile, [](const CPath &src, const CPath &dst) {
-					    return CPath::ReplaceEntry(src, dst);
-				    } });
+	return InstallPartMet(req, { CPath::BackupFile, CPath::ReplaceEntry });
 }
 
 CPartMetSaveResult InstallPartMet(const CPartMetSaveRequest &req, const CPartMetFileOps &ops)
 {
+	wxString detail;
 	// Startup discovers downloads by their live .part.met names. Moving the old file away
 	// before installation can hide a download if the second operation fails or we crash.
 	if (req.metPath.FileExists()) {
@@ -112,15 +111,18 @@ CPartMetSaveResult InstallPartMet(const CPartMetSaveRequest &req, const CPartMet
 			return { CPartMetSaveResult::Failed, "Failed to remove stale part.met.bak.tmp file" };
 		}
 		if (!ops.backup(req.metPath, ".bak.tmp") ||
-			!ops.replace(stagedBackup, req.metPath.AppendExt(".bak"))) {
+			!ops.replace(stagedBackup, req.metPath.AppendExt(".bak"), &detail)) {
 			if (stagedBackup.FileExists()) {
 				CPath::RemoveFile(stagedBackup);
 			}
-			return { CPartMetSaveResult::Failed, "Failed to back up part.met file" };
+			return { CPartMetSaveResult::Failed,
+				"Failed to back up part.met file" +
+					(detail.empty() ? wxString() : ": " + detail) };
 		}
 	}
-	if (!ops.replace(req.tmpPath, req.metPath)) {
-		return { CPartMetSaveResult::Failed, "Failed to install part.met file" };
+	if (!ops.replace(req.tmpPath, req.metPath, &detail)) {
+		return { CPartMetSaveResult::Failed,
+			"Failed to install part.met file" + (detail.empty() ? wxString() : ": " + detail) };
 	}
 	return { CPartMetSaveResult::Saved, wxString() };
 }
