@@ -2,7 +2,6 @@
 # Copyright (c) 2026 aMule Team
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Prove the daemon loads shared Kad settings from its actual configuration."""
-import hashlib
 import os
 from pathlib import Path
 import socket
@@ -10,38 +9,16 @@ import subprocess
 import sys
 import tempfile
 from AllSearchIntegrationTest import C, connect_daemon, free_ports, retry_port_collisions
+from DaemonConfig import write_amule_conf
 
 
 def run(binary):
     with tempfile.TemporaryDirectory(prefix='kad-constraints-') as directory:
         root = Path(directory)
         ec_port, tcp, udp = free_ports(3, udp_indices=(2,), peer_index=1)
-        (root / 'amule.conf').write_text(f"""[eMule]
-Nick=regression
-Port={tcp}
-UDPPort={udp}
-ConnectToKad=1
-Autoconnect=0
-ConnectToED2K=0
-NewVersionCheck=0
-GeoIPEnabled=0
-GeoIPAutoUpdate=0
-UPnPEnabled=0
-Reconnect=0
-Serverlist=0
-Ed2kServersUrl=
-KadNodesUrl=
-TempDir={root}/Temp
-IncomingDir={root}/Incoming
-[ExternalConnect]
-AcceptExternalConnections=1
-ECAddress=127.0.0.1
-ECPort={ec_port}
-ECPassword={hashlib.md5(b'regression').hexdigest()}
-[Kad]
-TrackedIPs=1
-PingRequestsPerMinute=7
-""")
+        write_amule_conf(root, ec_port, Port=tcp, UDPPort=udp, ConnectToKad=1,
+                         Autoconnect=0,
+                         sections={'Kad': {'TrackedIPs': 1, 'PingRequestsPerMinute': 7}})
         env = dict(os.environ, XDG_CONFIG_HOME=str(root / 'xdg'))
         env.pop('LD_PRELOAD', None)
         with (root / 'stdout.log').open('w') as log:
