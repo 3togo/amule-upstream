@@ -1835,6 +1835,14 @@ msgstr "User %s (%u) denied access to shared directories/files list"
 msgid "File Comments"
 msgstr "File Comments"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Add Comment/Rating"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Edit Comment/Rating"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Username"
@@ -3203,10 +3211,6 @@ msgstr "Destination folder for downloads"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Browse"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(All files in this folder are shared with other peers)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6424,6 +6428,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(All files in this folder are shared with other peers)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "all"
 
@@ -8312,14 +8320,6 @@ msgstr "Directory Path"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Shared Files"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Add Comment/Rating"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Edit Comment/Rating"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

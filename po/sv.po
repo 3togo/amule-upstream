@@ -1851,6 +1851,14 @@ msgstr "Användare %s (%u) nekade tillgång till listan för delade mappar/filer
 msgid "File Comments"
 msgstr "Filkommentarer"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Lägg till Kommentar/Betyg"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Redigera Kommentar/Betyg"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Användarnamn"
@@ -3219,10 +3227,6 @@ msgstr "Målmapp för hämtningar"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Bläddra"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Alla filer i den här mappen delas med andra noder)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6446,6 +6450,10 @@ msgid "%s:"
 msgstr "%s:"
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Alla filer i den här mappen delas med andra noder)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "alla"
 
@@ -8341,14 +8349,6 @@ msgstr "Mappsökväg"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Utdelade filer"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Lägg till Kommentar/Betyg"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Redigera Kommentar/Betyg"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

@@ -1857,6 +1857,14 @@ msgstr "Bruger %s (%u) nægtede adgang til liste over delte mapper/filer"
 msgid "File Comments"
 msgstr "Fil Kommentarer"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Tilføj kommentar/bedømmelse"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Rediger Kommentar/Bedømmelse"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Brugernavn"
@@ -3226,10 +3234,6 @@ msgstr "Destinationsmappe for downloads"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Gennemse"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Alle filer i denne mappe deles med andre peers)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6472,6 +6476,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Alle filer i denne mappe deles med andre peers)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "alt"
 
@@ -8370,14 +8378,6 @@ msgstr "Mappe sti"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Delte Filer"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Tilføj kommentar/bedømmelse"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Rediger Kommentar/Bedømmelse"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
