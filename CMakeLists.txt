@@ -1,7 +1,14 @@
 # 3.12 is tested in CI (the "CMake minimum version" job in ccpp.yml): raising
 # this needs that job updated, and lowering it needs the code to allow it.
 cmake_minimum_required (VERSION 3.12...3.31)
-project (amule)
+
+# ClientVersion.h stays the one place to bump; the macOS bundles' Info.plist reads PROJECT_VERSION.
+file (STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/src/include/common/ClientVersion.h" _amule_version_lines
+	REGEX "^#define VERSION_(MJR|MIN|UPDATE) [0-9]+$")
+foreach (_part MJR MIN UPDATE)
+	string (REGEX REPLACE ".*#define VERSION_${_part} ([0-9]+).*" "\\1" _amule_version_${_part} "${_amule_version_lines}")
+endforeach ()
+project (amule VERSION ${_amule_version_MJR}.${_amule_version_MIN}.${_amule_version_UPDATE})
 
 set (MIN_BOOST_VERSION 1.70)
 set (MIN_CRYPTOPP_VERSION 8.1)
@@ -674,6 +681,9 @@ if (ENABLE_NLS)
 endif()
 
 add_subdirectory (docs)
+if(BUILD_TESTING)
+    enable_testing()
+endif()
 add_subdirectory (src)
 
 if (BUILD_TESTING)
@@ -696,6 +706,8 @@ message (STATUS "
 	Should aMule monolithic application be built?			${BUILD_MONOLITHIC}
 	Should aMule daemon version be built?				${BUILD_DAEMON}
 	Should aMule remote gui be built?				${BUILD_REMOTEGUI}
+
+	Build the bundled MediaInfo metadata helper?			${ENABLE_MEDIA_PROBE}
 
 	**** aMule TextClient ****
 	Should aMule Command Line Client be built?			${BUILD_AMULECMD}

@@ -6,7 +6,7 @@ import hashlib
 import json, os, socketserver, struct, subprocess, sys, tempfile, threading, time, urllib.request, zlib
 from pathlib import Path
 from AllSearchIntegrationTest import (C, PortCollision, exact, free_ports,
-                                      integer, retry_port_collisions, string)
+                                      integer, retry_port_collisions, string, tag)
 requests = []
 class Handler(socketserver.BaseRequestHandler):
     def handle(self):
@@ -21,6 +21,13 @@ class Handler(socketserver.BaseRequestHandler):
                     reply, tags = C['EC_OP_AUTH_SALT'], [integer(C['EC_TAG_PASSWD_SALT'], 123)]
                 elif op == C['EC_OP_AUTH_PASSWD']:
                     reply, tags = C['EC_OP_AUTH_OK'], [string(C['EC_TAG_SERVER_VERSION'], 'legacy-fixture')]
+                elif op == C['EC_OP_SEARCH_LIST']:
+                    reply = C['EC_OP_SEARCH_LIST']
+                    tags = [tag(C['EC_TAG_SEARCH_ID'], struct.pack('!I', 101), 4,
+                                [string(C['EC_TAG_SEARCH_NAME'], 'legacy form'),
+                                 integer(C['EC_TAG_SEARCH_MIN_SIZE'], 0),
+                                 integer(C['EC_TAG_SEARCH_MAX_SIZE'], 0),
+                                 integer(C['EC_TAG_SEARCH_AVAILABILITY'], 0)])]
                 else:
                     reply, tags = C['EC_OP_NOOP'], []
                 payload = bytes([reply]) + struct.pack('!H', len(tags)) + b''.join(tags)
@@ -55,12 +62,12 @@ def run(api, cmd):
                     while time.monotonic()<deadline:
                         if proc.poll() is not None:
                             failure = (cfg/'api.log').read_text(errors='replace')
-                            if 'amuleapi: HTTP server failed to start:' in failure:
+                            if 'HTTP server failed to start:' in failure:
                                 raise PortCollision(f'API could not bind HTTP port {hp}')
                             raise AssertionError(failure)
                         log.flush()
                         startup = (cfg/'api.log').read_text(errors='replace')
-                        if f'amuleapi: listening on http://127.0.0.1:{hp}/' not in startup:
+                        if f'listening on http://127.0.0.1:{hp}/' not in startup:
                             time.sleep(.1)
                             continue
                         try:
@@ -72,12 +79,19 @@ def run(api, cmd):
                     status, result=http(url+'/search', {'query':'legacyguard','type':'all'}, token)
                     assert status==503 and result['error']['code']=='ec_unsupported', (status, result)
                     print('PASS: API returns 503 ec_unsupported without All capability')
-                    for filters in ({'min_bitrate_kbps': 128}, {'min_length': '1:02:03'},
+                    for filters in ({'min_bitrate_kilobits_per_second': 128}, {'min_duration_seconds': 3723},
                                     {'codec': 'FLAC'}, {'title': 'Title'}, {'album': 'Album'},
                                     {'artist': 'Artist'}):
                         status, result = http(url+'/search', {'query': 'legacyguard', 'type': 'kad', **filters}, token)
                         assert status == 503 and result['error']['code'] == 'ec_unsupported', (status, result)
                     print('PASS: metadata filters rejected without daemon capability')
+                    status, result = http(url+'/search', token=token)
+                    assert status == 200, (status, result)
+                    row = next(row for row in result['searches'] if row['search_id'] == 101)
+                    for key in ('min_bitrate_kilobits_per_second', 'min_duration_seconds',
+                                'codec', 'title', 'album', 'artist'):
+                        assert key in row and row[key] is None, (key, row)
+                    print('PASS: legacy daemon rows retain all six media keys as null')
                     status, result=http(url+'/status', token=token)
                     assert status==200 and result['search_all_supported'] is False, (status,result)
                     print('PASS: REST reports absent All capability as false')

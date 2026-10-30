@@ -193,6 +193,18 @@ public:
 	// exclusion preview. `truncated` makes any count taken from `out` a lower bound.
 	void GetExpandedFolderNames(wxArrayString &out, bool &truncated) const;
 
+	// Allowed-roots confinement for remote (EC / amuleapi) folder changes -- incoming, temp,
+	// shared folders and category paths. The roots are local daemon configuration, loaded from
+	// allowed-remote-dirs.dat and never settable over EC. Empty by default, which refuses every
+	// remote folder change (the opt-in gate). "Only changes are checked" is the caller's job: a
+	// value equal to what is stored, or an entry already in the stored list, is left alone.
+	void LoadAllowedRemoteDirRoots();
+	void SaveAllowedRemoteDirRoots();
+	static wxString GetAllowedRemoteDirsFile() { return s_configDir + "allowed-remote-dirs.dat"; }
+	// True iff a remote client may point a folder preference at `dir`: `dir` is equal to or inside
+	// one of the configured roots (CPath::IsContainedIn resolves ".." and symlinks). No roots -> false.
+	bool IsRemoteDirChangeAllowed(const CPath &dir) const;
+
 	static const wxString &GetConfigDir() { return s_configDir; }
 	static void SetConfigDir(const wxString &dir) { s_configDir = dir; }
 
@@ -354,9 +366,9 @@ public:
 	static uint8 GetSmartIdState() { return s_smartidstate; }
 	static void SetSmartIdState(uint8 in_smartidstate) { s_smartidstate = in_smartidstate; }
 	static bool GetVerbose() { return s_bVerbose; }
-	static void SetVerbose(bool val) { s_bVerbose = val; }
+	static void SetVerbose(bool val);
 	static bool GetVerboseLogfile() { return s_bVerboseLogfile; }
-	static void SetVerboseLogfile(bool val) { s_bVerboseLogfile = val; }
+	static void SetVerboseLogfile(bool val);
 	static bool GetPreviewPrio() { return s_bpreviewprio; }
 	static void SetPreviewPrio(bool in) { s_bpreviewprio = in; }
 	static bool StartNextFile() { return s_bstartnextfile; }
@@ -424,6 +436,10 @@ public:
 	// file of its own so older binaries see the already-expanded union in shareddir.dat, while
 	// round-tripping that file through an older binary still preserves the recursive intent here.
 	PathList shareddir_recursive_list;
+
+	// Local-only allow-list of roots that confine remote folder changes (see the accessors above).
+	// Empty by default. Loaded from allowed-remote-dirs.dat; never read from or written over EC.
+	PathList allowed_remote_dir_roots;
 
 	// A user-configured remote->local path-prefix substitution, for amuleGUI against a daemon on
 	// another machine whose filesystem is otherwise reachable. remotePrefix is an opaque string
@@ -767,19 +783,29 @@ public:
 	static bool GetVersionCheckAvailable() { return s_versionCheckAvailable; }
 	static void SetVersionCheckAvailable(bool val) { s_versionCheckAvailable = val; }
 
-	// Media metadata (issue #140): probe local shared files with ffprobe so we advertise Length /
-	// Bitrate / Codec to peers. An empty path means auto-detect, not off --
-	// MediaProbe::DetectedPath() resolves it per process.
+	// Media metadata: the bundled helper probes local files for Length / Bitrate / Codec.
+	// The legacy ffprobe path accessors remain for EC/API compatibility.
 	static bool GetMediaMetadataEnabled() { return s_MediaMetadataEnabled; }
 	static void SetMediaMetadataEnabled(bool val) { s_MediaMetadataEnabled = val; }
-	static const wxString &GetMediaMetadataFFProbePath() { return s_MediaMetadataFFProbePath; }
-	static void SetMediaMetadataFFProbePath(const wxString &val) { s_MediaMetadataFFProbePath = val; }
+	// The core found its helper. A remote GUI keeps what the core reported.
+	static bool IsMediaMetadataAvailable();
+	static void SetMediaMetadataAvailable(bool val) { s_MediaMetadataAvailable = val; }
+	static const wxString &GetMediaMetadataFFProbePath()
+	{
+		static const wxString empty;
+		return empty;
+	}
+	static void SetMediaMetadataFFProbePath(const wxString &) {} // Reserved compatibility field; ignored.
 
 	// Networks
 	static bool GetNetworkKademlia() { return s_ConnectToKad; }
 	static void SetNetworkKademlia(bool val) { s_ConnectToKad = val; }
 	static bool GetNetworkED2K() { return s_ConnectToED2K; }
 	static void SetNetworkED2K(bool val) { s_ConnectToED2K = val; }
+
+	// Request OFFERFILES v1 at login and follow the pacing a server advertises.
+	static bool GetED2KAcceleratedPublication() { return s_ED2KAcceleratedPublication; }
+	static void SetED2KAcceleratedPublication(bool val) { s_ED2KAcceleratedPublication = val; }
 
 	// Kad protocol version 0x0a (AICH keyword storage). When enabled, aMule advertises
 	// Kad version 0x0a and processes AICH hashes in keyword publish/search. When disabled,
@@ -833,6 +859,13 @@ public:
 	static bool IsServerCryptLayerTCPRequired() { return IsClientCryptLayerRequired(); }
 	static uint32 GetKadUDPKey() { return s_dwKadUDPKey; }
 	static uint8 GetCryptTCPPaddingLength() { return s_byCryptTCPPaddingLength; }
+
+#ifdef AMULE_QUIC_TRANSPORT
+	// Runtime opt-in for QUIC NAT traversal: gates QUIC NAT-T probes, dials,
+	// capability advertisements and answers. amule.conf-only, off by default --
+	// no widget, no EC tag. Independent from the legacy server-coordinated NAT settings.
+	static bool IsQuicNatTEnabled() { return s_QuicNatTEnabled; }
+#endif
 
 #ifdef ENABLE_NATT_SERVER_COORDINATION
 	// Runtime opt-in for Lugdunum's NAT callback: gates the login opt-in, the
@@ -1186,11 +1219,12 @@ protected:
 
 	// Media metadata (issue #140)
 	static bool s_MediaMetadataEnabled;
-	static wxString s_MediaMetadataFFProbePath;
+	static bool s_MediaMetadataAvailable;
 
 	// Kad
 	static bool s_ConnectToKad;
 	static bool s_ConnectToED2K;
+	static bool s_ED2KAcceleratedPublication;
 	static bool s_KadProtocol10;
 	static bool s_KadStrictAichPublishers;
 	static bool s_KadProtocol10Supported;
@@ -1210,6 +1244,9 @@ protected:
 	static bool s_bCryptLayerRequested;
 	static uint32 s_dwKadUDPKey;
 	static uint8 s_byCryptTCPPaddingLength;
+#ifdef AMULE_QUIC_TRANSPORT
+	static bool s_QuicNatTEnabled;
+#endif
 #ifdef ENABLE_NATT_SERVER_COORDINATION
 	static bool s_LugdunumNatCallbackEnabled;
 	static bool s_LowIdHolePunchEnabled;

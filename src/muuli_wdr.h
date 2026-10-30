@@ -161,6 +161,14 @@ wxSizer *messagePage(wxWindow *parent, bool call_fit = TRUE, bool set_sizer = TR
 // File-details dialog: the Verify Local Data section.
 #define IDC_FD_VERIFY_STATUS 10514
 #define IDC_FD_VERIFY_DETAILS 10515
+// Allowed roots for remote folder changes. The list is shown on both builds but never in the
+// same binary: read-only on the remote GUI's Directories page (reported by the daemon), editable
+// via the Add/Remove row on the monolithic Remote Controls page (local amule.conf config).
+#define IDC_ALLOWED_ROOTS_LIST 10530
+#define IDC_ALLOWED_ROOT_PATH 10531
+#define IDC_ALLOWED_ROOT_ADD 10532
+#define IDC_ALLOWED_ROOT_REMOVE 10533
+#define IDC_ALLOWED_ROOT_BROWSE 10534
 #define IDC_LISTCTRLFILENAMES 10051
 #define IDC_TAKEOVER 10052
 #define IDC_CMTBT 10053
@@ -316,6 +324,7 @@ wxSizer *PreferencesConnectionTab(wxWindow *parent, bool call_fit = TRUE, bool s
 #define IDC_SAFESERVERCONNECT 10155
 #define IDC_AUTOCONNECTSTATICONLY 10156
 #define IDC_MANUALSERVERHIGHPRIO 10157
+#define IDC_ED2K_ACCELERATED_PUBLICATION 10528
 wxSizer *PreferencesServerTab(wxWindow *parent, bool call_fit = TRUE, bool set_sizer = TRUE);
 
 #define IDC_ICH 10158
@@ -338,9 +347,6 @@ wxSizer *PreferencesServerTab(wxWindow *parent, bool call_fit = TRUE, bool set_s
 // starts at 10420 with a 10-ID cushion. The label lives in the 10355+ orphan-label band with the
 // other daemon-only ones.
 #define IDC_MEDIAMETA_ENABLED 10420
-#define IDC_MEDIAMETA_FFPROBEPATH 10421
-#define IDC_MEDIAMETA_FFPROBEBROWSE 10422
-#define IDC_MEDIAMETA_FFPROBEDETECT 10423
 wxSizer *PreferencesFilesTab(wxWindow *parent, bool call_fit = TRUE, bool set_sizer = TRUE);
 
 #define IDC_INCFILES 10171
@@ -371,10 +377,6 @@ wxSizer *PreferencesFilesTab(wxWindow *parent, bool call_fit = TRUE, bool set_si
 // static boxes so amulegui can hide them via PrefsUnifiedDlg's amuledOnlyPrefs[].
 #define IDC_ADDRESSTEXT 10355
 #define IDC_INTERFACETEXT 10362
-// Orphan label for the ffprobe path text control. Grouped with the rest so amulegui hides it via
-// amuledOnlyPrefs[]: probing runs on the daemon, so the remote GUI has no business setting the
-// path.
-#define IDC_MEDIAMETA_FFPROBEPATHTEXT 10370
 #define IDC_ENDGAME 10424
 #define IDC_EXT_CONN_PARAMS_BOX 10356
 #define IDC_EXT_CONN_IPTEXT 10357

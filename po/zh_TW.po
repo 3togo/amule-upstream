@@ -1288,6 +1288,15 @@ msgstr ""
 msgid "All"
 msgstr "全部"
 
+#: src/amule-remote-gui.cpp src/muuli_wdr.cpp
+msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
+msgstr ""
+
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
 msgstr ""
@@ -1295,6 +1304,10 @@ msgstr ""
 #: src/amule-remote-gui.cpp
 msgid "not readable"
 msgstr "無法讀取"
+
+#: src/amule-remote-gui.cpp
+msgid "outside the folders the daemon allows (configured on the daemon)"
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 msgid "not found"
@@ -1322,6 +1335,15 @@ msgstr "暫存資料夾"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "無法建立 %s 目錄 ( %s 分類用)，繼續使用 %s 目錄。"
+
+#: src/amule-remote-gui.cpp
+msgid "the daemon refused the request"
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, fuzzy, c-format
+msgid "The daemon refused the category: %s"
+msgstr "暫存資料夾"
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
 msgid "Invalid URL"
@@ -2329,6 +2351,18 @@ msgstr[0] "無法新增 %u 個連結（詳情請參閱記錄檔）。"
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "無效的 eD2k 連結！錯誤：%s "
 
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
+msgstr ""
+
 #: src/EditServerListDlg.cpp
 #, fuzzy
 msgid "Edit server list sources"
@@ -2360,6 +2394,11 @@ msgstr "已關閉外部連線。"
 #: src/ExternalConn.cpp
 msgid "External connections disabled due to empty password!"
 msgstr "未設定密碼，外部連線已被停用！"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Remote clients cannot change folders: no folder is listed in %s"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
@@ -2592,6 +2631,14 @@ msgid "Could not save the amuleapi password: %s"
 msgstr "無法儲存 amuleapi 密碼：%s"
 
 #: src/ExternalConn.cpp
+msgid "One or more folders were outside the allowed remote directories and were left unchanged."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "The category folder is outside the allowed remote directories."
+msgstr ""
+
+#: src/ExternalConn.cpp
 #, fuzzy
 msgid "No such category."
 msgstr "結束本次交談。"
@@ -2618,6 +2665,10 @@ msgstr "結束本次交談。"
 #, fuzzy
 msgid "Media metadata extraction is disabled in preferences"
 msgstr "Kad 網路已在偏好設定中被停用了。"
+
+#: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
@@ -3314,6 +3365,11 @@ msgstr "正在下載..."
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "已取消 HTTP 下載"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "Refusing to download %s: only http and https URLs are supported."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 #, c-format
@@ -4047,21 +4103,8 @@ msgstr "監聽連接端點：OK。"
 msgid "ERROR: Could not listen to TCP port."
 msgstr "錯誤：無法監聽 TCP 埠。"
 
-#: src/Logger.cpp
-msgid "ERROR: "
-msgstr "錯誤： "
-
-#: src/Logger.cpp
-msgid "WARNING: "
-msgstr "警告："
-
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: not using %s, because another user owns it or a folder above it."
-msgstr ""
-
-#: src/MediaProbe.cpp
-msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
+msgid "Media metadata: bundled amule-media-probe helper is unavailable."
 msgstr ""
 
 #: src/MediaProbe.cpp
@@ -4071,33 +4114,13 @@ msgstr ""
 
 #: src/MediaProbe.cpp
 #, c-format
-msgid "Extracting media metadata with ffprobe: %s"
+msgid "Extracting media metadata: %s"
 msgstr ""
 
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe timed out or was cancelled for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe failed (code %d) for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe found nothing usable in %s"
-msgstr ""
+#, fuzzy, c-format
+msgid "Media metadata: parser failed for %s"
+msgstr "媒體中繼資料擷取"
 
 #: src/MediaProbeThread.cpp
 #, c-format
@@ -5210,6 +5233,14 @@ msgid "Set manually added servers to High Priority"
 msgstr "手動輸入的伺服器設為高優先等級"
 
 #: src/muuli_wdr.cpp
+msgid "Publish shared files faster on servers that allow it"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow the publication pace that the server advertises. Other servers get the standard pace."
+msgstr ""
+
+#: src/muuli_wdr.cpp
 msgid "Add files to download in pause mode"
 msgstr "加入新下載檔案時設為暫停狀態"
 
@@ -5338,7 +5369,7 @@ msgid ""
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
 msgstr ""
 
-#: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
+#: src/muuli_wdr.cpp
 msgid "Media metadata extraction"
 msgstr "媒體中繼資料擷取"
 
@@ -5347,24 +5378,8 @@ msgid "Extract length / bitrate / codec from shared audio and video files"
 msgstr "從共享的音訊與視訊檔案擷取長度／位元率／編解碼器資訊"
 
 #: src/muuli_wdr.cpp
-msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
-msgstr "啟用後，aMule 會對每個共享媒體檔案執行 ffprobe，以填入其他客戶端在搜尋結果中看到的「長度／位元率／編解碼器」欄位。需要安裝 ffmpeg（其中的 ffprobe 執行檔）。"
-
-#: src/muuli_wdr.cpp
-msgid "Path to ffprobe:"
-msgstr "ffprobe 路徑："
-
-#: src/muuli_wdr.cpp
-msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
-msgstr "ffprobe 執行檔的完整路徑。留空則 aMule 會在啟動時自動偵測。"
-
-#: src/muuli_wdr.cpp
-msgid "Detect"
-msgstr "偵測"
-
-#: src/muuli_wdr.cpp
-msgid "Search the standard install locations for an ffprobe binary and fill the path field."
-msgstr "在標準安裝位置中搜尋 ffprobe 執行檔，並填入路徑欄位。"
+msgid "When enabled, aMule uses its bundled MediaInfo parser to extract metadata from shared media files."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid ""
@@ -5436,6 +5451,14 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Show how many of the files and folders in your shared folders the current pattern would exclude, counted over the last scan."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders the daemon allows remote changes in"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5703,6 +5726,18 @@ msgstr "密碼"
 
 #: src/muuli_wdr.cpp
 msgid "Require encrypted connections (rejects clients that cannot encrypt)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders remote clients may use"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -6686,6 +6721,11 @@ msgstr[0] "找到損壞 (%d) 的 %d 個暫存檔 %s - 檔案結果 hash 值 |%s|
 
 #: src/PartFile.cpp
 #, c-format
+msgid "'%s' does not match its file hash, and without the part hashset the corrupt part cannot be found. Waiting for the hashset."
+msgstr ""
+
+#: src/PartFile.cpp
+#, c-format
 msgid "Found completed part (%i) in %s"
 msgstr "找到已完成的暫存檔 %i 在 %s"
 
@@ -6780,6 +6820,10 @@ msgid "no options available"
 msgstr "沒有選項"
 
 #: src/Preferences.cpp
+msgid "Media metadata: FFProbePath is obsolete; aMule now uses its bundled MediaInfo parser. Removing the old setting."
+msgstr ""
+
+#: src/Preferences.cpp
 #, fuzzy
 msgid "Invalid path mapping found, skipping"
 msgstr "找到無效的分類，略過"
@@ -6796,6 +6840,11 @@ msgstr "TCP 埠不可大於 65532，因爲伺服器 UDP 連接端點值爲 TCP �
 #, c-format
 msgid "Default port will be used (%d)"
 msgstr "使用預設通訊埠 (%d)"
+
+#: src/Preferences.cpp
+#, c-format
+msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
+msgstr ""
 
 #: src/BandwidthLimitSlider.h
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
@@ -6902,8 +6951,16 @@ msgid "Failed to transfer data from Cfg to Widget with the ID %d and key %s"
 msgstr "無法以 ID %d、key %s 將資料 Cfg 與 widget 連線"
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot extract media metadata."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
 msgid "The type of proxy you are connecting to"
 msgstr "正在連線的代理伺服器類型"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Set in the daemon's own configuration (amule.conf); not editable remotely."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 #, c-format
@@ -7103,10 +7160,11 @@ msgid "The aMule web server is deprecated. Consider running the aMule API instea
 msgstr "aMule 網站伺服器已淘汰。建議改為執行 aMule API。"
 
 #: src/PrefsUnifiedDlg.cpp
+#, fuzzy
 msgid ""
-"Your Auto-update servers list is in blank.\n"
-"Please fill in at least one URL to point to a valid server.met file.\n"
-"Click on the button \"List\" by this checkbox to enter an URL."
+"Your server list sources are empty.\n"
+"Please add at least one URL of a valid server.met file.\n"
+"Click the \"Edit sources...\" button next to this checkbox to add one."
 msgstr ""
 "伺服器清單自動更新設定空白。\n"
 "請至少輸入一個能取得有效 server.met 檔案的網址。\n"
@@ -7160,17 +7218,9 @@ msgid "Select browser"
 msgstr "設定瀏覽器"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Select ffprobe binary"
-msgstr "選擇 ffprobe 執行檔"
-
-#: src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "Executable%s"
 msgstr "可執行%s"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
-msgstr "在 PATH 或標準安裝位置中找不到 ffprobe。請安裝 ffmpeg（內含 ffprobe），或使用「瀏覽」手動選擇執行檔。"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset the settings on this page to their default values?"
@@ -7360,6 +7410,19 @@ msgstr ""
 #, fuzzy
 msgid "Choose the local folder"
 msgstr "爲 %s 選擇資料夾"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Please enter an absolute path. A relative path would be resolved against the daemon's working directory, so it is not accepted."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Allowed folders for remote clients"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Choose a folder remote clients may use"
+msgstr "請選擇新進檔案資料夾"
 
 #: src/SearchDlg.cpp
 #, fuzzy
@@ -8189,6 +8252,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr ""
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8235,6 +8302,11 @@ msgstr[0] "目錄中找不到可分享的檔案：%s"
 msgid "Discovered %u new shared file"
 msgid_plural "Discovered %u new shared files"
 msgstr[0] "找到 %i 個已知的分享檔案"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Refused to rename '%s' to '%s': the new name must be a plain file name, not a path."
+msgstr ""
 
 #: src/SharedFilePeersListCtrl.cpp src/SourceListCtrl.cpp
 msgid "User Name"
@@ -10233,6 +10305,37 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "ERROR: "
+#~ msgstr "錯誤： "
+
+#~ msgid "WARNING: "
+#~ msgstr "警告："
+
+#~ msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
+#~ msgstr "啟用後，aMule 會對每個共享媒體檔案執行 ffprobe，以填入其他客戶端在搜尋結果中看到的「長度／位元率／編解碼器」欄位。需要安裝 ffmpeg（其中的 ffprobe 執行檔）。"
+
+#~ msgid "Path to ffprobe:"
+#~ msgstr "ffprobe 路徑："
+
+#~ msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
+#~ msgstr "ffprobe 執行檔的完整路徑。留空則 aMule 會在啟動時自動偵測。"
+
+#~ msgid "Detect"
+#~ msgstr "偵測"
+
+#~ msgid "Search the standard install locations for an ffprobe binary and fill the path field."
+#~ msgstr "在標準安裝位置中搜尋 ffprobe 執行檔，並填入路徑欄位。"
+
+#, fuzzy
+#~ msgid "Invalid ffprobe path"
+#~ msgstr "無效的檔名。"
+
+#~ msgid "Select ffprobe binary"
+#~ msgstr "選擇 ffprobe 執行檔"
+
+#~ msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
+#~ msgstr "在 PATH 或標準安裝位置中找不到 ffprobe。請安裝 ffmpeg（內含 ffprobe），或使用「瀏覽」手動選擇執行檔。"
 
 #~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
 #~ msgstr "系統匣圖示支援需要在編譯時安裝 libayatana-appindicator3。"

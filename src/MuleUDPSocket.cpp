@@ -41,6 +41,7 @@
 #include "kademlia/kademlia/Prefs.h"
 #include "ClientList.h"
 #include "Preferences.h"
+#include "UdpObfuscationPolicy.h"
 
 CMuleUDPSocket::CMuleUDPSocket(
 	const wxString &name, int id, const amuleIPV4Address &address, const CProxyData *ProxyData)
@@ -207,7 +208,7 @@ void CMuleUDPSocket::OnReceive(int errorCode)
 	}
 }
 
-void CMuleUDPSocket::OnReceiveError(int DEBUG_ONLY(errorCode), uint32 WXUNUSED(ip), uint16 WXUNUSED(port))
+void CMuleUDPSocket::OnReceiveError(int errorCode, uint32 WXUNUSED(ip), uint16 WXUNUSED(port))
 {
 	AddDebugLogLineN(logMuleUDP, (m_name + ": Error while reading: ") << errorCode);
 }
@@ -245,7 +246,50 @@ void CMuleUDPSocket::SendPacket(CPacket *packet,
 	bool bKad,
 	uint32 nReceiverVerifyKey)
 {
-	wxCHECK_RET(packet, "Invalid packet.");
+	(void)TrySendPacket(
+		packet, IP, port, bEncrypt, pachTargetClientHashORKadID, bKad, nReceiverVerifyKey);
+}
+
+bool CMuleUDPSocket::TrySendPacket(CPacket *packet,
+	uint32 IP,
+	uint16 port,
+	bool bEncrypt,
+	const uint8 *pachTargetClientHashORKadID,
+	bool bKad,
+	uint32 nReceiverVerifyKey)
+{
+	return QueuePacket(
+		packet, IP, port, bEncrypt, pachTargetClientHashORKadID, bKad, nReceiverVerifyKey, false);
+}
+
+bool CMuleUDPSocket::TrySendObfuscatedPacket(
+	CPacket *packet, uint32 IP, uint16 port, const uint8 *targetClientHash)
+{
+	wxCHECK_MSG(packet, false, "Invalid packet.");
+	if (targetClientHash == nullptr ||
+		DecideUdpSendForm(
+			thePrefs::IsClientCryptLayerSupported(), true, false, theApp->GetPublicIP()) !=
+			EUdpSendForm::Obfuscated) {
+		AddDebugLogLineN(logMuleUDP,
+			(m_name + ": Packet discarded, it cannot be obfuscated (")
+				<< Uint32_16toStringIP_Port(IP, port) << "): " << packet->GetPacketSize()
+				<< "b");
+		delete packet;
+		return false;
+	}
+	return QueuePacket(packet, IP, port, true, targetClientHash, false, 0, true);
+}
+
+bool CMuleUDPSocket::QueuePacket(CPacket *packet,
+	uint32 IP,
+	uint16 port,
+	bool bEncrypt,
+	const uint8 *pachTargetClientHashORKadID,
+	bool bKad,
+	uint32 nReceiverVerifyKey,
+	bool bRequireEncrypt)
+{
+	wxCHECK_MSG(packet, false, "Invalid packet.");
 	/*wxCHECK_RET(port, "Invalid port.");
 	wxCHECK_RET(IP, "Invalid IP.");
 	*/
@@ -257,7 +301,7 @@ void CMuleUDPSocket::SendPacket(CPacket *packet,
 				<< "b");
 		delete packet;
 
-		return;
+		return false;
 	}
 
 	if (!Ok()) {
@@ -267,7 +311,7 @@ void CMuleUDPSocket::SendPacket(CPacket *packet,
 				<< "b");
 		delete packet;
 
-		return;
+		return false;
 	}
 
 	AddDebugLogLineN(logMuleUDP,
@@ -282,6 +326,7 @@ void CMuleUDPSocket::SendPacket(CPacket *packet,
 	newpending.bEncrypt = bEncrypt &&
 			      (pachTargetClientHashORKadID != NULL || (bKad && nReceiverVerifyKey != 0)) &&
 			      thePrefs::IsClientCryptLayerSupported();
+	newpending.bRequireEncrypt = bRequireEncrypt;
 	newpending.bKad = bKad;
 	newpending.nReceiverVerifyKey = nReceiverVerifyKey;
 	if (newpending.bEncrypt && pachTargetClientHashORKadID != NULL) {
@@ -296,6 +341,7 @@ void CMuleUDPSocket::SendPacket(CPacket *packet,
 	}
 
 	theApp->uploadBandwidthThrottler->QueueForSendingControlPacket(this);
+	return true;
 }
 
 bool CMuleUDPSocket::Ok()
@@ -312,13 +358,21 @@ SocketSentBytes CMuleUDPSocket::SendControlData(uint32 maxNumberOfBytesToSend, u
 	while (!m_queue.empty() && !m_busy && (sentBytes < maxNumberOfBytesToSend)) {
 		UDPPack item = m_queue.front();
 		CPacket *packet = item.packet;
-		if (GetTickCount64() - item.time < UDPMAXQUEUETIME) {
+		const EUdpSendForm form = DecideUdpSendForm(
+			item.bEncrypt, item.bRequireEncrypt, item.bKad, theApp->GetPublicIP());
+		if (form == EUdpSendForm::Drop) {
+			AddDebugLogLineN(logMuleUDP,
+				(m_name + ": Packet discarded, obfuscation lapsed before sending (")
+					<< Uint32_16toStringIP_Port(item.IP, item.port) << ")");
+			m_queue.pop_front();
+			delete packet;
+		} else if (GetTickCount64() - item.time < UDPMAXQUEUETIME) {
 			uint32_t len = packet->GetPacketSize() + 2;
 			uint8_t *sendbuffer = new uint8_t[len];
 			memcpy(sendbuffer, packet->GetUDPHeader(), 2);
 			memcpy(sendbuffer + 2, packet->GetDataBuffer(), packet->GetPacketSize());
 
-			if (item.bEncrypt && (theApp->GetPublicIP() > 0 || item.bKad)) {
+			if (form == EUdpSendForm::Obfuscated) {
 				len = CEncryptedDatagramSocket::EncryptSendClient(&sendbuffer,
 					len,
 					item.pachTargetClientHashORKadID,

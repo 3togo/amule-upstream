@@ -109,6 +109,19 @@ public:
 		const uint8 *pachTargetClientHashORKadID,
 		bool bKad,
 		uint32 nReceiverVerifyKey);
+	/** Queues a packet if the destination and socket are usable, taking ownership either way. */
+	bool TrySendPacket(CPacket *packet,
+		uint32 IP,
+		uint16 port,
+		bool bEncrypt,
+		const uint8 *pachTargetClientHashORKadID,
+		bool bKad,
+		uint32 nReceiverVerifyKey);
+	/**
+	 * Queues a client packet that must never leave plain, taking ownership either way. False when
+	 * it cannot be obfuscated now; dropped at send time if obfuscation lapses before then.
+	 */
+	bool TrySendObfuscatedPacket(CPacket *packet, uint32 IP, uint16 port, const uint8 *targetClientHash);
 
 	/**
 	 * True if the socket is Ok. @see wxSocketBase::Ok
@@ -156,6 +169,15 @@ private:
 	 */
 	void CreateSocket();
 
+	bool QueuePacket(CPacket *packet,
+		uint32 IP,
+		uint16 port,
+		bool bEncrypt,
+		const uint8 *pachTargetClientHashORKadID,
+		bool bKad,
+		uint32 nReceiverVerifyKey,
+		bool bRequireEncrypt);
+
 	/**
 	 * Destroys the current socket, if any.
 	 */
@@ -189,6 +211,8 @@ private:
 		uint16 port;
 		//! If the packet is encrypted.
 		bool bEncrypt;
+		//! Dropped rather than sent plain.
+		bool bRequireEncrypt;
 		//! Is it a kad packet?
 		bool bKad;
 		// The verification key for RC4 encryption.

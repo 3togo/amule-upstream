@@ -8,7 +8,6 @@ on:
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'unittests/**'
-      - 'po/**'
       - 'config.h.cm'
       - 'scripts/check-unique-ids.py'
       - 'scripts/check-tray-backend-build.py'
@@ -22,7 +21,6 @@ on:
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'unittests/**'
-      - 'po/**'
       - 'config.h.cm'
       - 'scripts/check-unique-ids.py'
       - 'scripts/check-tray-backend-build.py'
@@ -68,7 +66,7 @@ env:
     libgd-dev \
     libglib2.0-dev \
     libgnutls28-dev \
-    libmaxminddb-dev \
+    libmediainfo-dev libmaxminddb-dev \
     libreadline-dev \
     libupnp-dev \
     libwxgtk3.2-dev \
@@ -85,7 +83,7 @@ env:
     cryptopp \
     gd \
     gettext \
-    libmaxminddb \
+    libmediainfo libmaxminddb \
     libupnp \
     pkg-config \
     wxwidgets
@@ -101,6 +99,7 @@ env:
     mingw-w64-clang-x86_64-crypto++
     mingw-w64-clang-x86_64-gettext
     mingw-w64-clang-x86_64-libgd
+    mingw-w64-clang-x86_64-libmediainfo
     mingw-w64-clang-x86_64-libmaxminddb
     mingw-w64-clang-x86_64-ngtcp2
     mingw-w64-clang-x86_64-ninja
@@ -235,8 +234,8 @@ jobs:
       - name: run shared-file reverify integration test
         run: ctest ${{ env.ctest_flags }} --timeout 300 --no-tests=error -L '^reverify$'
       # amuleapi_curl_smoke drives these two against a live daemon rather than
-      # compiling its own copy. Release only: the smoke times SSE windows, and
-      # a Debug daemon makes those flaky.
+      # compiling its own copy, with the media helper amuled finds beside itself.
+      # Release only: the smoke times SSE windows, and a Debug daemon makes those flaky.
       #
       # A tar rather than the two paths directly, because the artifact upload
       # drops the executable bit (packaging.yml chmods every mach-o back after
@@ -253,11 +252,12 @@ jobs:
           mkdir -p "$shlibdeps/debian"
           printf 'Source: amule\n\nPackage: amule\nArchitecture: any\n' > "$shlibdeps/debian/control"
           depends=$(cd "$shlibdeps" && dpkg-shlibdeps -O \
-            "$GITHUB_WORKSPACE/build/src/amuled" "$GITHUB_WORKSPACE/build/src/webapi/amuleapi")
+            "$GITHUB_WORKSPACE/build/src/amuled" "$GITHUB_WORKSPACE/build/src/webapi/amuleapi" \
+            "$GITHUB_WORKSPACE/build/src/amule-media-probe")
           printf '%s\n' "${depends#shlibs:Depends=}" > runtime-deps.txt
           cat runtime-deps.txt
           tar -cf curl-smoke-binaries.tar \
-            build/src/amuled build/src/webapi/amuleapi runtime-deps.txt
+            build/src/amuled build/src/amule-media-probe build/src/webapi/amuleapi runtime-deps.txt
       - uses: actions/upload-artifact@v7
         if: matrix.build_type == 'Release'
         with:
@@ -414,12 +414,16 @@ jobs:
       # The build job derived runtime-deps.txt from these exact binaries, so it
       # stays matched without installing compilers and development headers here.
       # apt-get satisfy takes it as a Depends field, versions included.
-      - name: install runtime deps
+      - name: read runtime deps
+        id: runtime-deps
         run: |
-          sudo cp .github/apt-ci.conf /etc/apt/apt.conf.d/99-ci
-          sudo apt-get update
           test -s runtime-deps.txt
-          sudo apt-get satisfy -y "$(cat runtime-deps.txt)" jq
+          echo "depends=$(cat runtime-deps.txt)" >> "$GITHUB_OUTPUT"
+      - name: install runtime deps
+        uses: ./.github/actions/apt-install
+        with:
+          packages: jq
+          satisfy: ${{ steps.runtime-deps.outputs.depends }}
       # Every peer-to-peer switch is off, so the daemon joins no ed2k server,
       # bootstraps no Kad and opens no UPnP mapping. It still makes the two
       # ordinary startup fetches over HTTPS -- the release check and the GeoIP
@@ -432,6 +436,11 @@ jobs:
           set -euo pipefail
           CONF="$RUNNER_TEMP/amuled-conf"
           mkdir -p "$CONF/Incoming" "$CONF/Temp"
+          # Opt a scratch root into the allowed-remote roots so the curl smoke exercises the
+          # positive folder-write assertions (phases 18 and 31 use paths under /tmp), not only
+          # the empty-roots refusals. Without this the daemon refuses every remote folder change
+          # and those assertions are skipped.
+          printf '%s\n' /tmp > "$CONF/allowed-remote-dirs.dat"
           # amuled stores the EC password as its md5. Derive it from the
           # plaintext run-all.sh expects so the two cannot drift apart.
           EC_HASH=$(printf '%s' amule | md5sum | cut -d' ' -f1)
@@ -559,7 +568,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build_type: [Debug, Release]
+        # macOS runners have a lower concurrency limit than Linux ones. PRs build Debug only,
+        # which also runs the asserts; master builds both.
+        build_type: ${{ github.event_name == 'pull_request' && fromJSON('["Debug"]') || fromJSON('["Debug", "Release"]') }}
     steps:
       - uses: actions/checkout@v7
       - name: restore ccache

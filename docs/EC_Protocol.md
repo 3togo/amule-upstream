@@ -148,6 +148,10 @@ Tags may contain sub-tags. A `TAGCOUNT` field is present only when the
 lowest bit of `TAGNAME` is set. The sub-tags come before the tag's own
 data.
 
+Sub-tags can nest, but not without limit: a receiver rejects a packet
+whose tags nest more than 64 levels below the packet. The deepest tree
+aMule sends, the statistics tree, stays well under that.
+
 When `EC_FLAG_LARGE_TAG_COUNT` is in effect, the sub-tag `TAGCOUNT`
 field uses the same sentinel-extended encoding as the packet-level
 `TAGCOUNT` (a `uint32` follows when the `uint16` reads `0xFFFF`).
@@ -269,6 +273,11 @@ that negotiated no cipher is refused at authentication time.
 | `8`       | `EC_TAGTYPE_IPV4`     | 4 bytes of IPv4 address in network order, then a 2-byte port. |
 | `9`       | `EC_TAGTYPE_HASH16`   | 16-byte hash, such as an MD4 file hash. |
 | `10`      | `EC_TAGTYPE_UINT128`  | 16-byte integer, such as a Kad ID. |
+
+A tag of a fixed-size type must carry exactly that many data bytes. A
+receiver closes the connection when it does not, for example on an
+`EC_TAGTYPE_UINT64` tag with 4 data bytes. A tag with no data is an
+empty tag, which any type may be.
 
 ### Integer types
 

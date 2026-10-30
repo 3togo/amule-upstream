@@ -2385,11 +2385,13 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 	files.AddTag(CECEmptyTag(EC_TAG_FILES_ICH_ENABLED)); // presence == true
 	files.AddTag(CECEmptyTag(EC_TAG_FILES_ENDGAME));     // presence == true (#596)
 	files.AddTag(CECTag(EC_TAG_FILES_MIN_FREE_SPACE, static_cast<std::uint32_t>(512)));
+	files.AddTag(CECTag(EC_TAG_FILES_MEDIA_METADATA_AVAILABLE, true)); // by value
 	resp.AddTag(files);
 
 	CECEmptyTag srv(EC_TAG_PREFS_SERVERS);
 	srv.AddTag(CECTag(EC_TAG_SERVERS_DEAD_SERVER_RETRIES, static_cast<std::uint16_t>(5)));
 	srv.AddTag(CECTag(EC_TAG_SERVERS_UPDATE_URL, wxString::FromUTF8("http://srv")));
+	srv.AddTag(CECTag(EC_TAG_SERVERS_ED2K_ACCELERATED_PUBLICATION, true)); // by value
 	CECEmptyTag sources(EC_TAG_SERVERS_URL_LIST);
 	sources.AddTag(CECTag(EC_TAG_STRING, "http://srv"));
 	sources.AddTag(CECTag(EC_TAG_STRING, "https://backup"));
@@ -2447,8 +2449,10 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 	ASSERT_TRUE(!p.files.trust_unverified_aich_hashes); // absent presence tag -> false
 	ASSERT_TRUE(p.files.endgame_mode_enabled);          // presence tag -> true (#596)
 	ASSERT_EQUALS(static_cast<std::uint32_t>(512), p.files.min_free_space_mebibytes);
+	ASSERT_TRUE(p.files.media_metadata_available);
 
 	ASSERT_EQUALS(static_cast<std::uint32_t>(5), p.servers.dead_server_retry_count);
+	ASSERT_TRUE(p.servers.accelerated_publication_enabled);
 	ASSERT_EQUALS(std::string("http://srv"), p.servers.update_url);
 	ASSERT_EQUALS(size_t(2), p.servers.update_urls.size());
 	ASSERT_EQUALS(std::string("http://srv"), p.servers.update_urls[0]);
@@ -2719,10 +2723,12 @@ TEST(Refresher, PrefsSchemaIsWellFormed)
 		ASSERT_TRUE(PrefGroupTagFor(f.category) != 0);
 
 		// Rows that round-trip a value need a backing member; rows that
-		// never do must not have one.
-		const bool needs_member = f.access == PrefAccess::ReadWrite ||
-					  f.access == PrefAccess::AdminRead ||
-					  f.access == PrefAccess::ReadOnly || f.access == PrefAccess::Bespoke;
+		// never do must not have one. DaemonLocal reads its member on GET and
+		// compares against it on PATCH (to accept an unchanged echo), so it needs one too.
+		const bool needs_member =
+			f.access == PrefAccess::ReadWrite || f.access == PrefAccess::AdminRead ||
+			f.access == PrefAccess::ReadOnly || f.access == PrefAccess::DaemonLocal ||
+			f.access == PrefAccess::Bespoke;
 		ASSERT_TRUE(needs_member == (f.member != nullptr));
 
 		// Enum rows carry a non-empty, nullptr-terminated name table.
@@ -2751,9 +2757,9 @@ TEST(Refresher, PrefsSchemaIsWellFormed)
 			++emitted;
 	}
 
-	// The documented payload is 134 fields. A row added or dropped without
+	// The documented payload is 137 fields. A row added or dropped without
 	// updating docs/api/REFERENCE.md should trip this.
-	ASSERT_EQUALS(static_cast<std::size_t>(134), emitted);
+	ASSERT_EQUALS(static_cast<std::size_t>(137), emitted);
 }
 
 // The schema's irregularities are enumerated rather than merely counted: each is deliberate and
@@ -3955,4 +3961,85 @@ TEST(Refresher, ChatSpamPreferencesDistinguishDisabledFromUnsupported)
 	std::vector<CategorySnapshot> categories;
 	ParsePreferencesFromPacket(&oldCore, prefs, categories);
 	ASSERT_FALSE(prefs.message_filter.advanced_spam_filter_supported);
+}
+
+TEST(Refresher, OptionalMetricsTagsPreservePresenceAndWideCounters)
+{
+	CECPacket empty(EC_OP_STATS);
+	StatusSnapshot missing;
+	ParseStatusFromPacket(&empty, missing);
+	ASSERT_FALSE(missing.total_sent_bytes.present);
+	ASSERT_FALSE(missing.total_received_bytes.present);
+	ASSERT_FALSE(missing.upload_limit_bytes_per_second.present);
+	ASSERT_FALSE(missing.download_limit_bytes_per_second.present);
+	ASSERT_FALSE(missing.shared_file_count.present);
+	ASSERT_FALSE(missing.banned_client_count.present);
+
+	CECPacket response(EC_OP_STATS);
+	const std::uint64_t total = 123456789012345ULL;
+	response.AddTag(CECTag(EC_TAG_STATS_TOTAL_SENT_BYTES, total));
+	response.AddTag(CECTag(EC_TAG_STATS_TOTAL_RECEIVED_BYTES, total + 1));
+	response.AddTag(CECTag(EC_TAG_STATS_UL_SPEED_LIMIT, static_cast<std::uint32_t>(0)));
+	response.AddTag(CECTag(EC_TAG_STATS_DL_SPEED_LIMIT, static_cast<std::uint32_t>(102400)));
+	response.AddTag(CECTag(EC_TAG_STATS_SHARED_FILE_COUNT, static_cast<std::uint32_t>(2)));
+	response.AddTag(CECTag(EC_TAG_STATS_BANNED_COUNT, static_cast<std::uint32_t>(0)));
+	StatusSnapshot parsed;
+	ParseStatusFromPacket(&response, parsed);
+	ASSERT_TRUE(parsed.total_sent_bytes.present);
+	ASSERT_EQUALS(total, parsed.total_sent_bytes.value);
+	ASSERT_TRUE(parsed.total_received_bytes.present);
+	ASSERT_EQUALS(total + 1, parsed.total_received_bytes.value);
+	ASSERT_TRUE(parsed.upload_limit_bytes_per_second.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(0), parsed.upload_limit_bytes_per_second.value);
+	ASSERT_TRUE(parsed.download_limit_bytes_per_second.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(102400), parsed.download_limit_bytes_per_second.value);
+	ASSERT_TRUE(parsed.shared_file_count.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(2), parsed.shared_file_count.value);
+	ASSERT_TRUE(parsed.banned_client_count.present);
+}
+
+TEST(Refresher, OptionalSessionMetricsAreByteAccurateAndDoNotLatchMissingTags)
+{
+	CECPacket response(EC_OP_STATS);
+	const std::uint64_t bytes = 123456789012345ULL;
+	response.AddTag(CECTag(EC_TAG_STATS_SESSION_SENT_BYTES, bytes));
+	response.AddTag(CECTag(EC_TAG_STATS_SESSION_RECEIVED_BYTES, static_cast<std::uint64_t>(0)));
+	response.AddTag(CECTag(EC_TAG_STATS_ACTIVE_CONNECTIONS, static_cast<std::uint32_t>(7)));
+	response.AddTag(CECTag(EC_TAG_STATS_UPTIME_SECONDS, static_cast<std::uint64_t>(42)));
+	StatusSnapshot parsed;
+	ParseStatusFromPacket(&response, parsed);
+	ASSERT_TRUE(parsed.session_sent_bytes.present);
+	ASSERT_EQUALS(bytes, parsed.session_sent_bytes.value);
+	ASSERT_TRUE(parsed.session_received_bytes.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(0), parsed.session_received_bytes.value);
+	ASSERT_TRUE(parsed.active_connections.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(7), parsed.active_connections.value);
+	ASSERT_TRUE(parsed.uptime_seconds.present);
+	ASSERT_EQUALS(static_cast<std::uint64_t>(42), parsed.uptime_seconds.value);
+	CECPacket older(EC_OP_STATS);
+	StatusSnapshot missing;
+	ParseStatusFromPacket(&older, missing);
+	ASSERT_FALSE(missing.session_sent_bytes.present);
+	ASSERT_FALSE(missing.session_received_bytes.present);
+	ASSERT_FALSE(missing.active_connections.present);
+	ASSERT_FALSE(missing.uptime_seconds.present);
+}
+
+TEST(Refresher, AmuleLogExportsStripTransportMarkers)
+{
+	CECPacket packet(EC_OP_STATS);
+	CECEmptyTag logger(EC_TAG_STATS_LOGGER_MESSAGE);
+	const wxString line = "2026-10-24T17:42:31.123+08:00 INFO  !message . text\n";
+	for (const wxString &wire : { " " + line, "!" + line, "." + line, line }) {
+		logger.AddTag(CECTag(EC_TAG_STRING, wire));
+	}
+	logger.AddTag(CECTag(EC_TAG_STRING, "ERROR: cannot open logfile"));
+	packet.AddTag(logger);
+	std::vector<std::string> lines;
+	ParseAmuleLogFromPacket(&packet, lines);
+	ASSERT_EQUALS(static_cast<size_t>(5), lines.size());
+	for (size_t i = 0; i < 4; ++i) {
+		ASSERT_EQUALS(std::string(line.utf8_str()), lines[i]);
+	}
+	ASSERT_EQUALS(std::string("ERROR: cannot open logfile"), lines.back());
 }

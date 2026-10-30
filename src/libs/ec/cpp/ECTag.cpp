@@ -301,7 +301,30 @@ void CECTag::swap(CECTag &t2)
 	std::swap(m_tagList, t2.m_tagList);
 }
 
-bool CECTag::ReadFromSocket(CECSocket &socket)
+// The typed accessors read a fixed width from the data. A tag with no data is an empty tag of
+// any type.
+static bool DataLengthFitsType(ec_tagtype_t type, uint32_t len)
+{
+	switch (type) {
+	case EC_TAGTYPE_UINT8:
+		return len == 1;
+	case EC_TAGTYPE_UINT16:
+		return len == 2;
+	case EC_TAGTYPE_UINT32:
+		return len == 4;
+	case EC_TAGTYPE_UINT64:
+		return len == 8;
+	case EC_TAGTYPE_IPV4:
+		return len == sizeof(EC_IPv4_t);
+	case EC_TAGTYPE_HASH16:
+	case EC_TAGTYPE_UINT128:
+		return len == 16;
+	default:
+		return true; // NewData() ends strings and doubles with a NUL
+	}
+}
+
+bool CECTag::ReadFromSocket(CECSocket &socket, unsigned depth)
 {
 	ec_tagname_t tmp_tagName;
 	if (!socket.ReadNumber(&tmp_tagName, sizeof(ec_tagname_t))) {
@@ -318,7 +341,7 @@ bool CECTag::ReadFromSocket(CECSocket &socket)
 		return false;
 	}
 
-	if (hasChildren && !ReadChildren(socket)) {
+	if (hasChildren && !ReadChildren(socket, depth + 1)) {
 		return false;
 	}
 
@@ -334,6 +357,9 @@ bool CECTag::ReadFromSocket(CECSocket &socket)
 	}
 	m_dataLen = tmp_len - childrenLen;
 	if (m_dataLen > 0) {
+		if (!DataLengthFitsType(m_dataType, m_dataLen)) {
+			return false;
+		}
 		NewData();
 		if (!socket.ReadBuffer(m_tagData, m_dataLen)) {
 			return false;
@@ -376,8 +402,12 @@ bool CECTag::WriteTag(CECSocket &socket) const
 	return true;
 }
 
-bool CECTag::ReadChildren(CECSocket &socket)
+bool CECTag::ReadChildren(CECSocket &socket, unsigned depth)
 {
+	// Each level recurses, so an unbounded depth would exhaust the stack.
+	if (depth >= MAX_READ_DEPTH) {
+		return false;
+	}
 	const bool useLargeCount = (socket.m_rx_flags & EC_FLAG_LARGE_TAG_COUNT) != 0;
 	uint16 tmp_tagCount16;
 	if (!socket.ReadNumber(&tmp_tagCount16, sizeof(uint16))) {
@@ -401,7 +431,7 @@ bool CECTag::ReadChildren(CECSocket &socket)
 	for (uint32 i = 0; i < tmp_tagCount; i++) {
 		m_tagList.push_back(CECTag());
 		CECTag &tag = m_tagList.back();
-		if (!tag.ReadFromSocket(socket)) {
+		if (!tag.ReadFromSocket(socket, depth)) {
 			return false;
 		}
 	}
@@ -493,11 +523,12 @@ uint32 CECTag::GetTagLen(bool useLargeCount) const
 	return length;
 }
 
+// The accessors take tags received from the peer, so an empty tag, or one of a type the reader
+// did not expect, reads as the empty value. An assert here let one packet abort a build without
+// NDEBUG.
 uint64_t CECTag::GetInt() const
 {
 	if (m_tagData == NULL) {
-		// Empty tag - This is NOT an error.
-		EC_ASSERT(m_dataType == EC_TAGTYPE_UNKNOWN);
 		return 0;
 	}
 
@@ -510,22 +541,14 @@ uint64_t CECTag::GetInt() const
 		return ENDIAN_NTOHL(RawPeekUInt32(m_tagData));
 	case EC_TAGTYPE_UINT64:
 		return ENDIAN_NTOHLL(RawPeekUInt64(m_tagData));
-	case EC_TAGTYPE_UNKNOWN:
-		// Empty tag - This is NOT an error.
-		return 0;
 	default:
-		EC_ASSERT(0);
 		return 0;
 	}
 }
 
 std::string CECTag::GetStringDataSTL() const
 {
-	if (m_dataType != EC_TAGTYPE_STRING) {
-		EC_ASSERT(m_dataType == EC_TAGTYPE_UNKNOWN);
-		return std::string();
-	} else if (m_tagData == NULL) {
-		EC_ASSERT(false);
+	if (m_dataType != EC_TAGTYPE_STRING || m_tagData == nullptr) {
 		return std::string();
 	}
 
@@ -542,14 +565,10 @@ wxString CECTag::GetStringData() const
 CMD4Hash CECTag::GetMD4Data() const
 {
 	if (m_dataType != EC_TAGTYPE_HASH16) {
-		EC_ASSERT(m_dataType == EC_TAGTYPE_UNKNOWN);
 		return CMD4Hash();
 	}
 
-	EC_ASSERT(m_tagData != NULL);
-
-	// Doesn't matter if m_tagData is NULL in CMD4Hash(),
-	// that'll just result in an empty hash.
+	// An empty tag has no data, and CMD4Hash(NULL) is the empty hash.
 	return CMD4Hash((const unsigned char *)m_tagData);
 }
 
@@ -558,11 +577,7 @@ EC_IPv4_t CECTag::GetIPv4Data() const
 {
 	EC_IPv4_t p(0, 0);
 
-	if (m_dataType != EC_TAGTYPE_IPV4) {
-		EC_ASSERT(m_dataType == EC_TAGTYPE_UNKNOWN);
-	} else if (m_tagData == NULL) {
-		EC_ASSERT(false);
-	} else {
+	if (m_dataType == EC_TAGTYPE_IPV4 && m_tagData != nullptr) {
 		RawPokeUInt32(p.m_ip, RawPeekUInt32(reinterpret_cast<EC_IPv4_t *>(m_tagData)->m_ip));
 		p.m_port = ENDIAN_NTOHS(reinterpret_cast<EC_IPv4_t *>(m_tagData)->m_port);
 	}
@@ -573,11 +588,7 @@ EC_IPv4_t CECTag::GetIPv4Data() const
 // The value is the string form of the number converted back to double.
 double CECTag::GetDoubleData(void) const
 {
-	if (m_dataType != EC_TAGTYPE_DOUBLE) {
-		EC_ASSERT(m_dataType == EC_TAGTYPE_UNKNOWN);
-		return 0;
-	} else if (m_tagData == NULL) {
-		EC_ASSERT(false);
+	if (m_dataType != EC_TAGTYPE_DOUBLE || m_tagData == nullptr) {
 		return 0;
 	}
 
@@ -633,7 +644,6 @@ uint8_t CECTag::AssignIfExist(ec_tagname_t tagname, uint8_t *target) const
 	uint8_t ret = 0;
 	const CECTag *tag = GetTagByName(tagname);
 	if (tag) {
-		EC_ASSERT((tag->GetType() == EC_TAGTYPE_UINT8) || (m_dataType == EC_TAGTYPE_UNKNOWN));
 		ret = tag->GetInt();
 		if (target) {
 			*target = ret;
@@ -646,7 +656,6 @@ bool CECTag::AssignIfExist(ec_tagname_t tagname, uint8_t &target) const
 {
 	const CECTag *tag = GetTagByName(tagname);
 	if (tag) {
-		EC_ASSERT((tag->GetType() == EC_TAGTYPE_UINT8) || (m_dataType == EC_TAGTYPE_UNKNOWN));
 		target = tag->GetInt();
 		return true;
 	}
@@ -658,8 +667,6 @@ uint16_t CECTag::AssignIfExist(ec_tagname_t tagname, uint16_t *target) const
 	uint16_t ret = 0;
 	const CECTag *tag = GetTagByName(tagname);
 	if (tag) {
-		EC_ASSERT((tag->GetType() == EC_TAGTYPE_UINT16) || (tag->GetType() == EC_TAGTYPE_UINT8) ||
-			  (m_dataType == EC_TAGTYPE_UNKNOWN));
 		ret = tag->GetInt();
 		if (target) {
 			*target = ret;
@@ -672,8 +679,6 @@ bool CECTag::AssignIfExist(ec_tagname_t tagname, uint16_t &target) const
 {
 	const CECTag *tag = GetTagByName(tagname);
 	if (tag) {
-		EC_ASSERT((tag->GetType() == EC_TAGTYPE_UINT16) || (tag->GetType() == EC_TAGTYPE_UINT8) ||
-			  (m_dataType == EC_TAGTYPE_UNKNOWN));
 		target = tag->GetInt();
 		return true;
 	}
@@ -685,8 +690,6 @@ uint32_t CECTag::AssignIfExist(ec_tagname_t tagname, uint32_t *target) const
 	uint32_t ret = 0;
 	const CECTag *tag = GetTagByName(tagname);
 	if (tag) {
-		EC_ASSERT((tag->GetType() == EC_TAGTYPE_UINT32) || (tag->GetType() == EC_TAGTYPE_UINT16) ||
-			  (tag->GetType() == EC_TAGTYPE_UINT8) || (m_dataType == EC_TAGTYPE_UNKNOWN));
 		ret = tag->GetInt();
 		if (target) {
 			*target = ret;
@@ -699,8 +702,6 @@ bool CECTag::AssignIfExist(ec_tagname_t tagname, uint32_t &target) const
 {
 	const CECTag *tag = GetTagByName(tagname);
 	if (tag) {
-		EC_ASSERT((tag->GetType() == EC_TAGTYPE_UINT32) || (tag->GetType() == EC_TAGTYPE_UINT16) ||
-			  (tag->GetType() == EC_TAGTYPE_UINT8) || (m_dataType == EC_TAGTYPE_UNKNOWN));
 		target = tag->GetInt();
 		return true;
 	}

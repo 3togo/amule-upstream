@@ -24,6 +24,8 @@
 
 #include "Api.h"
 #include "ServerListSources.h"
+#include "Metrics.h"
+#include <ConstantTime.h>
 #include "JsonDepthScan.h" // webapi::JsonNestingWithinLimit
 
 #include "ClientTagNames.h" // Needed for the shared client-tag token decoders
@@ -587,6 +589,9 @@ CApiDispatcher::CApiDispatcher(CAmuleApiConfig &config, CJwt &jwt, webapi::CStat
 m_authRateLimiter(webapi::CRateLimiter::Config{ config.AuthCfg().token_failure_window_seconds,
 	config.AuthCfg().token_failure_threshold,
 	config.AuthCfg().token_lockout_seconds })
+, m_metricsRateLimiter(webapi::CRateLimiter::Config{ config.MetricsCfg().failure_window_seconds,
+	  config.MetricsCfg().failure_threshold,
+	  config.MetricsCfg().lockout_seconds })
 {
 }
 
@@ -744,6 +749,20 @@ CHttpServer::Response CApiDispatcher::Dispatch(const CHttpServer::Request &req)
 		return pre;
 	}
 
+	// A browser attaches the session cookie by itself, never a bearer token, so only
+	// requests without one can be forged from another origin.
+	if (webapi::ExtractBearerToken(FindHeaderCaseInsensitive(req.headers, "Authorization")).empty() &&
+		webapi::IsCrossOriginBrowserWrite(req.method,
+			FindHeaderCaseInsensitive(req.headers, "Sec-Fetch-Site"),
+			FindHeaderCaseInsensitive(req.headers, "Origin"),
+			cors_org.allowlisted,
+			FindHeaderCaseInsensitive(req.headers, "Host"),
+			FindHeaderCaseInsensitive(req.headers, "X-Forwarded-Host"))) {
+		CHttpServer::Response r = ErrorResponse(403, "forbidden", "cross-origin request refused");
+		ApplyCorsHeaders(r.headers, cors_org, cors_enabled);
+		return r;
+	}
+
 	// ETag + If-None-Match -> 304, on GET/HEAD 200 only: a mutation's response carries
 	// post-mutation state the client always wants delivered.
 	//
@@ -761,7 +780,8 @@ CHttpServer::Response CApiDispatcher::Dispatch(const CHttpServer::Request &req)
 	// answered -- as the static path did, since it clears the body for HEAD so only
 	// the GET reached the hashing branch.
 	const bool handler_set_etag = (resp.headers.find("ETag") != resp.headers.end());
-	if (webapi::ShouldStampEtag(is_safe_method, handler_set_etag, resp.status, resp.body.empty())) {
+	if (resp.etag &&
+		webapi::ShouldStampEtag(is_safe_method, handler_set_etag, resp.status, resp.body.empty())) {
 		// Skip the MD5 over a multi-MB body when nothing has changed. The key is
 		// (target, snapshot revision): a revision advances on every eligible write,
 		// so unlike a timestamp it cannot stand still through a mutation or collapse
@@ -874,6 +894,10 @@ CHttpServer::Response CApiDispatcher::DispatchToHandler(const CHttpServer::Reque
 		path = web_api_path::StripTrailingSlash(path);
 	}
 
+	// Reserve this path even when disabled: the SPA fallback must not serve index.html.
+	if (path == "/metrics") {
+		return HandleMetrics(req);
+	}
 	if (path == "/api/v1/health") {
 		if (req.method != "GET" && req.method != "HEAD") {
 			return MethodNotAllowed("GET, HEAD", "only GET / HEAD on /health");
@@ -1812,6 +1836,42 @@ CHttpServer::Response CApiDispatcher::HandleHealth(const CHttpServer::Request &)
 	w.EndObject();
 	FinalizeJsonBody(w, r);
 	return r;
+}
+
+CHttpServer::Response CApiDispatcher::HandleMetrics(const CHttpServer::Request &req)
+{
+	const auto &config = m_config.MetricsCfg();
+	if (!config.IsActive())
+		return ErrorResponse(
+			404, "not_found", "metrics are disabled or no metrics token is configured");
+	if (req.method != "GET" && req.method != "HEAD")
+		return MethodNotAllowed("GET, HEAD", "only GET or HEAD on /metrics");
+	const auto decision = m_metricsRateLimiter.Check(req.remote_addr);
+	if (decision.locked_out) {
+		auto response =
+			ErrorResponse(429, "rate_limited", "too many failed metrics authentication attempts");
+		response.headers["Retry-After"] = std::to_string(decision.retry_after_seconds);
+		response.headers["Cache-Control"] = "no-store";
+		return response;
+	}
+	const auto token =
+		webapi::ExtractBearerToken(FindHeaderCaseInsensitive(req.headers, "Authorization"));
+	if (token.empty() || !webcommon::ConstantTimeEquals(token, config.token)) {
+		m_metricsRateLimiter.NoteFailure(req.remote_addr);
+		auto response = ErrorResponse(401, "unauthorized", "invalid or missing metrics bearer token");
+		response.headers["WWW-Authenticate"] = "Bearer realm=\"metrics\"";
+		response.headers["Cache-Control"] = "no-store";
+		return response;
+	}
+	m_metricsRateLimiter.NoteSuccess(req.remote_addr);
+	CHttpServer::Response response;
+	response.status = 200;
+	response.content_type = "text/plain; version=0.0.4; charset=utf-8";
+	response.headers["Cache-Control"] = "no-store";
+	response.etag = false;
+	response.body =
+		webapi::SerializeMetrics(m_state.Metrics(), std::string(GetShortMuleVersion().utf8_str()));
+	return response;
 }
 
 CHttpServer::Response CApiDispatcher::HandleVersion(const CHttpServer::Request &req)
@@ -3151,17 +3211,21 @@ struct SearchListRow
 	std::time_t started_at = 0; // 0 = not started by this process
 	bool has_result_count = false;
 	std::uint32_t result_count = 0;
-	// Start parameters, as the daemon recorded them; absent for a browse or an older daemon.
+	// Start parameters, as the daemon recorded them. No form for a browse, a search restored
+	// without one, or an older daemon.
+	bool has_form = false;
 	std::string file_type; // API token, not the ed2k term
 	std::string extension;
-	bool has_min_size = false;
 	std::uint64_t min_size = 0;
-	bool has_max_size = false;
 	std::uint64_t max_size = 0;
-	bool has_min_source_count = false;
 	std::uint32_t min_source_count = 0;
 	bool has_metadata = false;
-	CSearchMetadata metadata;
+	std::uint64_t min_bitrate = 0;
+	std::uint64_t min_duration = 0;
+	std::string codec;
+	std::string title;
+	std::string album;
+	std::string artist;
 };
 
 void WriteSearchListRow(CJsonWriter &w, const SearchListRow &row)
@@ -3187,35 +3251,22 @@ void WriteSearchListRow(CJsonWriter &w, const SearchListRow &row)
 		w.ValueInt(static_cast<int64_t>(row.result_count));
 	}
 	// The same keys POST /search accepts, so a client can rebuild the form and re-run the
-	// search without translating anything. Only a search the daemon started from a form
-	// carries them: a browse and an older daemon omit file_type/extension, and the three
-	// numeric caps come out as null rather than as a fabricated all-default form.
-	if (!row.file_type.empty()) {
-		w.Key("file_type");
-		w.ValueString(wxString::FromUTF8(row.file_type.c_str()));
-	}
-	if (!row.extension.empty()) {
-		w.Key("extension");
-		w.ValueString(wxString::FromUTF8(row.extension.c_str()));
-	}
-	WriteIntOrNull(w, "min_size_bytes", row.has_min_size, static_cast<int64_t>(row.min_size));
-	WriteIntOrNull(w, "max_size_bytes", row.has_max_size, static_cast<int64_t>(row.max_size));
-	WriteIntOrNull(
-		w, "min_source_count", row.has_min_source_count, static_cast<int64_t>(row.min_source_count));
-	if (row.has_metadata) {
-		w.Key("min_bitrate_kbps");
-		w.ValueInt(static_cast<int64_t>(row.metadata.minBitrateKbps));
-		w.Key("min_length");
-		w.ValueInt(static_cast<int64_t>(row.metadata.minLength));
-		w.Key("codec");
-		w.ValueString(row.metadata.codec);
-		w.Key("title");
-		w.ValueString(row.metadata.title);
-		w.Key("album");
-		w.ValueString(row.metadata.album);
-		w.Key("artist");
-		w.ValueString(row.metadata.artist);
-	}
+	// search without translating anything. A row without a recorded form reads null rather
+	// than a fabricated all-default form; "" and 0 mean the form had no such filter.
+	WriteStringOrNull(w, "file_type", row.has_form, row.file_type);
+	WriteStringOrNull(w, "extension", row.has_form, row.extension);
+	WriteIntOrNull(w, "min_size_bytes", row.has_form, static_cast<int64_t>(row.min_size));
+	WriteIntOrNull(w, "max_size_bytes", row.has_form, static_cast<int64_t>(row.max_size));
+	WriteIntOrNull(w, "min_source_count", row.has_form, static_cast<int64_t>(row.min_source_count));
+	WriteIntOrNull(w,
+		"min_bitrate_kilobits_per_second",
+		row.has_metadata,
+		static_cast<int64_t>(row.min_bitrate));
+	WriteIntOrNull(w, "min_duration_seconds", row.has_metadata, static_cast<int64_t>(row.min_duration));
+	WriteStringOrNull(w, "codec", row.has_metadata, row.codec);
+	WriteStringOrNull(w, "title", row.has_metadata, row.title);
+	WriteStringOrNull(w, "album", row.has_metadata, row.album);
+	WriteStringOrNull(w, "artist", row.has_metadata, row.artist);
 	w.EndObject();
 }
 
@@ -3599,6 +3650,47 @@ bool EcCategoryPathKept(const CECPacket *resp, std::string &kept_path)
 	return true;
 }
 
+// EC_TAG_SHAREDDIR_ERROR reason code the core (ExternalConn.cpp) uses for a folder
+// rejected because it lies outside the daemon's configured allowed roots. The other
+// codes -- 1 (missing) and 2 (unreadable) -- map to not_found / not_readable instead.
+constexpr std::int64_t kSharedDirErrOutsideRoots = 3;
+
+// The folders in an EC_OP_FAILED reply that were refused for being outside the daemon's
+// allowed roots (code 3). SET_PREFERENCES, SET_SHARED_DIRS and category create/update all
+// name a refused folder the same way -- one EC_TAG_SHAREDDIR_REJECTED per folder, carrying
+// EC_TAG_SHAREDDIR_ERROR -- so one scan serves them all. Empty when the reply is not that
+// kind of refusal, which the callers tell apart from a genuine failure.
+std::vector<std::string> EcOutsideRootsRefusals(const CECPacket *resp)
+{
+	std::vector<std::string> paths;
+	if (!resp || resp->GetOpCode() != EC_OP_FAILED)
+		return paths;
+	for (const CECTag &tag : *resp) {
+		if (tag.GetTagName() != EC_TAG_SHAREDDIR_REJECTED)
+			continue;
+		const CECTag *err = tag.GetTagByName(EC_TAG_SHAREDDIR_ERROR);
+		if (err != nullptr && err->GetInt() == kSharedDirErrOutsideRoots)
+			paths.emplace_back(tag.GetStringData().utf8_str());
+	}
+	return paths;
+}
+
+// A 403 path_not_allowed naming the folders the daemon refused for being outside its
+// configured allowed roots. Those roots are daemon-local config, so the fix is on the
+// daemon, not in the request.
+CHttpServer::Response PathNotAllowedResponse(const std::vector<std::string> &paths)
+{
+	std::string msg =
+		paths.size() == 1
+			? "the daemon refused this folder because it is outside the folders it allows "
+			  "(configured on the daemon):"
+			: "the daemon refused these folders because they are outside the folders it "
+			  "allows (configured on the daemon):";
+	for (const std::string &p : paths)
+		msg += " " + p;
+	return ErrorResponse(403, "path_not_allowed", msg.c_str());
+}
+
 // Map our wire-string priorities back to amule's PR_* encoding, the inverse of
 // PriorityName in Refresher.cpp. PR_AUTO=5 is the magic value stored as High plus
 // the auto flag. The one place the file-priority vocabulary is declared.
@@ -3809,6 +3901,51 @@ CHttpServer::Response UrlFetchOp(
 inline bool IsIntegralJsonNumber(double v)
 {
 	return std::isfinite(v) && v == std::floor(v);
+}
+
+// Extract an optional JSON integer before any narrowing or unit conversion.
+bool TakeBoundedInteger(const picojson::object &obj,
+	const char *key,
+	std::uint64_t minimum,
+	std::uint64_t maximum,
+	std::uint64_t &value,
+	std::string &error)
+{
+	const auto it = obj.find(key);
+	if (it == obj.end())
+		return true;
+	if (!it->second.is<double>() || !IsIntegralJsonNumber(it->second.get<double>())) {
+		error = std::string(key) + " must be an integer";
+		return false;
+	}
+	const double number = it->second.get<double>();
+	// UINT64_MAX rounds up to 2^64 as a double; reject that endpoint before casting.
+	if (number < static_cast<double>(minimum) || number > static_cast<double>(maximum) ||
+		number >= std::ldexp(1.0, 64)) {
+		error = std::string(key) + " out of range (" + std::to_string(minimum) + "-" +
+			std::to_string(maximum) + ")";
+		return false;
+	}
+	value = static_cast<std::uint64_t>(number);
+	return true;
+}
+
+bool TakeSearchString(const picojson::object &obj, const char *key, std::string &value, std::string &error)
+{
+	const auto it = obj.find(key);
+	if (it == obj.end())
+		return true;
+	if (!it->second.is<std::string>() || it->second.get<std::string>().find('\0') != std::string::npos) {
+		error = std::string(key) + " must be a string without NUL characters";
+		return false;
+	}
+	const std::string &text = it->second.get<std::string>();
+	if (!text.empty() && wxString::FromUTF8(text.c_str()).empty()) {
+		error = std::string(key) + " must contain valid UTF-8";
+		return false;
+	}
+	value = text;
+	return true;
 }
 
 // MD4 hex to CMD4Hash; false unless 32 hex chars. Either case is tolerated --
@@ -7832,6 +7969,8 @@ CHttpServer::Response CApiDispatcher::HandleSearchList(const CHttpServer::Reques
 		}
 		// Start parameters, reported as the POST /search vocabulary so a client can reload
 		// the form as-is. The daemon speaks ed2k terms for the file type; rows speak tokens.
+		// It sends the three numeric tags whenever it recorded a form, the strings only when
+		// non-empty.
 		if (const CECTag *tag = entry.GetTagByName(EC_TAG_SEARCH_FILE_TYPE)) {
 			row.file_type =
 				webapi::SearchFileTypeToken(std::string(tag->GetStringData().utf8_str()));
@@ -7840,21 +7979,35 @@ CHttpServer::Response CApiDispatcher::HandleSearchList(const CHttpServer::Reques
 			row.extension = std::string(tag->GetStringData().utf8_str());
 		}
 		if (const CECTag *tag = entry.GetTagByName(EC_TAG_SEARCH_MIN_SIZE)) {
-			row.has_min_size = true;
+			row.has_form = true;
 			row.min_size = static_cast<std::uint64_t>(tag->GetInt());
 		}
 		if (const CECTag *tag = entry.GetTagByName(EC_TAG_SEARCH_MAX_SIZE)) {
-			row.has_max_size = true;
 			row.max_size = static_cast<std::uint64_t>(tag->GetInt());
 		}
 		if (const CECTag *tag = entry.GetTagByName(EC_TAG_SEARCH_AVAILABILITY)) {
-			row.has_min_source_count = true;
 			row.min_source_count = static_cast<std::uint32_t>(tag->GetInt());
 		}
-		if (entry.GetTagByName(EC_TAG_SEARCH_MIN_BITRATE)) {
-			std::string error;
-			row.has_metadata = row.metadata.ReadFrom(entry, error);
+		if (const CECTag *tag = entry.GetTagByName(EC_TAG_SEARCH_MIN_BITRATE)) {
+			row.has_metadata = row.has_form;
+			row.min_bitrate = tag->GetInt();
 		}
+		if (const CECTag *tag = entry.GetTagByName(EC_TAG_SEARCH_MIN_LENGTH)) {
+			row.min_duration = tag->GetInt();
+		}
+		if (const CECTag *tag = entry.GetTagByName(EC_TAG_SEARCH_CODEC)) {
+			row.codec = std::string(tag->GetStringData().utf8_str());
+		}
+		if (const CECTag *tag = entry.GetTagByName(EC_TAG_SEARCH_TITLE)) {
+			row.title = std::string(tag->GetStringData().utf8_str());
+		}
+		if (const CECTag *tag = entry.GetTagByName(EC_TAG_SEARCH_ALBUM)) {
+			row.album = std::string(tag->GetStringData().utf8_str());
+		}
+		if (const CECTag *tag = entry.GetTagByName(EC_TAG_SEARCH_ARTIST)) {
+			row.artist = std::string(tag->GetStringData().utf8_str());
+		}
+
 		rows.push_back(std::move(row));
 	}
 	delete ec_resp;
@@ -8171,29 +8324,11 @@ bool PrefTakeUint(const picojson::object &o,
 	std::string &err,
 	std::uint32_t scale)
 {
-	const auto it = o.find(key);
-	if (it == o.end())
+	if (o.find(key) == o.end())
 		return true;
-	if (!it->second.is<double>()) {
-		err = std::string(key) + " must be a non-negative integer";
+	std::uint64_t v = 0;
+	if (!TakeBoundedInteger(o, key, min, max, v, err))
 		return false;
-	}
-	const double v = it->second.get<double>();
-	// Reject a fractional value rather than truncating it at the cast below. The step
-	// modulo further down is not a substitute: it runs on the already-truncated value,
-	// so it tests the floor's alignment and never integrality, and a field with no step
-	// skips it entirely.
-	if (!IsIntegralJsonNumber(v)) {
-		err = std::string(key) + " must be a non-negative integer";
-		return false;
-	}
-	if (v < 0 || v > static_cast<double>(max) || v < static_cast<double>(min)) {
-		// Name the bounds. These domains are narrower than the field's type for
-		// reasons a caller cannot infer, so "out of range" alone leaves them guessing.
-		err = std::string(key) + " out of range (" + std::to_string(min) + "-" + std::to_string(max) +
-		      ")";
-		return false;
-	}
 	// Quantised rows: the core's setter divides, so a value between two steps
 	// is truncated on the way in. Rejected rather than silently rounded.
 	if (step && (static_cast<std::uint64_t>(v) % step) != 0) {
@@ -8395,6 +8530,9 @@ CHttpServer::Response CApiDispatcher::HandlePreferencesPatch(const CHttpServer::
 	// gates ApplyBoolean on it -- which is also why every bool below is a value tag.
 	std::unique_ptr<CECPacket> ec_req(new CECPacket(EC_OP_SET_PREFERENCES, EC_DETAIL_FULL));
 	bool any_change = false;
+	// A daemon-local field (e.g. the online-signature folder) sent back unchanged: a valid no-op, so the
+	// request is not "no writable fields" even when it names nothing else.
+	bool daemon_local_noop = false;
 	// Names of read-only fields the body carried, so a request naming only
 	// those can say which ones rather than claiming none were known.
 	std::string skipped_read_only;
@@ -8464,6 +8602,47 @@ CHttpServer::Response CApiDispatcher::HandlePreferencesPatch(const CHttpServer::
 					skipped_read_only += ", ";
 				skipped_read_only += std::string(f.category) + "." + f.key;
 			}
+			continue;
+		}
+
+		if (f.access == webapi::PrefAccess::DaemonLocal) {
+			// Emitted on GET but set only in the daemon's own configuration: the online-signature
+			// folder (it writes there), follow_symlinks (it widens what a share exposes on the
+			// host) and the reserved ffprobe path. A read-modify-write
+			// client sends the value back unchanged -- accept that as a no-op; refuse a request
+			// that would actually change it, naming the field. String and bool rows only.
+			const auto it = src->find(f.key);
+			webapi::PreferencesSnapshot &snap =
+				const_cast<webapi::PreferencesSnapshot &>(current);
+			bool changes = false;
+			if (f.type == webapi::PrefType::String) {
+				if (!it->second.is<std::string>()) {
+					const std::string msg =
+						std::string(f.category) + "." + f.key + " must be a string";
+					return ErrorResponse(400, "bad_request", msg.c_str());
+				}
+				changes = it->second.get<std::string>() !=
+					  *static_cast<std::string *>(f.member(snap));
+			} else if (f.type == webapi::PrefType::Bool) {
+				if (!it->second.is<bool>()) {
+					const std::string msg =
+						std::string(f.category) + "." + f.key + " must be a boolean";
+					return ErrorResponse(400, "bad_request", msg.c_str());
+				}
+				changes = it->second.get<bool>() != *static_cast<bool *>(f.member(snap));
+			} else {
+				return ErrorResponse(400,
+					"bad_request",
+					(std::string(f.category) + "." + f.key + " is read-only").c_str());
+			}
+			if (changes) {
+				const std::string msg =
+					std::string(f.category) + "." + f.key +
+					" is set only in the daemon's own configuration (amule.conf) and "
+					"cannot be changed through the API";
+				return ErrorResponse(400, "read_only_field", msg.c_str());
+			}
+			daemon_local_noop = true;
 			continue;
 		}
 
@@ -8581,6 +8760,18 @@ CHttpServer::Response CApiDispatcher::HandlePreferencesPatch(const CHttpServer::
 		ec_req->AddTag(groups.find(tag)->second);
 
 	if (!any_change) {
+		// A daemon-local field echoed back unchanged is an accepted no-op: return the current
+		// state (like a successful PATCH) rather than a "nothing writable" error.
+		if (daemon_local_noop) {
+			const webapi::PreferencesSnapshot p = m_state.Preferences();
+			CHttpServer::Response r;
+			r.status = 200;
+			r.content_type = "application/json";
+			CJsonWriter w;
+			WritePreferencesBody(w, p, /*admin=*/true);
+			FinalizeJsonBody(w, r);
+			return r;
+		}
 		if (!skipped_read_only.empty()) {
 			const std::string msg =
 				"no writable fields in the request; " + skipped_read_only +
@@ -8598,11 +8789,19 @@ CHttpServer::Response CApiDispatcher::HandlePreferencesPatch(const CHttpServer::
 	}
 	std::string ec_err_msg;
 	if (IsEcFailedResponse(ec_resp, ec_err_msg)) {
+		// A folder (incoming / temp / shared) pointed outside the daemon's allowed roots is
+		// refused with that value left unchanged while the rest of the packet applies -- the
+		// same partial-apply shape as the failed port rebind below. Report it as the dedicated
+		// path_not_allowed naming the folders, rather than a flat amuled_rejected.
+		const std::vector<std::string> refused = EcOutsideRootsRefusals(ec_resp);
 		delete ec_resp;
 		// amuled may have applied other preferences in this request before
-		// rolling back a failed live port rebind. Refresh so an immediate GET
-		// reports the actual mixed result rather than the pre-request snapshot.
+		// rolling back a failed live port rebind (or leaving a refused folder
+		// unchanged). Refresh so an immediate GET reports the actual mixed result
+		// rather than the pre-request snapshot.
 		(void)RefresherTick(m_app, m_state);
+		if (!refused.empty())
+			return PathNotAllowedResponse(refused);
 		return ErrorResponse(400, "amuled_rejected", ec_err_msg.c_str());
 	}
 	delete ec_resp;
@@ -9805,8 +10004,14 @@ CHttpServer::Response ApplySharedDirs(CamuleapiApp &app, const std::vector<Share
 			continue;
 		}
 		const CECTag *err_tag = tag.GetTagByName(EC_TAG_SHAREDDIR_ERROR);
-		rejected[std::string(tag.GetStringData().utf8_str())] =
-			(err_tag != nullptr && err_tag->GetInt() == 2) ? "not_readable" : "not_found";
+		const char *reason = "not_found";
+		if (err_tag != nullptr) {
+			if (err_tag->GetInt() == kSharedDirErrOutsideRoots)
+				reason = "path_not_allowed";
+			else if (err_tag->GetInt() == 2)
+				reason = "not_readable";
+		}
+		rejected[std::string(tag.GetStringData().utf8_str())] = reason;
 	}
 	delete ec_resp;
 
@@ -9819,6 +10024,11 @@ CHttpServer::Response ApplySharedDirs(CamuleapiApp &app, const std::vector<Share
 			results.push_back(BulkOk(path));
 		} else if (it->second == "not_readable") {
 			results.push_back(BulkErr(path, 403, "not_readable", "amuled cannot read that path"));
+		} else if (it->second == "path_not_allowed") {
+			results.push_back(BulkErr(path,
+				403,
+				"path_not_allowed",
+				"outside the folders the daemon allows (configured on the daemon)"));
 		} else {
 			results.push_back(BulkErr(path, 404, "not_found", "no such directory"));
 		}
@@ -10311,12 +10521,16 @@ CHttpServer::Response CApiDispatcher::HandleCategoryCreate(const CHttpServer::Re
 	std::string ec_err_msg;
 	if (IsEcFailedResponse(ec_resp, ec_err_msg)) {
 		// A kept-path reply means the category exists; only the path was refused, and
-		// `save_path` on the follow-up read is the truthful answer. Anything else is a
-		// real failure.
+		// `save_path` on the follow-up read is the truthful answer. A folder outside the
+		// daemon's allowed roots is refused outright (nothing created) -- path_not_allowed.
+		// Anything else is a real failure.
 		std::string kept_path;
 		const bool kept = EcCategoryPathKept(ec_resp, kept_path);
+		const std::vector<std::string> refused = EcOutsideRootsRefusals(ec_resp);
 		delete ec_resp;
 		if (!kept) {
+			if (!refused.empty())
+				return PathNotAllowedResponse(refused);
 			return ErrorResponse(400, "amuled_rejected", ec_err_msg.c_str());
 		}
 	} else {
@@ -10426,11 +10640,16 @@ CHttpServer::Response CApiDispatcher::HandleCategoryUpdate(
 	std::string ec_err_msg;
 	if (IsEcFailedResponse(ec_resp, ec_err_msg)) {
 		// As on create: a kept-path reply is a partial success. Everything else
-		// in this request landed, and the echoed object reports the kept path.
+		// in this request landed, and the echoed object reports the kept path. A change of
+		// the folder to a location outside the daemon's allowed roots is refused with the
+		// whole category left unchanged -- path_not_allowed.
 		std::string kept_path;
 		const bool kept = EcCategoryPathKept(ec_resp, kept_path);
+		const std::vector<std::string> refused = EcOutsideRootsRefusals(ec_resp);
 		delete ec_resp;
 		if (!kept) {
+			if (!refused.empty())
+				return PathNotAllowedResponse(refused);
 			return ErrorResponse(400, "amuled_rejected", ec_err_msg.c_str());
 		}
 	} else {
@@ -10670,17 +10889,12 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 	// "global"), "file_type": optional label, "extension": optional (e.g. "mkv"),
 	// "min_size_bytes"/"max_size_bytes": optional uint64 (0 = no cap),
 	// "min_source_count": optional uint32 }
+	std::string error;
 	std::string query;
-	{
-		const auto it = obj.find("query");
-		if (it == obj.end() || !it->second.is<std::string>()) {
-			return ErrorResponse(400, "bad_request", "required string field `query` is missing");
-		}
-		query = it->second.get<std::string>();
-		if (query.empty()) {
-			return ErrorResponse(400, "bad_request", "`query` must be non-empty");
-		}
-	}
+	if (!TakeSearchString(obj, "query", query, error))
+		return ErrorResponse(400, "bad_request", error.c_str());
+	if (query.empty())
+		return ErrorResponse(400, "bad_request", "`query` must be non-empty");
 
 	std::uint8_t search_type = EC_SEARCH_GLOBAL;
 	std::string search_kind = "global"; // mirrors the input string for state.MarkSearchStarted
@@ -10726,136 +10940,49 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 		}
 	}
 	std::string extension;
-	{
-		const auto it = obj.find("extension");
-		if (it != obj.end()) {
-			if (!it->second.is<std::string>()) {
-				return ErrorResponse(400, "bad_request", "`extension` must be a string");
-			}
-			extension = it->second.get<std::string>();
-		}
-	}
+	if (!TakeSearchString(obj, "extension", extension, error))
+		return ErrorResponse(400, "bad_request", error.c_str());
 	std::uint64_t min_size = 0;
 	std::uint64_t max_size = 0;
-	std::uint32_t min_avail = 0;
-	{
-		const auto it = obj.find("min_size_bytes");
-		if (it != obj.end()) {
-			if (!it->second.is<double>()) {
-				return ErrorResponse(400,
-					"bad_request",
-					"`min_size_bytes` must be a non-negative integer (bytes)");
-			}
-			const double v = it->second.get<double>();
-			if (!IsIntegralJsonNumber(v) || v < 0)
-				return ErrorResponse(400,
-					"bad_request",
-					"`min_size_bytes` must be a non-negative integer");
-			min_size = static_cast<std::uint64_t>(v);
-		}
-	}
-	{
-		const auto it = obj.find("max_size_bytes");
-		if (it != obj.end()) {
-			if (!it->second.is<double>()) {
-				return ErrorResponse(400,
-					"bad_request",
-					"`max_size_bytes` must be a non-negative integer (bytes; 0 = no "
-					"cap)");
-			}
-			const double v = it->second.get<double>();
-			if (!IsIntegralJsonNumber(v) || v < 0)
-				return ErrorResponse(400,
-					"bad_request",
-					"`max_size_bytes` must be a non-negative integer");
-			max_size = static_cast<std::uint64_t>(v);
-		}
-	}
-	{
-		const auto it = obj.find("min_source_count");
-		if (it != obj.end()) {
-			if (!it->second.is<double>()) {
-				return ErrorResponse(400,
-					"bad_request",
-					"`min_source_count` must be a non-negative integer");
-			}
-			const double v = it->second.get<double>();
-			if (!IsIntegralJsonNumber(v)) {
-				return ErrorResponse(400,
-					"bad_request",
-					"`min_source_count` must be a non-negative integer");
-			}
-			if (v < 0 || v > 4294967295.0) {
-				return ErrorResponse(400, "bad_request", "`min_source_count` out of range");
-			}
-			min_avail = static_cast<std::uint32_t>(v);
-		}
-	}
-
+	std::uint64_t min_avail = 0;
 	CSearchMetadata metadata;
-	for (const auto &field : { std::make_pair("codec", &metadata.codec),
-		     std::make_pair("title", &metadata.title),
-		     std::make_pair("album", &metadata.album),
-		     std::make_pair("artist", &metadata.artist) }) {
-		const auto it = obj.find(field.first);
-		if (it == obj.end())
-			continue;
-		if (!it->second.is<std::string>() ||
-			it->second.get<std::string>().find('\0') != std::string::npos) {
-			const std::string error =
-				std::string("`") + field.first + "` must be a string without NUL characters";
-			return ErrorResponse(400, "bad_request", error.c_str());
-		}
-		const std::string &text = it->second.get<std::string>();
-		*field.second = wxString::FromUTF8(text.c_str());
-		if (!text.empty() && field.second->empty()) {
-			const std::string error =
-				std::string("`") + field.first + "` must contain valid UTF-8";
-			return ErrorResponse(400, "bad_request", error.c_str());
-		}
-	}
-	for (const auto &field : { std::make_pair("min_bitrate_kbps", &metadata.minBitrateKbps),
-		     std::make_pair("min_length", &metadata.minLength) }) {
-		const auto it = obj.find(field.first);
-		if (it == obj.end())
-			continue;
-		if (field.second == &metadata.minLength && it->second.is<std::string>()) {
-			if (!CSearchMetadata::ParseLength(
-				    it->second.get<std::string>(), metadata.minLength)) {
-				return ErrorResponse(400,
-					"bad_request",
-					"`min_length` must be seconds or h:mm:ss, between 0 and 86400 "
-					"seconds");
-			}
-		} else {
-			const uint64_t limit = field.second == &metadata.minLength
-						       ? CSearchMetadata::MaxLengthSeconds
-						       : CSearchMetadata::MaxBitrateKbps;
-			if (!it->second.is<double>() || !IsIntegralJsonNumber(it->second.get<double>()) ||
-				it->second.get<double>() < 0 ||
-				it->second.get<double>() > static_cast<double>(limit)) {
-				const std::string error =
-					std::string("`") + field.first +
-					"` must be a non-negative integer within the documented range";
-				return ErrorResponse(400, "bad_request", error.c_str());
-			}
-			*field.second = static_cast<uint64_t>(it->second.get<double>());
-		}
-	}
-	std::string metadataError;
-	if (!metadata.Validate(metadataError)) {
-		return ErrorResponse(400, "bad_request", metadataError.c_str());
-	}
-	if (!metadata.Empty() && !m_state.EcConnected()) {
+	if (!TakeBoundedInteger(
+		    obj, "min_size_bytes", 0, std::numeric_limits<std::uint64_t>::max(), min_size, error))
+		return ErrorResponse(400, "bad_request", error.c_str());
+	if (!TakeBoundedInteger(
+		    obj, "max_size_bytes", 0, std::numeric_limits<std::uint64_t>::max(), max_size, error))
+		return ErrorResponse(400, "bad_request", error.c_str());
+	if (!TakeBoundedInteger(obj, "min_source_count", 0, 4294967295ULL, min_avail, error))
+		return ErrorResponse(400, "bad_request", error.c_str());
+	if (!TakeBoundedInteger(
+		    obj, "min_bitrate_kilobits_per_second", 0, 1000000, metadata.minBitrateKbps, error))
+		return ErrorResponse(400, "bad_request", error.c_str());
+	if (!TakeBoundedInteger(obj, "min_duration_seconds", 0, 86400, metadata.minLength, error))
+		return ErrorResponse(400, "bad_request", error.c_str());
+	std::string codec;
+	if (!TakeSearchString(obj, "codec", codec, error))
+		return ErrorResponse(400, "bad_request", error.c_str());
+	metadata.codec = wxString::FromUTF8(codec.c_str());
+	std::string title;
+	if (!TakeSearchString(obj, "title", title, error))
+		return ErrorResponse(400, "bad_request", error.c_str());
+	metadata.title = wxString::FromUTF8(title.c_str());
+	std::string album;
+	if (!TakeSearchString(obj, "album", album, error))
+		return ErrorResponse(400, "bad_request", error.c_str());
+	metadata.album = wxString::FromUTF8(album.c_str());
+	std::string artist;
+	if (!TakeSearchString(obj, "artist", artist, error))
+		return ErrorResponse(400, "bad_request", error.c_str());
+	metadata.artist = wxString::FromUTF8(artist.c_str());
+	const bool has_media_filter = metadata.minBitrateKbps || metadata.minLength || !codec.empty() ||
+				      !title.empty() || !album.empty() || !artist.empty();
+	if ((search_type == EC_SEARCH_ALL || has_media_filter) && !m_state.EcConnected()) {
 		return ErrorResponse(503, "ec_unavailable", "the EC connection is unavailable");
 	}
-	if (!metadata.Empty() && !m_app.IsServerSearchMetadataActive()) {
+	if (has_media_filter && !m_app.IsServerSearchMetadataActive()) {
 		return ErrorResponse(
 			503, "ec_unsupported", "the connected amuled does not support media search filters");
-	}
-
-	if (search_type == EC_SEARCH_ALL && !m_state.EcConnected()) {
-		return ErrorResponse(503, "ec_unavailable", "the EC connection is unavailable");
 	}
 	if (search_type == EC_SEARCH_ALL && !m_app.IsServerSearchAllActive()) {
 		return ErrorResponse(
@@ -10867,7 +10994,7 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 		static_cast<EC_SEARCH_TYPE>(search_type),
 		wxString::FromUTF8(file_type.c_str()),
 		wxString::FromUTF8(extension.c_str()),
-		min_avail,
+		static_cast<std::uint32_t>(min_avail),
 		min_size,
 		max_size,
 		metadata));
@@ -10912,17 +11039,20 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 	row.kind = search_kind;
 	row.state = "running";
 	row.started_at = m_state.SearchStartedAt(search_id);
+	// Always recorded, unlike on a restored search: "" and 0 mean the form had no filter.
+	row.has_form = true;
 	row.file_type = file_type_token;
 	row.extension = extension;
-	// Always recorded, unlike on a restored search: 0 means the form really had no cap.
-	row.has_min_size = true;
 	row.min_size = min_size;
-	row.has_max_size = true;
 	row.max_size = max_size;
-	row.has_min_source_count = true;
-	row.min_source_count = min_avail;
+	row.min_source_count = static_cast<std::uint32_t>(min_avail);
 	row.has_metadata = m_app.IsServerSearchMetadataActive();
-	row.metadata = metadata;
+	row.min_bitrate = metadata.minBitrateKbps;
+	row.min_duration = metadata.minLength;
+	row.codec = codec;
+	row.title = title;
+	row.album = album;
+	row.artist = artist;
 
 	CHttpServer::Response r;
 	r.status = 202;

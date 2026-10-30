@@ -6,6 +6,7 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		kademlia/kademlia/UDPFirewallTester.cpp
 		kademlia/utils/LookupDiagnosticsSnapshot.cpp
 		kademlia/net/KademliaUDPListener.cpp
+		kademlia/net/SearchExpression.cpp
 		kademlia/net/PacketTracking.cpp
 		kademlia/routing/Contact.cpp
 		kademlia/routing/RoutingZone.cpp
@@ -38,6 +39,7 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		KnownFileList.cpp
 		ListenSocket.cpp
 		MuleUDPSocket.cpp
+		OfferFilesPolicy.cpp
 		SearchFile.cpp
 		SearchList.cpp
 		SearchPacket.cpp

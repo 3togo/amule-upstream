@@ -86,7 +86,6 @@
 #include "SharedDirsApplyTask.h" // Recursive-share expansion worker
 #include "muuli_wdr.h"
 #include "Logger.h"
-#include "MediaProbe.h"    // Needed for the FFProbePath Detect button handler
 #include <common/Format.h> // Needed for CFormat
 #include "TransferWnd.h"   // Needed for CTransferWnd::UpdateCatTabTitles()
 #include "KadDlg.h"        // Needed for CKadDlg
@@ -173,7 +172,6 @@ wxBEGIN_EVENT_TABLE(PrefsUnifiedDlg, wxDialog)
 	EVT_CHECKBOX(IDC_NETWORKKAD, PrefsUnifiedDlg::OnCheckBoxChange)
 	EVT_CHECKBOX(IDC_UPNP_ENABLED, PrefsUnifiedDlg::OnCheckBoxChange)
 	EVT_CHECKBOX(IDC_UPNP_WEBSERVER_ENABLED, PrefsUnifiedDlg::OnCheckBoxChange)
-	EVT_CHECKBOX(IDC_MEDIAMETA_ENABLED, PrefsUnifiedDlg::OnCheckBoxChange)
 	EVT_CHECKBOX(IDC_EXT_CONN_ACCEPT, PrefsUnifiedDlg::OnCheckBoxChange)
 	EVT_CHECKBOX(IDC_ENABLE_WEB, PrefsUnifiedDlg::OnCheckBoxChange)
 	EVT_CHECKBOX(IDC_ENABLE_AMULEAPI, PrefsUnifiedDlg::OnCheckBoxChange)
@@ -205,10 +203,14 @@ wxBEGIN_EVENT_TABLE(PrefsUnifiedDlg, wxDialog)
 	EVT_BUTTON(IDC_PATHMAP_ADD, PrefsUnifiedDlg::OnPathMappingAdd)
 	EVT_BUTTON(IDC_PATHMAP_REMOVE, PrefsUnifiedDlg::OnPathMappingRemove)
 	EVT_BUTTON(IDC_PATHMAP_BROWSE, PrefsUnifiedDlg::OnPathMappingBrowse)
+#else
+	// The allowed-remote-roots editor is local config, shown only on monolithic amule (on the
+	// remote GUI the same list is read-only, reported by the daemon).
+	EVT_BUTTON(IDC_ALLOWED_ROOT_ADD, PrefsUnifiedDlg::OnAllowedRootAdd)
+	EVT_BUTTON(IDC_ALLOWED_ROOT_REMOVE, PrefsUnifiedDlg::OnAllowedRootRemove)
+	EVT_BUTTON(IDC_ALLOWED_ROOT_BROWSE, PrefsUnifiedDlg::OnAllowedRootBrowse)
 #endif
 	EVT_BUTTON(IDC_SELBROWSER, PrefsUnifiedDlg::OnButtonBrowseApplication)
-	EVT_BUTTON(IDC_MEDIAMETA_FFPROBEBROWSE, PrefsUnifiedDlg::OnButtonBrowseApplication)
-	EVT_BUTTON(IDC_MEDIAMETA_FFPROBEDETECT, PrefsUnifiedDlg::OnButtonMediaMetaDetect)
 	EVT_BUTTON(IDC_TWEAKS_RESET, PrefsUnifiedDlg::OnButtonTweaksReset)
 #ifndef CLIENT_GUI
 	EVT_BUTTON(IDC_EXCLUDE_SHARE_PREVIEW, PrefsUnifiedDlg::OnButtonExcludePreview)
@@ -303,12 +305,8 @@ PrefsPage pages[] = { { wxTRANSLATE("General"), PreferencesGeneralTab, 13, "pref
 	// Hidden when ENABLE_IP2COUNTRY is off: builds without libmaxminddb cannot use it.
 	{ wxTRANSLATE("IP2Country"), PreferencesIP2CountryTab, 13, "prefs_ip2country" },
 #endif
-	{ wxTRANSLATE("Advanced"), PreferencesaMuleTweaksTab, 12, "prefs_advanced" }
-#ifdef __DEBUG__
-	,
-	{ wxTRANSLATE("Debugging"), PreferencesDebug, 25, "prefs_debug" }
-#endif
-};
+	{ wxTRANSLATE("Advanced"), PreferencesaMuleTweaksTab, 12, "prefs_advanced" },
+	{ wxTRANSLATE("Debugging"), PreferencesDebug, 25, "prefs_debug" } };
 
 PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 : wxDialog(parent,
@@ -559,9 +557,7 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 			CastChild(IDC_PREVENT_SLEEP, wxCheckBox)->Enable(false);
 			thePrefs::SetPreventSleepWhileDownloading(false);
 #endif
-		}
-#ifdef __DEBUG__
-		else if (pages[i].m_function == PreferencesDebug) {
+		} else if (pages[i].m_function == PreferencesDebug) {
 			int count = theLogger.GetDebugCategoryCount();
 			wxCheckListBox *list = CastChild(ID_DEBUGCATS, wxCheckListBox);
 
@@ -569,7 +565,6 @@ PrefsUnifiedDlg::PrefsUnifiedDlg(wxWindow *parent)
 				list->Append(theLogger.GetDebugCategory(j).GetName());
 			}
 		}
-#endif
 
 		// Preserve the controls' natural size as the scrollable content size without
 		// imposing it on the dialog's minimum size.
@@ -783,6 +778,17 @@ bool PrefsUnifiedDlg::TransferToWindow()
 		mmapBox->Show(thePrefs::GetMMapSupported());
 	}
 
+	// Without its helper the core cannot extract media metadata: keep the toggle visible,
+	// but disabled, and say why.
+	if (wxWindow *media = FindWindow(IDC_MEDIAMETA_ENABLED)) {
+		const bool available = thePrefs::IsMediaMetadataAvailable();
+		media->Enable(available);
+		if (!available) {
+			media->SetToolTip(_("This aMule has no media helper (amule-media-probe), so it "
+					    "cannot extract media metadata."));
+		}
+	}
+
 	// Load the user's intent (explicit non-recursive vs marked-recursive roots) into the
 	// tree control's two maps. shareddir_list itself is the runtime expansion, which
 	// includes auto-discovered subdirs that should not render as user-selected.
@@ -813,6 +819,11 @@ bool PrefsUnifiedDlg::TransferToWindow()
 						 ? static_cast<int>(choice)
 						 : static_cast<int>(CamuleGuiBase::AppearanceChoice::System));
 	}
+
+	// Allowed roots for remote folder changes: read-only on the remote GUI (the daemon reports
+	// them in its preferences), editable on monolithic amule (local config). The list widget
+	// exists in only one of the two builds; PopulateAllowedRootsList no-ops if it is absent.
+	PopulateAllowedRootsList();
 
 	// Autostart checkbox: state lives in the OS, never aMule.conf, so read live
 	// each time the dialog opens. The thePrefs Cfg machinery does not know it.
@@ -921,16 +932,6 @@ bool PrefsUnifiedDlg::TransferToWindow()
 	m_amuleApiGuestWasSet = thePrefs::GetAmuleApiGuestIsEnabled();
 	SetCredentialStateLabel(IDC_AMULEAPI_GUEST_PASSWD_STATE, m_amuleApiGuestWasSet);
 
-	// Gate the ffprobe path controls on the master Media metadata toggle so a disabled
-	// feature does not show a live-looking Detect / Browse UI that silently does nothing.
-	{
-		const bool mmOn = thePrefs::GetMediaMetadataEnabled();
-		FindWindow(IDC_MEDIAMETA_FFPROBEPATHTEXT)->Enable(mmOn);
-		FindWindow(IDC_MEDIAMETA_FFPROBEPATH)->Enable(mmOn);
-		FindWindow(IDC_MEDIAMETA_FFPROBEBROWSE)->Enable(mmOn);
-		FindWindow(IDC_MEDIAMETA_FFPROBEDETECT)->Enable(mmOn);
-	}
-
 	// The tray icon is the only recovery surface for a window hidden via the close button:
 	// on Linux/Windows the option needs the tray to bring the window back, and on macOS the
 	// matching code path drops the Dock icon while hidden, so the tray is also the only way
@@ -980,16 +981,27 @@ bool PrefsUnifiedDlg::TransferToWindow()
 		IDC_EXT_CONN_PASSWD,
 		IDC_EXT_CONN_PASSWDTEXT,
 		IDC_EXT_CONN_REQUIRE_ENCRYPTION,
-		// ffprobe "Browse" (local file picker) and "Detect" (auto-detects on the GUI host, not
-		// the daemon) cannot target the daemon filesystem. The enable toggle + path field are
-		// EC-wired and stay visible.
-		IDC_MEDIAMETA_FFPROBEBROWSE,
-		IDC_MEDIAMETA_FFPROBEDETECT,
 	};
 	for (int id : amuledOnlyPrefs) {
 		if (wxWindow *w = FindWindow(id)) {
 			w->Hide();
 		}
+	}
+	// follow_symlinks is daemon-local too -- it widens what a share exposes on the host, so it is
+	// not remotely settable. Show the daemon's value but disable the checkbox (amulegui no longer
+	// sends this tag), so it does not look editable while silently doing nothing.
+	if (wxWindow *followSymlinks = FindWindow(IDC_FOLLOW_SYMLINKS_SHARED)) {
+		followSymlinks->Enable(false);
+		followSymlinks->SetToolTip(
+			_("Set in the daemon's own configuration (amule.conf); not editable remotely."));
+	}
+	// The online-signature folder is daemon-local as well (the daemon writes its signature files
+	// there, and amulegui no longer sends this tag): make the field read-only. Its Browse button
+	// (IDC_SELOSDIR, a local file picker) is already hidden above.
+	if (wxTextCtrl *osdir = CastChild(IDC_OSDIR, wxTextCtrl)) {
+		osdir->SetEditable(false);
+		osdir->SetToolTip(
+			_("Set in the daemon's own configuration (amule.conf); not editable remotely."));
 	}
 #endif
 
@@ -1066,7 +1078,6 @@ bool PrefsUnifiedDlg::TransferToWindow()
 	UpdateAddressFamiliesControls();
 #endif
 
-#ifdef __DEBUG__
 	// Set debugging toggles
 	int count = theLogger.GetDebugCategoryCount();
 	wxCheckListBox *list = CastChild(ID_DEBUGCATS, wxCheckListBox);
@@ -1074,7 +1085,6 @@ bool PrefsUnifiedDlg::TransferToWindow()
 	for (int i = 0; i < count; i++) {
 		list->Check(i, theLogger.GetDebugCategory(i).IsEnabled());
 	}
-#endif
 
 	m_verticalToolbar = thePrefs::VerticalToolbar();
 	m_toolbarOrientationChanged = false;
@@ -1134,7 +1144,9 @@ bool PrefsUnifiedDlg::TransferFromWindow()
 	// telling once, after the loop above has updated acrStat.
 	theApp->amuledlg->m_kademliawnd->SetGraphColors();
 
-#ifdef __DEBUG__
+	thePrefs::SetVerbose(thePrefs::GetVerbose());
+	thePrefs::SetVerboseLogfile(thePrefs::GetVerboseLogfile());
+
 	// Get debugging toggles
 	int count = theLogger.GetDebugCategoryCount();
 	wxCheckListBox *list = CastChild(ID_DEBUGCATS, wxCheckListBox);
@@ -1142,7 +1154,6 @@ bool PrefsUnifiedDlg::TransferFromWindow()
 	for (int i = 0; i < count; i++) {
 		theLogger.SetEnabled(theLogger.GetDebugCategory(i).GetType(), list->IsChecked(i));
 	}
-#endif
 
 	thePrefs::SetShowRatesOnTitle(
 		CastChild(IDC_SHOWRATEONTITLE, wxCheckBox)->GetValue()
@@ -1425,6 +1436,12 @@ void PrefsUnifiedDlg::OnOk(wxCommandEvent &WXUNUSED(event))
 	// Path mappings (#843): harvest before Save(), same as the shared-dirs
 	// commit above, so this ends up persisted alongside the rest.
 	HarvestPathMappingList();
+#else
+	// Allowed roots for remote folder changes are local config in their own file (never over
+	// EC), so harvest the editor and persist them here. The remote GUI shows the daemon's roots
+	// read-only, so it has nothing to harvest.
+	HarvestAllowedRootsList();
+	theApp->glob_prefs->SaveAllowedRemoteDirRoots();
 #endif
 
 	// This belongs to the local GUI, including amulegui's remote.conf. It must
@@ -1876,13 +1893,6 @@ void PrefsUnifiedDlg::OnCheckBoxChange(wxCommandEvent &event)
 		FindWindow(IDC_UPNPTCPPORTTEXT)->Enable(value);
 		break;
 
-	case IDC_MEDIAMETA_ENABLED:
-		FindWindow(IDC_MEDIAMETA_FFPROBEPATHTEXT)->Enable(value);
-		FindWindow(IDC_MEDIAMETA_FFPROBEPATH)->Enable(value);
-		FindWindow(IDC_MEDIAMETA_FFPROBEBROWSE)->Enable(value);
-		FindWindow(IDC_MEDIAMETA_FFPROBEDETECT)->Enable(value);
-		break;
-
 	case IDC_UPNP_WEBSERVER_ENABLED:
 		FindWindow(IDC_WEBUPNPTCPPORT)->Enable(value);
 		FindWindow(IDC_WEBUPNPTCPPORTTEXT)->Enable(value);
@@ -1972,9 +1982,9 @@ void PrefsUnifiedDlg::OnCheckBoxChange(wxCommandEvent &event)
 	case IDC_AUTOSERVER:
 		if (thePrefs::GetServerListURLs().empty() &&
 			CastChild(event.GetId(), wxCheckBox)->IsChecked()) {
-			wxMessageBox(_("Your Auto-update servers list is in blank.\nPlease fill in at least "
-				       "one URL to point to a valid server.met file.\nClick on the button "
-				       "\"List\" by this checkbox to enter an URL."),
+			wxMessageBox(_("Your server list sources are empty.\nPlease add at least one URL "
+				       "of a valid server.met file.\nClick the \"Edit sources...\" "
+				       "button next to this checkbox to add one."),
 				_("Message"),
 				wxOK | wxICON_INFORMATION);
 			CastChild(event.GetId(), wxCheckBox)->SetValue(false);
@@ -2188,10 +2198,6 @@ void PrefsUnifiedDlg::OnButtonBrowseApplication(wxCommandEvent &event)
 		id = IDC_BROWSERSELF;
 		title = _("Select browser");
 		break;
-	case IDC_MEDIAMETA_FFPROBEBROWSE:
-		id = IDC_MEDIAMETA_FFPROBEPATH;
-		title = _("Select ffprobe binary");
-		break;
 	default:
 		wxFAIL;
 		return;
@@ -2216,32 +2222,13 @@ void PrefsUnifiedDlg::OnButtonBrowseApplication(wxCommandEvent &event)
 #endif
 
 	if (!str.IsEmpty()) {
+		// The player and browser fields are command templates, split into words.
+		if (str.find_first_of(" \t") != wxString::npos) {
+			str = "\"" + str + "\"";
+		}
 		wxTextCtrl *widget = CastChild(id, wxTextCtrl);
 		widget->SetValue(str);
 	}
-}
-
-void PrefsUnifiedDlg::OnButtonMediaMetaDetect(wxCommandEvent &WXUNUSED(evt))
-{
-	// Kick MediaProbe's autodetect and populate the path field with whatever it finds. An
-	// empty result tells the user politely; a path in hand is the more useful common case,
-	// so the binary is not also validated here.
-	//
-	// redetect=true: the point of pressing this is to notice an ffmpeg installed since
-	// aMule started, so the cached answer will not do. Going through DetectedPath() rather
-	// than AutoDetectPath() also refreshes the cache the probe worker reads. Monolithic
-	// only -- amulegui hides the button, because detection here would search the GUI's
-	// filesystem, not the daemon's.
-	const wxString path = MediaProbe::DetectedPath(/*redetect=*/true);
-	if (path.IsEmpty()) {
-		wxMessageBox(_("ffprobe not found on PATH or in the standard install locations. Install "
-			       "ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."),
-			_("Media metadata extraction"),
-			wxOK | wxICON_INFORMATION,
-			this);
-		return;
-	}
-	CastChild(IDC_MEDIAMETA_FFPROBEPATH, wxTextCtrl)->SetValue(path);
 }
 
 void PrefsUnifiedDlg::OnButtonTweaksReset(wxCommandEvent &WXUNUSED(evt))
@@ -3525,6 +3512,100 @@ void PrefsUnifiedDlg::OnPathMappingBrowse(wxCommandEvent &WXUNUSED(evt))
 }
 
 #endif // CLIENT_GUI
+
+void PrefsUnifiedDlg::PopulateAllowedRootsList()
+{
+	wxListBox *list = CastChild(IDC_ALLOWED_ROOTS_LIST, wxListBox);
+	if (list == nullptr) {
+		// The list exists on only one of the two builds (read-only Directories page on the
+		// remote GUI, editable Remote Controls page on monolithic amule); no-op otherwise.
+		return;
+	}
+	list->Clear();
+	// Store the raw path as the item string so it round-trips on harvest; for the usual clean
+	// absolute roots the raw form reads the same as the printable one.
+	for (const CPath &root : theApp->glob_prefs->allowed_remote_dir_roots) {
+		list->Append(root.GetRaw());
+	}
+}
+
+#ifndef CLIENT_GUI
+void PrefsUnifiedDlg::HarvestAllowedRootsList()
+{
+	wxListBox *list = CastChild(IDC_ALLOWED_ROOTS_LIST, wxListBox);
+	if (list == nullptr) {
+		return;
+	}
+	CPreferences::PathList roots;
+	const unsigned int count = list->GetCount();
+	for (unsigned int i = 0; i < count; ++i) {
+		const CPath root(list->GetString(i));
+		if (root.IsOk()) {
+			roots.push_back(root);
+		}
+	}
+	theApp->glob_prefs->allowed_remote_dir_roots = roots;
+}
+
+void PrefsUnifiedDlg::OnAllowedRootAdd(wxCommandEvent &WXUNUSED(evt))
+{
+	wxTextCtrl *pathCtrl = CastChild(IDC_ALLOWED_ROOT_PATH, wxTextCtrl);
+	wxListBox *list = CastChild(IDC_ALLOWED_ROOTS_LIST, wxListBox);
+	if (pathCtrl == nullptr || list == nullptr) {
+		return;
+	}
+	const wxString path = pathCtrl->GetValue().Strip(wxString::both);
+	if (path.IsEmpty()) {
+		return;
+	}
+	// A root must be absolute: a relative one resolves against the daemon's working directory, so
+	// the core drops it on load. Refuse it here too rather than store a line that will be ignored.
+	if (!wxFileName(path).IsAbsolute()) {
+		wxMessageBox(_("Please enter an absolute path. A relative path would be resolved against "
+			       "the daemon's working directory, so it is not accepted."),
+			_("Allowed folders for remote clients"),
+			wxOK | wxICON_EXCLAMATION,
+			this);
+		return;
+	}
+	const CPath newRoot(path);
+	for (unsigned int i = 0; i < list->GetCount(); ++i) {
+		if (CPath(list->GetString(i)) == newRoot) {
+			return; // already listed
+		}
+	}
+	list->Append(newRoot.GetRaw());
+	pathCtrl->Clear();
+}
+
+void PrefsUnifiedDlg::OnAllowedRootRemove(wxCommandEvent &WXUNUSED(evt))
+{
+	wxListBox *list = CastChild(IDC_ALLOWED_ROOTS_LIST, wxListBox);
+	if (list == nullptr) {
+		return;
+	}
+	const int sel = list->GetSelection();
+	if (sel != wxNOT_FOUND) {
+		list->Delete(static_cast<unsigned int>(sel));
+	}
+}
+
+void PrefsUnifiedDlg::OnAllowedRootBrowse(wxCommandEvent &WXUNUSED(evt))
+{
+	wxTextCtrl *pathCtrl = CastChild(IDC_ALLOWED_ROOT_PATH, wxTextCtrl);
+	if (pathCtrl == nullptr) {
+		return;
+	}
+	const wxString dir = wxDirSelector(_("Choose a folder remote clients may use"),
+		pathCtrl->GetValue(),
+		wxDD_DEFAULT_STYLE,
+		wxDefaultPosition,
+		this);
+	if (!dir.IsEmpty()) {
+		pathCtrl->SetValue(dir);
+	}
+}
+#endif
 
 void PrefsUnifiedDlg::EndSharedDirsSession()
 {

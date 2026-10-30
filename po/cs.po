@@ -10,7 +10,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-26 13:07+0000\n"
+"PO-Revision-Date: 2026-10-28 08:19+0000\n"
 "Last-Translator: David Watzke <david@watzke.cz>\n"
 "Language-Team: cs <cs@li.org>\n"
 "Language: cs\n"
@@ -1289,6 +1289,15 @@ msgstr "*** CAPTCHA selhala; nezbývají další pokusy."
 msgid "All"
 msgstr "Vše"
 
+#: src/amule-remote-gui.cpp src/muuli_wdr.cpp
+msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
+msgstr ""
+
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
 msgstr "Daemon nemohl použít změny portu připojení."
@@ -1296,6 +1305,10 @@ msgstr "Daemon nemohl použít změny portu připojení."
 #: src/amule-remote-gui.cpp
 msgid "not readable"
 msgstr "nelze číst"
+
+#: src/amule-remote-gui.cpp
+msgid "outside the folders the daemon allows (configured on the daemon)"
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 msgid "not found"
@@ -1323,6 +1336,16 @@ msgstr "Nešlo smazat kategorii: %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Nelze vytvořit adresář '%s' pro kategorii '%s', ponechává se adresář '%s'."
+
+#: src/amule-remote-gui.cpp
+#, fuzzy
+msgid "the daemon refused the request"
+msgstr "Daemon odmítl požadavek."
+
+#: src/amule-remote-gui.cpp
+#, fuzzy, c-format
+msgid "The daemon refused the category: %s"
+msgstr "Daemon odmítl požadavek."
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
 msgid "Invalid URL"
@@ -2341,6 +2364,18 @@ msgstr[2] "Nelze přidat %u odkazů (podrobnosti viz protokol)."
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Neplatný odkaz eD2k! CHYBA: %s"
 
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
+msgstr ""
+
 #: src/EditServerListDlg.cpp
 msgid "Edit server list sources"
 msgstr "Upravit zdroje seznamu serverů"
@@ -2373,6 +2408,11 @@ msgstr "Externí připojení bylo uzavřeno."
 #: src/ExternalConn.cpp
 msgid "External connections disabled due to empty password!"
 msgstr "Externí připojení jsou zakázána kvůli prázdnému heslu!"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Remote clients cannot change folders: no folder is listed in %s"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
@@ -2603,6 +2643,14 @@ msgid "Could not save the amuleapi password: %s"
 msgstr "Nepodařilo se uložit heslo amuleapi: %s"
 
 #: src/ExternalConn.cpp
+msgid "One or more folders were outside the allowed remote directories and were left unchanged."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "The category folder is outside the allowed remote directories."
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "No such category."
 msgstr "Tato kategorie neexistuje."
 
@@ -2625,6 +2673,10 @@ msgstr "Žádné takové sezení chatu"
 #: src/ExternalConn.cpp
 msgid "Media metadata extraction is disabled in preferences"
 msgstr "Extrakce metadat médií je zakázána v nastavení"
+
+#: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
@@ -3320,6 +3372,11 @@ msgstr "Stahování..."
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "Stahování přes HTTP bylo zrušeno"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "Refusing to download %s: only http and https URLs are supported."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 #, c-format
@@ -4051,22 +4108,9 @@ msgstr "Naslouchací socket: OK."
 msgid "ERROR: Could not listen to TCP port."
 msgstr "CHYBA: Nelze naslouchat na portu TCP."
 
-#: src/Logger.cpp
-msgid "ERROR: "
-msgstr "CHYBA: "
-
-#: src/Logger.cpp
-msgid "WARNING: "
-msgstr "VAROVÁNÍ: "
-
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: not using %s, because another user owns it or a folder above it."
-msgstr "Mediální metadata: nepoužívá se %s, protože tuto a nebo nadřazenou složku vlastní jiný uživatel."
-
-#: src/MediaProbe.cpp
-msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
-msgstr "Mediální metadata: nenalezen binární soubor ffprobe. Nainstalujte ffmpeg, nebo nastavte cestu ffprobe v nastavení; délka, datový tok a kodek nebude extrahován."
+msgid "Media metadata: bundled amule-media-probe helper is unavailable."
+msgstr ""
 
 #: src/MediaProbe.cpp
 #, c-format
@@ -4074,34 +4118,14 @@ msgid "Media metadata: %s is gone, nothing to extract"
 msgstr "Mediální metadata: %s je pryč, nic k extrahování"
 
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Extracting media metadata with ffprobe: %s"
+#, fuzzy, c-format
+msgid "Extracting media metadata: %s"
 msgstr "Extrahování mediálních metadat pomocí ffprobe: %s"
 
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe timed out or was cancelled for %s"
-msgstr "Mediální metadata: ffprobe vypršel čas platnosti nebo bylo zrušeno pro %s"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
-msgstr "Mediální metadata: ignorování nepravděpodobně velkého výstupu ffprobe pro %s"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
-msgstr "Mediální metadata: nepodařilo se spustit ffprobe (%s) -- zkontrolujte nastavení metadat médií"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe failed (code %d) for %s"
+#, fuzzy, c-format
+msgid "Media metadata: parser failed for %s"
 msgstr "Mediální metadata: ffprobe selhalo (kód %d) pro %s"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe found nothing usable in %s"
-msgstr "Mediální metadata: ffprobe našelo nic použitelného v %s"
 
 #: src/MediaProbeThread.cpp
 #, c-format
@@ -5210,6 +5234,14 @@ msgid "Set manually added servers to High Priority"
 msgstr "Nastavit ručně přidaným serverům vysokou prioritu"
 
 #: src/muuli_wdr.cpp
+msgid "Publish shared files faster on servers that allow it"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow the publication pace that the server advertises. Other servers get the standard pace."
+msgstr ""
+
+#: src/muuli_wdr.cpp
 msgid "Add files to download in pause mode"
 msgstr "Přidávat soubory ke stažení jako pozastavené"
 
@@ -5349,7 +5381,7 @@ msgstr ""
 "\n"
 "Technický detail: odmítá veřejné štítky AICH od uzlů, které hlásí verze protokolu Kad nižší než 0x09."
 
-#: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
+#: src/muuli_wdr.cpp
 msgid "Media metadata extraction"
 msgstr "Extrakce metadat médií"
 
@@ -5358,24 +5390,8 @@ msgid "Extract length / bitrate / codec from shared audio and video files"
 msgstr "Získat délku / datový tok / kodek ze sdílených zvukových a video souborů"
 
 #: src/muuli_wdr.cpp
-msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
-msgstr "Je-li povoleno, aMule spustí ffprobe na každém sdíleném mediálním souboru, aby vyplnil sloupce Délka / Datový tok / Kodek, které ostatní klienti vidí, když soubor najdou při hledání. Vyžaduje nainstalovaný ffmpeg (binární soubor ffprobe)."
-
-#: src/muuli_wdr.cpp
-msgid "Path to ffprobe:"
-msgstr "Cesta k ffprobe:"
-
-#: src/muuli_wdr.cpp
-msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
-msgstr "Úplná cesta k binárnímu souboru ffprobe. Ponechte prázdné, aby jej aMule automaticky zjistil při spuštění."
-
-#: src/muuli_wdr.cpp
-msgid "Detect"
-msgstr "Zjistit"
-
-#: src/muuli_wdr.cpp
-msgid "Search the standard install locations for an ffprobe binary and fill the path field."
-msgstr "Vyhledat binární soubor ffprobe ve standardních instalačních umístěních a vyplnit pole cesty."
+msgid "When enabled, aMule uses its bundled MediaInfo parser to extract metadata from shared media files."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid ""
@@ -5448,6 +5464,14 @@ msgstr "Je-li nastaveno, celé pole je jedním regulárním výrazem: '|' znamen
 #: src/muuli_wdr.cpp
 msgid "Show how many of the files and folders in your shared folders the current pattern would exclude, counted over the last scan."
 msgstr "Podívejte se, kolik souborů a složek ve sdílených složkách by současné vzory nebo reg. výraz vyloučily. Počítáno na základě počtu souborů z posledního skenování."
+
+#: src/muuli_wdr.cpp
+msgid "Folders the daemon allows remote changes in"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "When the connected core's files live on a different machine, map a path prefix it reports to where that filesystem is reachable from here (a network share, say) so \"Open\" and \"Show in folder\" work."
@@ -5712,6 +5736,18 @@ msgstr "Heslo"
 #: src/muuli_wdr.cpp
 msgid "Require encrypted connections (rejects clients that cannot encrypt)"
 msgstr "Vyžadovat šifrovaná připojení (odmítá klienty bez podpory šifrování)"
+
+#: src/muuli_wdr.cpp
+msgid "Folders remote clients may use"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "aMule API server parameters"
@@ -6165,15 +6201,15 @@ msgstr "Sem zadejte slova, podle kterých má aMule filtrovat a blokovat zprávy
 
 #: src/muuli_wdr.cpp
 msgid "Enable advanced spam filter"
-msgstr ""
+msgstr "Povolit pokročilý filtr spamu"
 
 #: src/muuli_wdr.cpp
 msgid "Block unsolicited links and repeated messages from non-friends."
-msgstr ""
+msgstr "Blokovat nevyžádané odkazy a opakované zprávy od těch kdo nejsou přátelé."
 
 #: src/muuli_wdr.cpp
 msgid "Require a CAPTCHA for first messages from non-friends"
-msgstr ""
+msgstr "Vyžadovat CAPTCHA u prvních zpráv od těch, kdo nejsou přátelé"
 
 #: src/muuli_wdr.cpp
 msgid "Withhold the message until the sender solves the challenge. Clients without CAPTCHA support cannot start a chat."
@@ -6690,6 +6726,11 @@ msgstr[2] "Nalezena poškozená část (%d) v %d částečných souborech %s - F
 
 #: src/PartFile.cpp
 #, c-format
+msgid "'%s' does not match its file hash, and without the part hashset the corrupt part cannot be found. Waiting for the hashset."
+msgstr ""
+
+#: src/PartFile.cpp
+#, c-format
 msgid "Found completed part (%i) in %s"
 msgstr "Nalezena dokončená část (%i) v %s"
 
@@ -6783,6 +6824,10 @@ msgid "no options available"
 msgstr "nejsou k dispozici žádné možnosti"
 
 #: src/Preferences.cpp
+msgid "Media metadata: FFProbePath is obsolete; aMule now uses its bundled MediaInfo parser. Removing the old setting."
+msgstr ""
+
+#: src/Preferences.cpp
 msgid "Invalid path mapping found, skipping"
 msgstr "Nalezeno neplacené mapování cesty, vynechávám"
 
@@ -6798,6 +6843,11 @@ msgstr "Port TCP nemůže být vyšší než 65532, protože port UDP serverové
 #, c-format
 msgid "Default port will be used (%d)"
 msgstr "Bude použit výchozí port (%d)"
+
+#: src/Preferences.cpp
+#, c-format
+msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
+msgstr ""
 
 #: src/BandwidthLimitSlider.h
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
@@ -6905,8 +6955,16 @@ msgid "Failed to transfer data from Cfg to Widget with the ID %d and key %s"
 msgstr "Nepodařilo se přenést data z Cfg do prvku s ID %d a klíčem %s"
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot extract media metadata."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
 msgid "The type of proxy you are connecting to"
 msgstr "Typ používaného proxy serveru"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Set in the daemon's own configuration (amule.conf); not editable remotely."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 #, c-format
@@ -7106,10 +7164,11 @@ msgid "The aMule web server is deprecated. Consider running the aMule API instea
 msgstr "Webový server aMule je zastaralý. Zvažte místo něho použít aMule API."
 
 #: src/PrefsUnifiedDlg.cpp
+#, fuzzy
 msgid ""
-"Your Auto-update servers list is in blank.\n"
-"Please fill in at least one URL to point to a valid server.met file.\n"
-"Click on the button \"List\" by this checkbox to enter an URL."
+"Your server list sources are empty.\n"
+"Please add at least one URL of a valid server.met file.\n"
+"Click the \"Edit sources...\" button next to this checkbox to add one."
 msgstr ""
 "Váš seznam pro automatickou aktualizaci serverů je prázdný.\n"
 "Zadejte prosím alespoň jednu URL adresu odkazující na platný soubor server.met.\n"
@@ -7167,17 +7226,9 @@ msgid "Select browser"
 msgstr "Výběr prohlížeče"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Select ffprobe binary"
-msgstr "Vybrat binární soubor ffprobe"
-
-#: src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "Executable%s"
 msgstr "Spustitelný soubor%s"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
-msgstr "ffprobe nebyl nalezen v PATH ani ve standardních instalačních umístěních. Nainstalujte ffmpeg (který obsahuje ffprobe), nebo pomocí tlačítka Procházet vyberte binární soubor ručně."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset the settings on this page to their default values?"
@@ -7374,6 +7425,19 @@ msgstr "Tato vzdálená předpona je již mapována."
 #: src/PrefsUnifiedDlg.cpp
 msgid "Choose the local folder"
 msgstr "Zvolte místní složku"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Please enter an absolute path. A relative path would be resolved against the daemon's working directory, so it is not accepted."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Allowed folders for remote clients"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Choose a folder remote clients may use"
+msgstr "Vyberte adresář pro příchozí soubory"
 
 #: src/SearchDlg.cpp
 msgid "Clear Search History"
@@ -8209,6 +8273,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr "Extrakce mediálních metadat je zakázána v nastavení, není tedy co znovu extrahovat."
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8263,6 +8331,11 @@ msgid_plural "Discovered %u new shared files"
 msgstr[0] "Nalezen %u nový sdílený soubor"
 msgstr[1] "Nalezeny %u nové sdílené soubory"
 msgstr[2] "Nalezeno %u nových sdílených souborů"
+
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Refused to rename '%s' to '%s': the new name must be a plain file name, not a path."
+msgstr ""
 
 #: src/SharedFilePeersListCtrl.cpp src/SourceListCtrl.cpp
 msgid "User Name"
@@ -10277,6 +10350,60 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "ERROR: "
+#~ msgstr "CHYBA: "
+
+#~ msgid "WARNING: "
+#~ msgstr "VAROVÁNÍ: "
+
+#, c-format
+#~ msgid "Media metadata: not using %s, because another user owns it or a folder above it."
+#~ msgstr "Mediální metadata: nepoužívá se %s, protože tuto a nebo nadřazenou složku vlastní jiný uživatel."
+
+#~ msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
+#~ msgstr "Mediální metadata: nenalezen binární soubor ffprobe. Nainstalujte ffmpeg, nebo nastavte cestu ffprobe v nastavení; délka, datový tok a kodek nebude extrahován."
+
+#, c-format
+#~ msgid "Media metadata: ffprobe timed out or was cancelled for %s"
+#~ msgstr "Mediální metadata: ffprobe vypršel čas platnosti nebo bylo zrušeno pro %s"
+
+#, c-format
+#~ msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
+#~ msgstr "Mediální metadata: ignorování nepravděpodobně velkého výstupu ffprobe pro %s"
+
+#, c-format
+#~ msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
+#~ msgstr "Mediální metadata: nepodařilo se spustit ffprobe (%s) -- zkontrolujte nastavení metadat médií"
+
+#, c-format
+#~ msgid "Media metadata: ffprobe found nothing usable in %s"
+#~ msgstr "Mediální metadata: ffprobe našelo nic použitelného v %s"
+
+#~ msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
+#~ msgstr "Je-li povoleno, aMule spustí ffprobe na každém sdíleném mediálním souboru, aby vyplnil sloupce Délka / Datový tok / Kodek, které ostatní klienti vidí, když soubor najdou při hledání. Vyžaduje nainstalovaný ffmpeg (binární soubor ffprobe)."
+
+#~ msgid "Path to ffprobe:"
+#~ msgstr "Cesta k ffprobe:"
+
+#~ msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
+#~ msgstr "Úplná cesta k binárnímu souboru ffprobe. Ponechte prázdné, aby jej aMule automaticky zjistil při spuštění."
+
+#~ msgid "Detect"
+#~ msgstr "Zjistit"
+
+#~ msgid "Search the standard install locations for an ffprobe binary and fill the path field."
+#~ msgstr "Vyhledat binární soubor ffprobe ve standardních instalačních umístěních a vyplnit pole cesty."
+
+#, fuzzy
+#~ msgid "Invalid ffprobe path"
+#~ msgstr "Neplatný název souboru."
+
+#~ msgid "Select ffprobe binary"
+#~ msgstr "Vybrat binární soubor ffprobe"
+
+#~ msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
+#~ msgstr "ffprobe nebyl nalezen v PATH ani ve standardních instalačních umístěních. Nainstalujte ffmpeg (který obsahuje ffprobe), nebo pomocí tlačítka Procházet vyberte binární soubor ručně."
 
 #~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
 #~ msgstr "Podpora ikony v systémové liště vyžaduje knihovnu libayatana-appindicator3 v době kompilace."

@@ -1,3 +1,7 @@
+if(ENABLE_MEDIA_PROBE AND (BUILD_DAEMON OR BUILD_MONOLITHIC))
+    add_subdirectory(mediaprobe)
+endif()
+
 set (LIBS_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs")
 # Build-tree twin of LIBS_INCLUDE_DIR. ECCodes.h / ECTagTypes.h are generated
 # from their .abstract sources into libs/ec/cpp under the build tree and exist
@@ -434,8 +438,10 @@ if (BUILD_MONOLITHIC)
 		)
 
 		set (AMULE_ICNS "${CMAKE_SOURCE_DIR}/platforms/MacOSX/amule.icns")
-		target_sources (amule PRIVATE ${AMULE_ICNS} "${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md")
-		set_source_files_properties (${AMULE_ICNS} "${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md" PROPERTIES
+		target_sources (amule PRIVATE ${AMULE_ICNS} "${CMAKE_SOURCE_DIR}/LICENSE.md"
+			"${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md")
+		set_source_files_properties (${AMULE_ICNS} "${CMAKE_SOURCE_DIR}/LICENSE.md"
+			"${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md" PROPERTIES
 			MACOSX_PACKAGE_LOCATION "Resources"
 		)
 
@@ -577,6 +583,17 @@ if (BUILD_MONOLITHIC)
 				VERBATIM
 			)
 		endif()
+
+		# The core finds its media helper beside itself, in Contents/MacOS.
+		if (AMULE_MEDIA_PROBE)
+			add_dependencies (amule amule-media-probe)
+			add_custom_command (TARGET amule POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different
+					"$<TARGET_FILE:amule-media-probe>" "$<TARGET_FILE_DIR:amule>/"
+				COMMENT "Bundling amule-media-probe into aMule.app"
+				VERBATIM
+			)
+		endif()
 	endif()
 
 	install (TARGETS amule
@@ -684,8 +701,10 @@ if (BUILD_REMOTEGUI)
 		)
 
 		set (AMULEGUI_ICNS "${CMAKE_SOURCE_DIR}/platforms/MacOSX/amule.icns")
-		target_sources (amulegui PRIVATE ${AMULEGUI_ICNS} "${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md")
-		set_source_files_properties (${AMULEGUI_ICNS} "${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md" PROPERTIES
+		target_sources (amulegui PRIVATE ${AMULEGUI_ICNS} "${CMAKE_SOURCE_DIR}/LICENSE.md"
+			"${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md")
+		set_source_files_properties (${AMULEGUI_ICNS} "${CMAKE_SOURCE_DIR}/LICENSE.md"
+			"${CMAKE_SOURCE_DIR}/docs/THIRDPARTY.md" PROPERTIES
 			MACOSX_PACKAGE_LOCATION "Resources"
 		)
 
@@ -1111,11 +1130,16 @@ endif()
 # subdirectory install scripts at the END of the root cmake_install.cmake,
 # so a root-level install(CODE) would run before the exes are installed.
 if (WIN32 AND MINGW AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
-	get_filename_component (MINGW_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+	set(_media_probe_dependency "")
+    if(TARGET amule-media-probe)
+        set(_media_probe_dependency "list(APPEND _exes \"$<TARGET_FILE:amule-media-probe>\")")
+    endif()
+    get_filename_component (MINGW_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
 
 	install (CODE "
 		message (STATUS \"Resolving Windows runtime dependencies...\")
 		file (GLOB _exes \"\${CMAKE_INSTALL_PREFIX}/bin/*.exe\")
+		${_media_probe_dependency}
 		file (GET_RUNTIME_DEPENDENCIES
 			EXECUTABLES \${_exes}
 			RESOLVED_DEPENDENCIES_VAR _resolved
@@ -1185,4 +1209,13 @@ if (ENABLE_NLS AND TARGET pofiles)
 			add_dependencies (${_bin} pofiles)
 		endif()
 	endforeach()
+endif()
+
+if(TARGET amule-media-probe)
+    if(TARGET amuled)
+        add_dependencies(amuled amule-media-probe)
+    endif()
+    if(TARGET amule)
+        add_dependencies(amule amule-media-probe)
+    endif()
 endif()

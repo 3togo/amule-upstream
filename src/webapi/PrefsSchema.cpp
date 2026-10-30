@@ -162,8 +162,11 @@ const PrefField kSchema[] = {
 	PREF_BOOL("directories", "rescan_on_startup", EC_TAG_DIRECTORIES_AUTO_RESCAN, PrefEnc::Presence, false, PrefAccess::ReadWrite, directories.rescan_on_startup),
 	PREF_STR("directories", "exclude_patterns", EC_TAG_DIRECTORIES_EXCLUDE_PATTERNS, PrefAccess::ReadWrite, directories.exclude_patterns),
 	PREF_BOOL("directories", "exclude_patterns_use_regex", EC_TAG_DIRECTORIES_EXCLUDE_REGEX, PrefEnc::Value, false, PrefAccess::ReadWrite, directories.exclude_patterns_use_regex),
-	PREF_BOOL("directories", "follow_symlinks", EC_TAG_DIRECTORIES_FOLLOW_SYMLINKS, PrefEnc::Presence, false, PrefAccess::ReadWrite, directories.follow_symlinks),
+	PREF_BOOL("directories", "follow_symlinks", EC_TAG_DIRECTORIES_FOLLOW_SYMLINKS, PrefEnc::Presence, false, PrefAccess::DaemonLocal, directories.follow_symlinks),
 	PREF_STR("directories", "incoming_path", EC_TAG_DIRECTORIES_INCOMING, PrefAccess::ReadWrite, directories.incoming_path),
+	// Read-only: the daemon's allowed roots for remote folder changes (incoming / temp / shared /
+	// category). Daemon-local config, reported for display; ignored if sent on PATCH.
+	PREF_STRARR("directories", "allowed_remote_roots", EC_TAG_DIRECTORIES_ALLOWED_ROOTS, PrefAccess::ReadOnly, directories.allowed_remote_roots),
 	PREF_BOOL("directories", "share_hidden", EC_TAG_DIRECTORIES_SHARE_HIDDEN, PrefEnc::Presence, false, PrefAccess::ReadWrite, directories.share_hidden),
 	PREF_STRARR("directories", "shared_paths", EC_TAG_DIRECTORIES_SHARED, PrefAccess::ReadWrite, directories.shared_paths),
 	PREF_STR("directories", "temp_path", EC_TAG_DIRECTORIES_TEMP, PrefAccess::ReadWrite, directories.temp_path),
@@ -173,9 +176,10 @@ const PrefField kSchema[] = {
 	PREF_BOOL("files", "trust_unverified_aich_hashes", EC_TAG_FILES_AICH_TRUST, PrefEnc::Presence, false, PrefAccess::ReadWrite, files.trust_unverified_aich_hashes),
 	PREF_BOOL("files", "create_sparse_files", EC_TAG_FILES_CREATE_NORMAL, PrefEnc::Presence, true, PrefAccess::ReadWrite, files.create_sparse_files),
 	PREF_BOOL("files", "endgame_mode_enabled", EC_TAG_FILES_ENDGAME, PrefEnc::Presence, false, PrefAccess::ReadWrite, files.endgame_mode_enabled),
-	PREF_STR("files", "ffprobe_path", EC_TAG_FILES_MEDIA_FFPROBE_PATH, PrefAccess::ReadWrite, files.ffprobe_path),
+	PREF_STR("files", "ffprobe_path", EC_TAG_FILES_MEDIA_FFPROBE_PATH, PrefAccess::DaemonLocal, files.ffprobe_path),
 	PREF_BOOL("files", "ich_enabled", EC_TAG_FILES_ICH_ENABLED, PrefEnc::Presence, false, PrefAccess::ReadWrite, files.ich_enabled),
 	PREF_BOOL("files", "media_metadata_enabled", EC_TAG_FILES_MEDIA_METADATA_ENABLED, PrefEnc::Presence, false, PrefAccess::ReadWrite, files.media_metadata_enabled),
+	PREF_BOOL("files", "media_metadata_available", EC_TAG_FILES_MEDIA_METADATA_AVAILABLE, PrefEnc::Value, false, PrefAccess::ReadOnly, files.media_metadata_available),
 	PREF_U32("files", "shared_file_reverify_days", EC_TAG_FILES_SHARED_REVERIFY_DAYS, 3650, PrefAccess::ReadWrite, files.shared_file_reverify_days),
 	PREF_U32("files", "min_free_space_mebibytes", EC_TAG_FILES_MIN_FREE_SPACE, 0xFFFFFFFFu, PrefAccess::ReadWrite, files.min_free_space_mebibytes),
 	PREF_BOOL_GATED("files", "mmap_enabled", EC_TAG_FILES_MMAP_ENABLED, PrefEnc::Presence, false, PrefAccess::ReadWrite, files.mmap_enabled, "mmap_supported"),
@@ -195,6 +199,7 @@ const PrefField kSchema[] = {
 	PREF_BOOL("servers", "autoconnect_static_servers_only", EC_TAG_SERVERS_AUTOCONN_STATIC_ONLY, PrefEnc::Presence, false, PrefAccess::ReadWrite, servers.autoconnect_static_servers_only),
 	PREF_U32("servers", "dead_server_retry_count", EC_TAG_SERVERS_DEAD_SERVER_RETRIES, 65535u, PrefAccess::ReadWrite, servers.dead_server_retry_count),
 	PREF_BOOL("servers", "manual_servers_high_priority", EC_TAG_SERVERS_MANUAL_HIGH_PRIO, PrefEnc::Presence, false, PrefAccess::ReadWrite, servers.manual_servers_high_priority),
+	PREF_BOOL("servers", "accelerated_publication_enabled", EC_TAG_SERVERS_ED2K_ACCELERATED_PUBLICATION, PrefEnc::Value, false, PrefAccess::ReadWrite, servers.accelerated_publication_enabled),
 	PREF_BOOL("servers", "remove_dead_servers", EC_TAG_SERVERS_REMOVE_DEAD, PrefEnc::Presence, false, PrefAccess::ReadWrite, servers.remove_dead_servers),
 	PREF_BOOL("servers", "safe_server_connect_enabled", EC_TAG_SERVERS_SAFE_SERVER_CONNECT, PrefEnc::Presence, false, PrefAccess::ReadWrite, servers.safe_server_connect_enabled),
 	PREF_BOOL("servers", "smart_lowid_check_enabled", EC_TAG_SERVERS_SMART_ID_CHECK, PrefEnc::Presence, false, PrefAccess::ReadWrite, servers.smart_lowid_check_enabled),
@@ -266,7 +271,7 @@ const PrefField kSchema[] = {
 	PREF_BOOL("remote_controls.external_connections", "password_set", EC_TAG_EXTERNALCONN_PASSWD_SET, PrefEnc::Value, false, PrefAccess::ReadOnly, remote_controls.external_connections.password_set),
 
 	// [online_signature]
-	PREF_STR("online_signature", "directory", EC_TAG_ONLINESIG_DIRECTORY, PrefAccess::ReadWrite, online_signature.directory),
+	PREF_STR("online_signature", "directory", EC_TAG_ONLINESIG_DIRECTORY, PrefAccess::DaemonLocal, online_signature.directory),
 	PREF_BOOL("online_signature", "enabled", EC_TAG_ONLINESIG_ENABLED, PrefEnc::Presence, false, PrefAccess::ReadWrite, online_signature.enabled),
 	// 65535, not the uint32 ceiling: CPreferences::SetOSUpdate takes a uint16, so anything larger
 	// wraps on the way in -- 86400 (daily) became 20864 and the PATCH still reported success.

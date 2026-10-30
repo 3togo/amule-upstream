@@ -33,8 +33,9 @@
 #include <common/Format.h>             // Needed for CFormat
 #include "../../../kademlia/utils/UInt128.h"
 
+#include <wx/arrstr.h> // Needed for wxArrayString (refused-directory out-parameter of Apply)
+
 #include <map>
-#include "SearchMetadata.h"
 
 /*
  * Specific tags for specific requests.
@@ -225,6 +226,11 @@ public:
 	bool Apply();
 	bool Create();
 
+	// Replace the carried download path with its canonical (symlink/junction-resolved) form, so the
+	// stored category path matches what the roots check validated and cannot be re-resolved later
+	// through a repointed link. Call only after the path passed IsRemoteDirChangeAllowed().
+	void CanonicalizeStoredPath();
+
 	wxString Name() const { return GetTagByNameSafe(EC_TAG_CATEGORY_TITLE)->GetStringData(); }
 	wxString Path() const { return GetTagByNameSafe(EC_TAG_CATEGORY_PATH)->GetStringData(); }
 	wxString Comment() const { return GetTagByNameSafe(EC_TAG_CATEGORY_COMMENT)->GetStringData(); }
@@ -250,7 +256,14 @@ public:
 		EC_DETAIL_LEVEL prefs_detail = EC_DETAIL_FULL,
 		EC_DETAIL_LEVEL cat_details = EC_DETAIL_FULL);
 
-	bool Apply() const;
+	// Applies the carried preferences to the running instance. On the core, a remote request
+	// to point incoming/temp/shared at a folder outside the configured allowed roots is
+	// refused: the stored value is kept and, when refusedDirs is non-null, the rejected raw
+	// path is appended so EC_OP_SET_PREFERENCES can report it (reason code 3). The default
+	// (nullptr) suits callers that do not report refusals, such as amulegui applying the
+	// daemon's own state for display.
+	// Returns false when a setting could not be saved.
+	bool Apply(wxArrayString *refusedDirs = nullptr) const;
 };
 
 class CEC_Server_Tag : public CECTag
@@ -727,6 +740,17 @@ private:
 	CMD4Hash GetMD4Data(); // Block it, because it doesn't work anymore!
 };
 
+// Optional media filters passed to the search-request constructor.
+struct CSearchMetadata
+{
+	uint64 minBitrateKbps = 0;
+	uint64 minLength = 0;
+	wxString codec;
+	wxString title;
+	wxString album;
+	wxString artist;
+};
+
 class CEC_Search_Tag : public CECTag
 {
 public:
@@ -744,6 +768,12 @@ public:
 	EC_SEARCH_TYPE SearchType() const { return (EC_SEARCH_TYPE)GetInt(); }
 	uint64 MinSize() const { return GetTagByNameSafe(EC_TAG_SEARCH_MIN_SIZE)->GetInt(); }
 	uint64 MaxSize() const { return GetTagByNameSafe(EC_TAG_SEARCH_MAX_SIZE)->GetInt(); }
+	uint64 MinBitrate() const { return GetTagByNameSafe(EC_TAG_SEARCH_MIN_BITRATE)->GetInt(); }
+	uint64 MinLength() const { return GetTagByNameSafe(EC_TAG_SEARCH_MIN_LENGTH)->GetInt(); }
+	wxString Codec() const { return GetTagByNameSafe(EC_TAG_SEARCH_CODEC)->GetStringData(); }
+	wxString Title() const { return GetTagByNameSafe(EC_TAG_SEARCH_TITLE)->GetStringData(); }
+	wxString Album() const { return GetTagByNameSafe(EC_TAG_SEARCH_ALBUM)->GetStringData(); }
+	wxString Artist() const { return GetTagByNameSafe(EC_TAG_SEARCH_ARTIST)->GetStringData(); }
 	uint32 Avail() const { return GetTagByNameSafe(EC_TAG_SEARCH_AVAILABILITY)->GetInt(); }
 	wxString SearchExt() const { return GetTagByNameSafe(EC_TAG_SEARCH_EXTENSION)->GetStringData(); }
 	wxString SearchFileType() const { return GetTagByNameSafe(EC_TAG_SEARCH_FILE_TYPE)->GetStringData(); }

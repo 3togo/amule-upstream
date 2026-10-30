@@ -32,9 +32,16 @@ VERSION=$(cd "${REPO}" && git describe --tags --always --dirty)
 
 mkdir -p "${ARTIFACT_DIR}"
 
-# 1. Configure + build aMule.
+# 1. Build the pinned media libraries without network readers.
+MEDIA_PREFIX="${BUILD_DIR}/media-prefix"
+"${REPO}/packaging/media/build-static.sh" "${MEDIA_PREFIX}" "${BUILD_DIR}/media-sources"
+
+# Configure + build aMule.
 cmake -B "${BUILD_DIR}" -S "${REPO}" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
+    -DMEDIAINFO_LIBRARY="${MEDIA_PREFIX}/lib/libmediainfo.a" \
+    -DMEDIA_ZEN_LIBRARY="${MEDIA_PREFIX}/lib/libzen.a" \
+    -DMEDIA_PROBE_STATIC=ON \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DBUILD_MONOLITHIC=YES \
     -DBUILD_REMOTEGUI=YES \
@@ -74,6 +81,11 @@ for bin in "${EXTRA_BINS[@]}"; do
         EXEC_ARGS+=(--executable "${APPDIR}/usr/bin/${bin}")
     fi
 done
+# The media helper is internal, so it installs to libexec, not bin.
+MEDIA_PROBE="${APPDIR}/usr/libexec/amule/amule-media-probe"
+if [ -x "${MEDIA_PROBE}" ]; then
+    EXEC_ARGS+=(--executable "${MEDIA_PROBE}")
+fi
 
 # Force-include libraries that linuxdeploy's AppImage standard
 # excludelist drops but that aren't actually present on every distro.
@@ -127,12 +139,55 @@ linuxdeploy \
 ( cd "${APPDIR}/usr/lib" \
     && rm -f libreadline.so* libhistory.so* libtinfo.so* )
 
+# 6. License files for everything bundled, under usr/share/licenses: dpkg
+#    names the package of each bundled library and of the header-only and
+#    static code built into the binaries; the libraries built from source in
+#    the Dockerfile left theirs under /usr/local/share/licenses.
+LICENSE_DIR="${APPDIR}/usr/share/licenses"
+mkdir -p "${LICENSE_DIR}"
+cp -R /usr/local/share/licenses/. "${LICENSE_DIR}/"
+PKGS=()
+while IFS= read -r lib; do
+    name=$(basename "${lib}")
+    if owner=$(dpkg -S "*/${name}" 2>/dev/null | sed -n 1p) && [ -n "${owner}" ]; then
+        PKGS+=("${owner%%[:,]*}")
+    elif [ ! -e "/usr/local/lib/${name}" ]; then
+        echo "warning: no package owns ${name}" >&2
+    fi
+done < <(find "${APPDIR}/usr/lib" -name '*.so*' \( -type f -o -type l \))
+for header in /usr/include/boost/version.hpp /usr/include/crypto++/config.h; do
+    if owner=$(dpkg -S "${header}" 2>/dev/null); then
+        PKGS+=("${owner%%[:,]*}")
+    else
+        echo "warning: no package owns ${header}" >&2
+    fi
+done
+MISSING=()
+for pkg in $(printf '%s\n' "${PKGS[@]}" | sort -u); do
+    if [ -e "/usr/share/doc/${pkg}/copyright" ]; then
+        install -Dm644 "/usr/share/doc/${pkg}/copyright" "${LICENSE_DIR}/${pkg}/copyright"
+    else
+        MISSING+=("${pkg}")
+    fi
+done
+echo "==> Collected licenses for $(ls "${LICENSE_DIR}" | wc -l) packages"
+if [ ${#MISSING[@]} -gt 0 ]; then
+    echo "warning: no copyright file for: ${MISSING[*]}" >&2
+fi
+
 # The SNI host searches this exported theme path in its own process.
 # Ship the hicolor index so GTK can discover scalable/apps inside the AppDir.
 install -Dm644 /usr/share/icons/hicolor/index.theme \
     "${APPDIR}/usr/share/icons/hicolor/index.theme"
 
-# 6. Seal the AppDir into the final AppImage with appimagetool directly.
+# appimagetool requires the desktop file's icon as a PNG or XPM in the AppDir root, and
+# .DirIcon as a regular file. linuxdeploy leaves only symlinks to the SVG there.
+APP_ICON="${APPDIR}/usr/share/icons/hicolor/256x256/apps/org.amule.aMule.png"
+rm -f "${APPDIR}/org.amule.aMule.png" "${APPDIR}/.DirIcon"
+cp "${APP_ICON}" "${APPDIR}/org.amule.aMule.png"
+cp "${APP_ICON}" "${APPDIR}/.DirIcon"
+
+# 7. Seal the AppDir into the final AppImage with appimagetool directly.
 #    We deliberately do NOT use `linuxdeploy --output appimage` here
 #    because it re-walks the binaries' library deps and would re-bundle
 #    everything we just stripped. appimagetool is purely a packager —

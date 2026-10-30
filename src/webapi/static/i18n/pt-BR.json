@@ -871,7 +871,6 @@
   "shared_prio_low": "Baixa",
   "stats_tree_upload_crypt_overhead": "Overhead de criptografia (UDP): %s",
   "prefs_servers": "Servidores",
-  "prefs_field_files_ffprobe_path": "Caminho do ffprobe (vazio = detectar automaticamente)",
   "prefs_field_servers_manual_servers_high_priority": "Definir prioridade alta para servidores adicionados manualmente",
   "prefs_group_geoip_db": "Banco de dados",
   "prefs_field_security_shared_files_visibility": "Quem pode ver meus arquivos compartilhados",
@@ -1053,5 +1052,16 @@
   "prefs_sources_apply_first": "Aplique suas alterações primeiro",
   "prefs_sources_saved_help": "Baixa a partir das fontes salvas.",
   "prefs_sources_one_off": "URL de uso único",
-  "prefs_sources_download_once": "Baixar uma vez"
+  "prefs_sources_download_once": "Baixar uma vez",
+  "about_country_data": "Dados de IP para país",
+  "prefs_field_message_filter_advanced_spam_filter": "Habilitar filtro avançado de spam",
+  "prefs_field_message_filter_use_captchas": "Exigir CAPTCHA na primeira mensagem de quem não é amigo",
+  "prefs_field_message_filter_use_captchas_help": "As mensagens ficam ocultas até que o remetente resolva o desafio. Clientes sem suporte a CAPTCHA não conseguem iniciar um chat.",
+  "common_err_path_not_allowed": "Pasta não permitida — {message}. As pastas que o daemon permite estão listadas em Preferências ▸ Diretórios.",
+  "prefs_group_remote_roots": "Pastas remotas permitidas",
+  "prefs_daemon_local_hint": "Definido apenas no amule.conf do próprio daemon; não pode ser alterado pela API.",
+  "prefs_field_directories_allowed_remote_roots": "Raízes configuradas",
+  "prefs_allowed_roots_hint": "As alterações remotas de pastas (entrada, temporária, compartilhadas e de categorias) ficam restritas a estas raízes. Uma lista vazia significa que o daemon recusa qualquer alteração remota de pasta. Elas são configuradas no daemon em allowed-remote-dirs.dat e não podem ser alteradas pela API.",
+  "prefs_field_servers_accelerated_publication_enabled_help": "Seguir o ritmo de publicação anunciado pelo servidor. Os demais servidores recebem o ritmo padrão. Vale a partir da próxima conexão ao servidor.",
+  "prefs_field_servers_accelerated_publication_enabled": "Publicar arquivos compartilhados mais rápido nos servidores que permitem"
 }

@@ -28,6 +28,8 @@
 #include <wx/mstream.h>
 #include <wx/tokenzr.h>
 
+#include <array>
+
 #include "updownclient.h"   // Needed for CUpDownClient
 #include "SharedFileList.h" // Needed for CSharedFileList
 
@@ -219,6 +221,7 @@ void CUpDownClient::Init()
 	m_nUserPort = 0;
 	m_nPartCount = 0;
 	m_dwLastAskedTime = 0;
+	m_lastPacedRequest = 0;
 	m_nDownloadState = DS_NONE;
 	m_dwUploadTime = 0;
 	m_nTransferredDown = 0;
@@ -1444,7 +1447,7 @@ void CUpDownClient::ClearDownloadBlockRequests()
 	}
 }
 
-bool CUpDownClient::Disconnected(const wxString &DEBUG_ONLY(strReason), bool bFromSocket)
+bool CUpDownClient::Disconnected(const wxString &strReason, bool bFromSocket)
 {
 	// wxASSERT(theApp->clientlist->IsValidClient(this));
 
@@ -1626,6 +1629,35 @@ bool CUpDownClient::Disconnected(const wxString &DEBUG_ONLY(strReason), bool bFr
 			GetClientFullInfo() % strReason);
 
 	return bDelete;
+}
+
+void CUpDownClient::QuicDialFailed()
+{
+	// Temporary clients created for server-vouched LowID rendezvous have no TCP fallback:
+	// continue through the existing uTP path, with QUIC suppressed.
+#if defined(ENABLE_NATT_SERVER_COORDINATION) && defined(AMULE_UTP_TRANSPORT)
+	if ((IsLowIdHolePunchDial() || IsLugdunumCallbackDial()) && !HasBeenDeleted()) {
+#ifdef AMULE_QUIC_TRANSPORT
+		m_skipQuicDial = true;
+#endif
+		TryServerVouchedLowIdUtpDial();
+#ifdef AMULE_QUIC_TRANSPORT
+		m_skipQuicDial = false;
+#endif
+		return;
+	}
+#endif
+
+	// QUIC is opportunistic. The failure callback is delivered by the UDP event loop, so resume
+	// the ordinary contact policy here. Consume the QUIC choice before re-entry: otherwise the
+	// fallback can immediately select the same failed transport again.
+#ifdef AMULE_QUIC_TRANSPORT
+	m_skipQuicDial = true;
+#endif
+	TryToContact(true);
+#ifdef AMULE_QUIC_TRANSPORT
+	m_skipQuicDial = false;
+#endif
 }
 
 // The returned bool is not whether TryToConnect succeeded: false means the client was
@@ -1858,29 +1890,34 @@ void CUpDownClient::TrySendLugdunumNatCallbackRequest(uint32 targetId) const
 		0);
 }
 
-bool CUpDownClient::TrySendLowIdHolePunchRequest()
+namespace
 {
+NatServerHolePunch::RequestFacts BuildLowIdHolePunchRequestFacts(const CUpDownClient &client)
+{
+	NatServerHolePunch::RequestFacts facts;
 	if (theApp->serverconnect == nullptr) {
-		return false;
+		return facts;
 	}
 	CServer *server = theApp->serverconnect->GetCurrentServer();
 	if (server == nullptr) {
-		return false;
+		return facts;
 	}
-	const uint16 ourUdpPort = thePrefs::GetEffectiveUDPPort();
+	facts.ourId = theApp->serverconnect->GetClientID();
+	facts.sourceId = client.GetUserIDHybrid();
+	facts.sameServer = theApp->serverconnect->IsLocalServer(client.GetServerIP(), client.GetServerPort());
+	facts.serverAnnouncesHolePunch = server->SupportsLowIdHolePunch();
+	facts.settingEnabled = thePrefs::IsLowIdHolePunchEnabled();
+	facts.ourUdpPort = thePrefs::GetEffectiveUDPPort();
 #ifdef AMULE_UTP_TRANSPORT
-	const bool lowIdHolePunchUtpAvailable = true;
-#else
-	const bool lowIdHolePunchUtpAvailable = false;
+	facts.utpAvailable = true;
 #endif
-	const NatServerHolePunch::RequestFacts facts{ theApp->serverconnect->GetClientID(),
-		GetUserIDHybrid(),
-		theApp->serverconnect->IsLocalServer(GetServerIP(), GetServerPort()),
-		server->SupportsLowIdHolePunch(),
-		server->IsLugdunumNatCallbackActive(),
-		thePrefs::IsLowIdHolePunchEnabled(),
-		ourUdpPort,
-		lowIdHolePunchUtpAvailable };
+	return facts;
+}
+} // namespace
+
+bool CUpDownClient::TrySendLowIdHolePunchRequest()
+{
+	const NatServerHolePunch::RequestFacts facts = BuildLowIdHolePunchRequestFacts(*this);
 	if (!NatServerHolePunch::ShouldRequestLowIdHolePunch(facts)) {
 		return false;
 	}
@@ -1889,7 +1926,7 @@ bool CUpDownClient::TrySendLowIdHolePunchRequest()
 		return false;
 	}
 
-	const NatServerHolePunch::Request request{ GetUserIDHybrid(), ourUdpPort };
+	const NatServerHolePunch::Request request{ GetUserIDHybrid(), facts.ourUdpPort };
 	const std::array<std::uint8_t, 6> payload = NatServerHolePunch::BuildRequest(request);
 	CMemFile data(payload.data(), payload.size());
 	CPacket *packet = new CPacket(data, OP_EDONKEYPROT, NatServerTcp::OP_LOWID_HOLEPUNCH_REQUEST);
@@ -1950,11 +1987,13 @@ EContactResult CUpDownClient::TryToContact(bool bIgnoreMaxCon)
 			// We cannot do a callback!
 			if (GetDownloadState() == DS_CONNECTING) {
 #ifdef ENABLE_NATT_SERVER_COORDINATION
-				// Sent once per source: a DS_LOWTOLOWIP source is not asked again. A server
-				// is either Lugdunum or ed2k-server; each call no-ops on the
-				// other's server.
-				TrySendLugdunumNatCallbackRequest();
-				TrySendLowIdHolePunchRequest();
+				// Sent once per source: a DS_LOWTOLOWIP source is not asked again.
+				if (NatServerHolePunch::ShouldRequestLowIdHolePunch(
+					    BuildLowIdHolePunchRequestFacts(*this))) {
+					TrySendLowIdHolePunchRequest();
+				} else {
+					TrySendLugdunumNatCallbackRequest();
+				}
 #endif
 				SetDownloadState(DS_LOWTOLOWIP);
 			} else if (GetDownloadState() == DS_REQHASHSET) {
@@ -2224,6 +2263,26 @@ bool CUpDownClient::TryServerVouchedLowIdUtpDial()
 	if (m_socket != nullptr && m_socket->IsOk()) {
 		return false;
 	}
+#ifdef AMULE_QUIC_TRANSPORT
+	// QUIC is selected only for an authenticated LowID NAT-T rendezvous; HighID contact
+	// remains TCP (and the uTP fallback below remains available for this route).
+	if (!m_skipQuicDial && HasValidHash() && GetConnectIP() != 0 && GetUDPPort() != 0) {
+		std::array<uint8_t, 16> peerHash{};
+		std::copy_n(GetUserHash().GetHash(), peerHash.size(), peerHash.begin());
+		std::array<uint8_t, 16> fileHash{};
+		if (m_reqfile != nullptr) {
+			std::copy_n(m_reqfile->GetFileHash().GetHash(), fileHash.size(), fileHash.begin());
+		}
+		// TryQuicDial() also returns true while a CAPS answer is pending.
+		if (theApp->clientudp->TryQuicDial(peerHash, GetConnectIP(), GetUDPPort(), fileHash, this)) {
+			return true;
+		}
+		AddDebugLogLineN(logClientUDP,
+			CFormat("QUIC dial to %s not possible (disabled, incompatible peer, cooldown, or "
+				"dial start failed); falling back to uTP") %
+				Uint32_16toStringIP_Port(GetConnectIP(), GetUDPPort()));
+	}
+#endif
 	IUtpContext *utp = theApp->clientudp->GetUtpContext();
 	const bool canSend = utp != nullptr && utp->IsAvailable() && theApp->clientudp->Ok();
 	const bool obfuscationSatisfied = !WantsStreamObfuscation() || ShouldReceiveCryptUDPPackets();
@@ -2476,6 +2535,18 @@ int CUpDownClient::GetHashType() const
 	}
 
 	return SO_UNKNOWN;
+}
+
+bool CUpDownClient::ReplaceSocket(CClientTCPSocket *socket)
+{
+	if (m_socket != nullptr && m_socket->IsConnected()) {
+		return false;
+	}
+	if (m_socket != nullptr) {
+		m_socket->Safe_Delete();
+	}
+	SetSocket(socket);
+	return true;
 }
 
 void CUpDownClient::SetSocket(CClientTCPSocket *socket)
@@ -3144,7 +3215,6 @@ bool CUpDownClient::CheckHandshakeFinished() const
 	return true;
 }
 
-#ifdef __DEBUG__
 wxString CUpDownClient::GetClientFullInfo()
 {
 	if (m_clientVerString.IsEmpty()) {
@@ -3155,7 +3225,6 @@ wxString CUpDownClient::GetClientFullInfo()
 	       (m_Username.IsEmpty() ? wxString(_("Unknown")) : m_Username) % GetFullIP() % GetUserPort() %
 	       m_clientSoftString % m_clientVerString % m_strModVersion;
 }
-#endif
 
 wxString CUpDownClient::GetClientShortInfo()
 {

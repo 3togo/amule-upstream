@@ -92,7 +92,24 @@ CEC_Search_Tag::CEC_Search_Tag(const wxString &name,
 	if (max_size != 0) {
 		AddTag(CECTag(EC_TAG_SEARCH_MAX_SIZE, max_size));
 	}
-	metadata.WriteTo(*this);
+	if (metadata.minBitrateKbps) {
+		AddTag(CECTag(EC_TAG_SEARCH_MIN_BITRATE, metadata.minBitrateKbps));
+	}
+	if (metadata.minLength) {
+		AddTag(CECTag(EC_TAG_SEARCH_MIN_LENGTH, metadata.minLength));
+	}
+	if (!metadata.codec.empty()) {
+		AddTag(CECTag(EC_TAG_SEARCH_CODEC, metadata.codec));
+	}
+	if (!metadata.title.empty()) {
+		AddTag(CECTag(EC_TAG_SEARCH_TITLE, metadata.title));
+	}
+	if (!metadata.album.empty()) {
+		AddTag(CECTag(EC_TAG_SEARCH_ALBUM, metadata.album));
+	}
+	if (!metadata.artist.empty()) {
+		AddTag(CECTag(EC_TAG_SEARCH_ARTIST, metadata.artist));
+	}
 }
 
 static void FormatValue(CFormat &format, const CECTag *tag)
@@ -157,12 +174,17 @@ static void FormatValue(CFormat &format, const CECTag *tag)
 wxString CEC_StatTree_Node_Tag::GetDisplayString() const
 {
 	wxString en_label = GetStringData();
-	wxString my_label = wxGetTranslation(en_label);
-	// This is needed for client names, for example
-	if (my_label == en_label) {
-		if (en_label.Right(4) == ": %s") {
-			my_label =
-				wxGetTranslation(en_label.Mid(0, en_label.Length() - 4)) + wxString(": %s");
+	wxString my_label = en_label;
+	// With a raw value the label head is peer data, which a catalog could translate into a
+	// string containing '%'.
+	if (GetTagByName(EC_TAG_STAT_NODE_RAW) == nullptr) {
+		my_label = wxGetTranslation(en_label);
+		// This is needed for client names, for example
+		if (my_label == en_label) {
+			if (en_label.Right(4) == ": %s") {
+				my_label = wxGetTranslation(en_label.Mid(0, en_label.Length() - 4)) +
+					   wxString(": %s");
+			}
 		}
 	}
 	CFormat label(my_label);
