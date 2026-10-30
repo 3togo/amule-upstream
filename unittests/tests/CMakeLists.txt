@@ -3737,3 +3737,9 @@ add_executable (ECSRPConfigTest ECSRPConfigTest.cpp ${CMAKE_SOURCE_DIR}/src/Logg
 target_include_directories (ECSRPConfigTest PRIVATE ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
 target_link_libraries (ECSRPConfigTest PRIVATE ec mulecommon)
 add_test (NAME ECSRPConfigTest COMMAND ECSRPConfigTest)
+
+# Production Kad policies with deterministic clocks.
+add_executable (KadLookupPolicyTest KadLookupPolicyTest.cpp)
+target_include_directories (KadLookupPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (KadLookupPolicyTest muleunit mulecommon)
+add_test (NAME KadLookupPolicyTest COMMAND KadLookupPolicyTest)

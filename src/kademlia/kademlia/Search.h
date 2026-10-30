@@ -44,6 +44,7 @@ there client on the eMule forum..
 
 #include "SearchManager.h"
 #include "../utils/LookupTrace.h"
+#include "../utils/LookupPolicy.h"
 
 class CKnownFile;
 class CTag;
@@ -171,9 +172,9 @@ private:
 		const CUInt128 &answer, TagPtrList *info, uint32_t fromIP, uint16_t fromPort);
 	void ProcessResultNotes(const CUInt128 &answer, TagPtrList *info);
 	void JumpStart();
-	void SendFindValue(CContact *contact, bool reaskMore = false);
+	bool SendFindValue(CContact *contact, bool reaskMore = false);
 	void PrepareToStop() noexcept;
-	void StorePacket();
+	void StorePacket(ContactMap::const_iterator possible);
 
 	uint8_t GetRequestContactCount() const;
 
@@ -186,7 +187,7 @@ private:
 	uint32_t m_totalRequestAnswers;
 	uint32_t m_totalLoad;
 	uint32_t m_totalLoadResponses;
-	uint32_t m_lastResponse;
+	time_t m_lastResponse;
 
 	uint32_t m_searchID;
 	bool m_searchIDAssigned;
@@ -201,32 +202,10 @@ private:
 
 	typedef std::map<CUInt128, bool> RespondedMap;
 
-#ifdef ENABLE_KAD_NODE_PROTECTION
-	// A request we have sent and not yet had an answer to, keyed by the contact's ClientID. Two
-	// things need it: CFastKad wants the round-trip time of every answer, and JumpStart wants
-	// to know which contacts have gone past the estimated ceiling so it can stop waiting on
-	// them. The address is carried along because by the time a request times out the contact
-	// may already have been dropped from m_tried.
-	struct sPendingRequest
-	{
-		uint64_t m_sentTick;
-		uint32_t m_ip;
-		uint16_t m_port;
-	};
-
-	// How long a record outlives the ceiling, so a late answer still feeds its round-trip
-	// time to the estimator. Erasing on the ceiling made the estimate unable to rise: no
-	// sample above it could ever be recorded, so a link slower than the starting estimate
-	// never taught it anything. Long enough to cover that, short enough not to accumulate.
-	static const uint64_t PENDING_SAMPLE_GRACE_MS = 10000;
-	typedef std::map<CUInt128, sPendingRequest> PendingRequestMap;
-
-	PendingRequestMap m_pendingRequests;
-	// Millisecond-resolution twin of m_lastResponse. The stall check in JumpStart compares
-	// against a derived ceiling expressed in milliseconds, and second granularity would
-	// quantise it to uselessness.
-	uint64_t m_lastResponseTick;
-#endif
+	CLookupRequests m_requests;
+	CLookupDiversity m_diversity;
+	uint32_t RequestTimeout() const;
+	size_t RequestLimit() const;
 
 	ContactMap m_possible;
 	ContactMap m_tried;

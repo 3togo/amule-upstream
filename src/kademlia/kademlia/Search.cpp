@@ -75,10 +75,7 @@ there client on the eMule forum..
 #include "../../PeerCapabilities.h" // Needed for DecodeIPv6HexTag
 #include "../../Logger.h"
 #include "../../Preferences.h"
-#ifdef ENABLE_KAD_NODE_PROTECTION
-#include "../../GetTickCount.h"     // Needed for GetTickCount64
 #include "../../NetworkFunctions.h" // Needed for KadIPPortToString
-#endif
 #include "../../GuiEvents.h"
 #include "../../KadBuddyIdLayout.h"
 
@@ -106,10 +103,7 @@ CSearch::CSearch()
 	m_totalLoad = 0;
 	m_totalLoadResponses = 0;
 	m_lastResponse = m_created;
-#ifdef ENABLE_KAD_NODE_PROTECTION
-	m_lastResponseTick = ::GetTickCount64();
-#endif
-	m_nodeSpecialSearchRequester = NULL;
+	m_nodeSpecialSearchRequester = nullptr;
 	m_closestDistantFound = 0;
 }
 
@@ -218,8 +212,9 @@ void CSearch::Go()
 	}
 
 	if (!m_possible.empty()) {
-		for (ContactMap::iterator it = m_possible.begin(); it != m_possible.end(); ++it) {
-			m_inUse[it->first] = it->second;
+		for (const auto &candidate : m_possible) {
+			m_inUse[candidate.first] = candidate.second;
+			m_diversity.AddSeed(candidate.second->GetIPAddress());
 		}
 
 		wxASSERT(m_possible.size() == m_inUse.size());
@@ -285,56 +280,42 @@ void CSearch::PrepareToStop() noexcept
 	m_stopping = true;
 }
 
-void CSearch::JumpStart()
+size_t CSearch::RequestLimit() const
+{
+	return m_type == NODE ? 1 : ALPHA_QUERY;
+}
+
+uint32_t CSearch::RequestTimeout() const
 {
 #ifdef ENABLE_KAD_NODE_PROTECTION
-	// How long to wait on an outstanding request before treating the search as stalled. Derived
-	// from the response times actually observed (CFastKad) rather than fixed at 3 seconds: on a
-	// fast link the old constant wasted seconds on nodes that were never going to answer, and
-	// on a congested one it abandoned nodes that answered just too late.
-	//
-	// Background store operations keep the fixed 3 seconds: nobody is waiting on a publish, and
-	// a tight deadline would only add republish traffic.
-	const uint32_t maxPending = (m_type == STOREFILE || m_type == STOREKEYWORD || m_type == STORENOTES)
-					    ? SEC2MS(3)
-					    : fastKad.GetEstMaxResponseTime();
-
-	const uint64_t nowTick = ::GetTickCount64();
-
-	// Stop waiting on requests that have passed the ceiling, but keep the record until
-	// PENDING_SAMPLE_GRACE_MS past it, because an answer arriving after the ceiling is exactly
-	// the sample the estimator needs: erasing on the ceiling meant no round-trip longer than
-	// the current estimate could ever be recorded, so on a link slower than the starting value
-	// the estimate could only ratchet down and every request stalled.
-	//
-	// A timeout deliberately does not reach safeKad. It is evidence of a slow or absent node,
-	// not of a misbehaving one, and TrackProblematicNode() is rung one of the ban ladder:
-	// nothing reads problematic state for scheduling, so its only effect was that the next
-	// rejected identity change went straight to a four-hour ban.
-	for (PendingRequestMap::iterator it = m_pendingRequests.begin(); it != m_pendingRequests.end();) {
-		const uint64_t waited = nowTick - it->second.m_sentTick;
-		if (waited >= maxPending + PENDING_SAMPLE_GRACE_MS) {
-			m_pendingRequests.erase(it++);
-			continue;
-		}
-		++it;
-	}
-
-	// If we had a response within the derived ceiling, no need to jumpstart.
-	if (m_lastResponseTick + maxPending > nowTick) {
-		return;
-	}
-#else
-	// Gate off: the fixed 3-second ceiling at its usual second granularity, so the moment a
-	// jumpstart goes out is unchanged. m_lastResponse is cast to time_t before the addition,
-	// which in uint32_t would wrap near the 2106 boundary and silently reorder the comparison.
-	if ((time_t)m_lastResponse + SEC(3) > time(NULL)) {
-		return;
+	if (m_type != STOREFILE && m_type != STOREKEYWORD && m_type != STORENOTES) {
+		return fastKad.GetEstMaxResponseTime();
 	}
 #endif
+	return SEC2MS(3);
+}
+
+void CSearch::JumpStart()
+{
+	if (m_stopping) {
+		return;
+	}
+	const uint64_t now = ::GetTickCount64();
+	m_requests.Prune(now);
+	// Publication keeps its quiet three-second stall interval. Interactive lookups
+	// advance when a slot is free, regardless of replies from unrelated peers.
+	if ((m_type == STOREFILE || m_type == STOREKEYWORD || m_type == STORENOTES) &&
+		(time_t)m_lastResponse + SEC(3) > time(nullptr)) {
+		return;
+	}
+	if (!m_requests.CanSend(now, RequestLimit())) {
+		return;
+	}
 
 	if (m_possible.empty()) {
-		PrepareToStop();
+		if (m_requests.Empty()) {
+			PrepareToStop();
+		}
 		return;
 	}
 
@@ -361,25 +342,35 @@ void CSearch::JumpStart()
 						CFormat("Best %d nodes for lookup (id=%x) were unreachable "
 							"or dead, reasking closest for more") %
 							KADEMLIA_FIND_VALUE % GetSearchID());
-					SendFindValue(it->second, true);
-					return;
+					if (SendFindValue(it->second, true)) {
+						return;
+					}
 				}
 				++it;
 			}
 		}
 	}
 
-	while (!m_possible.empty()) {
-		CContact *c = m_possible.begin()->second;
-
-		if (m_tried.count(m_possible.begin()->first) > 0) {
-			if (m_responded.count(m_possible.begin()->first) > 0) {
-				StorePacket();
+	for (auto it = m_possible.begin(); it != m_possible.end();) {
+		CContact *c = it->second;
+		if (c->GetType() == 4) {
+			it = m_possible.erase(it);
+			continue;
+		}
+		if (m_tried.count(it->first) > 0) {
+			if (m_requests.Contains({ c->GetIPAddress(), c->GetUDPPort() })) {
+				// Keep the candidate for StorePacket if a late answer arrives.
+				++it;
+				continue;
 			}
-			m_possible.erase(m_possible.begin());
+			if (m_responded.count(it->first) > 0) {
+				StorePacket(it);
+			}
+			it = m_possible.erase(it);
 		} else {
-			m_tried[m_possible.begin()->first] = c;
-			SendFindValue(c);
+			if (SendFindValue(c)) {
+				m_tried[it->first] = c;
+			}
 			break;
 		}
 	}
@@ -395,13 +386,8 @@ void CSearch::ProcessResponse(uint32_t fromIP, uint16_t fromPort, ContactList *r
 		m_delete.push_back(*response);
 	}
 
-	m_lastResponse = time(NULL);
-#ifdef ENABLE_KAD_NODE_PROTECTION
-	m_lastResponseTick = ::GetTickCount64();
-#endif
-
 	CUInt128 fromDistance(0u);
-	CContact *fromContact = NULL;
+	CContact *fromContact = nullptr;
 	for (ContactMap::const_iterator it = m_tried.begin(); it != m_tried.end(); ++it) {
 		CContact *tmpContact = it->second;
 		if ((tmpContact->GetIPAddress() == fromIP) && (tmpContact->GetUDPPort() == fromPort)) {
@@ -413,18 +399,6 @@ void CSearch::ProcessResponse(uint32_t fromIP, uint16_t fromPort, ContactList *r
 
 #ifdef ENABLE_KAD_NODE_PROTECTION
 	if (fromContact != nullptr) {
-		// The answer closes out its pending record: leaving satisfied entries in the map
-		// would only make the timeout sweep in JumpStart walk dead weight.
-		PendingRequestMap::iterator pending = m_pendingRequests.find(fromContact->GetClientID());
-		if (pending != m_pendingRequests.end()) {
-			// A useful answer: feed its round-trip time to the shared estimator so the
-			// next timeout reflects the network we are actually on.
-			const uint64_t nowTick = ::GetTickCount64();
-			fastKad.AddResponseTime(
-				fromIP, (uint32_t)(nowTick - pending->second.m_sentTick), nowTick);
-			m_pendingRequests.erase(pending);
-		}
-
 		// The contact may have gone bad since we sent the request. onlyOneNodePerIP is off
 		// here because the contact is already in our routing table, so a second port on the
 		// address is that table's problem.
@@ -468,6 +442,18 @@ void CSearch::ProcessResponse(uint32_t fromIP, uint16_t fromPort, ContactList *r
 				" sent more contacts than requested on a routing query, ignoring response");
 		return;
 	}
+
+	// Only a solicited, structurally valid reply can complete a request or delay
+	// background publication. Duplicate/unrelated replies do not refresh its timer.
+	uint32_t elapsed = 0;
+	if (fromContact == nullptr ||
+		!m_requests.Complete({ fromIP, fromPort }, ::GetTickCount64(), elapsed)) {
+		return;
+	}
+	m_lastResponse = time(nullptr);
+#ifdef ENABLE_KAD_NODE_PROTECTION
+	fastKad.AddResponseTime(fromIP, elapsed, ::GetTickCount64());
+#endif
 
 	m_lookupTrace.Reply({ fromIP, fromPort }, ::GetTickCount64());
 
@@ -543,6 +529,11 @@ void CSearch::ProcessResponse(uint32_t fromIP, uint16_t fromPort, ContactList *r
 				receivedSubnets[c->GetIPAddress() & 0xFFFFFF00] = 1;
 			}
 
+			if (!m_diversity.Admit(
+				    c->GetIPAddress(), ::IsLanIP(wxUINT32_SWAP_ALWAYS(c->GetIPAddress())))) {
+				continue;
+			}
+
 			CLookupTrace::ID traceDistance{};
 			distance.ToByteArray(traceDistance.data());
 			m_lookupTrace.Referral({ c->GetIPAddress(), c->GetUDPPort() },
@@ -567,9 +558,8 @@ void CSearch::ProcessResponse(uint32_t fromIP, uint16_t fromPort, ContactList *r
 					}
 				}
 
-				if (top) {
+				if (top && SendFindValue(c)) {
 					m_tried[distance] = c;
-					SendFindValue(c);
 				}
 			}
 		}
@@ -585,11 +575,9 @@ void CSearch::ProcessResponse(uint32_t fromIP, uint16_t fromPort, ContactList *r
 	}
 }
 
-void CSearch::StorePacket()
+void CSearch::StorePacket(ContactMap::const_iterator possible)
 {
-	wxASSERT(!m_possible.empty());
-
-	ContactMap::const_iterator possible = m_possible.begin();
+	wxASSERT(possible != m_possible.end());
 	CUInt128 fromDistance(possible->first);
 	CContact *from = possible->second;
 
@@ -1077,7 +1065,7 @@ void CSearch::StorePacket()
 			m_nodeSpecialSearchRequester->KadSearchIPByNodeIDResult(KCSR_SUCCEEDED,
 				wxUINT32_SWAP_ALWAYS(from->GetIPAddress()),
 				from->GetTCPPort());
-			m_nodeSpecialSearchRequester = NULL;
+			m_nodeSpecialSearchRequester = nullptr;
 			PrepareToStop();
 		}
 		break;
@@ -1461,11 +1449,14 @@ void CSearch::ProcessResultKeyword(
 	deleteTagPtrListEntries(&taglist);
 }
 
-void CSearch::SendFindValue(CContact *contact, bool reaskMore)
+bool CSearch::SendFindValue(CContact *contact, bool reaskMore)
 {
 	try {
-		if (m_stopping) {
-			return;
+		const uint64_t now = ::GetTickCount64();
+		m_requests.Prune(now);
+		if (m_stopping || contact->GetType() == 4 || !m_requests.CanSend(now, RequestLimit()) ||
+			m_requests.Contains({ contact->GetIPAddress(), contact->GetUDPPort() })) {
+			return false;
 		}
 
 		CMemFile packetdata(33);
@@ -1478,14 +1469,13 @@ void CSearch::SendFindValue(CContact *contact, bool reaskMore)
 			// requested" check accept the larger response, and stops
 			// RequestMoreResults() reasking the same peer twice.
 			wxASSERT(contactCount == KADEMLIA_FIND_VALUE);
-			m_requestedMoreNodes.insert(contact->GetClientID());
 			contactCount = KADEMLIA_FIND_VALUE_MORE;
 		}
 
 		if (contactCount > 0) {
 			packetdata.WriteUInt8(contactCount);
 		} else {
-			return;
+			return false;
 		}
 
 		packetdata.WriteUInt128(m_target);
@@ -1566,15 +1556,12 @@ void CSearch::SendFindValue(CContact *contact, bool reaskMore)
 				break;
 			}
 #endif
-#ifdef ENABLE_KAD_NODE_PROTECTION
-			// Start the clock on this request. The answer's round-trip time feeds the
-			// shared response-time estimator, and JumpStart uses the same record to
-			// notice a request that has gone past the estimated ceiling.
-			sPendingRequest pending = {
-				::GetTickCount64(), contact->GetIPAddress(), contact->GetUDPPort()
-			};
-			m_pendingRequests[contact->GetClientID()] = pending;
-#endif
+			m_requests.Sent(
+				{ contact->GetIPAddress(), contact->GetUDPPort() }, now, RequestTimeout());
+			if (reaskMore) {
+				m_requestedMoreNodes.insert(contact->GetClientID());
+			}
+			return true;
 		} else {
 			wxFAIL;
 		}
@@ -1586,6 +1573,7 @@ void CSearch::SendFindValue(CContact *contact, bool reaskMore)
 	} catch (const wxString &e) {
 		AddDebugLogLineC(logKadSearch, "Exception in CSearch::SendFindValue: " + e);
 	}
+	return false;
 }
 
 // The terminal half of RequestMoreResults()'s guards -- everything that will still be true on the
@@ -1628,7 +1616,9 @@ bool CSearch::RequestMoreResults()
 			continue; // shouldn't happen; defensive
 		}
 		CContact *contact = triedIt->second;
-		if (m_requestedMoreNodes.count(contact->GetClientID()) > 0) {
+		if (contact->GetType() == 4 ||
+			m_requests.Contains({ contact->GetIPAddress(), contact->GetUDPPort() }) ||
+			m_requestedMoreNodes.count(contact->GetClientID()) > 0) {
 			continue; // already reasked this one
 		}
 		AddDebugLogLineN(logKadSearch,
@@ -1637,8 +1627,7 @@ bool CSearch::RequestMoreResults()
 				KadIPToString(contact->GetIPAddress()) % GetSearchID() %
 				(unsigned)(m_requestedMoreNodes.size() + 1) %
 				(unsigned)KADEMLIA_FIND_VALUE_MORE_REASKS);
-		SendFindValue(contact, true);
-		return true;
+		return SendFindValue(contact, true);
 	}
 	return false;
 }
