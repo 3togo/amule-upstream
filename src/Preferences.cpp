@@ -2805,6 +2805,7 @@ void CPreferences::SetMessageRegexSettings(bool enabled, const wxString &pattern
 		RecompileMessageRegex();
 }
 
+// Keep FilterSelectionSummary::Describe() in sync with changes to these filtering rules.
 bool CPreferences::IsMessageFiltered(const wxString &message)
 {
 	if (s_FilterAllMessages) {

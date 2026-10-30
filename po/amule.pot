@@ -2304,82 +2304,6 @@ msgstr ""
 msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
 msgstr ""
 
-#: src/FilterSelectionSummary.h
-msgid "The message filter is off; its selected rules are saved."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "All incoming messages outside current chats will be discarded."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "Messages from people not on your friend list will be discarded."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "Messages from unknown clients will be discarded."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-#, c-format
-msgid "Invalid message regular expression: %s. Correct it before applying these settings."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-#, c-format
-msgid "Messages matching the regular expression %s will be discarded (ignoring case)."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "This expression matches empty text and can match every message."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-#, c-format
-msgid "Messages containing any of these terms will be discarded (ignoring case): %s."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "No messages will be discarded by the message filter: the word list is empty."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "No messages will be discarded by the message filter: select at least one option."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "Current chats are exempt from these rules."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "The connected core does not support message regular expressions."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "Advanced spam filtering for non-friends is also enabled."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "First messages from non-friends require a CAPTCHA."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "Received message text will also be written to the log."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "File comment filtering is off."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-msgid "No file comments will be hidden: the word list is empty."
-msgstr ""
-
-#: src/FilterSelectionSummary.h
-#, c-format
-msgid "File comments containing any of these literal terms will be hidden (ignoring case): %s."
-msgstr ""
-
 #: src/EditServerListDlg.cpp
 msgid "Edit server list sources"
 msgstr ""
@@ -3024,6 +2948,82 @@ msgstr ""
 #: src/FileLaunch.cpp
 #, c-format
 msgid "ERROR: Failed to show '%s' in the file manager."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "The message filter is off; its selected rules are saved."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "All incoming messages outside current chats will be discarded."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Messages from people not on your friend list will be discarded."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Messages from unknown clients will be discarded."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "Invalid message regular expression: %s. Correct it before applying these settings."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "Messages matching the regular expression %s will be discarded (ignoring case)."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "This expression matches empty text and can match every message."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "Messages containing any of these terms will be discarded (ignoring case): %s."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No messages will be discarded by the message filter: the word list is empty."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No messages will be discarded by the message filter: select at least one option."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Current chats are exempt from these rules."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "The connected core does not support message regular expressions."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Advanced spam filtering for non-friends is also enabled."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "First messages from non-friends require a CAPTCHA."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Received message text will also be written to the log."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "File comment filtering is off."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No file comments will be hidden: the word list is empty."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "File comments containing any of these literal terms will be hidden (ignoring case): %s."
 msgstr ""
 
 #: src/FirstRunWizard.cpp
@@ -6179,10 +6179,6 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "With these settings"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Filter selection summary"
 msgstr ""
 
 #: src/muuli_wdr.cpp
