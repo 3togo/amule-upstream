@@ -2,7 +2,7 @@
 
 ## Packet tracking
 
-Incoming request tracking holds at most 10,000 IPs. An ordered expiry index
+Incoming request tracking uses the application-wide `TrackedIPs` setting. An ordered expiry index
 reclaims expired entries before admission; when every slot is live, requests
 from new addresses are dropped without allocating state or evicting existing
 quotas. Replies still pass this request limiter. Each address has only the
@@ -10,9 +10,9 @@ fixed set of recognized opcode budgets; the legacy firewall opcodes share one
 budget. Packet debt saturates, so a flood cannot overflow counters or leave an
 arbitrarily long retention period after it stops.
 
-Outgoing request tracking retains at most 4,096 requests, and legacy challenge
-tracking retains at most 1,024 challenges. Both discard the oldest records
-under pressure and reject expired responses at the 180-second boundary.
+Outgoing request and legacy-challenge tracking use the shared `OutgoingRequests`
+and `LegacyChallenges` settings. Both discard the oldest records
+under pressure and reject expired responses at the configured lifetime boundary.
 
 All incoming requests consume the drop budget. A separate budget counts only
 requests carrying a valid receiver key before escalating to a massive flood.
@@ -34,3 +34,7 @@ Expiring a routing contact after a massive flood was informed by [the verified
 eMule implementation at ac3d52e](https://github.com/irwir/eMule/blob/ac3d52eafd88e9f6d9e0c2204c6dbead18db750b/srchybrid/kademlia/net/KademliaUDPListener.cpp).
 The separate keyed penalty budget is a local safeguard; no reference code was
 copied. These changes affect local policy and add no Kad wire fields.
+
+The [shared Kad configuration](Kad_Constraints.md) defines and validates all local
+limits, rate budgets, subnet admission thresholds and expiry settings. The
+previous numeric values are configurable defaults, not constants in consumers.

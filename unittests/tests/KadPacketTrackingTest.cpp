@@ -19,7 +19,12 @@ namespace
 {
 uint64_t now = 0;
 bool lan = false;
+SKadConstraints policy;
 } // namespace
+const SKadConstraints &Kademlia::GetKadConstraints()
+{
+	return policy;
+}
 uint64 GetTickCount64()
 {
 	return now;
@@ -55,7 +60,7 @@ TEST(KadPacketTracking, CapacityRejectsNewAddressesWithoutResettingLiveQuotas)
 	now = 1000;
 	lan = false;
 	Tracker tracker;
-	for (uint32_t ip = 1; ip <= Tracker::MAX_TRACKED_IPS; ++ip) {
+	for (uint32_t ip = 1; ip <= policy.trackedIPs; ++ip) {
 		ASSERT_TRUE(tracker.InTrackListIsAllowedPacket(ip, KADEMLIA2_PING, false) == Result::Allowed);
 	}
 	ASSERT_TRUE(tracker.InTrackListIsAllowedPacket(10001, KADEMLIA2_PING, false) == Result::Drop);
@@ -106,14 +111,14 @@ TEST(KadPacketTracking, OutgoingAndLegacyTrackingKeepRecentEntriesWithinTheirBou
 {
 	now = 1000;
 	Tracker tracker;
-	for (uint32_t ip = 1; ip <= Tracker::MAX_OUTGOING_REQUESTS + 1; ++ip) {
+	for (uint32_t ip = 1; ip <= policy.outgoingRequests + 1; ++ip) {
 		tracker.AddTrackedOutPacket(ip, KADEMLIA2_PING);
 	}
 	ASSERT_FALSE(tracker.IsOnOutTrackList(1, KADEMLIA2_PING));
 	ASSERT_TRUE(tracker.IsOnOutTrackList(2, KADEMLIA2_PING, true));
 	ASSERT_TRUE(tracker.IsOnOutTrackList(2, KADEMLIA2_PING));
 	ASSERT_FALSE(tracker.IsOnOutTrackList(2, KADEMLIA2_PING));
-	for (uint32_t ip = 1; ip <= Tracker::MAX_LEGACY_CHALLENGES + 1; ++ip) {
+	for (uint32_t ip = 1; ip <= policy.legacyChallenges + 1; ++ip) {
 		tracker.AddLegacyChallenge(CUInt128(ip), CUInt128(ip), ip, KADEMLIA2_PING);
 	}
 	ASSERT_FALSE(tracker.HasActiveLegacyChallenge(1));
@@ -152,4 +157,56 @@ TEST(KadPacketTracking, ExpirationPreservesReferencesUntilRoutingCleanup)
 	ASSERT_FALSE(contact.InUse());
 	bin.RemoveContact(&contact);
 	ASSERT_EQUALS(uint32_t(0), bin.GetSize());
+}
+
+TEST(KadPacketTracking, ConfiguredLimitsAndRatesDriveTheProductionTracker)
+{
+	struct Restore
+	{
+		SKadConstraints saved = policy;
+		~Restore() { policy = saved; }
+	} restore;
+	now = 1000;
+	lan = false;
+	policy.trackedIPs = 2;
+	policy.outgoingRequests = 2;
+	policy.legacyChallenges = 1;
+	policy.trackingLifetimeMs = 50;
+	policy.pingRate = 7;
+	policy.floodMultiplier = 2;
+	Tracker tracker;
+	ASSERT_TRUE(tracker.InTrackListIsAllowedPacket(1, KADEMLIA2_PING, true) == Result::Allowed);
+	ASSERT_TRUE(tracker.InTrackListIsAllowedPacket(2, KADEMLIA2_PING, true) == Result::Allowed);
+	ASSERT_TRUE(tracker.InTrackListIsAllowedPacket(3, KADEMLIA2_PING, true) == Result::Drop);
+	for (unsigned i = 1; i < policy.pingRate; ++i) {
+		ASSERT_TRUE(tracker.InTrackListIsAllowedPacket(1, KADEMLIA2_PING, true) == Result::Allowed);
+	}
+	ASSERT_TRUE(tracker.InTrackListIsAllowedPacket(1, KADEMLIA2_PING, true) == Result::Drop);
+	for (unsigned i = 0; i < policy.pingRate; ++i) {
+		tracker.InTrackListIsAllowedPacket(1, KADEMLIA2_PING, true);
+	}
+	ASSERT_TRUE(tracker.InTrackListIsAllowedPacket(1, KADEMLIA2_PING, true) == Result::MassiveFlood);
+	for (uint32_t ip = 1; ip <= 3; ++ip)
+		tracker.AddTrackedOutPacket(ip, KADEMLIA2_PING);
+	ASSERT_FALSE(tracker.IsOnOutTrackList(1, KADEMLIA2_PING));
+	ASSERT_TRUE(tracker.IsOnOutTrackList(2, KADEMLIA2_PING, true));
+	now += policy.trackingLifetimeMs;
+	ASSERT_FALSE(tracker.IsOnOutTrackList(2, KADEMLIA2_PING));
+}
+
+TEST(KadPacketTracking, RoutingUsesTheSharedSubnetPolicy)
+{
+	struct Restore
+	{
+		SKadConstraints saved = policy;
+		~Restore() { policy = saved; }
+	} restore;
+	policy.subnetPrefix = 16;
+	policy.contactsPerSubnet = 1;
+	CContact first(CUInt128(1u), 0x11010001, 4665, 4662, 8, CKadUDPKey(), true, CUInt128(0u));
+	CContact second(CUInt128(2u), 0x11010101, 4665, 4662, 8, CKadUDPKey(), true, CUInt128(0u));
+	CRoutingBin bin;
+	bin.m_dontDeleteContacts = true;
+	ASSERT_TRUE(bin.AddContact(&first));
+	ASSERT_FALSE(bin.AddContact(&second));
 }

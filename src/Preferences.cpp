@@ -25,6 +25,7 @@
 
 #include <wx/wx.h>
 #include "Preferences.h"
+#include "kademlia/utils/KadConstraintsConfig.h"
 #include "ServerListSources.h"
 #include <wx/file.h>
 
@@ -1622,6 +1623,15 @@ void CPreferences::EraseItemList()
 	}
 }
 
+namespace
+{
+Kademlia::SKadConstraints kadConstraints;
+}
+const Kademlia::SKadConstraints &Kademlia::GetKadConstraints()
+{
+	return kadConstraints;
+}
+
 void CPreferences::LoadAllItems(wxConfigBase *cfg)
 {
 	if (cfg->HasEntry("/MediaMetadata/FFProbePath")) {
@@ -1770,6 +1780,9 @@ void CPreferences::LoadAllItems(wxConfigBase *cfg)
 
 void CPreferences::SaveAllItems(wxConfigBase *cfg)
 {
+#ifndef CLIENT_GUI
+	Kademlia::SaveKadConstraints(*cfg, kadConstraints);
+#endif
 	// Save the Cfg values
 	CFGMap::iterator it_a = s_CfgList.begin();
 	for (; it_a != s_CfgList.end(); ++it_a)
