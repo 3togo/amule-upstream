@@ -93,7 +93,7 @@ class EncryptedSocket:
     def close(self): self.sock.close()
     def __getattr__(self,name): return getattr(self.sock,name)
 
-def authenticate(sock,digest,credential=0,capabilities=(),before_proof=None, request_mutator=None, proof_mutator=None, challenge=None, proof_prefix=b''):
+def authenticate(sock,digest,credential=0,capabilities=(),before_proof=None, request_mutator=None, proof_mutator=None, challenge=None, proof_prefix=b'', proof_followup=()):
     priv=X25519PrivateKey.generate();pub=priv.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw);cn=os.urandom(32)
     a=int.from_bytes(os.urandom(32),'big');A=pow(5,a,N)
     fields=[tag('EC_TAG_CLIENT_NAME',b'EC integration\0',6),tag('EC_TAG_CLIENT_VERSION',b'1\0',6),
@@ -118,12 +118,13 @@ def authenticate(sock,digest,credential=0,capabilities=(),before_proof=None, req
     m1,m2=proofs(S,context(credential,salt,transcript,A,B))
     message=packet('EC_OP_AUTH_PASSWD',[tag('EC_TAG_SRP_M1',m1)])
     if proof_mutator: message=proof_mutator(m1)
-    sock.sendall(proof_prefix + encrypted.seal(message))
+    sock.sendall(proof_prefix + encrypted.seal(message)
+                 + b''.join(encrypted.seal(frame) for frame in proof_followup))
     op,tags=read(encrypted)
     if op==C['EC_OP_AUTH_OK']: assert hmac.compare_digest(tags[C['EC_TAG_SRP_M2']],m2)
     return encrypted,op,tags
 
-def accept(sock,capabilities=(),password=b'regression',server_proof=None,plaintext=False):
+def accept(sock,capabilities=(),password=b'regression',server_proof=None,plaintext=False,server_version=b'capability fixture'):
     op,tags=read(sock);assert op==C['EC_OP_AUTH_REQ']
     A=int.from_bytes(tags[C['EC_TAG_SRP_A']],'big');assert 0<A<N
     credential=tags[C['EC_TAG_SRP_CREDENTIAL']][0]
@@ -143,5 +144,5 @@ def accept(sock,capabilities=(),password=b'regression',server_proof=None,plainte
     assert hmac.compare_digest(tags[C['EC_TAG_SRP_M1']],m1)
     evidence = [tag('EC_TAG_SRP_M2',m2)] if server_proof is None else server_proof(m2)
     (sock if plaintext else encrypted).sendall(packet('EC_OP_AUTH_OK',evidence+[
-        tag('EC_TAG_SERVER_VERSION',b'capability fixture\0',6)]+list(capabilities)))
+        tag('EC_TAG_SERVER_VERSION',server_version+b'\0',6)]+list(capabilities)))
     return encrypted

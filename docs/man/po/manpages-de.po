@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: manpages-de\n"
-"POT-Creation-Date: 2026-10-29 11:58+0100\n"
+"POT-Creation-Date: 2026-10-30 11:29+0000\n"
 "PO-Revision-Date: 2026-10-07 16:31+0000\n"
 "Last-Translator: Balla Marcell <marcell.balla@gmx.at>\n"
 "Language-Team: German <kde-i18n-de@kde.org>\n"

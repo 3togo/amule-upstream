@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: aMule man pages\n"
-"POT-Creation-Date: 2026-10-29 11:58+0100\n"
+"POT-Creation-Date: 2026-10-30 11:29+0000\n"
 "PO-Revision-Date: 2026-10-29 21:57+0000\n"
 "Last-Translator: \n"
 "Language-Team: Marcelo Roberto Jimenez <mroberto@users.sourceforge.net>\n"
@@ -462,11 +462,6 @@ msgstr "B<[ --create-config-from>=I<E<lt>caminhoE<gt>> B<]>"
 #: amulecmd.1.in amuleweb.1.in
 msgid "Create config file based upon I<E<lt>pathE<gt>>, which must point to a valid aMule config file, and then exit."
 msgstr "Cria o arquivo de configuração com base em I<E<lt>caminhoE<gt>>, que deve apontar para um arquivo de configuração válido do aMule, e sai."
-
-#. type: Plain text
-#: amulecmd.1.in amuleweb.1.in
-msgid "Do not encrypt the External Connection link.  Encryption is negotiated automatically whenever the remote aMule supports it, and is on by default for every destination, local or remote.  Turning it off leaves everything after the login readable, and modifiable, by anyone able to observe the connection."
-msgstr "Não criptografa o link de Conexões Externas. A criptografia é negociada automaticamente sempre que o aMule remoto a suporta e vem ativada por padrão para todos os destinos, locais ou remotos. Desativá-la deixa tudo o que vem depois do login legível, e modificável, por qualquer um que possa observar a conexão."
 
 #. type: Plain text
 #: amulecmd.1.in amuleweb.1.in
@@ -1472,7 +1467,7 @@ msgid "Based on Pedro de Oliveira's B<cas>(1).  B<wxcas> was written by ThePolis
 msgstr "Baseado em B<cas>(1) de Pedro de Oliveira. B<wxcas> foi escrito por ThePolish E<lt>thepolish@vipmail.ruE<gt>"
 
 #~ msgid "Do not encrypt the External Connection link.  Encryption is negotiated automatically whenever the remote aMule supports it, and is on by default for every destination, local or remote.  Turning it off leaves everything after the login readable, and modifiable, by anyone able to observe the connection."
-#~ msgstr "Não criptografa o link de Conexões Externas.  A criptografia é negociada automaticamente sempre que o aMule remoto a suporta, e está ligada por padrão para todos os destinos, locais ou remotos.  Desligá-la deixa tudo o que vem após o login legível, e modificável, por qualquer um capaz de observar a conexão."
+#~ msgstr "Não criptografa o link de Conexões Externas. A criptografia é negociada automaticamente sempre que o aMule remoto a suporta e vem ativada por padrão para todos os destinos, locais ou remotos. Desativá-la deixa tudo o que vem depois do login legível, e modificável, por qualquer um que possa observar a conexão."
 
 #, fuzzy
 #~| msgid "B<[ -geometry >I<E<lt>geomE<gt>> B<]>"

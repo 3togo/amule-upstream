@@ -1428,7 +1428,8 @@ bool CamuleApp::OnInit()
 		} else if (PrepareAmulewebToken()) {
 			wxString cmd = QUOTE + amulewebPath +
 				       QUOTE " " QUOTE "--amule-config-file=" + aMuleConfigFile + QUOTE;
-			CTerminationProcessAmuleweb *p = new CTerminationProcessAmuleweb(cmd, &webserver_pid);
+			CTerminationProcessAmuleweb *p = new CTerminationProcessAmuleweb(
+				cmd, &webserver_pid, [this] { OnAmulewebTerminated(); });
 			try {
 				webserver_pid = static_cast<int>(wxExecute(cmd, wxEXEC_ASYNC, p));
 			} catch (const std::exception &) {

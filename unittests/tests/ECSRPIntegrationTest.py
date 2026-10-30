@@ -197,6 +197,21 @@ def password_edit_regressions(port, root, peer):
             assert reply == C['EC_OP_FAILED'], 'duplicate remote-control groups accepted'
             assert original_record in (root / 'amule.conf').read_text()
 
+        # A refused directory is a partial preference apply. It must never commit
+        # a password that the client will treat as rejected and keep using the old one.
+        directories = tag(C['EC_TAG_PREFS_DIRECTORIES'], children=[
+            tag(C['EC_TAG_DIRECTORIES_INCOMING'],
+                str(root.parent / (root.name + '-not-allowed')).encode() + b'\0', 6)])
+        refused_password = tag(C['EC_TAG_PREFS_REMOTECTRL'], children=[
+            tag(C['EC_TAG_EXTERNALCONN_PASSWD'], hashlib.md5(b'must-not-rotate').digest(), 9)])
+        reply, error = editor.call(C['EC_OP_SET_PREFERENCES'], [full, directories, refused_password])
+        assert reply == C['EC_OP_FAILED']
+        assert b'The EC password was not changed.' in error[C['EC_TAG_STRING']][0]
+        assert b'outside the allowed remote directories' in error[C['EC_TAG_STRING']][0]
+        assert C['EC_TAG_SHAREDDIR_REJECTED'] in error
+        assert original_record in (root / 'amule.conf').read_text(), 'refused folder committed password rotation'
+        EC(port).sock.close()
+
         # Keep the port occupied until the daemon replies, guaranteeing bind failure.
         with socket.socket() as occupied:
             occupied.bind(('127.0.0.1', 0))
@@ -205,8 +220,12 @@ def password_edit_regressions(port, root, peer):
                 tag(C['EC_TAG_CONN_TCP_PORT'], struct.pack('!H', occupied.getsockname()[1]), 3)])
             remote = tag(C['EC_TAG_PREFS_REMOTECTRL'], children=[
                 tag(C['EC_TAG_EXTERNALCONN_PASSWD'], hashlib.md5(b'must-not-commit').digest(), 9)])
-            reply, error = editor.call(C['EC_OP_SET_PREFERENCES'], [full, connection, remote])
-            assert reply == C['EC_OP_FAILED'] and b'The EC password was not changed.' in error[C['EC_TAG_STRING']][0]
+            for rejected in ([connection, remote], [connection, directories, remote]):
+                reply, error = editor.call(C['EC_OP_SET_PREFERENCES'], [full] + rejected)
+                assert reply == C['EC_OP_FAILED'] and b'The EC password was not changed.' in error[C['EC_TAG_STRING']][0]
+                if directories in rejected:
+                    assert b'outside the allowed remote directories' in error[C['EC_TAG_STRING']][0]
+                    assert C['EC_TAG_SHAREDDIR_REJECTED'] in error
         assert original_record in (root / 'amule.conf').read_text(), 'failed port rebind committed a password rotation'
         EC(port).sock.close()
         with socket.create_connection(('127.0.0.1', peer), timeout=5):

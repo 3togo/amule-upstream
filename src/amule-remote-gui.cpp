@@ -1729,19 +1729,19 @@ void CPreferencesRem::UpdateNetworks(bool ed2kEnabled, bool kadEnabled)
 	}
 }
 
-// The same msgid labels the read-only list in muuli_wdr.cpp.
-static wxString AllowedRemoteDirsHint()
-{
-	return _("To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration "
-		 "folder, one absolute path per line, then restart the daemon.");
-}
-
 void CamuleRemoteGuiApp::CommitECPasswordChange(const wxString &digest)
 {
 	wxConfigBase *cfg = wxConfigBase::Get();
 	if (!ECClientPassword::Commit(*cfg, m_ecHost, m_ecPort, m_ecPass, digest))
 		AddLogLineC(_("The EC password changed on the daemon, but the saved client password "
 			      "could not be updated."));
+}
+
+// The same msgid labels the read-only list in muuli_wdr.cpp.
+static wxString AllowedRemoteDirsHint()
+{
+	return _("To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration "
+		 "folder, one absolute path per line, then restart the daemon.");
 }
 
 class CPrefsSetHandler : public CECPacketHandlerBase
@@ -1790,19 +1790,25 @@ private:
 					rejectedDirs += CFormat("\n%s") % tag.GetStringData();
 				}
 			}
-			wxString message;
+			const CECTag *detail = packet->GetTagByName(EC_TAG_STRING);
+			wxString message = detail ? detail->GetStringData() : wxString();
 			if (!rejectedDirs.IsEmpty()) {
-				message =
+				// Keep other core errors, such as a failed port rebind, alongside
+				// the refused paths and the local instructions for allowing them.
+				if (!message.IsEmpty()) {
+					message += "\n\n";
+				}
+				message +=
 					CFormat(_("The daemon refused these folders because they are outside "
 						  "the folders it allows (configured on the daemon):%s")) %
 					rejectedDirs;
 				message += "\n\n" + AllowedRemoteDirsHint();
-			} else {
-				const CECTag *tag = packet->GetTagByName(EC_TAG_STRING);
-				message = tag ? tag->GetStringData()
-					      : wxString(_("The daemon could not apply the connection port "
-							   "changes."));
+				if (!detail && !m_ecPassword.IsEmpty())
+					message += "\n\n" + _("The EC password was not changed.");
+			} else if (message.IsEmpty()) {
+				message = _("The daemon could not apply the preference changes.");
 			}
+
 			// Refresh the optimistic remote preference view after the daemon rolls back the
 			// refused changes (it keeps the old folder values), then show the explanation on
 			// the GUI thread.

@@ -89,7 +89,7 @@ def parse_tags(data, offset, count):
 
 
 class EC:
-    def __init__(self, port, host="127.0.0.1", password="regression", capabilities=(), timeout=timeout):
+    def __init__(self, port, host="127.0.0.1", password="regression", timeout=60, capabilities=()):
         self.sock = socket.create_connection((host, port), timeout=timeout)
         from ECWire import authenticate
         caps = [tag(C[name]) for name in ('EC_TAG_CAN_MULTI_SEARCH', 'EC_TAG_CAN_SEARCH_LIST', 'EC_TAG_CAN_PARTIAL_SEARCH')]

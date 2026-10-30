@@ -658,8 +658,6 @@ void CECServerSocket::NegotiateAEAD(const CECPacket *request, CECPacket *respons
 		// Not an older client -- encryption has never shipped, so anything that offers
 		// it at all is new enough to send a key. A keyless offer is therefore malformed,
 		// or a middlebox stripped the key, and the login is refused rather than degraded.
-		// A mistyped key counts as missing, or retyping it would get around that.
-		m_aeadOfferMalformed = true;
 		AddDebugLogLineN(logEC, "AEAD: offer without a usable public key, refusing the login");
 		return;
 	}
@@ -4261,9 +4259,8 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		const wxString oldBindInterface(thePrefs::GetNetworkInterface());
 		bool portRebindFailed = false;
 		wxString networkMessage;
-		// Apply() confines any remote change to the incoming/temp/shared folders to the
-		// configured allowed roots, keeping the old value and listing the refused raw paths
-		// here. The rest of the packet still applies (like the failed-port-rebind path below).
+		// Folder refusals are partial applies, but must not silently rotate the
+		// credential when the client will receive EC_OP_FAILED.
 		wxArrayString refusedDirs;
 		try {
 			if (!static_cast<const CEC_Prefs_Packet *>(request)->Apply(&refusedDirs)) {
@@ -4277,8 +4274,7 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 			}
 		} catch (const std::exception &) {
 			response = new CECPacket(EC_OP_FAILED);
-			response->AddTag(
-				CECTag(EC_TAG_STRING, wxTRANSLATE("Could not update EC password verifier.")));
+			response->AddTag(CECTag(EC_TAG_STRING, wxTRANSLATE("Could not apply preferences.")));
 			break;
 		}
 		// Apply() left any amuleapi password the client sent sitting in the
@@ -4320,7 +4316,8 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		// Act on an AdvertiseIPv6 change now, not at the next periodic refresh.
 		AdvertisedIPv6ForPeers();
 #endif
-		if (password && !portRebindFailed) {
+		const bool dirsRefused = !refusedDirs.IsEmpty();
+		if (password && !portRebindFailed && !dirsRefused) {
 			if (!thePrefs::SetECPasswordVerifier(preparedVerifier)) {
 				response = new CECPacket(EC_OP_FAILED);
 				response->AddTag(CECTag(EC_TAG_STRING,
@@ -4329,16 +4326,8 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 			}
 			AddLogLineN(CFormat(_("EC password changed by %s")) % GetPeer());
 		}
-		const bool dirsRefused = !refusedDirs.IsEmpty();
 		response = new CECPacket((portRebindFailed || dirsRefused) ? EC_OP_FAILED : EC_OP_NOOP);
-		if (portRebindFailed) {
-			if (password) {
-				// The rotation was skipped; say so, or the client keeps resending
-				// the digest behind later OKs while believing it was applied.
-				networkMessage += _("The EC password was not changed.");
-			}
-			response->AddTag(CECTag(EC_TAG_STRING, networkMessage));
-		}
+		wxString failureMessage = portRebindFailed ? networkMessage : wxString();
 		if (dirsRefused) {
 			// One rejected-directory tag per refused folder, carrying reason code 3 (outside
 			// the allowed roots) -- the same structure the EC_OP_SET_SHARED_DIRS reply uses, so
@@ -4351,9 +4340,22 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 					EC_TAG_SHAREDDIR_ERROR, (uint8)EC_SHAREDDIR_ERR_OUTSIDE_ROOTS));
 				response->AddTag(rejected);
 			}
-			response->AddTag(CECTag(EC_TAG_STRING,
-				wxTRANSLATE("One or more folders were outside the allowed remote directories "
-					    "and were left unchanged.")));
+			if (!failureMessage.IsEmpty()) {
+				failureMessage += '\n';
+			}
+			failureMessage += _("One or more folders were outside the allowed remote directories "
+					    "and were left unchanged.");
+		}
+		if (password && (portRebindFailed || dirsRefused)) {
+			if (!failureMessage.IsEmpty()) {
+				failureMessage += '\n';
+			}
+			failureMessage += _("The EC password was not changed.");
+		}
+		if (!failureMessage.IsEmpty()) {
+			// Keep all details in one string: EC clients may read only the first
+			// or last tag with a given name.
+			response->AddTag(CECTag(EC_TAG_STRING, failureMessage));
 		}
 		break;
 	}

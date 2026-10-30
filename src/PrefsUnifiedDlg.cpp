@@ -985,11 +985,6 @@ bool PrefsUnifiedDlg::TransferToWindow()
 		IDC_EC_INTERFACETEXT,
 		IDC_EXT_CONN_TCP_PORT,
 		IDC_EXT_CONN_TCPPORTTEXT,
-		// ffprobe "Browse" (local file picker) and "Detect" (auto-detects on the GUI host, not
-		// the daemon) cannot target the daemon filesystem. The enable toggle + path field are
-		// EC-wired and stay visible.
-		IDC_MEDIAMETA_FFPROBEBROWSE,
-		IDC_MEDIAMETA_FFPROBEDETECT,
 	};
 	for (int id : amuledOnlyPrefs) {
 		if (wxWindow *w = FindWindow(id)) {

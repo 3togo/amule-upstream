@@ -110,8 +110,8 @@ work. Remote preference snapshots never consume or retain a pending EC digest;
 the edit is sent explicitly at commit and cleared only on acknowledgement.
 Confirmed changes update the GUI's reconnect credential and, only if the active
 credential was already saved for that endpoint, its saved client password.
-Failed requests preserve the pending edit for retry; reopening the dialog displays
-a mask and keeps the pending digest intact. Cancelling discards it.
+Failed requests preserve the pending edit only while the preferences dialog stays
+open. Closing or cancelling the dialog discards it.
 
 Config backups and saved client digests are not revoked by deleting the live
 key. A downgrade has no ECPassword and requires setting a password again with

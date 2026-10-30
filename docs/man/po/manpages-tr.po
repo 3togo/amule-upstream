@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: aMule\n"
-"POT-Creation-Date: 2026-10-29 11:58+0100\n"
+"POT-Creation-Date: 2026-10-30 11:29+0000\n"
 "PO-Revision-Date: 2026-10-07 16:31+0000\n"
 "Last-Translator: Sebastiano Pistore <SebastianoPistore.info@protonmail.ch>\n"
 "Language-Team: \n"

@@ -95,7 +95,6 @@ env:
     libmediainfo libmaxminddb \
     libupnp \
     pkg-config \
-    python3-cryptography \
     wxwidgets
 
   # CLANG64, not MINGW64: wxWidgets 3.3 is not packaged for the latter, and
