@@ -14,8 +14,9 @@ import time
 import urllib.error
 import urllib.request
 
-from AllSearchIntegrationTest import C, EC
+from AllSearchIntegrationTest import C, EC, exact
 from DaemonConfig import write_amule_conf
+from DownloadDisplayRatesIntegrationTest import hello
 
 
 def port():
@@ -99,7 +100,10 @@ def run(daemon, api, root):
             assert op == C['EC_OP_CLIENT_HISTORY']
             key, fields = tags[C['EC_TAG_CLIENT']]
             assert key == peer_hash
-            assert fields[C['EC_TAG_CLIENT_MOD_VERSION']][0].rstrip(b'\0').decode() == mod
+            if mod:
+                assert fields[C['EC_TAG_CLIENT_MOD_VERSION']][0].rstrip(b'\0').decode() == mod
+            else:
+                assert C['EC_TAG_CLIENT_MOD_VERSION'] not in fields
             assert fields[C['EC_TAG_CLIENT_SOFT_VER_STR']][0].rstrip(b'\0').decode() == version
             assert fields[C['EC_TAG_CLIENT_SOFTWARE']][0] == software
         finally:
@@ -139,18 +143,11 @@ def run(daemon, api, root):
                     peer.sendall(bytes([protocol]) + struct.pack('<I', len(payload) + 1)
                                  + bytes([opcode]) + payload)
 
-                def hello(identity):
-                    tags = [string_tag(1, 'mod-history-peer')]
-                    if not legacy:
-                        version = (software << 24) | (major << 17) | (minor << 10) | (update << 7)
-                        tags.append(bytes([3, 1, 0, 0xfb]) + struct.pack('<I', version))
-                    if identity:
-                        tags.append(string_tag(0x55, identity))
-                    send(0xe3, 0x01, b'\x10' + peer_hash +
-                         struct.pack('<IHI', 0x0100007f, tcp_port, len(tags)) + b''.join(tags) + bytes(6))
-
                 def advertise(identity):
-                    hello('' if legacy else identity)
+                    version = None if legacy else ((software << 24) | (major << 17) | (minor << 10) | (update << 7))
+                    mod_tag = identity.encode() if identity and not legacy else None
+                    send(0xe3, 0x01, hello(b'mod-history-peer', '127.0.0.1', tcp_port,
+                         user_hash=peer_hash, version=version, mod=mod_tag))
                     if legacy:
                         # Old peers advertise their mod in the supplementary MuleInfo answer.
                         tags = string_tag(0x55, identity)
@@ -184,7 +181,39 @@ def run(daemon, api, root):
             token = request('/auth/login?include_token=true', {'password': 'mod-test'})['token']
             row = wait_for(lambda: identity(request('/known_clients')['known_clients'], mod or None, stored_version))
             assert row['uploaded_bytes_total'] == 1234 and row['downloaded_bytes_total'] == 5678
-        print('PASS: modern/legacy identity, missing-tag reset, stable sessions, EC, REST, restart and credits')
+        # A chat retains the known client across disconnect. Its next outbound hello
+        # must preserve the last received identity until the peer actually answers.
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', 0))
+            listener.listen()
+            listener.settimeout(15)
+            peer_port = listener.getsockname()[1]
+            address = f'127.0.0.1:{peer_port}'
+            version = (70 << 10) | (1 << 7)
+            greeting = hello(b'mod-history-peer', '127.0.0.1', peer_port,
+                             user_hash=peer_hash, version=version, mod=b'AI v1.6')
+            with socket.create_connection(('127.0.0.1', tcp_port), timeout=5) as peer:
+                peer.sendall(b'\xe3' + struct.pack('<I', len(greeting) + 1) + b'\x01' + greeting)
+                wait_for(lambda: identity(request('/clients')['clients'], 'AI v1.6'))
+                request(f'/chats/{address}/messages', {'text': 'retain known peer'})
+            wait_for(lambda: any(row['user_hash'] == peer_hash.hex() and row.get('connected') is False
+                                 for row in request('/clients')['clients']))
+            request(f'/chats/{address}/messages', {'text': 'reconnect known peer'})
+            outgoing, _ = listener.accept()
+            with outgoing:
+                outgoing.settimeout(10)
+                header = exact(outgoing, 6)
+                assert header[0] == 0xe3 and header[5] == 0x01
+                exact(outgoing, struct.unpack('<I', header[1:5])[0] - 1)
+                wait_for(lambda: (row if (row := identity(request('/clients')['clients'], 'AI v1.6'))
+                                 and row.get('connected') else None))
+                # A real hello answer with no mod is authoritative and clears it.
+                answer = hello(b'mod-history-peer', '127.0.0.1', peer_port,
+                               user_hash=peer_hash, version=version)[1:]
+                outgoing.sendall(b'\xe3' + struct.pack('<I', len(answer) + 1) + b'\x4c' + answer)
+                wait_for(lambda: identity(request('/clients')['clients'], None))
+                ec_history('')
+        print('PASS: modern/legacy identity, inbound reset, outbound preservation, stable sessions, EC, REST, restart and credits')
     except Exception:
         for log in logs:
             log.flush()

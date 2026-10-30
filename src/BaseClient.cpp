@@ -366,7 +366,6 @@ CUpDownClient::~CUpDownClient()
 
 void CUpDownClient::ClearHelloProperties()
 {
-	m_strModVersion.Clear();
 	m_nUDPPort = 0;
 	m_byUDPVer = 0;
 	m_byDataCompVer = 0;
@@ -516,6 +515,7 @@ bool CUpDownClient::ProcessHelloAnswer(const uint8_t *pachPacket, uint32 nSize)
 
 bool CUpDownClient::ProcessHelloTypePacket(const CMemFile &data)
 {
+	m_strModVersion.Clear();
 	uint32 dwEmuleTags = 0;
 
 	CMD4Hash hash = data.ReadHash();
@@ -926,9 +926,6 @@ bool CUpDownClient::SendHelloPacket()
 		return true;
 	}
 
-	// This client object may have survived a previous connection. The peer can
-	// now omit its old mod tag, including in a legacy hello answer.
-	m_strModVersion.Clear();
 	CMemFile data(128);
 	data.WriteUInt8(16); // size of userhash
 	SendHelloTypePacket(&data);

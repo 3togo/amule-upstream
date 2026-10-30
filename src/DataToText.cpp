@@ -152,6 +152,7 @@ wxString GetSoftName(unsigned int software_ident, const wxString &modVersion)
 wxString FormatClientSoftware(const wxString &name, const wxString &modVersion, const wxString &version)
 {
 	wxString label = name;
+	// ReGetClientSoft() already includes the mod in its decorated "Fake eMule" labels.
 	if (!modVersion.IsEmpty() && name != modVersion &&
 		!(name.StartsWith(modVersion + " (") && name.EndsWith(")"))) {
 		label += " (" + modVersion + ")";
