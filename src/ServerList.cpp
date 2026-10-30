@@ -700,7 +700,8 @@ bool CServerList::SaveServerMet()
 {
 	CPath curservermet = CPath(thePrefs::GetConfigDir() + "server.met");
 
-	CFile servermet(curservermet, CFile::write_safe);
+	const CPath newservermet = curservermet.AppendExt(".new");
+	CFile servermet(newservermet, CFile::write);
 	if (!servermet.IsOpened()) {
 		AddLogLineN(_("Failed to save server.met!"));
 		return false;
@@ -780,14 +781,20 @@ bool CServerList::SaveServerMet()
 			servermet.WriteUInt32(tagcount);
 			servermet.Write(tags.GetRawBuffer(), static_cast<size_t>(tags.GetLength()));
 		}
-		// Now server.met.new is ready to be closed and renamed to server.met.
-		// But first rename existing server.met to server.met.bak (replacing old .bak file).
-		const CPath oldservermet = CPath(thePrefs::GetConfigDir() + "server.met.bak");
-		if (curservermet.FileExists()) {
-			CPath::RenameFile(curservermet, oldservermet, true);
+		if (!servermet.Close()) {
+			AddLogLineC(_("Failed to save server.met!"));
+			return false;
 		}
-
-		servermet.Close();
+		// Copy the backup so server.met remains discoverable until replacement succeeds.
+		if (curservermet.FileExists() && !CPath::BackupFile(curservermet, ".bak")) {
+			AddLogLineC(_("Failed to back up server.met, aborting save."));
+			return false;
+		}
+		wxString detail;
+		if (!CPath::ReplaceEntry(newservermet, curservermet, &detail)) {
+			AddLogLineC(CFormat(_("Failed to replace server.met: %s")) % detail);
+			return false;
+		}
 
 	} catch (const CIOFailureException &e) {
 		AddLogLineC(CFormat(_("IO failure while writing 'server.met': %s")) % e.what());

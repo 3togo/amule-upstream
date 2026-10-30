@@ -7641,6 +7641,15 @@ msgid "Failed to save server.met!"
 msgstr ""
 
 #: src/ServerList.cpp
+msgid "Failed to back up server.met, aborting save."
+msgstr ""
+
+#: src/ServerList.cpp
+#, c-format
+msgid "Failed to replace server.met: %s"
+msgstr ""
+
+#: src/ServerList.cpp
 #, c-format
 msgid "IO failure while writing 'server.met': %s"
 msgstr ""
