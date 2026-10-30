@@ -3722,3 +3722,11 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Li
 			$<TARGET_FILE:amuled> $<TARGET_FILE:WriteBufferStall>)
 	set_tests_properties (WriteBackpressureIntegrationTest PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
 endif ()
+
+# Native replacement must release the AICH reader first, especially on Windows.
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND Python3_Interpreter_FOUND)
+	add_test (NAME AICHPruneIntegrationTest
+		COMMAND ${Python3_EXECUTABLE}
+			${CMAKE_CURRENT_SOURCE_DIR}/AICHPruneIntegrationTest.py $<TARGET_FILE:amuled>)
+	set_tests_properties (AICHPruneIntegrationTest PROPERTIES LABELS "integration")
+endif ()
