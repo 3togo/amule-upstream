@@ -53,6 +53,11 @@ uint64_t CUDPFirewallTester::m_lastSucceededTime = 0;
 CUDPFirewallTester::PossibleClientList CUDPFirewallTester::m_possibleTestClients;
 CUDPFirewallTester::UsedClientList CUDPFirewallTester::m_usedTestClients;
 
+bool CUDPFirewallTester::IsCheckPending()
+{
+	return IsFWCheckUDPRunning() && m_verificationExpiry.IsChecking(::GetTickCount64());
+}
+
 bool CUDPFirewallTester::IsVerified()
 {
 	if (CKademlia::IsRunningInLANMode()) {

@@ -95,6 +95,33 @@ static void Run()
 				"Action button falls outside the narrow dialog");
 		}
 	}
+	wxTextCtrl *report = nullptr;
+	for (auto *child : dialog->GetChildren()) {
+		if (auto *text = wxDynamicCast(child, wxTextCtrl))
+			report = text;
+	}
+	Check(report, "Missing report control");
+	report->SetSelection(0, 20);
+	const wxString selected = report->GetStringSelection();
+	const wxString unchangedReport = report->GetValue();
+	++s_snapshot.readAt;
+	dialog->SetResult(s_snapshot);
+	Check(report->GetValue() == unchangedReport && report->GetStringSelection() == selected,
+		"Timestamp polling changed the report buffer or selection");
+	s_snapshot.kadUDP = Connectivity::Reachability::Reachable;
+	dialog->SetResult(s_snapshot);
+	Check(report->GetValue().Contains("Kad UDP: Reachable"),
+		"Selected text prevented a new result from appearing");
+	Check(!report->GetStringSelection().empty(), "Refreshing discarded the user's selection");
+	s_snapshot.kadUDP = Connectivity::Reachability::Blocked;
+	dialog->SetResult(s_snapshot);
+	report->SetInsertionPointEnd();
+	const long oldLength = report->GetLastPosition();
+	s_snapshot.kadUDP = Connectivity::Reachability::Reachable;
+	dialog->SetResult(s_snapshot);
+	Check(report->GetLastPosition() < oldLength, "Fixture did not shorten the report");
+	Check(report->GetInsertionPoint() <= report->GetLastPosition(),
+		"Shorter report retained an invalid caret position");
 	s_snapshot.kadUDP = Connectivity::Reachability::Checking;
 	dialog->SetResult(s_snapshot);
 	Check(!recheck->IsEnabled(), "Pending Kad check can be restarted indefinitely");
@@ -124,6 +151,12 @@ static void Run()
 	settings->ShowModal();
 	if (modalError)
 		std::rethrow_exception(modalError);
+	dialog = s_dialog.get();
+	auto *closing = dialog;
+	closing->Destroy();
+	Connectivity::ShowAssistant(settings);
+	Check(s_dialog && s_dialog.get() != closing,
+		"Reopening before deferred deletion reused a closing assistant");
 	dialog = s_dialog.get();
 	dialog->Destroy();
 	wxTheApp->ProcessPendingEvents();

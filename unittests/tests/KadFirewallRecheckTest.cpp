@@ -274,3 +274,28 @@ TEST(KadFirewallRecheck, DiagnosticsKeepGracePeriodPending)
 	fw.AddConfirmation();
 	ASSERT_FALSE(fw.IsChecking(kStart + 101));
 }
+
+TEST(KadFirewallRecheck, InconclusiveTCPTimeoutIsUnverifiedAndLeavesProtocolStateAlone)
+{
+	CFirewallRecheck fw = OpenNode();
+	fw.Start(kStart);
+	ASSERT_TRUE(fw.IsChecking(kStart + CFirewallRecheck::kDiagnosticTimeoutSeconds - 1));
+	ASSERT_FALSE(fw.IsChecking(kStart + CFirewallRecheck::kDiagnosticTimeoutSeconds));
+	ASSERT_FALSE(fw.IsVerified(kStart + CFirewallRecheck::kDiagnosticTimeoutSeconds));
+	ASSERT_FALSE(fw.IsFirewalled(kStart + CFirewallRecheck::kDiagnosticTimeoutSeconds));
+	fw.AddConfirmation();
+	fw.AddConfirmation();
+	ASSERT_TRUE(fw.IsVerified(kStart + CFirewallRecheck::kDiagnosticTimeoutSeconds + 1));
+}
+
+TEST(KadUDPVerificationExpiry, DiagnosticDeadlineDoesNotTurnInconclusiveIntoVerified)
+{
+	CUDPVerificationExpiry expiry;
+	ASSERT_FALSE(expiry.IsChecking(kUDPStart));
+	expiry.Start(kUDPStart);
+	ASSERT_TRUE(expiry.IsChecking(kUDPStart + CUDPVerificationExpiry::kRoundTimeoutMs - 1));
+	ASSERT_FALSE(expiry.IsChecking(kUDPStart + CUDPVerificationExpiry::kRoundTimeoutMs));
+	ASSERT_FALSE(expiry.ShouldExpire(kUDPStart + CUDPVerificationExpiry::kRoundTimeoutMs));
+	expiry.RecordResult(kUDPStart + CUDPVerificationExpiry::kRoundTimeoutMs + 1);
+	ASSERT_FALSE(expiry.IsChecking(kUDPStart + CUDPVerificationExpiry::kRoundTimeoutMs + 1));
+}

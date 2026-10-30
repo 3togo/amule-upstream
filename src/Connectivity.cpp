@@ -30,6 +30,22 @@
 
 namespace
 {
+
+// Required scalar fields must be unambiguous; repeated mapping records are
+// allowed, but duplicate fields within a record or snapshot are malformed.
+const CECTag *UniqueTag(const CECTag &parent, ec_tagname_t name)
+{
+	const CECTag *found = nullptr;
+	for (const auto &tag : parent) {
+		if (tag.GetTagName() == name) {
+			if (found)
+				return nullptr;
+			found = &tag;
+		}
+	}
+	return found;
+}
+
 wxString StateText(Connectivity::Reachability state)
 {
 	using Connectivity::Reachability;
@@ -57,8 +73,7 @@ wxString Connectivity::Format(const Snapshot &s)
 	wxString out = CFormat(_("Core status read at: %s\n")) %
 		       wxDateTime(static_cast<time_t>(s.readAt)).ToUTC().FormatISOCombined(' ');
 	out += _("Times are UTC. This report uses the core's saved settings and current network state. Save "
-		 "changes "
-		 "before checking again.\n\n");
+		 "changes before checking again.\n\n");
 	out += CFormat(_("eD2k: %s\n")) % (s.ed2k == Reachability::Reachable        ? _("High ID")
 						  : s.ed2k == Reachability::Blocked ? _("Low ID")
 										    : StateText(s.ed2k));
@@ -92,7 +107,7 @@ wxString Connectivity::Format(const Snapshot &s)
 		if (ports[i].port == 0)
 			continue;
 		Mapping mapping = ports[i];
-		if (s.upnpEnabled && s.upnpRunning) {
+		if (s.upnpAvailable && s.upnpEnabled && s.upnpRunning && s.router.detected) {
 			for (const auto &result : s.router.mappings) {
 				if (result.port == mapping.port && result.udp == mapping.udp)
 					mapping = result;
@@ -180,7 +195,7 @@ bool Connectivity::Decode(const CECPacket &packet, Snapshot &snapshot)
 		return false;
 	Snapshot s;
 	auto number = [](const CECTag &parent, ec_tagname_t name, uint64_t max, uint64_t &value) {
-		const auto *tag = parent.GetTagByName(name);
+		const auto *tag = UniqueTag(parent, name);
 		if (!tag || !tag->IsInt() || tag->GetInt() > max)
 			return false;
 		value = tag->GetInt();
@@ -192,10 +207,10 @@ bool Connectivity::Decode(const CECPacket &packet, Snapshot &snapshot)
 	s.readAt = n;
 	if (!number(packet, EC_TAG_CONNECTIVITY_TCP_PORT, UINT16_MAX, n) || !n)
 		return false;
-	s.tcpPort = n;
+	s.tcpPort = static_cast<uint16_t>(n);
 	if (!number(packet, EC_TAG_CONNECTIVITY_UDP_PORT, UINT16_MAX, n))
 		return false;
-	s.udpPort = n;
+	s.udpPort = static_cast<uint16_t>(n);
 	if (!number(packet, EC_TAG_CONNECTIVITY_FLAGS, 255, n))
 		return false;
 	s.tcpListening = n & 1;
@@ -215,8 +230,8 @@ bool Connectivity::Decode(const CECPacket &packet, Snapshot &snapshot)
 	if (!number(packet, EC_TAG_CONNECTIVITY_KAD_UDP, 5, n))
 		return false;
 	s.kadUDP = static_cast<Reachability>(n);
-	const auto *address = packet.GetTagByName(EC_TAG_CONNECTIVITY_ADDRESS);
-	const auto *interface = packet.GetTagByName(EC_TAG_CONNECTIVITY_INTERFACE);
+	const auto *address = UniqueTag(packet, EC_TAG_CONNECTIVITY_ADDRESS);
+	const auto *interface = UniqueTag(packet, EC_TAG_CONNECTIVITY_INTERFACE);
 	if (!address || !address->IsString() || !interface || !interface->IsString())
 		return false;
 	s.bindAddress = address->GetStringData();
@@ -229,7 +244,7 @@ bool Connectivity::Decode(const CECPacket &packet, Snapshot &snapshot)
 		Mapping m;
 		if (!number(tag, EC_TAG_CONNECTIVITY_TCP_PORT, UINT16_MAX, n) || !n)
 			return false;
-		m.port = n;
+		m.port = static_cast<uint16_t>(n);
 		if (!number(tag, EC_TAG_CONNECTIVITY_FLAGS, 1, n))
 			return false;
 		m.udp = n;

@@ -41,8 +41,10 @@ Connectivity::Snapshot Connectivity::Capture()
 	s.tcpPort = thePrefs::GetPort();
 	s.udpPort = thePrefs::GetUDPPort();
 	s.udpEnabled = !thePrefs::IsUDPDisabled();
-	s.tcpListening = theApp->listensocket && theApp->listensocket->IsOk();
-	s.udpListening = theApp->clientudp && theApp->clientudp->Ok();
+	s.tcpListening =
+		s.tcpPort != 0 && theApp->listensocket && theApp->listensocket->BoundPort() == s.tcpPort;
+	s.udpListening = s.udpEnabled && s.udpPort != 0 && theApp->clientudp &&
+			 theApp->clientudp->BoundPort() == s.udpPort;
 	s.bindAddress = thePrefs::GetAddress();
 	s.bindInterface = thePrefs::GetNetworkInterface();
 	s.upnpEnabled = thePrefs::GetUPnPEnabled();
@@ -62,18 +64,19 @@ Connectivity::Snapshot Connectivity::Capture()
 	s.lanMode = CKademlia::IsRunningInLANMode();
 	const bool connected = CKademlia::IsConnected();
 	const bool enabled = thePrefs::GetNetworkKademlia();
-	const bool checkingTCP = connected && CKademlia::GetPrefs()->IsFirewallCheckRunning();
-	s.kadTCP = Classify(enabled, connected, checkingTCP, !s.lanMode, CKademlia::IsFirewalled());
-	s.kadUDP = Classify(enabled && s.udpEnabled,
-		connected,
-		connected && CUDPFirewallTester::IsFWCheckUDPRunning(),
-		!s.lanMode && CUDPFirewallTester::IsVerified(),
-		CUDPFirewallTester::IsFirewalledUDP(true));
+	const bool checkingTCP = connected && !s.lanMode && CKademlia::GetPrefs()->IsFirewallCheckRunning();
+	const bool verifiedTCP = connected && !s.lanMode && CKademlia::GetPrefs()->IsFirewallCheckVerified();
+	s.kadTCP = Classify(enabled, connected, checkingTCP, verifiedTCP, CKademlia::IsFirewalled());
+	const bool canCheckUDP = enabled && connected && s.udpEnabled && !s.lanMode;
+	const bool checkingUDP = canCheckUDP && CUDPFirewallTester::IsCheckPending();
+	const bool verifiedUDP = canCheckUDP && CUDPFirewallTester::IsVerified();
+	const bool blockedUDP = canCheckUDP && CUDPFirewallTester::IsFirewalledUDP(true);
+	s.kadUDP = Classify(enabled && s.udpEnabled, connected, checkingUDP, verifiedUDP, blockedUDP);
 	return s;
 }
 
 void Connectivity::RecheckKad()
 {
-	if (Kademlia::CKademlia::IsConnected())
+	if (CanRecheckKad(Capture()))
 		Kademlia::CKademlia::RecheckFirewalled();
 }

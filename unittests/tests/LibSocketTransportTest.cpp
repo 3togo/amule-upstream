@@ -982,3 +982,24 @@ TEST(LibSocketTransport, ConnectIPv6ReportsAClosedPort)
 #endif
 
 // File_checked_for_headers
+
+TEST(LibSocketTransport, BoundPortTracksTheLiveListenerAcrossFailedRebindAndClose)
+{
+	amuleIPV4Address address;
+	ASSERT_TRUE(address.Hostname("127.0.0.1"));
+	address.Service(0);
+	{
+		CLibSocketServer listener(address, MULE_SOCKET_NOWAIT);
+		ASSERT_TRUE(listener.IsOk());
+		const uint16_t original = listener.BoundPort();
+		ASSERT_TRUE(original != 0);
+		boost::asio::io_context io;
+		boost::asio::ip::tcp::acceptor busy(io, { boost::asio::ip::tcp::v4(), 0 });
+		address.Service(busy.local_endpoint().port());
+		ASSERT_FALSE(listener.Rebind(address));
+		ASSERT_EQUALS(original, listener.BoundPort());
+		listener.Close();
+		ASSERT_EQUALS(uint16_t(0), listener.BoundPort());
+	}
+	DrainSocketContexts();
+}

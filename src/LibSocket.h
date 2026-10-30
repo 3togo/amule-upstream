@@ -245,6 +245,8 @@ public:
 	// Host the acceptor is actually bound to ("[::]" for IPv6, dotted quad for IPv4, empty when
 	// not listening); a policy-following listener can bind a different family than requested.
 	wxString BoundHost() const;
+	// Actual TCP listener port; zero when unavailable or closing.
+	uint16_t BoundPort() const;
 	// Replace only the listening acceptor. Existing accepted CLibSocket instances remain
 	// independent and continue their connections.
 	bool Rebind(const amuleIPV4Address &adr);

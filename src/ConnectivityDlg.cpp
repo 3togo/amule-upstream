@@ -28,6 +28,7 @@
 #include <wx/timer.h>
 #include <wx/weakref.h>
 #include <wx/wrapsizer.h>
+#include <algorithm>
 #ifdef CLIENT_GUI
 #include "amule.h"
 #include "libs/ec/cpp/RemoteConnect.h"
@@ -51,10 +52,12 @@ public:
 class ConnectivityDialog final : public wxDialog
 {
 	wxTextCtrl *m_text;
+	wxStaticText *m_status;
 	wxButton *m_refresh;
 	wxButton *m_recheck;
 	wxTimer m_timer;
 	bool m_pending = false;
+	bool m_closing = false;
 
 public:
 	explicit ConnectivityDialog(wxWindow *parent)
@@ -71,6 +74,8 @@ public:
 			wxID_ANY,
 			_("Check the core's ports, router mapping, and eD2k / Kad reachability."));
 		sizer->Add(intro, wxSizerFlags().Border(wxALL, FromDIP(10)));
+		m_status = new wxStaticText(this, wxID_ANY, wxEmptyString);
+		sizer->Add(m_status, wxSizerFlags().Border(wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(10)));
 		m_text = new wxTextCtrl(this,
 			wxID_ANY,
 			wxEmptyString,
@@ -106,28 +111,41 @@ public:
 		m_timer.Start(2000);
 		RefreshStatus(false);
 	}
+	bool IsClosing() const { return m_closing; }
+	bool Destroy() override
+	{
+		if (m_closing)
+			return true;
+		m_closing = true;
+		m_timer.Stop();
+		return wxDialog::Destroy();
+	}
 	void SetResult(const Connectivity::Snapshot &snapshot)
 	{
+		if (m_closing)
+			return;
 		m_pending = false;
-		// Preserve selection and scroll position while users read or copy the report.
-		if (m_text->GetStringSelection().empty()) {
-			const long first = m_text->GetInsertionPoint();
-			const int scroll = m_text->GetScrollPos(wxVERTICAL);
-			m_text->ChangeValue(Connectivity::Format(snapshot));
-			m_text->SetInsertionPoint(first);
-			m_text->ScrollLines(scroll - m_text->GetScrollPos(wxVERTICAL));
+		const wxString report = Connectivity::Format(snapshot);
+		m_status->SetLabel(report.BeforeFirst('\n'));
+		const wxString body = report.AfterFirst('\n');
+		// Poll timestamps update independently. Leave the native text buffer alone
+		// while its content is unchanged, preserving scroll position and selections.
+		if (m_text->GetValue() != body) {
+			long start = 0, end = 0;
+			m_text->GetSelection(&start, &end);
+			m_text->ChangeValue(body);
+			const long last = m_text->GetLastPosition();
+			m_text->SetSelection(std::min(start, last), std::min(end, last));
 		}
 		m_refresh->Enable();
-		using Connectivity::Reachability;
-		m_recheck->Enable(!snapshot.lanMode && snapshot.udpEnabled &&
-				  snapshot.kadTCP != Reachability::Disabled &&
-				  snapshot.kadTCP != Reachability::Disconnected &&
-				  snapshot.kadTCP != Reachability::Checking &&
-				  snapshot.kadUDP != Reachability::Checking);
+		m_recheck->Enable(Connectivity::CanRecheckKad(snapshot));
 	}
 	void SetError(const wxString &message)
 	{
+		if (m_closing)
+			return;
 		m_pending = false;
+		m_status->SetLabel(wxEmptyString);
 		m_text->ChangeValue(message);
 		m_recheck->Disable();
 		m_refresh->Enable();
@@ -135,7 +153,7 @@ public:
 	}
 	void RefreshStatus(bool recheck)
 	{
-		if (m_pending)
+		if (m_pending || m_closing)
 			return;
 #ifdef CLIENT_GUI
 		if (!theApp->m_connect->ServerSupportsConnectivity()) {
@@ -191,7 +209,8 @@ void Connectivity::ShowAssistant(wxWindow *parent)
 	// A view owned by the main window is disabled while Preferences is modal.
 	// Reopen under the caller so the settings entry is usable even when the
 	// first-run view was left open. Outstanding replies only hold weak refs.
-	if (s_dialog && s_dialog->GetParent() != parent) {
+	if (s_dialog &&
+		(s_dialog->IsClosing() || s_dialog->IsBeingDeleted() || s_dialog->GetParent() != parent)) {
 		s_dialog->Destroy();
 		s_dialog = nullptr;
 	}

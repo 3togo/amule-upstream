@@ -48,11 +48,15 @@ public:
 	static const uint32_t kConfirmations = 2;
 	//! How long the confirmations may take after the last IP answer.
 	static const time_t kGraceSeconds = 60;
+	//! Diagnostic wait bound, not a change to the protocol's last firewall state.
+	static constexpr time_t kDiagnosticTimeoutSeconds = 6 * 60;
 
 	//! Starts a recheck, keeping the current state until it ends.
 	void Start(time_t now)
 	{
 		m_lastState = IsFirewalled(now);
+		m_started = true;
+		m_startedAt = now;
 		m_answers = 0;
 		m_confirmations = 0;
 		m_answeredAt = 0;
@@ -72,8 +76,14 @@ public:
 
 	bool IsChecking(time_t now) const
 	{
-		return m_confirmations < kConfirmations &&
-		       (AwaitingAnswers() || now < m_answeredAt + kGraceSeconds);
+		return m_started && !IsVerified(now) && now >= m_startedAt &&
+		       now - m_startedAt < kDiagnosticTimeoutSeconds;
+	}
+
+	bool IsVerified(time_t now) const
+	{
+		return m_confirmations >= kConfirmations ||
+		       (!AwaitingAnswers() && now >= m_answeredAt + kGraceSeconds);
 	}
 
 	bool IsFirewalled(time_t now) const
@@ -88,6 +98,8 @@ public:
 	}
 
 private:
+	bool m_started = false;
+	time_t m_startedAt = 0;
 	uint32_t m_answers = 0;
 	uint32_t m_confirmations = 0;
 	time_t m_answeredAt = 0;

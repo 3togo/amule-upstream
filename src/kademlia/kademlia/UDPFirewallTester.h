@@ -62,6 +62,7 @@ public:
 		       !CKademlia::IsRunningInLANMode();
 	}
 	static bool IsVerified();
+	static bool IsCheckPending();
 
 	static void AddPossibleTestContact(const CUInt128 &clientID,
 		uint32_t ip,

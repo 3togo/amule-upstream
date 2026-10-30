@@ -77,11 +77,13 @@ public:
 		std::lock_guard<std::mutex> lock(m_mutex);
 		m_snapshot.detected = true;
 	}
-	void RouterUnavailable()
+	void RouterChanged(bool detected)
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
 		m_snapshot = {};
+		m_snapshot.detected = detected;
 	}
+	void RouterUnavailable() { RouterChanged(false); }
 	void Record(uint16_t port, bool udp, bool accepted, uint64_t now)
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
@@ -143,6 +145,13 @@ struct Snapshot
 	Reachability kadUDP = Reachability::Unverified;
 	RouterSnapshot router;
 };
+
+inline bool CanRecheckKad(const Snapshot &s)
+{
+	return !s.lanMode && s.udpEnabled && s.kadTCP != Reachability::Disabled &&
+	       s.kadTCP != Reachability::Disconnected && s.kadTCP != Reachability::Checking &&
+	       s.kadUDP != Reachability::Checking;
+}
 
 // Core only. The snapshot is collected on the application's main thread.
 Snapshot Capture();

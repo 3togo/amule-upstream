@@ -1713,6 +1713,11 @@ public:
 	// already listening for new connections.
 	bool IsOk() const { return m_ok; }
 
+	uint16_t BoundPort() const
+	{
+		return m_ok && !m_acceptStopped && m_boundEndpoint ? m_boundEndpoint->port() : 0;
+	}
+
 	wxString BoundHost() const
 	{
 		if (!m_ok || !m_boundEndpoint) {
@@ -1999,6 +2004,11 @@ bool CLibSocketServer::AcceptWith(CLibSocket &socket, bool WXUNUSED_UNLESS_DEBUG
 bool CLibSocketServer::IsOk() const
 {
 	return m_aServer->IsOk();
+}
+
+uint16_t CLibSocketServer::BoundPort() const
+{
+	return m_aServer->BoundPort();
 }
 
 wxString CLibSocketServer::BoundHost() const

@@ -127,6 +127,8 @@ public:
 	 * True if the socket is Ok. @see wxSocketBase::Ok
 	 */
 	bool Ok();
+	// Requested port of the live socket; zero for a closed or OS-assigned socket.
+	uint16 BoundPort();
 
 	/** Read buffer size */
 	static const unsigned UDP_BUFFER_SIZE = 16384;

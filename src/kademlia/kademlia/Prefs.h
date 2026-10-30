@@ -83,6 +83,7 @@ public:
 	}
 	uint32_t GetLastContact() const noexcept { return m_lastContact; }
 
+	bool IsFirewallCheckVerified() const noexcept { return m_firewallRecheck.IsVerified(time(nullptr)); }
 	bool IsFirewallCheckRunning() const noexcept { return m_firewallRecheck.IsChecking(time(nullptr)); }
 	bool GetFirewalled() const noexcept { return m_firewallRecheck.IsFirewalled(time(nullptr)); }
 	void IncFirewalled();

@@ -344,6 +344,12 @@ bool CMuleUDPSocket::QueuePacket(CPacket *packet,
 	return true;
 }
 
+uint16 CMuleUDPSocket::BoundPort()
+{
+	wxMutexLocker lock(m_mutex);
+	return m_socket && m_socket->IsOk() ? m_addr.Service() : 0;
+}
+
 bool CMuleUDPSocket::Ok()
 {
 	wxMutexLocker lock(m_mutex);

@@ -1402,9 +1402,11 @@ void CUPnPControlPoint::RemoveRootDevice(const char *udn)
 void CUPnPControlPoint::ForgetService(const CUPnPService *service)
 {
 	CUPnPMutexLocker lock(m_ServiceMapMutex);
+	bool removed = false;
 	for (ServiceMap::iterator it = m_ServiceMap.begin(); it != m_ServiceMap.end();) {
 		if (it->second == service) {
 			it = m_ServiceMap.erase(it);
+			removed = true;
 		} else {
 			++it;
 		}
@@ -1412,8 +1414,8 @@ void CUPnPControlPoint::ForgetService(const CUPnPService *service)
 	if (m_WanService == service) {
 		m_WanService = m_ServiceMap.empty() ? nullptr : m_ServiceMap.begin()->second;
 	}
-	if (m_ServiceMap.empty()) {
-		m_mappingDiagnostics.RouterUnavailable();
+	if (removed) {
+		m_mappingDiagnostics.RouterChanged(!m_ServiceMap.empty());
 	}
 }
 
@@ -1503,9 +1505,7 @@ void CUPnPControlPoint::Unsubscribe(CUPnPService &service)
 			return;
 		}
 		m_ServiceMap.erase(it);
-		if (m_ServiceMap.empty()) {
-			m_mappingDiagnostics.RouterUnavailable();
-		}
+		m_mappingDiagnostics.RouterChanged(!m_ServiceMap.empty());
 	}
 	UpnpUnSubscribe(m_UPnPClientHandle, service.GetSID());
 }

@@ -48,6 +48,12 @@ public:
 		m_counted = false;
 	}
 
+	// A timed-out round is inconclusive; diagnostics must not wait forever for it.
+	bool IsChecking(uint64_t now) const
+	{
+		return m_running && now >= m_startedAt && now - m_startedAt < kRoundTimeoutMs;
+	}
+
 	// A running round can count only once. Its deadline is independent of the age of
 	// the last completed result, so frequent recheck restarts cannot retain stale evidence.
 	bool ShouldExpire(uint64_t now)

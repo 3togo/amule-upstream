@@ -139,3 +139,66 @@ TEST(Connectivity, RouterLossClearsAcceptedMappings)
 	diagnostics.RouterDetected();
 	ASSERT_TRUE(diagnostics.Get().mappings.empty());
 }
+
+TEST(Connectivity, ServiceChangeCannotRetainAnotherServicesAcceptedResult)
+{
+	MappingDiagnostics diagnostics;
+	diagnostics.RouterDetected();
+	diagnostics.Record(4662, false, true, 100);
+	diagnostics.RouterChanged(true); // Another service remains, with unknown mapping state.
+	ASSERT_TRUE(diagnostics.Get().detected);
+	ASSERT_TRUE(diagnostics.Get().mappings.empty());
+}
+
+TEST(Connectivity, UnavailableRouterOrBuildCannotDisplayStaleAcceptedMappings)
+{
+	Snapshot s = Example();
+	s.router.detected = false;
+	ASSERT_FALSE(Format(s).Contains("Router accepted mapping"));
+	s = Example();
+	s.upnpAvailable = false;
+	ASSERT_FALSE(Format(s).Contains("Router accepted mapping"));
+}
+
+TEST(Connectivity, DuplicateFieldsAreRejectedWithoutReplacingTheSnapshot)
+{
+	Snapshot original = Example();
+	CECPacket duplicate(EC_OP_GET_CONNECTIVITY);
+	AddTags(duplicate, original);
+	duplicate.AddTag(CECTag(EC_TAG_CONNECTIVITY_FLAGS, uint8_t(0)));
+	ASSERT_FALSE(Decode(duplicate, original));
+	ASSERT_TRUE(original.upnpEnabled);
+	CECPacket duplicateString(EC_OP_GET_CONNECTIVITY);
+	AddTags(duplicateString, original);
+	duplicateString.AddTag(CECTag(EC_TAG_CONNECTIVITY_ADDRESS, wxString("other address")));
+	ASSERT_FALSE(Decode(duplicateString, original));
+	CECPacket duplicateChild(EC_OP_GET_CONNECTIVITY);
+	AddTags(duplicateChild, original);
+	CECEmptyTag record(EC_TAG_CONNECTIVITY_MAPPING);
+	record.AddTag(CECTag(EC_TAG_CONNECTIVITY_TCP_PORT, uint16_t(10000)));
+	record.AddTag(CECTag(EC_TAG_CONNECTIVITY_TCP_PORT, uint16_t(10001)));
+	record.AddTag(CECTag(EC_TAG_CONNECTIVITY_FLAGS, uint8_t(1)));
+	record.AddTag(CECTag(EC_TAG_CONNECTIVITY_MAPPING_STATE, uint8_t(1)));
+	record.AddTag(CECTag(EC_TAG_CONNECTIVITY_READ_AT, uint64_t(100)));
+	duplicateChild.AddTag(record);
+	ASSERT_FALSE(Decode(duplicateChild, original));
+}
+
+TEST(Connectivity, RetryPolicyRejectsInactiveAndPendingNetworksButAllowsInconclusiveResults)
+{
+	Snapshot s = Example();
+	ASSERT_TRUE(CanRecheckKad(s));
+	s.kadTCP = Reachability::Checking;
+	ASSERT_FALSE(CanRecheckKad(s));
+	s.kadTCP = Reachability::Unverified;
+	s.kadUDP = Reachability::Unverified;
+	ASSERT_TRUE(CanRecheckKad(s)); // Timed out without evidence, so a retry is useful.
+	s.udpEnabled = false;
+	ASSERT_FALSE(CanRecheckKad(s));
+	s = Example();
+	s.lanMode = true;
+	ASSERT_FALSE(CanRecheckKad(s));
+	s = Example();
+	s.kadTCP = Reachability::Disconnected;
+	ASSERT_FALSE(CanRecheckKad(s));
+}

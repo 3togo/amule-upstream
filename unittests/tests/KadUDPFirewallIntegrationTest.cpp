@@ -472,3 +472,17 @@ TEST(KadUDPFirewallIntegration, PortCorrectionMustBelongToCurrentRound)
 	CUDPFirewallTester::SetUDPFWCheckResult(true, false, peer + 1, internalPort);
 	ASSERT_FALSE(CKademlia::GetPrefs()->GetUseExternKadPort());
 }
+
+TEST(KadUDPFirewallIntegration, DiagnosticPendingStopsAfterTimeoutWithoutMutatingTheTester)
+{
+	CUDPFirewallTesterFixture fixture;
+	ASSERT_FALSE(CUDPFirewallTester::IsCheckPending());
+	CUDPFirewallTester::ReCheckFirewallUDP(false);
+	ASSERT_TRUE(CUDPFirewallTester::IsCheckPending());
+	now += CUDPVerificationExpiry::kRoundTimeoutMs;
+	ASSERT_FALSE(CUDPFirewallTester::IsCheckPending());
+	ASSERT_TRUE(CUDPFirewallTester::IsFWCheckUDPRunning()); // Protocol behavior is preserved.
+	ASSERT_FALSE(CUDPFirewallTester::IsVerified());
+	CUDPFirewallTester::ReCheckFirewallUDP(false);
+	ASSERT_TRUE(CUDPFirewallTester::IsCheckPending());
+}
