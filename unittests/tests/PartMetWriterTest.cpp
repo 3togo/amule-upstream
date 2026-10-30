@@ -210,12 +210,13 @@ TEST(WritePartMet, BackupFailurePreservesLiveMetadata)
 	}
 	unsigned calls = 0;
 	const CPartMetFileOps ops = { [](const CPath &, const wxString &) { return false; },
-		[&calls](const CPath &, const CPath &) {
+		[&calls](const CPath &, const CPath &, wxString *) {
 			++calls;
 			return false;
 		} };
 	const auto result = InstallPartMet(first, ops);
 	ASSERT_EQUALS(CPartMetSaveResult::Failed, result.status);
+	ASSERT_EQUALS(wxString("Failed to back up part.met file"), result.detail);
 	ASSERT_EQUALS(0u, calls);
 	ASSERT_EQUALS(1, ReadAll(Met())[0]);
 	ASSERT_EQUALS(2, ReadAll(Tmp())[0]);
@@ -234,16 +235,21 @@ TEST(WritePartMet, FailedInstallPreservesLiveMetadataAndCanRetry)
 		CFile tmp(Tmp(), CFile::write);
 		tmp.WriteUInt8(2);
 	}
-	const CPartMetFileOps failing = { CPath::BackupFile, [&req](const CPath &src, const CPath &dst) {
-						 return dst.GetRaw() != req.metPath.GetRaw() &&
-							CPath::ReplaceEntry(src, dst);
-					 } };
-	ASSERT_EQUALS(CPartMetSaveResult::Failed, InstallPartMet(req, failing).status);
+	const CPartMetFileOps failing = { CPath::BackupFile,
+		[&req](const CPath &src, const CPath &dst, wxString *detail) {
+			if (dst.GetRaw() == req.metPath.GetRaw()) {
+				*detail = "installation denied";
+				return false;
+			}
+			return CPath::ReplaceEntry(src, dst, detail);
+		} };
+	const auto failure = InstallPartMet(req, failing);
+	ASSERT_EQUALS(CPartMetSaveResult::Failed, failure.status);
+	ASSERT_EQUALS(wxString("Failed to install part.met file: installation denied"), failure.detail);
 	ASSERT_EQUALS(1, ReadAll(Met())[0]);
 	ASSERT_EQUALS(1, ReadAll(Bak())[0]);
 	ASSERT_EQUALS(2, ReadAll(Tmp())[0]);
-	const CPartMetFileOps working = { CPath::BackupFile,
-		[](const CPath &src, const CPath &dst) { return CPath::ReplaceEntry(src, dst); } };
+	const CPartMetFileOps working = { CPath::BackupFile, CPath::ReplaceEntry };
 	ASSERT_EQUALS(CPartMetSaveResult::Saved, InstallPartMet(req, working).status);
 	ASSERT_EQUALS(2, ReadAll(Met())[0]);
 	ASSERT_EQUALS(1, ReadAll(Bak())[0]);
@@ -264,12 +270,12 @@ TEST(WritePartMet, LiveMetadataRemainsDiscoverableBetweenBackupAndInstall)
 	}
 	bool livePresent = false;
 	const CPartMetFileOps ops = { CPath::BackupFile,
-		[&livePresent, &req](const CPath &src, const CPath &dst) {
+		[&livePresent, &req](const CPath &src, const CPath &dst, wxString *detail) {
 			if (dst.GetRaw() == req.metPath.GetRaw()) {
 				livePresent = Met().FileExists() && ReadAll(Met())[0] == 1 &&
 					      ReadAll(Bak())[0] == 1;
 			}
-			return CPath::ReplaceEntry(src, dst);
+			return CPath::ReplaceEntry(src, dst, detail);
 		} };
 	ASSERT_EQUALS(CPartMetSaveResult::Saved, InstallPartMet(req, ops).status);
 	ASSERT_TRUE(livePresent);
@@ -285,7 +291,10 @@ TEST(WritePartMet, FirstInstallFailureDoesNotReportSaved)
 		tmp.WriteUInt8(2);
 	}
 	auto req = Request(2);
-	const CPartMetFileOps ops = { CPath::BackupFile, [](const CPath &, const CPath &) { return false; } };
+	const CPartMetFileOps ops = { CPath::BackupFile, [](const CPath &, const CPath &, wxString *detail) {
+					     *detail = "replacement denied";
+					     return false;
+				     } };
 	ASSERT_EQUALS(CPartMetSaveResult::Failed, InstallPartMet(req, ops).status);
 	ASSERT_FALSE(Met().FileExists());
 	ASSERT_EQUALS(2, ReadAll(Tmp())[0]);
@@ -308,7 +317,11 @@ TEST(WritePartMet, FailedNativeReplacementCannotTruncateTheDestination)
 	CPath::RemoveDir(Tmp());
 	RemoveAll();
 	ASSERT_FALSE(replaced);
+#ifdef __WXMSW__
+	ASSERT_EQUALS(wxString("source is a directory"), detail);
+#else
 	ASSERT_FALSE(detail.empty());
+#endif
 	ASSERT_EQUALS(1u, data.size());
 	ASSERT_EQUALS(7, data[0]);
 }
@@ -399,8 +412,13 @@ TEST(WritePartMet, FailedBackupInstallPreservesBothPreviousVersions)
 		CFile tmp(Tmp(), CFile::write);
 		tmp.WriteUInt8(3);
 	}
-	const CPartMetFileOps ops = { CPath::BackupFile, [](const CPath &, const CPath &) { return false; } };
-	ASSERT_EQUALS(CPartMetSaveResult::Failed, InstallPartMet(second, ops).status);
+	const CPartMetFileOps ops = { CPath::BackupFile, [](const CPath &, const CPath &, wxString *detail) {
+					     *detail = "replacement denied";
+					     return false;
+				     } };
+	const auto failure = InstallPartMet(second, ops);
+	ASSERT_EQUALS(CPartMetSaveResult::Failed, failure.status);
+	ASSERT_EQUALS(wxString("Failed to back up part.met file: replacement denied"), failure.detail);
 	ASSERT_EQUALS(2, ReadAll(Met())[0]);
 	ASSERT_EQUALS(1, ReadAll(Bak())[0]);
 	ASSERT_EQUALS(3, ReadAll(Tmp())[0]);
