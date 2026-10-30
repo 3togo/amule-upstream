@@ -93,7 +93,9 @@ CPartMetSaveResult WritePartMet(CPartMetSaveRequest &req)
 		CPath::RemoveFile(req.tmpPath);
 		return { CPartMetSaveResult::Failed, "Incomplete part.met.tmp file" };
 	}
-	return InstallPartMet(req, { CPath::BackupFile, CPath::ReplaceEntry });
+	return InstallPartMet(req, { CPath::BackupFile, [](const CPath &src, const CPath &dst) {
+					    return CPath::ReplaceEntry(src, dst);
+				    } });
 }
 
 CPartMetSaveResult InstallPartMet(const CPartMetSaveRequest &req, const CPartMetFileOps &ops)

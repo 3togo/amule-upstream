@@ -28,6 +28,9 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#ifdef __WXMSW__
+#include <wx/msw/wrapwin.h>
+#endif
 
 using namespace muleunit;
 
@@ -239,7 +242,8 @@ TEST(WritePartMet, FailedInstallPreservesLiveMetadataAndCanRetry)
 	ASSERT_EQUALS(1, ReadAll(Met())[0]);
 	ASSERT_EQUALS(1, ReadAll(Bak())[0]);
 	ASSERT_EQUALS(2, ReadAll(Tmp())[0]);
-	const CPartMetFileOps working = { CPath::BackupFile, CPath::ReplaceEntry };
+	const CPartMetFileOps working = { CPath::BackupFile,
+		[](const CPath &src, const CPath &dst) { return CPath::ReplaceEntry(src, dst); } };
 	ASSERT_EQUALS(CPartMetSaveResult::Saved, InstallPartMet(req, working).status);
 	ASSERT_EQUALS(2, ReadAll(Met())[0]);
 	ASSERT_EQUALS(1, ReadAll(Bak())[0]);
@@ -298,11 +302,13 @@ TEST(WritePartMet, FailedNativeReplacementCannotTruncateTheDestination)
 	// Directory sources must be rejected, including on Windows where MoveFileExW can
 	// replace a regular file with a directory. A copy/delete fallback can also destroy it.
 	ASSERT_TRUE(CPath::MakeDir(Tmp()));
-	const bool replaced = CPath::ReplaceEntry(Tmp(), Met());
+	wxString detail;
+	const bool replaced = CPath::ReplaceEntry(Tmp(), Met(), &detail);
 	const auto data = ReadAll(Met());
 	CPath::RemoveDir(Tmp());
 	RemoveAll();
 	ASSERT_FALSE(replaced);
+	ASSERT_FALSE(detail.empty());
 	ASSERT_EQUALS(1u, data.size());
 	ASSERT_EQUALS(7, data[0]);
 }
@@ -314,10 +320,68 @@ TEST(WritePartMet, MissingReplacementSourcePreservesTheDestination)
 		CFile file(Met(), CFile::write);
 		file.WriteUInt8(7);
 	}
-	ASSERT_FALSE(CPath::ReplaceEntry(Tmp(), Met()));
+	wxString detail;
+	ASSERT_FALSE(CPath::ReplaceEntry(Tmp(), Met(), &detail));
+	ASSERT_FALSE(detail.empty());
 	ASSERT_EQUALS(7, ReadAll(Met())[0]);
 	RemoveAll();
 }
+
+TEST(WritePartMet, SuccessfulReplacementClearsErrorDetail)
+{
+	RemoveAll();
+	{
+		CFile file(Met(), CFile::write);
+		file.WriteUInt8(7);
+	}
+	{
+		CFile file(Tmp(), CFile::write);
+		file.WriteUInt8(9);
+	}
+	wxString detail = "previous error";
+	ASSERT_TRUE(CPath::ReplaceEntry(Tmp(), Met(), &detail));
+	ASSERT_TRUE(detail.empty());
+	ASSERT_FALSE(Tmp().FileExists());
+	ASSERT_EQUALS(9, ReadAll(Met())[0]);
+	RemoveAll();
+}
+
+#ifdef __WXMSW__
+TEST(WritePartMet, SharingViolationPreservesBothFilesAndReportsError)
+{
+	RemoveAll();
+	{
+		CFile file(Met(), CFile::write);
+		file.WriteUInt8(7);
+	}
+	{
+		CFile file(Tmp(), CFile::write);
+		file.WriteUInt8(9);
+	}
+	// Hold the live entry without FILE_SHARE_DELETE through both attempts.
+	HANDLE held = ::CreateFileW(Met().GetRaw().wc_str(),
+		GENERIC_READ,
+		FILE_SHARE_READ,
+		nullptr,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		nullptr);
+	ASSERT_TRUE(held != INVALID_HANDLE_VALUE);
+	wxString detail;
+	const auto started = std::chrono::steady_clock::now();
+	const bool replaced = CPath::ReplaceEntry(Tmp(), Met(), &detail);
+	const auto elapsed = std::chrono::steady_clock::now() - started;
+	::CloseHandle(held);
+	ASSERT_TRUE(elapsed >= std::chrono::milliseconds(50));
+	ASSERT_FALSE(replaced);
+	ASSERT_FALSE(detail.empty());
+	ASSERT_EQUALS(7, ReadAll(Met())[0]);
+	ASSERT_EQUALS(9, ReadAll(Tmp())[0]);
+	ASSERT_TRUE(CPath::ReplaceEntry(Tmp(), Met(), &detail));
+	ASSERT_TRUE(detail.empty());
+	RemoveAll();
+}
+#endif
 
 TEST(WritePartMet, FailedBackupInstallPreservesBothPreviousVersions)
 {
