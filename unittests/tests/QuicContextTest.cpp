@@ -474,6 +474,61 @@ TEST(QuicContext, ClosedConnectionsReleaseCapacity)
 	ASSERT_EQUALS(CQuicContext::kMaxConnections, context.ConnectionCount());
 }
 
+TEST(QuicContext, CapsOutboundConnectionsBeforeCreatingHandshake)
+{
+	FakeFactory factory;
+	CQuicContext context(&factory);
+	for (unsigned i = 0; i < CQuicContext::kMaxConnections; ++i) {
+		factory.next = std::make_unique<FakeConnection>();
+		ASSERT_TRUE(context.Dial(PeerNumber(i + 1), 4662, kPeerIdentity, 0));
+	}
+	factory.next = std::make_unique<FakeConnection>();
+	ASSERT_TRUE(!context.Dial(PeerNumber(CQuicContext::kMaxConnections + 1), 4662, kPeerIdentity, 0));
+	ASSERT_EQUALS(CQuicContext::kMaxConnections, factory.outboundCalls);
+	ASSERT_EQUALS(CQuicContext::kMaxConnections, context.ConnectionCount());
+}
+
+TEST(QuicContext, IncomingAndOutgoingConnectionsShareCapacity)
+{
+	FakeFactory factory;
+	factory.alwaysCreate = true;
+	CQuicContext context(&factory);
+	auto payload = Initial(0x76);
+	for (unsigned i = 0; i < CQuicContext::kMaxConnections; ++i) {
+		if (i % 2 == 0) {
+			ASSERT_TRUE(context.ProcessDatagram(
+				payload.data(), payload.size(), PeerNumber(i + 1), 4662, 0));
+		} else {
+			factory.next = std::make_unique<FakeConnection>();
+			ASSERT_TRUE(context.Dial(PeerNumber(i + 1), 4662, kPeerIdentity, 0));
+		}
+	}
+	factory.next = std::make_unique<FakeConnection>();
+	ASSERT_TRUE(!context.Dial(PeerNumber(CQuicContext::kMaxConnections + 1), 4662, kPeerIdentity, 0));
+	ASSERT_TRUE(!context.ProcessDatagram(
+		payload.data(), payload.size(), PeerNumber(CQuicContext::kMaxConnections + 2), 4662, 0));
+	ASSERT_EQUALS(CQuicContext::kMaxConnections / 2, factory.calls);
+	ASSERT_EQUALS(CQuicContext::kMaxConnections / 2, factory.outboundCalls);
+	ASSERT_EQUALS(CQuicContext::kMaxConnections, context.ConnectionCount());
+}
+
+TEST(QuicContext, ClosedConnectionsReleaseCapacityForOutboundDial)
+{
+	FakeFactory factory;
+	factory.alwaysCreate = true;
+	CQuicContext context(&factory);
+	auto payload = Initial(0x77);
+	for (unsigned i = 0; i < CQuicContext::kMaxConnections; ++i) {
+		ASSERT_TRUE(
+			context.ProcessDatagram(payload.data(), payload.size(), PeerNumber(i + 1), 4662, 0));
+	}
+	factory.created[0]->closed = true;
+	factory.next = std::make_unique<FakeConnection>();
+	ASSERT_TRUE(context.Dial(PeerNumber(CQuicContext::kMaxConnections + 1), 4662, kPeerIdentity, 0));
+	ASSERT_EQUALS(1u, factory.outboundCalls);
+	ASSERT_EQUALS(CQuicContext::kMaxConnections, context.ConnectionCount());
+}
+
 TEST(QuicContext, IPv6PeerIsKeyedByItsOwnAddress)
 {
 	FakeFactory factory;
