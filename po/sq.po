@@ -1856,6 +1856,14 @@ msgstr "Perdoruesi %s (%u) nuk lejoi hyrjen ne listen e kartelave/faileve te nda
 msgid "File Comments"
 msgstr "Komentet e faileve"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Shti Komento/Klasifiko"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Redakto Koment/Klasifiko"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Emri i perdorimit"
@@ -3228,10 +3236,6 @@ msgstr "Dosja e destinacionit për shkarkimet"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Shfleto"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Të gjithë skedarët në këtë dosje ndahen me peer-ë të tjerë)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6468,6 +6472,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Të gjithë skedarët në këtë dosje ndahen me peer-ë të tjerë)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "te gjithe"
 
@@ -8378,14 +8386,6 @@ msgstr "Direktoria Path"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "File te ndara"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Shti Komento/Klasifiko"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Redakto Koment/Klasifiko"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

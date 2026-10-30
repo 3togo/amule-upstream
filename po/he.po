@@ -1859,6 +1859,14 @@ msgstr "משתמש %s (%u) שלל גישה לרשימת הקבצים/תקיות 
 msgid "File Comments"
 msgstr "הערות על הקובץ"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "הוסף תגובה/דירוג"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "ערוך תגובה/דירוג"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "שם משתמש"
@@ -3232,10 +3240,6 @@ msgstr "תיקיית יעד להורדות"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "דפדף"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(כל הקבצים בתיקייה זו משותפים עם עמיתים אחרים)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6472,6 +6476,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(כל הקבצים בתיקייה זו משותפים עם עמיתים אחרים)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "הכול"
 
@@ -8374,14 +8382,6 @@ msgstr "נתיב תיקייה"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "קבצים משותפים"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "הוסף תגובה/דירוג"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "ערוך תגובה/דירוג"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
