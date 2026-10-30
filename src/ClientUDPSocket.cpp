@@ -363,7 +363,7 @@ CClientUDPSocket::CClientUDPSocket(const amuleIPV4Address &address, const CProxy
 		  if (owner != nullptr)
 			  owner->QuicDialFailed();
 	  }))
-, m_quic(m_quicFactory.get())
+, m_quic(m_quicFactory.get(), [] { return thePrefs::GetMaxConnections(); })
 #if defined(ENABLE_NATT_SERVER_COORDINATION) && defined(AMULE_UTP_TRANSPORT)
 , m_quicCapsHoldoffs(QuicCapsHoldoffCallbacks())
 #endif

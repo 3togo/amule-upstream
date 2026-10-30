@@ -30,10 +30,12 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 class IQuicConnection
@@ -103,13 +105,14 @@ public:
 class CQuicContext final
 {
 public:
-	static constexpr size_t kMaxConnections = 256;
 	static constexpr size_t kMaxConnectionsPerScope = 8;
 	//! RFC 9000 section 14.1: a server discards Initials in smaller datagrams.
 	static constexpr size_t kMinInitialDatagram = 1200;
 
-	explicit CQuicContext(IQuicConnectionFactory *factory = nullptr)
+	//! Read the current connection budget on each admission, including after preferences change.
+	CQuicContext(IQuicConnectionFactory *factory, std::function<size_t()> connectionLimit)
 	: m_factory(factory)
+	, m_connectionLimit(std::move(connectionLimit))
 	{
 	}
 	~CQuicContext();
@@ -154,9 +157,11 @@ private:
 	ConnectionMap::iterator FindNonInitialConnection(
 		const CNetworkAddress &, uint16_t, const uint8_t *, size_t);
 	bool AdmitNewConnection(const CNetworkAddress &, uint64_t nowMs);
+	bool HasConnectionCapacity();
 	void EraseClosedConnections();
 
 	IQuicConnectionFactory *m_factory;
+	std::function<size_t()> m_connectionLimit;
 	ConnectionMap m_connections;
 	NatRendezvous::CRequesterLimiter m_newConnectionLimiter;
 };
