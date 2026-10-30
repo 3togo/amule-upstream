@@ -24,6 +24,7 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		ConnectivityCore.cpp
 		CorruptionBlackBox.cpp
 		CompletedFileDeletion.cpp
+		DeadSourceList.cpp
 		DownloadBandwidthThrottler.cpp
 		DownloadClient.cpp
 		DownloadQueue.cpp

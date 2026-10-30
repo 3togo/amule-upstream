@@ -1847,6 +1847,14 @@ msgstr "A(z) %s (%u) felhasználó megtagadta a megosztott könytár/fájl list�
 msgid "File Comments"
 msgstr "Fájl megjegyzés"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Megjegyzés/Értékelés hozzáadása"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Megjegyzés/Értékelés szerkesztése"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Felhasználói név"
@@ -3217,10 +3225,6 @@ msgstr "Célkönyvtár a letöltéseknek"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Tallóz"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Minden fájl ebben a könyvtárban másokkal megosztásra kerül)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6443,6 +6447,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Minden fájl ebben a könyvtárban másokkal megosztásra kerül)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "mind"
 
@@ -8334,14 +8342,6 @@ msgstr "Könyvtár útvonal"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Megosztott fájlok"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Megjegyzés/Értékelés hozzáadása"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Megjegyzés/Értékelés szerkesztése"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
