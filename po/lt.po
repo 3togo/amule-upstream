@@ -1870,6 +1870,14 @@ msgstr "Naudotojas %s (%u) nesuteikė prieigos prie dalinamų aplankų/failų s�
 msgid "File Comments"
 msgstr "Failo komentarai"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Įdėti komentarą/įvertinimą"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Keisti komentarą/įvertinimą"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Vardas"
@@ -2687,6 +2695,10 @@ msgid "Media metadata extraction is disabled in preferences"
 msgstr "Kademlia išjungta parinktyse."
 
 #: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
 msgstr ""
 
@@ -3242,10 +3254,6 @@ msgstr "Atsiuntimų paskirties aplankas"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Naršyti"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Visi šio aplanko failai dalinami su kitais mazgais)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6494,6 +6502,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Visi šio aplanko failai dalinami su kitais mazgais)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "Viskas"
 
@@ -8323,6 +8335,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr ""
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8421,14 +8437,6 @@ msgstr "Kelias"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Dalinami failai"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Įdėti komentarą/įvertinimą"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Keisti komentarą/įvertinimą"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

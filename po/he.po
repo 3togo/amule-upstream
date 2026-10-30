@@ -1859,6 +1859,14 @@ msgstr "משתמש %s (%u) שלל גישה לרשימת הקבצים/תקיות 
 msgid "File Comments"
 msgstr "הערות על הקובץ"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "הוסף תגובה/דירוג"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "ערוך תגובה/דירוג"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "שם משתמש"
@@ -2673,6 +2681,10 @@ msgid "Media metadata extraction is disabled in preferences"
 msgstr "קאד מנוטרל בתוך ההעדפות."
 
 #: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
 msgstr ""
 
@@ -3228,10 +3240,6 @@ msgstr "תיקיית יעד להורדות"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "דפדף"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(כל הקבצים בתיקייה זו משותפים עם עמיתים אחרים)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6468,6 +6476,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(כל הקבצים בתיקייה זו משותפים עם עמיתים אחרים)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "הכול"
 
@@ -8273,6 +8285,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr ""
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8366,14 +8382,6 @@ msgstr "נתיב תיקייה"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "קבצים משותפים"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "הוסף תגובה/דירוג"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "ערוך תגובה/דירוג"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

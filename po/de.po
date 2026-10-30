@@ -1878,6 +1878,14 @@ msgstr "Benutzer %s (%u) verweigert den Zugriff auf die Liste freigegebener Verz
 msgid "File Comments"
 msgstr "Dateikommentare"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Kommentar/Bewertung abgeben"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Kommentar/Bewertung ändern"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Benutzername"
@@ -2695,6 +2703,10 @@ msgid "Media metadata extraction is disabled in preferences"
 msgstr "Kad ist in den Einstellungen deaktiviert."
 
 #: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
 msgstr "Die Datei ist für die Extraktion von Medienmetadaten nicht geeignet (keine Audio-/Videodatei oder ein unvollständiger Download)"
 
@@ -3256,10 +3268,6 @@ msgstr "Zielverzeichnis für Downloads."
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Durchsuchen"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Alle Dateien in diesem Ordner werden mit anderen Nutzern geteilt)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6519,6 +6527,10 @@ msgid "%s:"
 msgstr "%s:"
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Alle Dateien in diesem Ordner werden mit anderen Nutzern geteilt)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "alle"
 
@@ -8356,6 +8368,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr "Die Extraktion von Medienmetadaten ist in den Einstellungen deaktiviert; daher gibt es nichts, das erneut extrahiert werden könnte."
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8448,14 +8464,6 @@ msgstr "Verzeichnispfad"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Freigaben"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Kommentar/Bewertung abgeben"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Kommentar/Bewertung ändern"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

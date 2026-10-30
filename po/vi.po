@@ -1824,6 +1824,14 @@ msgstr "Người dùng %s (%u) đã từ chối quyền truy cập vào danh sá
 msgid "File Comments"
 msgstr "Bình luận tệp"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Thêm bình luận/đánh giá"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Chỉnh sửa bình luận/đánh giá"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Tên người dùng"
@@ -2631,6 +2639,10 @@ msgid "Media metadata extraction is disabled in preferences"
 msgstr ""
 
 #: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
 msgstr ""
 
@@ -3185,10 +3197,6 @@ msgstr "Thư mục đích cho tải xuống"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Duyệt"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Tất cả tệp trong thư mục này được chia sẻ với các peer khác)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6395,6 +6403,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Tất cả tệp trong thư mục này được chia sẻ với các peer khác)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "tất cả"
 
@@ -8172,6 +8184,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr ""
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8259,14 +8275,6 @@ msgstr "Đường dẫn thư mục"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Tệp chia sẻ"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Thêm bình luận/đánh giá"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Chỉnh sửa bình luận/đánh giá"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

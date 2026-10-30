@@ -1861,6 +1861,14 @@ msgstr "El usuario %s (%u) ha denegado el acceso a su lista de directorios/archi
 msgid "File Comments"
 msgstr "Comentarios del archivo"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Añadir comentario/valoración"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Editar comentario/valoración"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Nombre de usuario"
@@ -2669,6 +2677,10 @@ msgid "Media metadata extraction is disabled in preferences"
 msgstr "La extracción de metadatos multimedia está desactivado en preferencias"
 
 #: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
 msgstr "El archivo no es apto para la extracción de metadatos multimedia (no es un archivo audio/video, o es una descarga incompleta)"
 
@@ -3227,10 +3239,6 @@ msgstr "Carpeta de destino para las descargas"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Examinar"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Todos los archivos de esta carpeta se comparten con otros usuarios)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6442,6 +6450,10 @@ msgid "%s:"
 msgstr "%s:"
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Todos los archivos de esta carpeta se comparten con otros usuarios)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "Todo"
 
@@ -8231,6 +8243,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr "La extracción de metadatos multimedia está desactivada en preferencias, por lo que no hay nada que re-extraer."
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8322,14 +8338,6 @@ msgstr "Ruta del directorio"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Compartidos"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Añadir comentario/valoración"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Editar comentario/valoración"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

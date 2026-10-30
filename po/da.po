@@ -1857,6 +1857,14 @@ msgstr "Bruger %s (%u) nægtede adgang til liste over delte mapper/filer"
 msgid "File Comments"
 msgstr "Fil Kommentarer"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Tilføj kommentar/bedømmelse"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Rediger Kommentar/Bedømmelse"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Brugernavn"
@@ -2668,6 +2676,10 @@ msgid "Media metadata extraction is disabled in preferences"
 msgstr ""
 
 #: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
 msgstr ""
 
@@ -3222,10 +3234,6 @@ msgstr "Destinationsmappe for downloads"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Gennemse"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Alle filer i denne mappe deles med andre peers)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6468,6 +6476,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Alle filer i denne mappe deles med andre peers)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "alt"
 
@@ -8271,6 +8283,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr ""
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8362,14 +8378,6 @@ msgstr "Mappe sti"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Delte Filer"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Tilføj kommentar/bedømmelse"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Rediger Kommentar/Bedømmelse"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

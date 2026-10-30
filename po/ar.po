@@ -1855,6 +1855,14 @@ msgstr "رفض المستخدم %s (%u) الوصول إلى قائمة المج�
 msgid "File Comments"
 msgstr "ملف تعليقات"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "إضافة تعليق/تقييم"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "تعديل التعليق/التقييم"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "اسم مستخدم"
@@ -2663,6 +2671,10 @@ msgid "Media metadata extraction is disabled in preferences"
 msgstr "استخراج البيانات الوصفية للوسائط معطل في الإعدادات"
 
 #: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
 msgstr "الملف غير مؤهل لاستخراج البيانات الوصفية للوسائط (ليس ملفاً صوتياً/مرئياً، أو أن التحميل غير مكتمل)"
 
@@ -3217,10 +3229,6 @@ msgstr "مجلد الوجهة للتحميلات"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "تصفح"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(تتم مشاركة جميع الملفات في هذا المجلد مع الأقران الآخرين)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6432,6 +6440,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(تتم مشاركة جميع الملفات في هذا المجلد مع الأقران الآخرين)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "الكل"
 
@@ -8233,6 +8245,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr ""
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8325,14 +8341,6 @@ msgstr "مسار المجلد"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "ملفات مشاركة"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "إضافة تعليق/تقييم"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "تعديل التعليق/التقييم"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"

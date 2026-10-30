@@ -1859,6 +1859,14 @@ msgstr "Ο χρήστης %s (%u) αρνήθηκε πρόσβαση στη λί�
 msgid "File Comments"
 msgstr "Σχόλια αρχείου"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Προσθήκη σχολίου/Αξιολόγησης"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Επεξεργασία σχολίου/Αξιολόγησης"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Όνομα Χρήστη"
@@ -2673,6 +2681,10 @@ msgid "Media metadata extraction is disabled in preferences"
 msgstr "Το Kad έχει απενεργοποιηθεί στις προτιμήσεις."
 
 #: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
 msgstr ""
 
@@ -3227,10 +3239,6 @@ msgstr "Κατάλογος για τα εισερχόμενα"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Επιλογή"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Όλα τα αρχεία σε αυτόν τον κατάλογο διαμοιράζονται με άλλους χρήστες)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -6466,6 +6474,10 @@ msgid "%s:"
 msgstr ""
 
 #: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Όλα τα αρχεία σε αυτόν τον κατάλογο διαμοιράζονται με άλλους χρήστες)"
+
+#: src/OtherFunctions.cpp
 msgid "all"
 msgstr "όλα"
 
@@ -8279,6 +8291,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr ""
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8373,14 +8389,6 @@ msgstr "Μονοπάτι καταλόγου"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Κοινόχρηστα αρχεία"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Προσθήκη σχολίου/Αξιολόγησης"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Επεξεργασία σχολίου/Αξιολόγησης"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
