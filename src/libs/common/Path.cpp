@@ -27,7 +27,7 @@
 
 #include <wx/file.h>
 #include <wx/filefn.h> // Needed for wxRename
-#include <wx/log.h>    // Needed for wxSysErrorMsg
+#include <wx/log.h>    // Needed for wxSysErrorMsgStr
 #ifdef __WINDOWS__
 #include <wx/msw/wrapwin.h> // Needed for MoveFileExW
 #endif
@@ -822,10 +822,10 @@ bool CPath::ReplaceEntry(const CPath &src, const CPath &dst, wxString *detail)
 	// directory sources so an invalid source cannot destroy the destination file.
 	const DWORD attributes = ::GetFileAttributesW(src.m_filesystem.wc_str());
 	if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY)) {
-		const DWORD error =
-			attributes == INVALID_FILE_ATTRIBUTES ? ::GetLastError() : ERROR_DIRECTORY;
+		const DWORD error = ::GetLastError();
 		if (detail) {
-			*detail = wxSysErrorMsg(error);
+			*detail = attributes == INVALID_FILE_ATTRIBUTES ? wxSysErrorMsgStr(error)
+									: wxString("source is a directory");
 		}
 		return false;
 	}
@@ -844,14 +844,14 @@ bool CPath::ReplaceEntry(const CPath &src, const CPath &dst, wxString *detail)
 		error = ::GetLastError();
 	}
 	if (detail) {
-		*detail = wxSysErrorMsg(error);
+		*detail = wxSysErrorMsgStr(error);
 	}
 #else
 	if (::wxRename(src.m_filesystem, dst.m_filesystem) == 0) {
 		return true;
 	}
 	if (detail) {
-		*detail = wxSysErrorMsg();
+		*detail = wxSysErrorMsgStr();
 	}
 #endif
 	return false;
