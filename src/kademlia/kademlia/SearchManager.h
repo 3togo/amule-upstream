@@ -41,6 +41,7 @@ there client on the eMule forum..
 
 #include "../utils/UInt128.h"
 #include "../utils/LookupDiagnostics.h"
+#include "../utils/LookupPolicy.h"
 #include "../routing/Maps.h"
 #include "../../Tag.h"
 #include <memory>
@@ -65,6 +66,7 @@ class CSearchManager
 	friend class CKademlia;
 
 public:
+	static CLookupBudget &GetLookupBudget() { return m_lookupBudget; }
 	static wxString GetLookupDiagnostics();
 	static void GetLookupSnapshots(
 		std::vector<LookupSnapshot> &active, std::deque<LookupSnapshot> &recent);
@@ -149,6 +151,8 @@ private:
 	static void JumpStart();
 
 	static uint32_t m_nextID;
+	static CLookupBudget m_lookupBudget;
+	static CUInt128 m_jumpStartCursor;
 	static SearchMap m_searches;
 };
 

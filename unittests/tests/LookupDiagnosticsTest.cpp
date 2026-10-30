@@ -218,3 +218,13 @@ TEST(LookupDiagnostics, RejectsOutOfRangeWireIntegers)
 	ASSERT_EQUALS(report.peers[0].roundTrip, decoded[0].peers[0].roundTrip);
 	ASSERT_EQUALS(report.referrals[0].elapsed, decoded[0].referrals[0].elapsed);
 }
+
+TEST(LookupDiagnostics, OverdueUsesTheConfiguredWait)
+{
+	LookupSnapshot lookup{ 3, "fixture", "example", 100, 0, {} };
+	lookup.trace.Query({ 0x01020304, 4665 }, {}, 100);
+	const auto early = MakeLookupReports({ lookup }, {}, 400, 500);
+	ASSERT_EQUALS(uint32_t(0), early.front().overdue);
+	const auto due = MakeLookupReports({ lookup }, {}, 600, 500);
+	ASSERT_EQUALS(uint32_t(1), due.front().overdue);
+}

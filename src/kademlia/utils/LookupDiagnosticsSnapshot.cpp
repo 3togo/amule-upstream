@@ -57,8 +57,10 @@ Kademlia::LookupType Kademlia::LookupTypeFromSearch(uint32_t type)
 	}
 }
 
-Kademlia::LookupReports Kademlia::MakeLookupReports(
-	const std::vector<LookupSnapshot> &active, const std::deque<LookupSnapshot> &recent, uint64_t now)
+Kademlia::LookupReports Kademlia::MakeLookupReports(const std::vector<LookupSnapshot> &active,
+	const std::deque<LookupSnapshot> &recent,
+	uint64_t now,
+	uint32_t requestTimeoutMs)
 {
 	LookupReports reports;
 	reports.reserve(active.size() + recent.size());
@@ -68,7 +70,7 @@ Kademlia::LookupReports Kademlia::MakeLookupReports(
 		report.target = snapshot.target;
 		report.keyword = snapshot.keyword;
 		report.active = isActive;
-		report.overdue = snapshot.trace.Overdue(isActive ? now : snapshot.finished, 3000);
+		report.overdue = snapshot.trace.Overdue(isActive ? now : snapshot.finished, requestTimeoutMs);
 		report.omittedPeers = snapshot.trace.OmittedPeers();
 		report.evictedReferrals = snapshot.trace.EvictedReferrals();
 		report.peers.reserve(snapshot.trace.Peers().size());

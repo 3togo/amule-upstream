@@ -25,6 +25,7 @@
 #ifndef AMULE_LOOKUPDIAGNOSTICS_H
 #define AMULE_LOOKUPDIAGNOSTICS_H
 #include "LookupTrace.h"
+#include "KadConstraints.h"
 #include <wx/string.h>
 #include <vector>
 namespace Kademlia
@@ -92,8 +93,10 @@ struct LookupReport
 using LookupReports = std::vector<LookupReport>;
 constexpr size_t MaxLookupHistory = 16;
 LookupType LookupTypeFromSearch(uint32_t type);
-LookupReports MakeLookupReports(
-	const std::vector<LookupSnapshot> &active, const std::deque<LookupSnapshot> &recent, uint64_t now);
+LookupReports MakeLookupReports(const std::vector<LookupSnapshot> &active,
+	const std::deque<LookupSnapshot> &recent,
+	uint64_t now,
+	uint32_t requestTimeoutMs = SKadConstraints().requestTimeoutMs);
 // Shared local/remote GUI formatter, translated in the caller's locale.
 wxString FormatLookupDiagnostics(const LookupReports &reports);
 } // namespace Kademlia

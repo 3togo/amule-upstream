@@ -54,6 +54,7 @@ there client on the eMule forum..
 #include "../../CompilerSpecific.h" // Needed for __FUNCTION__
 
 #include <wx/tokenzr.h>
+#include <vector>
 
 ////////////////////////////////////////
 using namespace Kademlia;
@@ -63,6 +64,8 @@ using namespace Kademlia;
 // in the bottom half, so the two ID spaces cannot collide however long the session runs.
 #define SEARCH_ID_KAD_MASK 0x80000000
 uint32_t CSearchManager::m_nextID = SEARCH_ID_KAD_MASK;
+CLookupBudget CSearchManager::m_lookupBudget(GetKadConstraints());
+CUInt128 CSearchManager::m_jumpStartCursor(0u);
 SearchMap CSearchManager::m_searches;
 
 bool CSearchManager::IsSearching(uint32_t searchID) noexcept
@@ -329,10 +332,24 @@ void CSearchManager::JumpStart()
 {
 	// Find any searches that has stalled and jumpstart them.
 	// This will also prune all searches.
-	time_t now = time(NULL);
-	SearchMap::iterator next_it = m_searches.begin();
-	while (next_it != m_searches.end()) {
-		SearchMap::iterator current_it = next_it++; /* don't change this to a ++next_it! */
+	time_t now = time(nullptr);
+	// Rotate the first serviced search so a constrained global budget cannot
+	// systematically favor the lowest target ID. Snapshot keys because pruning
+	// can delete searches during this pass.
+	std::vector<CUInt128> targets;
+	auto it = m_searches.upper_bound(m_jumpStartCursor);
+	for (size_t remaining = m_searches.size(); remaining != 0; --remaining) {
+		if (it == m_searches.end())
+			it = m_searches.begin();
+		targets.push_back(it->first);
+		++it;
+	}
+	if (!targets.empty())
+		m_jumpStartCursor = targets.front();
+	for (const auto &target : targets) {
+		auto current_it = m_searches.find(target);
+		if (current_it == m_searches.end())
+			continue;
 		switch (current_it->second->GetSearchTypes()) {
 		case CSearch::FILE: {
 			if (current_it->second->m_created + SEARCHFILE_LIFETIME < now) {
@@ -680,7 +697,8 @@ wxString CSearchManager::GetLookupDiagnostics()
 	std::vector<LookupSnapshot> active;
 	std::deque<LookupSnapshot> recent;
 	GetLookupSnapshots(active, recent);
-	return FormatLookupDiagnostics(MakeLookupReports(active, recent, ::GetTickCount64()));
+	return FormatLookupDiagnostics(
+		MakeLookupReports(active, recent, ::GetTickCount64(), GetKadConstraints().requestTimeoutMs));
 }
 
 void CSearchManager::ProcessResultReply(const CUInt128 &target, uint32_t fromIP, uint16_t fromPort)

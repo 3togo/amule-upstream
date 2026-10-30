@@ -187,7 +187,7 @@ private:
 	uint32_t m_totalRequestAnswers;
 	uint32_t m_totalLoad;
 	uint32_t m_totalLoadResponses;
-	time_t m_lastResponse;
+	uint64_t m_lastResponseTick;
 
 	uint32_t m_searchID;
 	bool m_searchIDAssigned;

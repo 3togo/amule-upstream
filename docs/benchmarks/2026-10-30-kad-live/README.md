@@ -41,6 +41,11 @@ over both passes the candidate sent **6.6% more routing requests**.
 
 ## Revision scope
 
+The later application-wide configurable constraints and aggregate request-budget
+revision was not part of these measurements. This dataset does not establish
+performance for those settings or the revised scheduler.
+
+
 These measurements were collected on the original workspace implementation
 before this draft PR was adapted onto newer upstream code. The fingerprints
 identify the measured binaries; this is not a benchmark of the final PR head.

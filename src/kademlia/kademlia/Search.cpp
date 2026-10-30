@@ -91,8 +91,10 @@ static_assert(
 	Kademlia::KAD_AICH_HASH_SIZE == HASHSIZE, "Kad AICH hash size must match the AICH root hash size");
 
 CSearch::CSearch()
+: m_requests(CSearchManager::GetLookupBudget(), GetKadConstraints())
+, m_diversity(GetKadConstraints())
 {
-	m_created = time(NULL);
+	m_created = time(nullptr);
 	m_lookupStarted = ::GetTickCount64();
 	m_type = (uint32_t)-1;
 	m_answers = 0;
@@ -102,7 +104,7 @@ CSearch::CSearch()
 	m_stopping = false;
 	m_totalLoad = 0;
 	m_totalLoadResponses = 0;
-	m_lastResponse = m_created;
+	m_lastResponseTick = m_lookupStarted;
 	m_nodeSpecialSearchRequester = nullptr;
 	m_closestDistantFound = 0;
 }
@@ -219,13 +221,13 @@ void CSearch::Go()
 
 		wxASSERT(m_possible.size() == m_inUse.size());
 
-		int count = m_type == NODE ? 1 : min(ALPHA_QUERY, (int)m_possible.size());
+		size_t count = std::min(RequestLimit(), m_possible.size());
 
 		ContactMap::iterator it = m_possible.begin();
-		for (int i = 0; i < count; i++) {
+		for (size_t i = 0; i < count; i++) {
 			CContact *c = it->second;
-			m_tried[it->first] = c;
-			SendFindValue(c);
+			if (SendFindValue(c))
+				m_tried[it->first] = c;
 			++it;
 		}
 	}
@@ -276,23 +278,24 @@ void CSearch::PrepareToStop() noexcept
 
 	// Adjust created time so that search will delete within 15 seconds.
 	// This gives late results time to be processed.
-	m_created = time(NULL) - baseTime + SEC(15);
+	m_created = time(nullptr) - baseTime + SEC(15);
+	m_requests.Clear();
 	m_stopping = true;
 }
 
 size_t CSearch::RequestLimit() const
 {
-	return m_type == NODE ? 1 : ALPHA_QUERY;
+	return m_type == NODE ? GetKadConstraints().nodeConcurrency : GetKadConstraints().lookupConcurrency;
 }
 
 uint32_t CSearch::RequestTimeout() const
 {
 #ifdef ENABLE_KAD_NODE_PROTECTION
 	if (m_type != STOREFILE && m_type != STOREKEYWORD && m_type != STORENOTES) {
-		return fastKad.GetEstMaxResponseTime();
+		return std::min(fastKad.GetEstMaxResponseTime(), GetKadConstraints().requestTimeoutMs);
 	}
 #endif
-	return SEC2MS(3);
+	return GetKadConstraints().requestTimeoutMs;
 }
 
 void CSearch::JumpStart()
@@ -302,13 +305,10 @@ void CSearch::JumpStart()
 	}
 	const uint64_t now = ::GetTickCount64();
 	m_requests.Prune(now);
-	// Publication keeps its quiet three-second stall interval. Interactive lookups
+	// Publication keeps its configured quiet interval. Interactive lookups
 	// advance when a slot is free, regardless of replies from unrelated peers.
 	if ((m_type == STOREFILE || m_type == STOREKEYWORD || m_type == STORENOTES) &&
-		(time_t)m_lastResponse + SEC(3) > time(nullptr)) {
-		return;
-	}
-	if (!m_requests.CanSend(now, RequestLimit())) {
+		now - m_lastResponseTick < GetKadConstraints().requestTimeoutMs) {
 		return;
 	}
 
@@ -324,7 +324,8 @@ void CSearch::JumpStart()
 	// results to 2 contacts may have hidden the closest live node behind duplicates of the dead
 	// ones.
 	bool lookupCloserNodes = false;
-	if (m_requestedMoreNodes.empty() && GetRequestContactCount() == KADEMLIA_FIND_VALUE &&
+	if (m_requests.CanSend(now, RequestLimit()) && m_requestedMoreNodes.empty() &&
+		GetRequestContactCount() == KADEMLIA_FIND_VALUE &&
 		m_tried.size() >= 3 * KADEMLIA_FIND_VALUE) {
 		ContactMap::const_iterator it = m_tried.begin();
 		lookupCloserNodes = true;
@@ -450,7 +451,7 @@ void CSearch::ProcessResponse(uint32_t fromIP, uint16_t fromPort, ContactList *r
 		!m_requests.Complete({ fromIP, fromPort }, ::GetTickCount64(), elapsed)) {
 		return;
 	}
-	m_lastResponse = time(nullptr);
+	m_lastResponseTick = ::GetTickCount64();
 #ifdef ENABLE_KAD_NODE_PROTECTION
 	fastKad.AddResponseTime(fromIP, elapsed, ::GetTickCount64());
 #endif
@@ -470,15 +471,9 @@ void CSearch::ProcessResponse(uint32_t fromIP, uint16_t fromPort, ContactList *r
 		return;
 	}
 
-	if (fromContact != NULL) {
+	if (fromContact != nullptr) {
 		bool providedCloserContacts = false;
-		std::map<uint32_t, unsigned> receivedIPs;
-		std::map<uint32_t, unsigned> receivedSubnets;
-		// A node is not allowed to answer with contacts to itself
-		receivedIPs[fromIP] = 1;
-		receivedSubnets[fromIP & 0xFFFFFF00] = 1;
-		for (ContactList::iterator it = results->begin(); it != results->end(); ++it) {
-			CContact *c = *it;
+		for (CContact *c : *results) {
 			CUInt128 distance(c->GetClientID() ^ m_target);
 
 			if (distance < fromDistance) {
@@ -494,39 +489,6 @@ void CSearch::ProcessResponse(uint32_t fromIP, uint16_t fromPort, ContactList *r
 				AddDebugLogLineN(
 					logKadSearch, "Search result from already tried client: ignore");
 				continue;
-			}
-
-			// We only accept unique IPs in the answer, having multiple IDs pointing to one IP in
-			// the routing tables is no longer allowed since eMule0.49a, aMule-2.2.1 anyway
-			if (receivedIPs.count(c->GetIPAddress()) > 0) {
-				AddDebugLogLineN(logKadSearch,
-					"Multiple KadIDs pointing to same IP (" +
-						KadIPToString(c->GetIPAddress()) +
-						") in Kad2Res answer - ignored, sent by " +
-						KadIPToString(fromContact->GetIPAddress()));
-				continue;
-			} else {
-				receivedIPs[c->GetIPAddress()] = 1;
-			}
-			// and no more than 2 IPs from the same /24 subnet
-			if (receivedSubnets.count(c->GetIPAddress() & 0xFFFFFF00) > 0 &&
-				!::IsLanIP(wxUINT32_SWAP_ALWAYS(c->GetIPAddress()))) {
-				wxASSERT(receivedSubnets.find(c->GetIPAddress() & 0xFFFFFF00) !=
-					 receivedSubnets.end());
-				int subnetCount =
-					receivedSubnets.find(c->GetIPAddress() & 0xFFFFFF00)->second;
-				if (subnetCount >= 2) {
-					AddDebugLogLineN(logKadSearch,
-						"More than 2 KadIDs pointing to same subnet (" +
-							KadIPToString(c->GetIPAddress() & 0xFFFFFF00) +
-							"/24) in Kad2Res answer - ignored, sent by " +
-							KadIPToString(fromContact->GetIPAddress()));
-					continue;
-				} else {
-					receivedSubnets[c->GetIPAddress() & 0xFFFFFF00] = subnetCount + 1;
-				}
-			} else {
-				receivedSubnets[c->GetIPAddress() & 0xFFFFFF00] = 1;
 			}
 
 			if (!m_diversity.Admit(
@@ -545,7 +507,7 @@ void CSearch::ProcessResponse(uint32_t fromIP, uint16_t fromPort, ContactList *r
 
 			if (distance < fromDistance) {
 				bool top = false;
-				if (m_best.size() < ALPHA_QUERY) {
+				if (m_best.size() < GetKadConstraints().lookupConcurrency) {
 					top = true;
 					m_best[distance] = c;
 				} else {
@@ -1481,6 +1443,11 @@ bool CSearch::SendFindValue(CContact *contact, bool reaskMore)
 		packetdata.WriteUInt128(m_target);
 		packetdata.WriteUInt128(contact->GetClientID());
 		if (contact->GetVersion() >= 2) {
+			if (!m_requests.Sent({ contact->GetIPAddress(), contact->GetUDPPort() },
+				    now,
+				    RequestTimeout(),
+				    RequestLimit()))
+				return false;
 			if (contact->GetVersion() >= 6) {
 				const CUInt128 &clientID = contact->GetClientID();
 				CKademlia::GetUDPListener()->SendPacket(packetdata,
@@ -1556,8 +1523,6 @@ bool CSearch::SendFindValue(CContact *contact, bool reaskMore)
 				break;
 			}
 #endif
-			m_requests.Sent(
-				{ contact->GetIPAddress(), contact->GetUDPPort() }, now, RequestTimeout());
 			if (reaskMore) {
 				m_requestedMoreNodes.insert(contact->GetClientID());
 			}
@@ -1572,7 +1537,11 @@ bool CSearch::SendFindValue(CContact *contact, bool reaskMore)
 			logKadSearch, "CInvalidPacket Exception in CSearch::SendFindValue: " + err.what());
 	} catch (const wxString &e) {
 		AddDebugLogLineC(logKadSearch, "Exception in CSearch::SendFindValue: " + e);
+	} catch (...) {
+		m_requests.Cancel({ contact->GetIPAddress(), contact->GetUDPPort() });
+		throw;
 	}
+	m_requests.Cancel({ contact->GetIPAddress(), contact->GetUDPPort() });
 	return false;
 }
 
@@ -1582,7 +1551,7 @@ bool CSearch::SendFindValue(CContact *contact, bool reaskMore)
 bool CSearch::CanReaskMore() const
 {
 	return !m_stopping && GetRequestContactCount() == KADEMLIA_FIND_VALUE &&
-	       m_requestedMoreNodes.size() < KADEMLIA_FIND_VALUE_MORE_REASKS;
+	       m_requestedMoreNodes.size() < GetKadConstraints().wideningReasks;
 }
 
 bool CSearch::RequestMoreResults()
@@ -1592,8 +1561,7 @@ bool CSearch::RequestMoreResults()
 	// 11 closer contacts instead of 2, which the ProcessResponse cascade then queries --
 	// surfacing more file matches from one extra ring of the routing-table neighbourhood.
 	//
-	// Bounded by KADEMLIA_FIND_VALUE_MORE_REASKS: past 4 reasks the local neighbourhood for a
-	// keyword is typically exhausted.
+	// The application-wide widening allowance bounds this work.
 
 	if (m_stopping) {
 		return false;
@@ -1603,7 +1571,7 @@ bool CSearch::RequestMoreResults()
 		// (KEYWORD / FILE / FINDSOURCE / NOTES).
 		return false;
 	}
-	if (m_requestedMoreNodes.size() >= KADEMLIA_FIND_VALUE_MORE_REASKS) {
+	if (m_requestedMoreNodes.size() >= GetKadConstraints().wideningReasks) {
 		return false;
 	}
 
@@ -1626,7 +1594,7 @@ bool CSearch::RequestMoreResults()
 				"id=%x, reask %u/%u)") %
 				KadIPToString(contact->GetIPAddress()) % GetSearchID() %
 				(unsigned)(m_requestedMoreNodes.size() + 1) %
-				(unsigned)KADEMLIA_FIND_VALUE_MORE_REASKS);
+				(unsigned)GetKadConstraints().wideningReasks);
 		return SendFindValue(contact, true);
 	}
 	return false;

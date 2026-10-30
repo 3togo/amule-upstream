@@ -4204,8 +4204,11 @@ CECPacket *CECServerSocket::ProcessRequest2(const CECPacket *request)
 		std::vector<Kademlia::LookupSnapshot> active;
 		std::deque<Kademlia::LookupSnapshot> recent;
 		Kademlia::CSearchManager::GetLookupSnapshots(active, recent);
-		Kademlia::AddLookupDiagnosticsTags(
-			*response, Kademlia::MakeLookupReports(active, recent, ::GetTickCount64()));
+		Kademlia::AddLookupDiagnosticsTags(*response,
+			Kademlia::MakeLookupReports(active,
+				recent,
+				::GetTickCount64(),
+				Kademlia::GetKadConstraints().requestTimeoutMs));
 		break;
 	}
 

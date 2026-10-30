@@ -2,28 +2,30 @@
 
 ## Lookup diversity and scheduling
 
-A lookup remembers admitted IPs and /24 counts across all routing responses,
-including its initial routing-table seeds. New referrals must use unique IPs
-and may not raise a public /24 above two admitted addresses. Seeds are retained
-even if their existing subnet count exceeds that limit. LAN addresses retain
-the subnet exemption, but still require distinct IPs.
+All local admission and timing constraints come from the validated,
+application-wide [`[Kad]` policy](Kad_Constraints.md). The same IP/subnet settings
+apply to routing admission and to referrals across the complete lookup. Initial
+routing-table contacts are counted; LAN subnet exemptions are preserved.
 
-Each sent routing request has an endpoint and a monotonic deadline fixed at
-send time. A reply from another endpoint does not postpone that deadline.
-There are at most `ALPHA_QUERY` requests before their deadlines (one for a
-`NODE` lookup), with at most 64 pending records including late-response records.
-The periodic fallback sends at most one new routing request per lookup per
-pass. Immediate closer-node queries also respect that concurrency budget.
-Soft timeouts free slots without banning the peer; records and candidates
-remain available for another ten seconds to accept late replies and preserve
-round-trip measurements. Duplicate, unsolicited and oversized responses do not
-complete those records. A deferred or failed reask does not consume the widening
-budget.
+Each request reserves capacity from a manager-owned budget before it is sent.
+`LookupActiveGlobal` limits active requests across every search, and
+`LookupPendingGlobal` limits all retained request records, including late-reply
+records. Per-search concurrency/pending settings must fit those aggregate
+budgets. Automatic aggregate budgets derive from the existing connection and
+source-search allowances and the outgoing tracking capacity.
 
-Without `ENABLE_KAD_NODE_PROTECTION`, deadlines use three seconds. With it,
-interactive requests use the existing adaptive estimator. Background
-publication keeps three-second deadlines and its three-second quiet interval.
-The optional identity protections retain their existing build default.
+Deadlines and late-reply expiry are fixed when a request is reserved. Completion,
+cancellation, expiry, failed sends and stopped searches return their reservations.
+An idle search cannot pin expired aggregate capacity. Periodic fallback rotates
+the first serviced target to avoid systematically favoring one search under a
+small aggregate allowance. Deferred sends remain eligible candidates; a local
+capacity refusal does not mark a contact tried or consume the widening budget.
+
+`RequestTimeoutMs` supplies the fixed deadline and background quiet interval.
+The existing optional adaptive estimator may shorten interactive deadlines.
+`LateReplyGraceMs`, `WideningReasks`, node concurrency and all pending/concurrency
+budgets are configured through the shared policy; none is a helper-local fixed
+limit. Protocol-defined contact counts and wire representations remain separate.
 
 ## Reference influence
 
@@ -37,7 +39,8 @@ branching rules were not transplanted.
 
 `KadLookupPolicyTest` covers diversity across replies, seeds, LAN exceptions,
 independent deadlines, endpoint matching, late samples, duplicate completion,
-pending-record bounds and expiry boundaries. Existing daemon EC lookup and
+pending-record bounds, aggregate accounting across multiple searches, reservation
+release on stop/cancellation and expiry boundaries. Existing daemon EC lookup and
 index lifecycle tests exercise diagnostics and publication/search compatibility.
 
 The [public-network comparison](benchmarks/2026-10-30-kad-live/README.md) records
@@ -45,3 +48,7 @@ The [public-network comparison](benchmarks/2026-10-30-kad-live/README.md) record
 results on its warmer second pass, but no established overall improvement and
 lower total result yield. Its exact source/binary fingerprints are retained;
 it predates adaptation of this PR onto the newer upstream revision.
+
+This revision depends on the shared policy introduced in draft #2213. The public
+benchmark predates this configurable, aggregate-budget revision and is retained
+as historical evidence, not a measurement of the current head.

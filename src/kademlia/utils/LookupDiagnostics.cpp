@@ -114,7 +114,7 @@ wxString DescribeLookup(const LookupReport &snapshot)
 } // namespace
 wxString Kademlia::FormatLookupDiagnostics(const LookupReports &reports)
 {
-	wxString text = _("Overdue means a routing request unanswered for at least 3 seconds; late replies "
+	wxString text = _("Overdue means a routing request unanswered past the configured wait; late replies "
 			  "may still arrive. Result records are received records, not unique files. Only "
 			  "bounded recent history is retained.");
 	text += "\n\n";

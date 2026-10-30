@@ -3677,7 +3677,7 @@ msgid "no closer to target"
 msgstr ""
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
-msgid "Overdue means a routing request unanswered for at least 3 seconds; late replies may still arrive. Result records are received records, not unique files. Only bounded recent history is retained."
+msgid "Overdue means a routing request unanswered past the configured wait; late replies may still arrive. Result records are received records, not unique files. Only bounded recent history is retained."
 msgstr ""
 
 #: src/kademlia/utils/LookupDiagnostics.cpp
