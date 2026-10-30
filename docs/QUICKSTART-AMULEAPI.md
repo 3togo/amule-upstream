@@ -177,9 +177,14 @@ server {
     location / {
         proxy_pass http://127.0.0.1:4713;
         proxy_http_version 1.1;
+        proxy_set_header X-Forwarded-Host $http_host;
     }
 }
 ```
+
+nginx sends amuleapi its own address as `Host`, so `X-Forwarded-Host` passes the
+name the browser used. amuleapi needs it to recognise a browser's own writes
+when the browser does not send `Sec-Fetch-Site`.
 
 `certbot --nginx` will get you those two certificate files.
 
@@ -217,6 +222,7 @@ With nginx, inside your existing `server` block:
 location /amule/ {
     proxy_pass http://127.0.0.1:4713;
     proxy_http_version 1.1;
+    proxy_set_header X-Forwarded-Host $http_host;
 }
 ```
 
@@ -349,3 +355,92 @@ left off after a dropped connection — see
 - **An admin token can do anything aMule can**, including asking amuled to
   fetch a server list from a URL you supply. Treat the admin password like
   the password to the machine.
+- **Changing a download folder needs the daemon to allow it first.** The
+  incoming, temporary and shared folders, and a category's `save_path`, can
+  only be pointed at folders under a list the daemon keeps locally in
+  `allowed-remote-dirs.dat` (one absolute path per line, in the config
+  folder above). The list is **empty by default**, so out of the box every
+  such change is refused with `403 path_not_allowed` — `GET /preferences`
+  reports the current list as the read-only `directories.allowed_remote_roots`.
+  On a daemon-only install (a container, or the Android port, with no
+  monolithic aMule whose GUI edits the list for you) add the folders you want
+  to permit to that file and restart amuled. The online-signature folder is
+  daemon-local in the same spirit: a `PATCH` that would change it answers
+  `400 read_only_field` (sending the current value back is accepted). The
+  reserved `files.ffprobe_path` behaves the same way.
+
+## Prometheus metrics
+
+Metrics default to disabled in amuleapi. Configure the dedicated read-only endpoint
+by generating a random token (for example, `openssl rand -hex 32`), adding it to
+`amuleapi.conf`, and restarting amuleapi:
+
+```ini
+[Metrics]
+Enabled=1
+Token=REPLACE_WITH_YOUR_RANDOM_64_CHARACTER_HEX_TOKEN
+```
+
+Without a token, amuleapi starts normally and `/metrics` returns 404; no metrics
+aggregation runs. Set `Enabled=1` with a valid token to opt in; `Enabled=0` disables
+metrics even with a token. With `Enabled=1`, an empty or malformed token logs a
+warning and leaves metrics off while the API starts normally.
+This setting is local to amuleapi: other EC clients do not request or enable metrics.
+
+An active endpoint requires a 32–256 character bearer token. Keep the config and
+the scraper's token file private. This credential only grants access to metrics;
+API session cookies and JWTs cannot authenticate a scrape. Rotation requires
+changing the configuration and restarting amuleapi. The independent authentication
+limiter defaults to 30 failures per 60 seconds and a 300 second lockout; configure
+`FailureThreshold`, `FailureWindowSeconds`, and `LockoutSeconds` under `[Metrics]`
+with positive integer values to change these limits. Remote scrapes should use the
+same TLS reverse proxy as the API.
+
+Prometheus configuration (the credentials file contains just the token):
+
+```yaml
+scrape_configs:
+  - job_name: amule
+    scrape_interval: 15s
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/amule-metrics-token
+    static_configs:
+      - targets: ['127.0.0.1:4713']
+```
+
+For an OpenTelemetry Collector distribution with the Prometheus receiver:
+
+```yaml
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: amule
+          scrape_interval: 15s
+          authorization:
+            credentials_file: /etc/otelcol/secrets/amule-metrics-token
+          static_configs:
+            - targets: ['127.0.0.1:4713']
+```
+
+Add this receiver to the Collector's existing metrics pipeline. When using
+`[Server]/BasePath=/amule`, set `metrics_path: /amule/metrics` in either scraper.
+The endpoint emits Prometheus text 0.0.4; native OpenMetrics negotiation and OTLP
+push are outside this endpoint's scope. See the [metrics contract](api/REFERENCE.md#get-metrics)
+for the available measurements and failure behavior.
+
+### Grafana dashboard
+
+[`api/grafana-dashboard.json`](api/grafana-dashboard.json) is a ready-made Grafana
+dashboard for these metrics. To use it:
+
+1. In Grafana, open **Dashboards > New > Import** and upload the file.
+2. Pick your Prometheus data source in the **Data source** list at the top.
+3. **Job** lists the scrape jobs that collect amuleapi metrics; pick yours if you
+   have more than one. **Instance** defaults to all.
+
+The dashboard shows connection status, transfer rates and totals, downloads by
+status, clients and queues, free disk space, and eD2k and Kad network figures.
+Values the daemon does not report show as "No data", not as 0.

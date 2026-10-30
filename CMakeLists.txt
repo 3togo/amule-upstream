@@ -1,7 +1,14 @@
 # 3.12 is tested in CI (the "CMake minimum version" job in ccpp.yml): raising
 # this needs that job updated, and lowering it needs the code to allow it.
 cmake_minimum_required (VERSION 3.12...3.31)
-project (amule)
+
+# ClientVersion.h stays the one place to bump; the macOS bundles' Info.plist reads PROJECT_VERSION.
+file (STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/src/include/common/ClientVersion.h" _amule_version_lines
+	REGEX "^#define VERSION_(MJR|MIN|UPDATE) [0-9]+$")
+foreach (_part MJR MIN UPDATE)
+	string (REGEX REPLACE ".*#define VERSION_${_part} ([0-9]+).*" "\\1" _amule_version_${_part} "${_amule_version_lines}")
+endforeach ()
+project (amule VERSION ${_amule_version_MJR}.${_amule_version_MIN}.${_amule_version_UPDATE})
 
 set (MIN_BOOST_VERSION 1.70)
 set (MIN_CRYPTOPP_VERSION 8.1)
@@ -460,6 +467,23 @@ if (_amule_wxgtk_idx GREATER -1 AND NOT APPLE)
 			"required — install `pkg-config` if cmake didn't find it.")
 	endif()
 endif()
+# AppIndicator3 can only be used with wxGTK3. Check wx's toolkit without
+# requiring GTK development headers for the wxTaskBarIcon fallback.
+set (AMULE_WXGTK3 OFF)
+if (_amule_wxgtk_idx GREATER -1 AND (BUILD_MONOLITHIC OR BUILD_REMOTEGUI))
+	include (CheckCXXSourceCompiles)
+	include (CMakePushCheckState)
+	cmake_push_check_state (RESET)
+	set (CMAKE_REQUIRED_LIBRARIES wxWidgets::CORE)
+	unset (AMULE_WXGTK3 CACHE)
+	unset (AMULE_WXGTK3)
+	check_cxx_source_compiles ("#include <wx/defs.h>
+#ifndef __WXGTK3__
+#error Not GTK3
+#endif
+int main() { return 0; }" AMULE_WXGTK3)
+	cmake_pop_check_state ()
+endif ()
 unset (_amule_wxgtk_idx)
 
 # Optional StatusNotifierItem (SNI) backend for the system-tray icon.
@@ -476,7 +500,10 @@ unset (_amule_wxgtk_idx)
 # probe covers either of them being built — gating it on the monolithic
 # build alone left a remote-GUI-only build with the invisible legacy
 # backend and no way to know.
-if ((BUILD_MONOLITHIC OR BUILD_REMOTEGUI) AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+# AppIndicator3 requires GTK3 widgets. Mixing it with wxGTK2 loads two
+# incompatible GTK major versions; wxQt also cannot pass its window to GTK.
+set (WITH_LIBAYATANA_APPINDICATOR OFF)
+if ((BUILD_MONOLITHIC OR BUILD_REMOTEGUI) AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND AMULE_WXGTK3)
 	find_package (PkgConfig QUIET)
 	if (PkgConfig_FOUND)
 		# `0.1` is the API version (never bumped, every release uses it),
@@ -556,6 +583,21 @@ if (BUILD_MONOLITHIC)
 		DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps"
 	)
 endif()
+
+if ((BUILD_MONOLITHIC OR BUILD_REMOTEGUI) AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	# Centre the 20-pixel artwork on the 22-pixel canvas without duplicating it.
+	# SNI hosts do not draw the speed bar that uses the original right margin.
+	foreach (state IN ITEMS high low disconnected)
+		set (tray_source "${CMAKE_CURRENT_SOURCE_DIR}/src/icons/tray_${state}.svg")
+		set_property (DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${tray_source}")
+		file (READ "${tray_source}" tray_svg)
+		string (REPLACE "<svg" "<svg viewBox=\"-1 0 22 22\"" tray_svg "${tray_svg}")
+		file (WRITE "${CMAKE_CURRENT_BINARY_DIR}/sni/tray_${state}.svg" "${tray_svg}")
+		install (FILES "${CMAKE_CURRENT_BINARY_DIR}/sni/tray_${state}.svg"
+			RENAME "org.amule.aMule-tray-${state}.svg"
+			DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps")
+	endforeach ()
+endif ()
 
 if (BUILD_REMOTEGUI)
 	install (FILES org.amule.aMule.gui.desktop
@@ -639,6 +681,9 @@ if (ENABLE_NLS)
 endif()
 
 add_subdirectory (docs)
+if(BUILD_TESTING)
+    enable_testing()
+endif()
 add_subdirectory (src)
 
 if (BUILD_TESTING)
@@ -661,6 +706,8 @@ message (STATUS "
 	Should aMule monolithic application be built?			${BUILD_MONOLITHIC}
 	Should aMule daemon version be built?				${BUILD_DAEMON}
 	Should aMule remote gui be built?				${BUILD_REMOTEGUI}
+
+	Build the bundled MediaInfo metadata helper?			${ENABLE_MEDIA_PROBE}
 
 	**** aMule TextClient ****
 	Should aMule Command Line Client be built?			${BUILD_AMULECMD}

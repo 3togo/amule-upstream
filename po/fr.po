@@ -1304,6 +1304,15 @@ msgstr "*** Échec de la vérification CAPTCHA ; aucune tentative restante."
 msgid "All"
 msgstr "Tous"
 
+#: src/amule-remote-gui.cpp src/muuli_wdr.cpp
+msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
+msgstr ""
+
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
 msgstr "Le démon n’a pas pu appliquer les modifications des ports de connexion."
@@ -1311,6 +1320,10 @@ msgstr "Le démon n’a pas pu appliquer les modifications des ports de connexio
 #: src/amule-remote-gui.cpp
 msgid "not readable"
 msgstr "illisible"
+
+#: src/amule-remote-gui.cpp
+msgid "outside the folders the daemon allows (configured on the daemon)"
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 msgid "not found"
@@ -1338,6 +1351,16 @@ msgstr "Échec de la suppression de la catégorie : %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Impossible de créer le répertoire '%s' pour la catégorie '%s', on garde le répertoire '%s'."
+
+#: src/amule-remote-gui.cpp
+#, fuzzy
+msgid "the daemon refused the request"
+msgstr "Le démon a refusé la requête."
+
+#: src/amule-remote-gui.cpp
+#, fuzzy, c-format
+msgid "The daemon refused the category: %s"
+msgstr "Le démon a refusé la requête."
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
 msgid "Invalid URL"
@@ -1847,6 +1870,14 @@ msgstr "L'utilisateur %s (%u) a refusé l'accès à la liste des répertoires/fi
 msgid "File Comments"
 msgstr "Commentaires sur le fichier"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Ajouter un Commentaire/Note"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Éditer un Commentaire/Note"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Nom d'utilisateur"
@@ -2344,6 +2375,18 @@ msgstr[1] "Impossible d'ajouter %u liens (cf. le journal pour les détails)."
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Lien eD2k invalide ! ERREUR : %s"
 
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
+msgstr ""
+
 #: src/EditServerListDlg.cpp
 #, fuzzy
 msgid "Edit server list sources"
@@ -2375,6 +2418,11 @@ msgstr "Connexion externe fermée."
 #: src/ExternalConn.cpp
 msgid "External connections disabled due to empty password!"
 msgstr "Les connexions externes sont désactivées car le mot de passe est vide !"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Remote clients cannot change folders: no folder is listed in %s"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
@@ -2607,6 +2655,14 @@ msgid "Could not save the amuleapi password: %s"
 msgstr "Impossible d’enregistrer le mot de passe d’amuleapi : %s"
 
 #: src/ExternalConn.cpp
+msgid "One or more folders were outside the allowed remote directories and were left unchanged."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "The category folder is outside the allowed remote directories."
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "No such category."
 msgstr "La catégorie n'existe pas."
 
@@ -2629,6 +2685,10 @@ msgstr "Discussion introuvable"
 #: src/ExternalConn.cpp
 msgid "Media metadata extraction is disabled in preferences"
 msgstr "L'extraction des métadonnées multimédias est désactivée dans les préférences"
+
+#: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
@@ -3187,10 +3247,6 @@ msgid "Browse"
 msgstr "Parcourir"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Tous les fichiers de ce répertoire sont partagés avec les autres pairs)"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
 msgstr "Dossier des fichiers de téléchargements temporaires"
 
@@ -3324,6 +3380,11 @@ msgstr "Téléchargement…"
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "Téléchargement HTTP annulé"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "Refusing to download %s: only http and https URLs are supported."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 #, c-format
@@ -4050,22 +4111,9 @@ msgstr "ListenSocket : OK."
 msgid "ERROR: Could not listen to TCP port."
 msgstr "ERREUR : Le port TCP n'a pas pu être mis en écoute."
 
-#: src/Logger.cpp
-msgid "ERROR: "
-msgstr "ERREUR : "
-
-#: src/Logger.cpp
-msgid "WARNING: "
-msgstr "AVERTISSEMENT : "
-
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: not using %s, because another user owns it or a folder above it."
-msgstr "Métadonnées multimédias : %s n'est pas utilisé, car un autre utilisateur le détient lui ou le répertoire au-dessus."
-
-#: src/MediaProbe.cpp
-msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
-msgstr "Métadonnées multimédias : aucun binaire ffprobe n'a été trouvé. Installez ffmpeg ou bien définissez le chemin vers ffprobe dans les préférences ; la durée, le taux binaire et le codec ne seront pas extraits."
+msgid "Media metadata: bundled amule-media-probe helper is unavailable."
+msgstr ""
 
 #: src/MediaProbe.cpp
 #, c-format
@@ -4073,34 +4121,14 @@ msgid "Media metadata: %s is gone, nothing to extract"
 msgstr "Métadonnées multimédias : %s n'existe plus, rien à extraire."
 
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Extracting media metadata with ffprobe: %s"
+#, fuzzy, c-format
+msgid "Extracting media metadata: %s"
 msgstr "Extraire les métadonnées multimédias avec ffprobe : %s"
 
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe timed out or was cancelled for %s"
-msgstr "Métadonnées multimédia : ffprobe a dépassé le délaai d'attente ou a été annulé pour %s"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
-msgstr "Métadonnées multimédias : la sortie ffprobe d'une taille invraisemblablement grande pour %s sera ignorée"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
-msgstr "Métadonnées multimédias : échec de l'exécution de ffprobe (%s) – vérifiez les réglages des métadonnées multimédias"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe failed (code %d) for %s"
+#, fuzzy, c-format
+msgid "Media metadata: parser failed for %s"
 msgstr "Métadonnées multimédia : échec de ffprobe (code %d) pour %s"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe found nothing usable in %s"
-msgstr "Métadonnées multimédias : ffprobe n'a rien trouvé d'utilisable dans %s"
 
 #: src/MediaProbeThread.cpp
 #, c-format
@@ -5177,7 +5205,7 @@ msgstr "essais"
 
 #: src/muuli_wdr.cpp
 #, fuzzy
-msgid "Edit sources…"
+msgid "Edit sources..."
 msgstr "Sources du fichier :"
 
 #: src/muuli_wdr.cpp
@@ -5207,6 +5235,14 @@ msgstr "Se connecter automatiquement seulement sur les serveurs statiques"
 #: src/muuli_wdr.cpp
 msgid "Set manually added servers to High Priority"
 msgstr "Mettre les serveurs ajoutés manuellement en priorité haute"
+
+#: src/muuli_wdr.cpp
+msgid "Publish shared files faster on servers that allow it"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow the publication pace that the server advertises. Other servers get the standard pace."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Add files to download in pause mode"
@@ -5348,7 +5384,7 @@ msgstr ""
 "\n"
 "Détail technique : rejette les étiquettes de publication AICH depuis les nœuds annonçant une version  de protocole de Kad inférieures à 0x09."
 
-#: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
+#: src/muuli_wdr.cpp
 msgid "Media metadata extraction"
 msgstr "Extraction des métadonnées des médias"
 
@@ -5357,24 +5393,8 @@ msgid "Extract length / bitrate / codec from shared audio and video files"
 msgstr "Extraire la durée / le débit binaire / le codec depuis les fichiers audio et vidéo partagés"
 
 #: src/muuli_wdr.cpp
-msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
-msgstr "Lorsque cette option est activée, aMule exécute ffprobe sur chaque fichier média partagé pour remplir les colonnes Durée / Débit binaire / Codec que les autres clients voient quand ils trouvent le fichier lors d'une recherche. Nécessite que ffmpeg (le binaire ffprobe) soit installé."
-
-#: src/muuli_wdr.cpp
-msgid "Path to ffprobe:"
-msgstr "Emplacement de ffprobe :"
-
-#: src/muuli_wdr.cpp
-msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
-msgstr "Chemin complet vers le binaire ffprobe. Laisser vide pour qu'aMule le détecte automatiquement au démarrage."
-
-#: src/muuli_wdr.cpp
-msgid "Detect"
-msgstr "Détecter"
-
-#: src/muuli_wdr.cpp
-msgid "Search the standard install locations for an ffprobe binary and fill the path field."
-msgstr "Rechercher les binaires de ffprobe aux emplacements par défaut et compléter le champ emplacement."
+msgid "When enabled, aMule uses its bundled MediaInfo parser to extract metadata from shared media files."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid ""
@@ -5447,6 +5467,14 @@ msgstr "Lorsque l'option est activée, la totalité du champ est une expression 
 #: src/muuli_wdr.cpp
 msgid "Show how many of the files and folders in your shared folders the current pattern would exclude, counted over the last scan."
 msgstr "Afficher combien de fichiers et répertoires dans vos répertoires partagés le motif actuel exclurait, compté depuis la dernière analyse."
+
+#: src/muuli_wdr.cpp
+msgid "Folders the daemon allows remote changes in"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "When the connected core's files live on a different machine, map a path prefix it reports to where that filesystem is reachable from here (a network share, say) so \"Open\" and \"Show in folder\" work."
@@ -5711,6 +5739,18 @@ msgstr "Mot de passe"
 #: src/muuli_wdr.cpp
 msgid "Require encrypted connections (rejects clients that cannot encrypt)"
 msgstr "Exiger des connexions chiffrées (rejette les clients qui ne peuvent pas chiffrer)"
+
+#: src/muuli_wdr.cpp
+msgid "Folders remote clients may use"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "aMule API server parameters"
@@ -6165,6 +6205,22 @@ msgid "add here the words amule should filter and block messages including it"
 msgstr "ajouter ici les mots qu'aMule doit filtrer : blocage des messages les contenant"
 
 #: src/muuli_wdr.cpp
+msgid "Enable advanced spam filter"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Block unsolicited links and repeated messages from non-friends."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Require a CAPTCHA for first messages from non-friends"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Withhold the message until the sender solves the challenge. Clients without CAPTCHA support cannot start a chat."
+msgstr ""
+
+#: src/muuli_wdr.cpp
 msgid "Show received messages in the log"
 msgstr "Afficher les messages reçus dans le journal"
 
@@ -6404,6 +6460,10 @@ msgstr "%u kbps"
 #, c-format
 msgid "%s:"
 msgstr "%s :"
+
+#: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Tous les fichiers de ce répertoire sont partagés avec les autres pairs)"
 
 #: src/OtherFunctions.cpp
 msgid "all"
@@ -6671,6 +6731,11 @@ msgstr[1] "Une partie corrompue trouvée (%d) dans %d partie du .part %s - FileR
 
 #: src/PartFile.cpp
 #, c-format
+msgid "'%s' does not match its file hash, and without the part hashset the corrupt part cannot be found. Waiting for the hashset."
+msgstr ""
+
+#: src/PartFile.cpp
+#, c-format
 msgid "Found completed part (%i) in %s"
 msgstr "Partie complète (%i) trouvée dans %s"
 
@@ -6764,6 +6829,10 @@ msgid "no options available"
 msgstr "pas d'option disponible"
 
 #: src/Preferences.cpp
+msgid "Media metadata: FFProbePath is obsolete; aMule now uses its bundled MediaInfo parser. Removing the old setting."
+msgstr ""
+
+#: src/Preferences.cpp
 msgid "Invalid path mapping found, skipping"
 msgstr "Correspondance de chemin invalide trouvée, on passe"
 
@@ -6779,6 +6848,11 @@ msgstr "Le port TCP ne peut pas dépasser 65532 car le socket UDP du serveur ser
 #, c-format
 msgid "Default port will be used (%d)"
 msgstr "Le port par défaut sera utilisé (%d)"
+
+#: src/Preferences.cpp
+#, c-format
+msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
+msgstr ""
 
 #: src/BandwidthLimitSlider.h
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
@@ -6886,8 +6960,16 @@ msgid "Failed to transfer data from Cfg to Widget with the ID %d and key %s"
 msgstr "Échec du transfert de données depuis Cfg vers le widget avec l'ID %d et la clé %s"
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot extract media metadata."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
 msgid "The type of proxy you are connecting to"
 msgstr "Type de proxy auquel vous êtes connecté"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Set in the daemon's own configuration (amule.conf); not editable remotely."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 #, c-format
@@ -7086,10 +7168,11 @@ msgid "The aMule web server is deprecated. Consider running the aMule API instea
 msgstr "Le serveur web d'aMule est obsolète. Envisagez d'utiliser aMule API à sa place."
 
 #: src/PrefsUnifiedDlg.cpp
+#, fuzzy
 msgid ""
-"Your Auto-update servers list is in blank.\n"
-"Please fill in at least one URL to point to a valid server.met file.\n"
-"Click on the button \"List\" by this checkbox to enter an URL."
+"Your server list sources are empty.\n"
+"Please add at least one URL of a valid server.met file.\n"
+"Click the \"Edit sources...\" button next to this checkbox to add one."
 msgstr ""
 "Votre liste de mise à jour auto des serveurs est vide.\n"
 "Entrez s'il vous plaît au moins une URL qui pointe sur un fichier server.met valide.\n"
@@ -7145,17 +7228,9 @@ msgid "Select browser"
 msgstr "Choisir un navigateur"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Select ffprobe binary"
-msgstr "Sélectionner le binaire ffprobe"
-
-#: src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "Executable%s"
 msgstr "Exécutable%s"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
-msgstr "ffprobe n'a pas été trouvé sur PATH ou dans les emplacement standards d'installation. Installez ffmpeg (qui fournit ffprobe) ou bien utilisez Parcourir pour choisir un binaire manuellement."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset the settings on this page to their default values?"
@@ -7350,6 +7425,19 @@ msgstr "Ce préfixe distant est déjà mappé."
 #: src/PrefsUnifiedDlg.cpp
 msgid "Choose the local folder"
 msgstr "Choisir le dossier local"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Please enter an absolute path. A relative path would be resolved against the daemon's working directory, so it is not accepted."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Allowed folders for remote clients"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Choose a folder remote clients may use"
+msgstr "Choisissez un répertoire pour les fichiers entrants"
 
 #: src/SearchDlg.cpp
 msgid "Clear Search History"
@@ -8171,6 +8259,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr "L'extraction des métadonnées multimédias est désactivée dans les préférences, donc il n'y a rien à extraire à nouveau"
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8222,6 +8314,11 @@ msgid_plural "Discovered %u new shared files"
 msgstr[0] "%u nouveau fichier partagé découvert"
 msgstr[1] "%u nouveaux fichiers partagés découverts"
 
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Refused to rename '%s' to '%s': the new name must be a plain file name, not a path."
+msgstr ""
+
 #: src/SharedFilePeersListCtrl.cpp src/SourceListCtrl.cpp
 msgid "User Name"
 msgstr "Nom d'Utilisateur"
@@ -8257,14 +8354,6 @@ msgstr "Chemin du répertoire"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Fichiers partagés"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Ajouter un Commentaire/Note"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Éditer un Commentaire/Note"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
@@ -9414,6 +9503,16 @@ msgid "Hashset requested for unknown file: %s"
 msgstr "Requête d'un hashset pour le fichier inconnu : %s"
 
 #: src/UploadDiskIOThread.cpp
+#, fuzzy, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Impossible de démarrer une recherche Kad"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr ""
+
+#: src/UploadDiskIOThread.cpp
 #, c-format
 msgid "Failed to open file (%s), removing from list of shared files."
 msgstr "Échec de l'ouverture du fichier (%s), suppression de la liste des fichiers partagés."
@@ -10220,6 +10319,60 @@ msgstr "Kad n'a pu charger son index sauvegardé. Les fichiers d'index existants
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr "Kad n'a pu sauvegarder un index. La copie précédente de ce fichier a été conservé."
+
+#~ msgid "ERROR: "
+#~ msgstr "ERREUR : "
+
+#~ msgid "WARNING: "
+#~ msgstr "AVERTISSEMENT : "
+
+#, c-format
+#~ msgid "Media metadata: not using %s, because another user owns it or a folder above it."
+#~ msgstr "Métadonnées multimédias : %s n'est pas utilisé, car un autre utilisateur le détient lui ou le répertoire au-dessus."
+
+#~ msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
+#~ msgstr "Métadonnées multimédias : aucun binaire ffprobe n'a été trouvé. Installez ffmpeg ou bien définissez le chemin vers ffprobe dans les préférences ; la durée, le taux binaire et le codec ne seront pas extraits."
+
+#, c-format
+#~ msgid "Media metadata: ffprobe timed out or was cancelled for %s"
+#~ msgstr "Métadonnées multimédia : ffprobe a dépassé le délaai d'attente ou a été annulé pour %s"
+
+#, c-format
+#~ msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
+#~ msgstr "Métadonnées multimédias : la sortie ffprobe d'une taille invraisemblablement grande pour %s sera ignorée"
+
+#, c-format
+#~ msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
+#~ msgstr "Métadonnées multimédias : échec de l'exécution de ffprobe (%s) – vérifiez les réglages des métadonnées multimédias"
+
+#, c-format
+#~ msgid "Media metadata: ffprobe found nothing usable in %s"
+#~ msgstr "Métadonnées multimédias : ffprobe n'a rien trouvé d'utilisable dans %s"
+
+#~ msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
+#~ msgstr "Lorsque cette option est activée, aMule exécute ffprobe sur chaque fichier média partagé pour remplir les colonnes Durée / Débit binaire / Codec que les autres clients voient quand ils trouvent le fichier lors d'une recherche. Nécessite que ffmpeg (le binaire ffprobe) soit installé."
+
+#~ msgid "Path to ffprobe:"
+#~ msgstr "Emplacement de ffprobe :"
+
+#~ msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
+#~ msgstr "Chemin complet vers le binaire ffprobe. Laisser vide pour qu'aMule le détecte automatiquement au démarrage."
+
+#~ msgid "Detect"
+#~ msgstr "Détecter"
+
+#~ msgid "Search the standard install locations for an ffprobe binary and fill the path field."
+#~ msgstr "Rechercher les binaires de ffprobe aux emplacements par défaut et compléter le champ emplacement."
+
+#, fuzzy
+#~ msgid "Invalid ffprobe path"
+#~ msgstr "Nom de fichier invalide."
+
+#~ msgid "Select ffprobe binary"
+#~ msgstr "Sélectionner le binaire ffprobe"
+
+#~ msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
+#~ msgstr "ffprobe n'a pas été trouvé sur PATH ou dans les emplacement standards d'installation. Installez ffmpeg (qui fournit ffprobe) ou bien utilisez Parcourir pour choisir un binaire manuellement."
 
 #~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
 #~ msgstr "L'icône de la barre système nécessite libayatana-appindicator3 au moment de la compilation."

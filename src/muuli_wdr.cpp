@@ -1707,7 +1707,7 @@ wxSizer *PreferencesServerTab( wxWindow *parent, bool call_fit, bool set_sizer )
     wxCheckBox *item6 = new wxCheckBox( parent, IDC_AUTOSERVER, _("Auto-update server list at startup"), wxDefaultPosition, wxDefaultSize, 0 );
     item5->Add( item6, wxSizerFlags().CenterVertical() );
 
-    wxButton *item7 = new wxButton( parent, IDC_EDITADR, _("Edit sources…"), wxDefaultPosition, wxDefaultSize, 0 );
+    wxButton *item7 = new wxButton( parent, IDC_EDITADR, _("Edit sources..."), wxDefaultPosition, wxDefaultSize, 0 );
     item5->Add( item7, wxSizerFlags().CenterVertical().Right().Border(wxLEFT, 5) );
     item0->Add( item5, wxSizerFlags().Expand().CenterVertical() );
     wxCheckBox *item8 = new wxCheckBox( parent, IDC_UPDATESERVERCONNECT, _("Update server list when connecting to a server"), wxDefaultPosition, wxDefaultSize, 0 );
@@ -1734,6 +1734,11 @@ wxSizer *PreferencesServerTab( wxWindow *parent, bool call_fit, bool set_sizer )
     wxCheckBox *item14 = new wxCheckBox( parent, IDC_MANUALSERVERHIGHPRIO, _("Set manually added servers to High Priority"), wxDefaultPosition, wxDefaultSize, 0 );
     item14->SetValue( TRUE );
     item0->Add( item14, wxSizerFlags().CenterVertical() );
+
+    wxCheckBox *item15 = new wxCheckBox( parent, IDC_ED2K_ACCELERATED_PUBLICATION, _("Publish shared files faster on servers that allow it"), wxDefaultPosition, wxDefaultSize, 0 );
+    item15->SetValue( TRUE );
+    item15->SetToolTip( _("Follow the publication pace that the server advertises. Other servers get the standard pace.") );
+    item0->Add( item15, wxSizerFlags().CenterVertical() );
 
     if (set_sizer)
     {
@@ -1866,42 +1871,16 @@ wxSizer *PreferencesFilesTab( wxWindow *parent, bool call_fit, bool set_sizer )
 
     item0->Add( kadProtoSizer, wxSizerFlags().Expand().CenterVertical().Border(wxALL, 0) );
 
-    // Media metadata extraction: an optional feature that runs ffprobe against each shared file at
-    // share-add / known.met load time to populate FT_MEDIA_LENGTH / _BITRATE / _CODEC on the
-    // CKnownFile; the ed2k and Kad publishers then advertise those tags automatically. The enable
-    // toggle and the path field are EC-wired and stay visible in amulegui; only "Browse" and
-    // "Detect" hide there, since both would search the GUI's filesystem.
+    // Extract metadata with the bundled parser on a background worker.
     wxStaticBox *item22 = new wxStaticBox( parent, -1, _("Media metadata extraction") );
     wxStaticBoxSizer *item22sz = new wxStaticBoxSizer( item22, wxVERTICAL );
 
     wxCheckBox *item23 = new wxCheckBox( item22, IDC_MEDIAMETA_ENABLED,
         _("Extract length / bitrate / codec from shared audio and video files"),
         wxDefaultPosition, wxDefaultSize, 0 );
-    item23->SetToolTip( _("When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed.") );
+    item23->SetToolTip( _("When enabled, aMule uses its bundled MediaInfo parser to extract metadata from shared media files.") );
     item22sz->Add( item23, wxSizerFlags().CenterVertical().Border(wxRIGHT, 0) );
 
-    wxFlexGridSizer *item24 = new wxFlexGridSizer( 4, 0, 0 );
-    item24->AddGrowableCol( 1 );
-
-    wxStaticText *item25 = new wxStaticText( item22, IDC_MEDIAMETA_FFPROBEPATHTEXT,
-        _("Path to ffprobe:"), wxDefaultPosition, wxDefaultSize, 0 );
-    item24->Add( item25, wxSizerFlags().CenterVertical().Border(wxRIGHT, 5) );
-
-    CMuleTextCtrl *item26 = new CMuleTextCtrl( item22, IDC_MEDIAMETA_FFPROBEPATH,
-        "", wxDefaultPosition, wxSize(80,-1), 0 );
-    item26->SetToolTip( _("Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup.") );
-    item24->Add( item26, wxSizerFlags(1).Expand().CenterVertical() );
-
-    wxButton *item27 = new wxButton( item22, IDC_MEDIAMETA_FFPROBEBROWSE,
-        _("Browse"), wxDefaultPosition, wxDefaultSize, 0 );
-    item24->Add( item27, wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
-
-    wxButton *item28 = new wxButton( item22, IDC_MEDIAMETA_FFPROBEDETECT,
-        _("Detect"), wxDefaultPosition, wxDefaultSize, 0 );
-    item28->SetToolTip( _("Search the standard install locations for an ffprobe binary and fill the path field.") );
-    item24->Add( item28, wxSizerFlags().CenterVertical().Border(wxLEFT, 5) );
-
-    item22sz->Add( item24, wxSizerFlags().Expand().CenterVertical() );
     item0->Add( item22sz, wxSizerFlags().Expand().CenterVertical().Border(wxLEFT|wxRIGHT|wxBOTTOM, 0) );
 
     if (set_sizer)
@@ -1929,7 +1908,7 @@ wxSizer *PreferencesDirectoriesTab( wxWindow *parent, bool call_fit, bool set_si
     item1->Add( item4, wxSizerFlags().Expand().CenterHorizontal() );
     item0->Add( item1, wxSizerFlags().Expand().CenterVertical().Border(wxALL, 0) );
 
-    wxStaticText *item3_hint = new wxStaticText( parent, -1, _("(All files in this folder are shared with other peers)"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE );
+    wxStaticText *item3_hint = new wxStaticText( parent, -1, SharedFolderHint(), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE );
     item0->Add( item3_hint, 0, wxALIGN_CENTER, 0 );
     wxStaticBox *item6 = new wxStaticBox( parent, -1, _("Folder for temporary download files") );
     wxStaticBoxSizer *item5 = new wxStaticBoxSizer( item6, wxHORIZONTAL );
@@ -2012,13 +1991,30 @@ wxSizer *PreferencesDirectoriesTab( wxWindow *parent, bool call_fit, bool set_si
     item9->Add( itemPreviewRow, wxSizerFlags().Expand().Border(wxTOP, 4) );
 
     item0->Add( item9, wxSizerFlags(1).Expand().CenterVertical().Border(wxALL, 0) );
+
+#ifdef CLIENT_GUI
+    // The folders the daemon allows a remote client to point incoming/temp/shared/category at.
+    // Read-only here: the list is local daemon configuration (reported over EC), set on the
+    // daemon itself -- an empty list means the daemon refuses every remote folder change.
+    wxStaticBox *itemAR = new wxStaticBox( parent, -1, _("Folders the daemon allows remote changes in") );
+    wxStaticBoxSizer *itemARSizer = new wxStaticBoxSizer( itemAR, wxVERTICAL );
+    wxStaticText *itemARHint = new wxStaticText( itemAR, -1, _("(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE );
+    itemARSizer->Add( itemARHint, 0, wxALIGN_CENTER, 0 );
+    wxListBox *itemARList = new wxListBox( itemAR, IDC_ALLOWED_ROOTS_LIST, wxDefaultPosition, wxSize(100,70), 0, nullptr, wxLB_SINGLE|wxSUNKEN_BORDER );
+    itemARSizer->Add( itemARList, wxSizerFlags(1).Expand().CenterVertical() );
+    wxStaticText *itemARHowTo = new wxStaticText( itemAR, -1, _("To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."), wxDefaultPosition, wxDefaultSize, 0 );
+    itemARHowTo->Wrap( 520 );
+    itemARSizer->Add( itemARHowTo, 0, wxTOP, 4 );
+    item0->Add( itemARSizer, wxSizerFlags().Expand().CenterVertical().Border(wxALL, 0) );
+#endif
+
     if (set_sizer)
     {
         parent->SetSizer( item0 );
         if (call_fit)
             item0->SetSizeHints( parent );
     }
-    
+
     return item0;
 }
 
@@ -2027,13 +2023,7 @@ wxSizer *PreferencesPathMappingTab( wxWindow *parent, bool call_fit, bool set_si
 {
     wxBoxSizer *item0 = new wxBoxSizer( wxVERTICAL );
 
-    wxStaticText *itemHint = new wxStaticText( parent, IDC_PATHMAP_HINT, _("When the connected core's files live on a different machine, map a path prefix it reports to where that filesystem is reachable from here (a network share, say) so \"Open\" and \"Show in folder\" work."), wxDefaultPosition, wxDefaultSize, 0 );
-    // An unwrapped wxStaticText reports its whole single line as its best width, and the sizer
-    // turns that into the page's minimum width -- the dialog comes up as wide as this sentence. So
-    // it is wrapped here to bound that minimum, DPI-scaled rather than a raw pixel count.
-    // PrefsUnifiedDlg then re-flows it to the control's real width and keeps it current across
-    // resizes; it restores this text before each wrap, since Wrap() can only add breaks.
-    itemHint->Wrap( parent->FromDIP(380) );
+    WrappingStaticText *itemHint = new WrappingStaticText( parent, IDC_PATHMAP_HINT, _("When the connected core's files live on a different machine, map a path prefix it reports to where that filesystem is reachable from here (a network share, say) so \"Open\" and \"Show in folder\" work.") );
     item0->Add( itemHint, wxSizerFlags().Expand().Border(wxBOTTOM, 6) );
 
     wxStaticBox *itemBox = new wxStaticBox( parent, -1, _("Path Mappings") );
@@ -2370,6 +2360,33 @@ wxSizer *PreferencesRemoteControlsTab( wxWindow *parent, bool call_fit, bool set
     wxCheckBox *item13b = new wxCheckBox( item2, IDC_EXT_CONN_REQUIRE_ENCRYPTION, _("Require encrypted connections (rejects clients that cannot encrypt)"), wxDefaultPosition, wxDefaultSize, 0 );
     item1->Add( item13b, wxSizerFlags().CenterVertical().Border(wxALL, 5) );
     item0->Add( item1, wxSizerFlags().Expand().Border(wxALL, 0) );
+
+#ifndef CLIENT_GUI
+    // The folders a remote EC/amuleapi client may point the incoming, temp, shared or category
+    // folders at. Local amule.conf config (allowed-remote-dirs.dat), never settable over EC, and
+    // used only when this instance runs the EC listener or the web server. Empty (the default)
+    // means a remote client cannot change any folder.
+    wxStaticBox *itemARBox = new wxStaticBox( parent, -1, _("Folders remote clients may use") );
+    wxStaticBoxSizer *itemAR = new wxStaticBoxSizer( itemARBox, wxVERTICAL );
+    wxStaticText *itemARHint = new wxStaticText( itemARBox, -1, _("(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"), wxDefaultPosition, wxDefaultSize, 0 );
+    itemARHint->Wrap( 520 );
+    itemAR->Add( itemARHint, 0, wxALL, 2 );
+    wxListBox *itemARList = new wxListBox( itemARBox, IDC_ALLOWED_ROOTS_LIST, wxDefaultPosition, wxSize(100,80), 0, nullptr, wxLB_SINGLE|wxSUNKEN_BORDER );
+    itemAR->Add( itemARList, wxSizerFlags(1).Expand().CenterVertical() );
+    wxBoxSizer *itemARRow = new wxBoxSizer( wxHORIZONTAL );
+    CMuleTextCtrl *itemARPath = new CMuleTextCtrl( itemARBox, IDC_ALLOWED_ROOT_PATH, "", wxDefaultPosition, wxSize(80,-1), 0 );
+    itemARPath->SetToolTip(_("Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."));
+    itemARRow->Add( itemARPath, wxSizerFlags(1).Expand().CenterVertical() );
+    wxButton *itemARBrowse = new wxButton( itemARBox, IDC_ALLOWED_ROOT_BROWSE, _("Browse"), wxDefaultPosition, wxDefaultSize, 0 );
+    itemARRow->Add( itemARBrowse, wxSizerFlags().CenterVertical().Border(wxLEFT, 4) );
+    wxButton *itemARAdd = new wxButton( itemARBox, IDC_ALLOWED_ROOT_ADD, _("Add"), wxDefaultPosition, wxDefaultSize, 0 );
+    itemARRow->Add( itemARAdd, wxSizerFlags().CenterVertical().Border(wxLEFT, 4) );
+    wxButton *itemARRemove = new wxButton( itemARBox, IDC_ALLOWED_ROOT_REMOVE, _("Remove"), wxDefaultPosition, wxDefaultSize, 0 );
+    itemARRow->Add( itemARRemove, wxSizerFlags().CenterVertical().Border(wxLEFT, 4) );
+    itemAR->Add( itemARRow, wxSizerFlags().Expand().Border(wxTOP, 4) );
+    item0->Add( itemAR, wxSizerFlags().Expand().Border(wxALL, 0) );
+#endif
+
     wxStaticBox *item37 = new wxStaticBox( parent, -1, _("aMule API server parameters") );
     wxStaticBoxSizer *item36 = new wxStaticBoxSizer( item37, wxVERTICAL );
 
@@ -2577,6 +2594,8 @@ wxSizer *CategoriesEditWindow( wxWindow *parent, bool call_fit, bool set_sizer )
     wxButton *item12 = new wxButton( item2, IDC_BROWSE, "...", wxDefaultPosition, wxDefaultSize, 0 );
     item9->Add( item12, wxSizerFlags().Center().Border(wxLEFT|wxRIGHT, 5) );
     item1->Add( item9, wxSizerFlags().Expand().CenterVertical().Border(wxBOTTOM, 5) );
+    wxStaticText *item9_hint = new wxStaticText( item2, -1, SharedFolderHint(), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE );
+    item1->Add( item9_hint, wxSizerFlags().Expand().CenterHorizontal().Border(wxLEFT|wxRIGHT, 5) );
     wxFlexGridSizer *item13 = new wxFlexGridSizer( 2, 0, 0 );
 
     wxStaticText *item14 = new wxStaticText( item2, -1, LabelWithColon( _("Change priority for new assigned files") ), wxDefaultPosition, wxDefaultSize, 0 );
@@ -2726,7 +2745,7 @@ wxSizer *serverListDlgUp( wxWindow *parent, bool call_fit, bool set_sizer )
     wxButton *item2 = new wxButton( parent, ID_UPDATELIST, _("Update server list") );
     item2->SetName( "updateList" );
     item1->Add( item2, wxSizerFlags().Center() );
-    wxButton *editSources = new wxButton( parent, wxID_ANY, _("Edit sources…") );
+    wxButton *editSources = new wxButton( parent, wxID_ANY, _("Edit sources...") );
     editSources->SetName( "editServerSources" );
     item1->Add( editSources, wxSizerFlags().Center().Border(wxLEFT, 5) );
 
@@ -3238,6 +3257,12 @@ wxSizer *PreferencesFilteringTab( wxWindow *parent, bool call_fit, bool set_size
     wxTextCtrl *item8 = new wxTextCtrl( item2, IDC_MSGWORD, "", wxDefaultPosition, wxSize(80,-1), 0 );
     item8->SetToolTip( _("add here the words amule should filter and block messages including it") );
     item1->Add( item8, wxSizerFlags().Expand().CenterVertical().Border(wxLEFT, 50) );
+    wxCheckBox *advancedSpam = new wxCheckBox(item2, IDC_MSGADVSPAM, _("Enable advanced spam filter"));
+    advancedSpam->SetToolTip(_("Block unsolicited links and repeated messages from non-friends."));
+    item1->Add(advancedSpam, wxSizerFlags().CenterVertical());
+    wxCheckBox *chatCaptcha = new wxCheckBox(item2, IDC_MSGCAPTCHA, _("Require a CAPTCHA for first messages from non-friends"));
+    chatCaptcha->SetToolTip(_("Withhold the message until the sender solves the challenge. Clients without CAPTCHA support cannot start a chat."));
+    item1->Add(chatCaptcha, wxSizerFlags().CenterVertical().Border(wxLEFT, 25));
     wxCheckBox *item9 = new wxCheckBox( item2, IDC_MSGLOG, _("Show received messages in the log"), wxDefaultPosition, wxDefaultSize, 0 );
     item1->Add( item9, wxSizerFlags().CenterVertical().Border(wxALL, 0) );
     item0->Add( item1, wxSizerFlags().Expand().CenterVertical().Border(wxALL, 0) );

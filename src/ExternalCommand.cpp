@@ -226,6 +226,37 @@ wxString DescribeRejection(RejectionReason reason)
 	return {};
 }
 
+wxString QuoteUnquotedProgram(const wxString &command, const std::function<bool(const wxString &)> &isFile)
+{
+	const auto names = [&isFile](const wxString &candidate) {
+		return isFile(candidate) ||
+		       (!wxFileName(candidate, wxPATH_WIN).HasExt() && isFile(candidate + ".exe"));
+	};
+	const size_t start = command.find_first_not_of(" \t");
+	if (start == wxString::npos || command[start] == '"') {
+		return command;
+	}
+	size_t end = command.find_first_of(" \t", start);
+	if (end == wxString::npos || names(command.substr(start, end - start))) {
+		return command;
+	}
+	while (end != wxString::npos) {
+		const size_t next = command.find_first_not_of(" \t", end);
+		if (next == wxString::npos || command[next] == '"') {
+			break;
+		}
+		end = command.find_first_of(" \t", next);
+		const wxString candidate =
+			command.substr(start, end == wxString::npos ? wxString::npos : end - start);
+		// A relative candidate would be looked up in the current directory.
+		if (wxFileName(candidate, wxPATH_WIN).IsAbsolute(wxPATH_WIN) && names(candidate)) {
+			return command.Left(start) + "\"" + candidate + "\"" +
+			       (end == wxString::npos ? wxString() : command.Mid(end));
+		}
+	}
+	return command;
+}
+
 wxArrayString Build(const wxString &command,
 	const std::vector<std::pair<wxString, wxString>> &values,
 	bool *substituted,
@@ -248,8 +279,15 @@ wxArrayString Build(const wxString &command,
 	if (command.find(wxChar(0)) != wxString::npos) {
 		return reject(RejectionReason::EmbeddedNul);
 	}
+	// Commands used to reach CreateProcess unsplit, and it resolves an unquoted
+	// C:\Program Files\... program itself.
+	const bool windows = platform == Platform::Windows;
+	const wxString split =
+		windows ? QuoteUnquotedProgram(
+				  command, [](const wxString &path) { return wxFileName::FileExists(path); })
+			: command;
 	wxArrayString args = wxCmdLineParser::ConvertStringToArgs(
-		command, platform == Platform::Windows ? wxCMD_LINE_SPLIT_DOS : wxCMD_LINE_SPLIT_UNIX);
+		split, windows ? wxCMD_LINE_SPLIT_DOS : wxCMD_LINE_SPLIT_UNIX);
 	if (args.IsEmpty() || args[0].empty()) {
 		return reject(RejectionReason::EmptyCommand);
 	}
@@ -337,6 +375,14 @@ wxArrayString Build(const wxString &command,
 	return args;
 }
 
+// wxArrayString has no std::initializer_list constructor before wxWidgets 3.2.4.
+static wxArrayString SingleArgument(const wxString &arg)
+{
+	wxArrayString args;
+	args.Add(arg);
+	return args;
+}
+
 // Windows CreateProcess accepts a string, and wxWidgets 3.2/3.3.1's argv overload
 // does not double backslashes before embedded quotes or the closing quote.
 // Quote each argument using the Windows C runtime rules instead.
@@ -388,14 +434,14 @@ wxString BuildWindowsCommandLine(const wxArrayString &args, const wxString *unch
 	}
 	wxString shell;
 	if (cmd) {
-		shell = QuoteCrtArguments(wxArrayString{ args[0] }) + " /d /s";
+		shell = QuoteCrtArguments(SingleArgument(args[0])) + " /d /s";
 		for (size_t i = 1; i < first; ++i) {
 			shell += " " + args[i];
 		}
 	} else {
 #ifdef __WINDOWS__
 		// Avoid implicit batch dispatch and PATH/COMSPEC lookup: select the OS shell.
-		shell = QuoteCrtArguments(wxArrayString{ wxGetOSDirectory() + "\\System32\\cmd.exe" });
+		shell = QuoteCrtArguments(SingleArgument(wxGetOSDirectory() + "\\System32\\cmd.exe"));
 #else
 		shell = "\"cmd.exe\""; // portable serializer regression coverage
 #endif
@@ -414,7 +460,7 @@ wxString BuildWindowsCommandLine(const wxArrayString &args, const wxString *unch
 			shell += args[i]; // fixed builtin token; cmd does not use CRT parsing
 		} else {
 			shell += rawQuotes ? "\"" + args[i] + "\""
-					   : QuoteCrtArguments(wxArrayString{ args[i] });
+					   : QuoteCrtArguments(SingleArgument(args[i]));
 		}
 	}
 	shell += '\"';

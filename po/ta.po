@@ -1224,12 +1224,25 @@ msgstr ""
 msgid "All"
 msgstr ""
 
+#: src/amule-remote-gui.cpp src/muuli_wdr.cpp
+msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
+msgstr ""
+
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
 msgstr ""
 
 #: src/amule-remote-gui.cpp
 msgid "not readable"
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+msgid "outside the folders the daemon allows (configured on the daemon)"
 msgstr ""
 
 #: src/amule-remote-gui.cpp
@@ -1257,6 +1270,15 @@ msgstr ""
 #: src/amule-remote-gui.cpp
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+msgid "the daemon refused the request"
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused the category: %s"
 msgstr ""
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
@@ -1765,6 +1787,14 @@ msgstr "பயனர் %s (%u பகிரப்பட்ட கோப்பக
 msgid "File Comments"
 msgstr ""
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr ""
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr ""
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr ""
@@ -2260,6 +2290,18 @@ msgstr[1] ""
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr ""
 
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
+msgstr ""
+
 #: src/EditServerListDlg.cpp
 msgid "Edit server list sources"
 msgstr ""
@@ -2289,6 +2331,11 @@ msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled due to empty password!"
+msgstr ""
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Remote clients cannot change folders: no folder is listed in %s"
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2520,6 +2567,14 @@ msgid "Could not save the amuleapi password: %s"
 msgstr ""
 
 #: src/ExternalConn.cpp
+msgid "One or more folders were outside the allowed remote directories and were left unchanged."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "The category folder is outside the allowed remote directories."
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "No such category."
 msgstr ""
 
@@ -2541,6 +2596,10 @@ msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Media metadata extraction is disabled in preferences"
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -3062,10 +3121,6 @@ msgid "Browse"
 msgstr ""
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr ""
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
 msgstr ""
 
@@ -3194,6 +3249,11 @@ msgstr ""
 
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
+msgstr ""
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "Refusing to download %s: only http and https URLs are supported."
 msgstr ""
 
 #: src/HTTPDownload.cpp
@@ -3921,21 +3981,8 @@ msgstr ""
 msgid "ERROR: Could not listen to TCP port."
 msgstr ""
 
-#: src/Logger.cpp
-msgid "ERROR: "
-msgstr ""
-
-#: src/Logger.cpp
-msgid "WARNING: "
-msgstr ""
-
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: not using %s, because another user owns it or a folder above it."
-msgstr ""
-
-#: src/MediaProbe.cpp
-msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
+msgid "Media metadata: bundled amule-media-probe helper is unavailable."
 msgstr ""
 
 #: src/MediaProbe.cpp
@@ -3945,32 +3992,12 @@ msgstr ""
 
 #: src/MediaProbe.cpp
 #, c-format
-msgid "Extracting media metadata with ffprobe: %s"
+msgid "Extracting media metadata: %s"
 msgstr ""
 
 #: src/MediaProbe.cpp
 #, c-format
-msgid "Media metadata: ffprobe timed out or was cancelled for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe failed (code %d) for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe found nothing usable in %s"
+msgid "Media metadata: parser failed for %s"
 msgstr ""
 
 #: src/MediaProbeThread.cpp
@@ -5042,7 +5069,7 @@ msgid "retries"
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Edit sources…"
+msgid "Edit sources..."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5071,6 +5098,14 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Set manually added servers to High Priority"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Publish shared files faster on servers that allow it"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow the publication pace that the server advertises. Other servers get the standard pace."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5201,7 +5236,7 @@ msgid ""
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
 msgstr ""
 
-#: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
+#: src/muuli_wdr.cpp
 msgid "Media metadata extraction"
 msgstr ""
 
@@ -5210,23 +5245,7 @@ msgid "Extract length / bitrate / codec from shared audio and video files"
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Path to ffprobe:"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Detect"
-msgstr ""
-
-#: src/muuli_wdr.cpp
-msgid "Search the standard install locations for an ffprobe binary and fill the path field."
+msgid "When enabled, aMule uses its bundled MediaInfo parser to extract metadata from shared media files."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5297,6 +5316,14 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Show how many of the files and folders in your shared folders the current pattern would exclude, counted over the last scan."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders the daemon allows remote changes in"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5561,6 +5588,18 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Require encrypted connections (rejects clients that cannot encrypt)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders remote clients may use"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -6001,6 +6040,22 @@ msgid "add here the words amule should filter and block messages including it"
 msgstr ""
 
 #: src/muuli_wdr.cpp
+msgid "Enable advanced spam filter"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Block unsolicited links and repeated messages from non-friends."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Require a CAPTCHA for first messages from non-friends"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Withhold the message until the sender solves the challenge. Clients without CAPTCHA support cannot start a chat."
+msgstr ""
+
+#: src/muuli_wdr.cpp
 msgid "Show received messages in the log"
 msgstr ""
 
@@ -6239,6 +6294,10 @@ msgstr ""
 #: src/OtherFunctions.cpp
 #, c-format
 msgid "%s:"
+msgstr ""
+
+#: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
 msgstr ""
 
 #: src/OtherFunctions.cpp
@@ -6507,6 +6566,11 @@ msgstr[1] ""
 
 #: src/PartFile.cpp
 #, c-format
+msgid "'%s' does not match its file hash, and without the part hashset the corrupt part cannot be found. Waiting for the hashset."
+msgstr ""
+
+#: src/PartFile.cpp
+#, c-format
 msgid "Found completed part (%i) in %s"
 msgstr "முடிக்கப்பட்ட பகுதி (%i) கண்டறியப்பட்டது %s இல்"
 
@@ -6598,6 +6662,10 @@ msgid "no options available"
 msgstr ""
 
 #: src/Preferences.cpp
+msgid "Media metadata: FFProbePath is obsolete; aMule now uses its bundled MediaInfo parser. Removing the old setting."
+msgstr ""
+
+#: src/Preferences.cpp
 msgid "Invalid path mapping found, skipping"
 msgstr ""
 
@@ -6612,6 +6680,11 @@ msgstr ""
 #: src/Preferences.cpp
 #, c-format
 msgid "Default port will be used (%d)"
+msgstr ""
+
+#: src/Preferences.cpp
+#, c-format
+msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
 msgstr ""
 
 #: src/BandwidthLimitSlider.h
@@ -6711,7 +6784,15 @@ msgid "Failed to transfer data from Cfg to Widget with the ID %d and key %s"
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot extract media metadata."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
 msgid "The type of proxy you are connecting to"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Set in the daemon's own configuration (amule.conf); not editable remotely."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -6898,9 +6979,9 @@ msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
-"Your Auto-update servers list is in blank.\n"
-"Please fill in at least one URL to point to a valid server.met file.\n"
-"Click on the button \"List\" by this checkbox to enter an URL."
+"Your server list sources are empty.\n"
+"Please add at least one URL of a valid server.met file.\n"
+"Click the \"Edit sources...\" button next to this checkbox to add one."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -6953,16 +7034,8 @@ msgid "Select browser"
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Select ffprobe binary"
-msgstr ""
-
-#: src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "Executable%s"
-msgstr ""
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
 msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
@@ -7149,6 +7222,18 @@ msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Choose the local folder"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Please enter an absolute path. A relative path would be resolved against the daemon's working directory, so it is not accepted."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Allowed folders for remote clients"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Choose a folder remote clients may use"
 msgstr ""
 
 #: src/SearchDlg.cpp
@@ -7966,6 +8051,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr ""
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8017,6 +8106,11 @@ msgid_plural "Discovered %u new shared files"
 msgstr[0] "பயனர் %s (%u) பகிர்ந்த கோப்பகம் '%s'"
 msgstr[1] "பயனர் %s (%u) பகிர்ந்த கோப்பகம் '%s'"
 
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Refused to rename '%s' to '%s': the new name must be a plain file name, not a path."
+msgstr ""
+
 #: src/SharedFilePeersListCtrl.cpp src/SourceListCtrl.cpp
 msgid "User Name"
 msgstr ""
@@ -8051,14 +8145,6 @@ msgstr ""
 
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
-msgstr ""
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr ""
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
 msgstr ""
 
 #: src/SharedFilesCtrl.cpp
@@ -9170,6 +9256,16 @@ msgstr ""
 #: src/UploadClient.cpp
 #, c-format
 msgid "Hashset requested for unknown file: %s"
+msgstr ""
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr ""
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
 msgstr ""
 
 #: src/UploadDiskIOThread.cpp

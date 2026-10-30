@@ -104,6 +104,9 @@ What is in it:
 * `amuled` - the headless daemon.
 * `amulecmd` - the command-line client, for driving the daemon.
 * `amuleapi` - the REST + SSE daemon, which also serves the Web UI.
+* `amule-media-probe` - the helper `amuled` runs to read the length,
+  bitrate, codec and tags of shared media files. Keep it next to
+  `amuled`.
 * `amuleapi-static/` - the Web UI itself. `amuleapi` finds it next
   to its own executable, so keep it beside the binary; moving or
   renaming that directory leaves the API answering `/api/v1` and
@@ -204,7 +207,9 @@ who prefer not to touch the registry.
    [Releases page][rel].
 2. Unzip anywhere (e.g., `C:\Program Files\aMule\` or
    `%USERPROFILE%\amule\`).
-3. Run `aMule.exe` (GUI) or `amuled.exe` (headless daemon).
+3. Run `aMule.exe` (GUI) or `amuled.exe` (headless daemon). Keep
+   `amule-media-probe.exe` in the same folder: the core runs it to
+   read the length, bitrate, codec and tags of shared media files.
 
 ---
 
@@ -284,7 +289,8 @@ PowerShell or Command Prompt in that folder and run them directly:
 
 `aMule.app/Contents/MacOS/` holds the GUI plus `amuled`,
 `amulecmd`, `amuleweb`, `amuleapi`, `ed2k` and the `cas`, `wxcas`,
-`alc` and `alcc` utilities; invoke them by full path:
+`alc` and `alcc` utilities, and the `amule-media-probe` helper the core
+runs to read media metadata; invoke them by full path:
 
 ```sh
 /Applications/aMule.app/Contents/MacOS/amuled --full-daemon
@@ -315,13 +321,13 @@ The AppImage dispatches on its own filename — symlink it to the
 tool name you want and invoke the symlink:
 
 ```sh
-ln -s aMule-3.0.0-Linux-x64.AppImage amuled
+ln -s aMule-3.2.0-Linux-x64.AppImage amuled
 ./amuled --full-daemon
 
-ln -s aMule-3.0.0-Linux-x64.AppImage amulecmd
+ln -s aMule-3.2.0-Linux-x64.AppImage amulecmd
 ./amulecmd -h 127.0.0.1 -p 4712 -P <password>
 
-ln -s aMule-3.0.0-Linux-x64.AppImage amulegui
+ln -s aMule-3.2.0-Linux-x64.AppImage amulegui
 ./amulegui
 ```
 

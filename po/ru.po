@@ -15,7 +15,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-25 09:58+0000\n"
+"PO-Revision-Date: 2026-10-29 21:57+0000\n"
 "Last-Translator: Radist Morse <radist.morse@gmail.com>\n"
 "Language-Team: Russian <kde-russian@lists.kde.ru>\n"
 "Language: ru\n"
@@ -204,9 +204,8 @@ msgid "Later"
 msgstr "Позже"
 
 #: src/GuiEvents.cpp src/ExternalConn.cpp
-#, fuzzy
 msgid "The selected download has changed. Refresh and try again."
-msgstr "Выбранная загрузка изменилась или завершается. Обновите список и повторите попытку."
+msgstr "Выбранная загрузка изменилась. Обновите список и повторите попытку."
 
 #: src/GuiEvents.cpp src/amule-remote-gui.cpp
 msgid "The connected core does not support deleting complete files from disk."
@@ -1300,6 +1299,15 @@ msgstr "*** CAPTCHA не пройдена; попытки исчерпаны."
 msgid "All"
 msgstr "Все"
 
+#: src/amule-remote-gui.cpp src/muuli_wdr.cpp
+msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
+msgstr "Чтобы разрешить папку, добавьте её в allowed-remote-dirs.dat в каталоге конфигурации демона — по одному абсолютному пути на строку — и перезапустите демон."
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
+msgstr "Демон отклонил эти папки, так как они находятся вне разрешённых им папок (настраивается на стороне демона):%s"
+
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
 msgstr "Демон не смог применить изменения портов соединения."
@@ -1307,6 +1315,10 @@ msgstr "Демон не смог применить изменения порт�
 #: src/amule-remote-gui.cpp
 msgid "not readable"
 msgstr "не читается"
+
+#: src/amule-remote-gui.cpp
+msgid "outside the folders the daemon allows (configured on the daemon)"
+msgstr "вне папок, разрешённых демоном (настраивается на стороне демона)"
 
 #: src/amule-remote-gui.cpp
 msgid "not found"
@@ -1334,6 +1346,15 @@ msgstr "Не удалось удалить категорию: %s"
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Не удаётся создать каталог «%s» для категории «%s», сохраняется каталог «%s»."
+
+#: src/amule-remote-gui.cpp
+msgid "the daemon refused the request"
+msgstr "демон отклонил запрос"
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused the category: %s"
+msgstr "Демон отклонил категорию: %s"
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
 msgid "Invalid URL"
@@ -1854,6 +1875,14 @@ msgstr "Пользователь %s (%u) отказал в доступе к с�
 msgid "File Comments"
 msgstr "Комментарии файла"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Добавить комментарий/оценку"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Изменить комментарий/оценку"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Имя пользователя"
@@ -2356,6 +2385,18 @@ msgstr[2] "Не удалось добавить %u ссылок (подробн�
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Неверная ссылка eD2k! ОШИБКА: %s"
 
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
+msgstr "Отклонён удалённый запрос на установку шаблона веб-сервера: значение должно быть простым именем шаблона, а не путём."
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
+msgstr "Отклонён удалённый запрос на изменение папки сетевой подписи: её можно задать только в собственной конфигурации демона."
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
+msgstr "Отклонён удалённый запрос на изменение параметра перехода по символическим ссылкам в общих папках: его можно задать только в собственной конфигурации демона."
+
 #: src/EditServerListDlg.cpp
 msgid "Edit server list sources"
 msgstr "Изменить источники списка серверов"
@@ -2388,6 +2429,11 @@ msgstr "Внешнее соединение закрыто."
 #: src/ExternalConn.cpp
 msgid "External connections disabled due to empty password!"
 msgstr "Внешние подключения отключены из-за отсутствия пароля!"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Remote clients cannot change folders: no folder is listed in %s"
+msgstr "Удалённые клиенты не могут изменять папки: в %s не указано ни одной папки"
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
@@ -2492,9 +2538,9 @@ msgid "FileHash not found: %s"
 msgstr "Хеш файла не найден: %s"
 
 #: src/ExternalConn.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Cannot cancel a hashing or finished download: %s"
-msgstr "Невозможно отменить завершённую загрузку: %s"
+msgstr "Невозможно отменить скачивание, которое хешируется или уже завершено: %s"
 
 #: src/ExternalConn.cpp
 msgid "The selected download has changed or is completing. Refresh and try again."
@@ -2619,6 +2665,14 @@ msgid "Could not save the amuleapi password: %s"
 msgstr "Не удалось сохранить пароль amuleapi: %s"
 
 #: src/ExternalConn.cpp
+msgid "One or more folders were outside the allowed remote directories and were left unchanged."
+msgstr "Одна или несколько папок находились вне разрешённых удалённых каталогов и остались без изменений."
+
+#: src/ExternalConn.cpp
+msgid "The category folder is outside the allowed remote directories."
+msgstr "Папка категории находится вне разрешённых удалённых каталогов."
+
+#: src/ExternalConn.cpp
 msgid "No such category."
 msgstr "Нет такой категории."
 
@@ -2641,6 +2695,10 @@ msgstr "Такой беседы нет"
 #: src/ExternalConn.cpp
 msgid "Media metadata extraction is disabled in preferences"
 msgstr "Извлечение метаданных медиафайлов отключено в настройках"
+
+#: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
+msgstr "В этом aMule нет помощника для работы с медиа (amule-media-probe)"
 
 #: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
@@ -3199,10 +3257,6 @@ msgid "Browse"
 msgstr "Открыть"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Все файлы в этой папке доступны другим пирам)"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
 msgstr "Папка для временных файлов"
 
@@ -3336,6 +3390,11 @@ msgstr "Загружается…"
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "Загрузка по HTTP отменена"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "Refusing to download %s: only http and https URLs are supported."
+msgstr "Отказ от скачивания %s: поддерживаются только URL-адреса http и https."
 
 #: src/HTTPDownload.cpp
 #, c-format
@@ -4068,22 +4127,9 @@ msgstr "Сокет прослушивания: в порядке."
 msgid "ERROR: Could not listen to TCP port."
 msgstr "ОШИБКА: не удалось прослушать порт TCP."
 
-#: src/Logger.cpp
-msgid "ERROR: "
-msgstr "ОШИБКА: "
-
-#: src/Logger.cpp
-msgid "WARNING: "
-msgstr "ПРЕДУПРЕЖДЕНИЕ: "
-
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: not using %s, because another user owns it or a folder above it."
-msgstr "Метаданные медиафайла: %s не используется, так как им или каталогом выше владеет другой пользователь."
-
-#: src/MediaProbe.cpp
-msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
-msgstr "Метаданные медиа: двоичный файл ffprobe не найден. Установите ffmpeg или укажите путь к ffprobe в настройках; длительность, битрейт и кодек не будут извлечены."
+msgid "Media metadata: bundled amule-media-probe helper is unavailable."
+msgstr "Метаданные медиафайла: встроенный помощник amule-media-probe недоступен."
 
 #: src/MediaProbe.cpp
 #, c-format
@@ -4092,33 +4138,13 @@ msgstr "Метаданные медиафайла: %s отсутствует, и
 
 #: src/MediaProbe.cpp
 #, c-format
-msgid "Extracting media metadata with ffprobe: %s"
-msgstr "Извлечение метаданных медиафайла через ffprobe: %s"
+msgid "Extracting media metadata: %s"
+msgstr "Извлечение метаданных медиафайла: %s"
 
 #: src/MediaProbe.cpp
 #, c-format
-msgid "Media metadata: ffprobe timed out or was cancelled for %s"
-msgstr "Метаданные медиафайла: ffprobe превысил время ожидания или был отменён для %s"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
-msgstr "Метаданные медиафайла: игнорируется неправдоподобно большой вывод ffprobe для %s"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
-msgstr "Метаданные медиафайла: не удалось запустить ffprobe (%s) — проверьте настройки извлечения метаданных медиафайлов"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe failed (code %d) for %s"
-msgstr "Метаданные медиафайла: ffprobe завершился с ошибкой (код %d) для %s"
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe found nothing usable in %s"
-msgstr "Метаданные медиафайла: ffprobe не нашёл ничего пригодного в %s"
+msgid "Media metadata: parser failed for %s"
+msgstr "Метаданные медиафайла: парсер завершился с ошибкой для %s"
 
 #: src/MediaProbeThread.cpp
 #, c-format
@@ -5201,7 +5227,7 @@ msgid "retries"
 msgstr "попыток"
 
 #: src/muuli_wdr.cpp
-msgid "Edit sources…"
+msgid "Edit sources..."
 msgstr "Править источники…"
 
 #: src/muuli_wdr.cpp
@@ -5231,6 +5257,14 @@ msgstr "Автоподключение только к постоянным се
 #: src/muuli_wdr.cpp
 msgid "Set manually added servers to High Priority"
 msgstr "Высокий приоритет серверов, добавленных вручную"
+
+#: src/muuli_wdr.cpp
+msgid "Publish shared files faster on servers that allow it"
+msgstr "Публиковать общие файлы быстрее на серверах, которые это позволяют"
+
+#: src/muuli_wdr.cpp
+msgid "Follow the publication pace that the server advertises. Other servers get the standard pace."
+msgstr "Следовать темпу публикации, который объявляет сервер. Остальные серверы получают стандартный темп."
 
 #: src/muuli_wdr.cpp
 msgid "Add files to download in pause mode"
@@ -5373,7 +5407,7 @@ msgstr ""
 "\n"
 "Техническое описание: отклоняет теги публикации AICH от узлов, объявляющих версию протокола Kad ниже 0x09."
 
-#: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
+#: src/muuli_wdr.cpp
 msgid "Media metadata extraction"
 msgstr "Извлечение метаданных медиафайлов"
 
@@ -5382,24 +5416,8 @@ msgid "Extract length / bitrate / codec from shared audio and video files"
 msgstr "Извлекать длительность, битрейт и кодек из общих файлов аудио и видео"
 
 #: src/muuli_wdr.cpp
-msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
-msgstr "Если включено, aMule запускает ffprobe для каждого общего медиафайла, чтобы заполнить столбцы «Длительность», «Битрейт» и «Кодек», которые видят другие клиенты при обнаружении файла в поиске. Требуется установленный ffmpeg (исполняемый файл ffprobe)."
-
-#: src/muuli_wdr.cpp
-msgid "Path to ffprobe:"
-msgstr "Путь к ffprobe:"
-
-#: src/muuli_wdr.cpp
-msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
-msgstr "Полный путь к исполняемому файлу ffprobe. Оставьте пустым, чтобы aMule определял его автоматически при запуске."
-
-#: src/muuli_wdr.cpp
-msgid "Detect"
-msgstr "Определить"
-
-#: src/muuli_wdr.cpp
-msgid "Search the standard install locations for an ffprobe binary and fill the path field."
-msgstr "Найти исполняемый файл ffprobe в стандартных местах установки и заполнить поле пути."
+msgid "When enabled, aMule uses its bundled MediaInfo parser to extract metadata from shared media files."
+msgstr "Если включено, aMule использует встроенный парсер MediaInfo для извлечения метаданных из общих медиафайлов."
 
 #: src/muuli_wdr.cpp
 msgid ""
@@ -5472,6 +5490,14 @@ msgstr "Если включено, всё поле является одним �
 #: src/muuli_wdr.cpp
 msgid "Show how many of the files and folders in your shared folders the current pattern would exclude, counted over the last scan."
 msgstr "Показать, сколько файлов и папок в ваших общих папках исключит текущий шаблон, по результатам последнего сканирования."
+
+#: src/muuli_wdr.cpp
+msgid "Folders the daemon allows remote changes in"
+msgstr "Папки, в которых демон разрешает удалённые изменения"
+
+#: src/muuli_wdr.cpp
+msgid "(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"
+msgstr "(Только для чтения. Настраивается на стороне демона; если пусто, демон отклоняет любые удалённые изменения папок.)"
 
 #: src/muuli_wdr.cpp
 msgid "When the connected core's files live on a different machine, map a path prefix it reports to where that filesystem is reachable from here (a network share, say) so \"Open\" and \"Show in folder\" work."
@@ -5739,6 +5765,18 @@ msgstr "Пароль"
 #: src/muuli_wdr.cpp
 msgid "Require encrypted connections (rejects clients that cannot encrypt)"
 msgstr "Требовать шифрованные соединения (отклоняет клиенты без шифрования)"
+
+#: src/muuli_wdr.cpp
+msgid "Folders remote clients may use"
+msgstr "Папки, доступные удалённым клиентам"
+
+#: src/muuli_wdr.cpp
+msgid "(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"
+msgstr "(Удалённые клиенты могут задавать папки входящих файлов, временных файлов, общих файлов и категорий только внутри этих папок. Пустое значение означает, что удалённые изменения папок запрещены. Локальные изменения здесь никогда не ограничиваются.)"
+
+#: src/muuli_wdr.cpp
+msgid "Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."
+msgstr "Абсолютный путь к папке, например /home/user/aMule. После этого удалённый клиент может задавать любую папку на этом уровне или ниже."
 
 #: src/muuli_wdr.cpp
 msgid "aMule API server parameters"
@@ -6193,6 +6231,22 @@ msgid "add here the words amule should filter and block messages including it"
 msgstr "Добавьте слова, при наличии которых aMule будет фильтровать и блокировать сообщения"
 
 #: src/muuli_wdr.cpp
+msgid "Enable advanced spam filter"
+msgstr "Включить расширенный фильтр спама"
+
+#: src/muuli_wdr.cpp
+msgid "Block unsolicited links and repeated messages from non-friends."
+msgstr "Блокировать нежелательные ссылки и повторяющиеся сообщения от пользователей, не входящих в список друзей."
+
+#: src/muuli_wdr.cpp
+msgid "Require a CAPTCHA for first messages from non-friends"
+msgstr "Требовать CAPTCHA для первых сообщений от пользователей, не входящих в список друзей"
+
+#: src/muuli_wdr.cpp
+msgid "Withhold the message until the sender solves the challenge. Clients without CAPTCHA support cannot start a chat."
+msgstr "Задерживать сообщение, пока отправитель не пройдёт проверку. Клиенты без поддержки CAPTCHA не смогут начать чат."
+
+#: src/muuli_wdr.cpp
 msgid "Show received messages in the log"
 msgstr "Показывать полученные сообщения в логе"
 
@@ -6434,6 +6488,10 @@ msgstr "%u кбит/с"
 #, c-format
 msgid "%s:"
 msgstr "%s:"
+
+#: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Все файлы в этой папке доступны другим пирам)"
 
 #: src/OtherFunctions.cpp
 msgid "all"
@@ -6706,6 +6764,11 @@ msgstr[2] "Найдена повреждённая часть (%d) в %d час�
 
 #: src/PartFile.cpp
 #, c-format
+msgid "'%s' does not match its file hash, and without the part hashset the corrupt part cannot be found. Waiting for the hashset."
+msgstr "«%s» не соответствует своему хешу файла, а без хеш-набора частей невозможно найти повреждённую часть. Ожидание хеш-набора."
+
+#: src/PartFile.cpp
+#, c-format
 msgid "Found completed part (%i) in %s"
 msgstr "Найдена завершённая часть (%i) в %s"
 
@@ -6799,6 +6862,10 @@ msgid "no options available"
 msgstr "нет доступных опций"
 
 #: src/Preferences.cpp
+msgid "Media metadata: FFProbePath is obsolete; aMule now uses its bundled MediaInfo parser. Removing the old setting."
+msgstr "Метаданные медиафайла: параметр FFProbePath устарел; теперь aMule использует встроенный парсер MediaInfo. Удаление устаревшего параметра."
+
+#: src/Preferences.cpp
 msgid "Invalid path mapping found, skipping"
 msgstr "Найдено неверное сопоставление путей, пропускается"
 
@@ -6814,6 +6881,11 @@ msgstr "Порт TCP не может быть выше 65532, так как UDP-
 #, c-format
 msgid "Default port will be used (%d)"
 msgstr "Используется порт по умолчанию (%d)"
+
+#: src/Preferences.cpp
+#, c-format
+msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
+msgstr "Относительный путь в allowed-remote-dirs.dat игнорируется (принимаются только абсолютные пути): %s"
 
 #: src/BandwidthLimitSlider.h
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
@@ -6921,8 +6993,16 @@ msgid "Failed to transfer data from Cfg to Widget with the ID %d and key %s"
 msgstr "Не удалось передать данные из Cfg к Widget с ID %d и ключом %s"
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot extract media metadata."
+msgstr "В этом aMule нет помощника для работы с медиа (amule-media-probe), поэтому он не может извлекать метаданные медиафайлов."
+
+#: src/PrefsUnifiedDlg.cpp
 msgid "The type of proxy you are connecting to"
 msgstr "Тип прокси-сервера, который вы используете"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Set in the daemon's own configuration (amule.conf); not editable remotely."
+msgstr "Задаётся в собственной конфигурации демона (amule.conf); недоступно для удалённого изменения."
 
 #: src/PrefsUnifiedDlg.cpp
 #, c-format
@@ -7121,13 +7201,13 @@ msgstr "Веб-сервер aMule устарел. Рассмотрите воз�
 
 #: src/PrefsUnifiedDlg.cpp
 msgid ""
-"Your Auto-update servers list is in blank.\n"
-"Please fill in at least one URL to point to a valid server.met file.\n"
-"Click on the button \"List\" by this checkbox to enter an URL."
+"Your server list sources are empty.\n"
+"Please add at least one URL of a valid server.met file.\n"
+"Click the \"Edit sources...\" button next to this checkbox to add one."
 msgstr ""
-"Ваш список автообновления серверов пуст.\n"
-"Пожалуйста, внесите в список хотя бы один адрес, указывающий на верный server.met.\n"
-"Щёлкните на кнопке «Список», чтобы ввести адрес."
+"Источники списка серверов пусты.\n"
+"Пожалуйста, добавьте хотя бы один URL-адрес действительного файла server.met.\n"
+"Нажмите кнопку «Изменить источники…» рядом с этим флажком, чтобы добавить его."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Temporary files"
@@ -7181,17 +7261,9 @@ msgid "Select browser"
 msgstr "Выбор браузера"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Select ffprobe binary"
-msgstr "Выбор исполняемого файла ffprobe"
-
-#: src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "Executable%s"
 msgstr "Команда запуска%s"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
-msgstr "ffprobe не найден в PATH или в стандартных местах установки. Установите ffmpeg (в комплект которого входит ffprobe) либо воспользуйтесь кнопкой «Обзор», чтобы выбрать файл вручную."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset the settings on this page to their default values?"
@@ -7389,6 +7461,18 @@ msgstr "Этот удалённый префикс уже сопоставлен
 #: src/PrefsUnifiedDlg.cpp
 msgid "Choose the local folder"
 msgstr "Выберите локальную папку"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Please enter an absolute path. A relative path would be resolved against the daemon's working directory, so it is not accepted."
+msgstr "Введите абсолютный путь. Относительный путь разрешался бы относительно рабочего каталога демона, поэтому не принимается."
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Allowed folders for remote clients"
+msgstr "Разрешённые папки для удалённых клиентов"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Choose a folder remote clients may use"
+msgstr "Выберите папку, доступную удалённым клиентам"
 
 #: src/SearchDlg.cpp
 msgid "Clear Search History"
@@ -8221,6 +8305,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr "Извлечение метаданных медиафайлов отключено в настройках, поэтому нечего извлекать заново."
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr "В этом aMule нет помощника для работы с медиа (amule-media-probe), поэтому он не может повторно извлекать метаданные медиафайлов."
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8276,6 +8364,11 @@ msgstr[0] "Обнаружен %u новый публикуемый файл"
 msgstr[1] "Обнаружены %u новых публикуемых файла"
 msgstr[2] "Обнаружено %u новых публикуемых файлов"
 
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Refused to rename '%s' to '%s': the new name must be a plain file name, not a path."
+msgstr "Отказано в переименовании «%s» в «%s»: новое имя должно быть простым именем файла, а не путём."
+
 #: src/SharedFilePeersListCtrl.cpp src/SourceListCtrl.cpp
 msgid "User Name"
 msgstr "Имя пользователя"
@@ -8313,14 +8406,6 @@ msgstr "Каталог"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Общие файлы"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Добавить комментарий/оценку"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Изменить комментарий/оценку"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
@@ -9479,6 +9564,16 @@ msgstr "Запрошен набор хешей для неизвестного �
 
 #: src/UploadDiskIOThread.cpp
 #, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Не удалось запустить обработчики чтения с диска для отдачи: %s"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr "Ошибка обработчика чтения с диска для отдачи: %s"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
 msgid "Failed to open file (%s), removing from list of shared files."
 msgstr "Не удалось открыть файл (%s), удаляется из списка общих."
 
@@ -10286,6 +10381,65 @@ msgstr "Kad не смогла подгрузить сохранённый инд
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr "Kad не смогла сохранить индекс. Предыдущая копия этого файла сохранена."
+
+#~ msgid "Refused a remote request to change the media-probe (ffprobe) path: it can only be set in the daemon's own configuration."
+#~ msgstr "Отклонён удалённый запрос на изменение пути к ffprobe: его можно задать только в собственной конфигурации демона."
+
+#~ msgid "ERROR: "
+#~ msgstr "ОШИБКА: "
+
+#~ msgid "WARNING: "
+#~ msgstr "ПРЕДУПРЕЖДЕНИЕ: "
+
+#, c-format
+#~ msgid "Media metadata: not using %s, because another user owns it or a folder above it."
+#~ msgstr "Метаданные медиафайла: %s не используется, так как им или каталогом выше владеет другой пользователь."
+
+#~ msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
+#~ msgstr "Метаданные медиа: двоичный файл ffprobe не найден. Установите ffmpeg или укажите путь к ffprobe в настройках; длительность, битрейт и кодек не будут извлечены."
+
+#, c-format
+#~ msgid "Media metadata: ffprobe timed out or was cancelled for %s"
+#~ msgstr "Метаданные медиафайла: ffprobe превысил время ожидания или был отменён для %s"
+
+#, c-format
+#~ msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
+#~ msgstr "Метаданные медиафайла: игнорируется неправдоподобно большой вывод ffprobe для %s"
+
+#, c-format
+#~ msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
+#~ msgstr "Метаданные медиафайла: не удалось запустить ffprobe (%s) — проверьте настройки извлечения метаданных медиафайлов"
+
+#, c-format
+#~ msgid "Media metadata: ffprobe found nothing usable in %s"
+#~ msgstr "Метаданные медиафайла: ffprobe не нашёл ничего пригодного в %s"
+
+#~ msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
+#~ msgstr "Если включено, aMule запускает ffprobe для каждого общего медиафайла, чтобы заполнить столбцы «Длительность», «Битрейт» и «Кодек», которые видят другие клиенты при обнаружении файла в поиске. Требуется установленный ffmpeg (исполняемый файл ffprobe)."
+
+#~ msgid "Path to ffprobe:"
+#~ msgstr "Путь к ffprobe:"
+
+#~ msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
+#~ msgstr "Полный путь к исполняемому файлу ffprobe. Оставьте пустым, чтобы aMule определял его автоматически при запуске."
+
+#~ msgid "Detect"
+#~ msgstr "Определить"
+
+#~ msgid "Search the standard install locations for an ffprobe binary and fill the path field."
+#~ msgstr "Найти исполняемый файл ffprobe в стандартных местах установки и заполнить поле пути."
+
+#~ msgid "That file does not look like ffprobe. Choose a binary named ffprobe (or ffprobe.exe) that reports an \"ffprobe version\" banner, leave the field empty to auto-detect, or set the path directly in amule.conf."
+#~ msgstr "Этот файл не похож на ffprobe. Выберите исполняемый файл с именем ffprobe (или ffprobe.exe), который выводит строку «ffprobe version», оставьте поле пустым для автоопределения либо задайте путь напрямую в amule.conf."
+
+#~ msgid "Invalid ffprobe path"
+#~ msgstr "Неверный путь к ffprobe"
+
+#~ msgid "Select ffprobe binary"
+#~ msgstr "Выбор исполняемого файла ffprobe"
+
+#~ msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
+#~ msgstr "ffprobe не найден в PATH или в стандартных местах установки. Установите ffmpeg (в комплект которого входит ffprobe) либо воспользуйтесь кнопкой «Обзор», чтобы выбрать файл вручную."
 
 #~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
 #~ msgstr "Поддержка значка в трее требует наличия libayatana-appindicator3 на этапе компиляции."

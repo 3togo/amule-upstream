@@ -1268,6 +1268,15 @@ msgstr ""
 msgid "All"
 msgstr "Tất cả"
 
+#: src/amule-remote-gui.cpp src/muuli_wdr.cpp
+msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
+msgstr ""
+
 #: src/amule-remote-gui.cpp
 msgid "The daemon could not apply the connection port changes."
 msgstr ""
@@ -1275,6 +1284,10 @@ msgstr ""
 #: src/amule-remote-gui.cpp
 msgid "not readable"
 msgstr "không thể đọc"
+
+#: src/amule-remote-gui.cpp
+msgid "outside the folders the daemon allows (configured on the daemon)"
+msgstr ""
 
 #: src/amule-remote-gui.cpp
 msgid "not found"
@@ -1302,6 +1315,15 @@ msgstr ""
 #, c-format
 msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Không thể tạo thư mục '%s' cho danh mục '%s', giữ nguyên thư mục '%s'."
+
+#: src/amule-remote-gui.cpp
+msgid "the daemon refused the request"
+msgstr ""
+
+#: src/amule-remote-gui.cpp
+#, c-format
+msgid "The daemon refused the category: %s"
+msgstr ""
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
 msgid "Invalid URL"
@@ -1802,6 +1824,14 @@ msgstr "Người dùng %s (%u) đã từ chối quyền truy cập vào danh sá
 msgid "File Comments"
 msgstr "Bình luận tệp"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Thêm bình luận/đánh giá"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Chỉnh sửa bình luận/đánh giá"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Tên người dùng"
@@ -2297,6 +2327,18 @@ msgstr[0] "Không thể thêm %u liên kết (xem nhật ký để biết chi ti
 msgid "Invalid eD2k link! ERROR: %s"
 msgstr "Liên kết eD2k không hợp lệ! LỖI: %s"
 
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
+msgstr ""
+
+#: src/ECSpecialMuleTags.cpp
+msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
+msgstr ""
+
 #: src/EditServerListDlg.cpp
 #, fuzzy
 msgid "Edit server list sources"
@@ -2328,6 +2370,11 @@ msgstr "Kết nối bên ngoài đã đóng."
 #: src/ExternalConn.cpp
 msgid "External connections disabled due to empty password!"
 msgstr "Kết nối bên ngoài bị vô hiệu hóa do mật khẩu trống!"
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "Remote clients cannot change folders: no folder is listed in %s"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
@@ -2560,6 +2607,14 @@ msgid "Could not save the amuleapi password: %s"
 msgstr "Không thể lưu mật khẩu amuleapi: %s"
 
 #: src/ExternalConn.cpp
+msgid "One or more folders were outside the allowed remote directories and were left unchanged."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "The category folder is outside the allowed remote directories."
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "No such category."
 msgstr ""
 
@@ -2581,6 +2636,10 @@ msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Media metadata extraction is disabled in preferences"
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "This aMule has no media helper (amule-media-probe)"
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -3140,10 +3199,6 @@ msgid "Browse"
 msgstr "Duyệt"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Tất cả tệp trong thư mục này được chia sẻ với các peer khác)"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
 msgstr "Thư mục cho các tệp tải xuống tạm thời"
 
@@ -3277,6 +3332,11 @@ msgstr "Đang tải xuống..."
 #: src/HTTPDownload.cpp
 msgid "HTTP download cancelled"
 msgstr "Đã hủy tải xuống HTTP"
+
+#: src/HTTPDownload.cpp
+#, c-format
+msgid "Refusing to download %s: only http and https URLs are supported."
+msgstr ""
 
 #: src/HTTPDownload.cpp
 #, c-format
@@ -4006,21 +4066,8 @@ msgstr "ListenSocket: Ok."
 msgid "ERROR: Could not listen to TCP port."
 msgstr "LỖI: Không thể lắng nghe trên cổng TCP."
 
-#: src/Logger.cpp
-msgid "ERROR: "
-msgstr "LỖI: "
-
-#: src/Logger.cpp
-msgid "WARNING: "
-msgstr "CẢNH BÁO: "
-
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: not using %s, because another user owns it or a folder above it."
-msgstr ""
-
-#: src/MediaProbe.cpp
-msgid "Media metadata: no ffprobe binary found. Install ffmpeg, or set the ffprobe path in preferences; length, bitrate and codec will not be extracted."
+msgid "Media metadata: bundled amule-media-probe helper is unavailable."
 msgstr ""
 
 #: src/MediaProbe.cpp
@@ -4030,33 +4077,13 @@ msgstr ""
 
 #: src/MediaProbe.cpp
 #, c-format
-msgid "Extracting media metadata with ffprobe: %s"
+msgid "Extracting media metadata: %s"
 msgstr ""
 
 #: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe timed out or was cancelled for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ignoring implausibly large ffprobe output for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: could not run ffprobe (%s) -- check the media metadata settings"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe failed (code %d) for %s"
-msgstr ""
-
-#: src/MediaProbe.cpp
-#, c-format
-msgid "Media metadata: ffprobe found nothing usable in %s"
-msgstr ""
+#, fuzzy, c-format
+msgid "Media metadata: parser failed for %s"
+msgstr "Trích xuất siêu dữ liệu media"
 
 #: src/MediaProbeThread.cpp
 #, c-format
@@ -5131,7 +5158,7 @@ msgstr "lần thử lại"
 
 #: src/muuli_wdr.cpp
 #, fuzzy
-msgid "Edit sources…"
+msgid "Edit sources..."
 msgstr "Nguồn tệp:"
 
 #: src/muuli_wdr.cpp
@@ -5161,6 +5188,14 @@ msgstr "Chỉ tự động kết nối với các máy chủ trong danh sách t�
 #: src/muuli_wdr.cpp
 msgid "Set manually added servers to High Priority"
 msgstr "Đặt ưu tiên cao cho các máy chủ được thêm thủ công"
+
+#: src/muuli_wdr.cpp
+msgid "Publish shared files faster on servers that allow it"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Follow the publication pace that the server advertises. Other servers get the standard pace."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Add files to download in pause mode"
@@ -5291,7 +5326,7 @@ msgid ""
 "Technical detail: rejects AICH publish tags from nodes advertising Kad protocol versions below 0x09."
 msgstr ""
 
-#: src/muuli_wdr.cpp src/PrefsUnifiedDlg.cpp
+#: src/muuli_wdr.cpp
 msgid "Media metadata extraction"
 msgstr "Trích xuất siêu dữ liệu media"
 
@@ -5300,24 +5335,8 @@ msgid "Extract length / bitrate / codec from shared audio and video files"
 msgstr "Trích xuất thời lượng / bitrate / codec từ các tệp âm thanh và video được chia sẻ"
 
 #: src/muuli_wdr.cpp
-msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
-msgstr "Khi được bật, aMule sẽ chạy ffprobe trên mỗi tệp media chia sẻ để điền vào các cột Thời lượng / Bitrate / Codec mà các client khác thấy khi họ tìm thấy tệp trong một lượt tìm kiếm. Yêu cầu cài đặt ffmpeg (tệp thực thi ffprobe)."
-
-#: src/muuli_wdr.cpp
-msgid "Path to ffprobe:"
-msgstr "Đường dẫn đến ffprobe:"
-
-#: src/muuli_wdr.cpp
-msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
-msgstr "Đường dẫn đầy đủ đến tệp thực thi ffprobe. Để trống để aMule tự động phát hiện khi khởi động."
-
-#: src/muuli_wdr.cpp
-msgid "Detect"
-msgstr "Phát hiện"
-
-#: src/muuli_wdr.cpp
-msgid "Search the standard install locations for an ffprobe binary and fill the path field."
-msgstr "Tìm kiếm tệp thực thi ffprobe tại các vị trí cài đặt chuẩn và điền vào trường đường dẫn."
+msgid "When enabled, aMule uses its bundled MediaInfo parser to extract metadata from shared media files."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid ""
@@ -5389,6 +5408,14 @@ msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Show how many of the files and folders in your shared folders the current pattern would exclude, counted over the last scan."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders the daemon allows remote changes in"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Read-only. Configured on the daemon; if empty, the daemon refuses every remote folder change.)"
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -5653,6 +5680,18 @@ msgstr "Mật khẩu"
 
 #: src/muuli_wdr.cpp
 msgid "Require encrypted connections (rejects clients that cannot encrypt)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Folders remote clients may use"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "(Remote clients may set the incoming, temp, shared and category folders only inside these. Empty means no remote folder change is allowed. Local changes here are never restricted.)"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Absolute path of a folder, e.g. /home/user/aMule. A remote client may then set any folder at or below it."
 msgstr ""
 
 #: src/muuli_wdr.cpp
@@ -6109,6 +6148,22 @@ msgid "add here the words amule should filter and block messages including it"
 msgstr "thêm vào đây các từ mà amule nên lọc và chặn các tin nhắn chứa chúng"
 
 #: src/muuli_wdr.cpp
+msgid "Enable advanced spam filter"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Block unsolicited links and repeated messages from non-friends."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Require a CAPTCHA for first messages from non-friends"
+msgstr ""
+
+#: src/muuli_wdr.cpp
+msgid "Withhold the message until the sender solves the challenge. Clients without CAPTCHA support cannot start a chat."
+msgstr ""
+
+#: src/muuli_wdr.cpp
 msgid "Show received messages in the log"
 msgstr "Hiển thị tin nhắn nhận được trong nhật ký"
 
@@ -6346,6 +6401,10 @@ msgstr ""
 #, c-format
 msgid "%s:"
 msgstr ""
+
+#: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Tất cả tệp trong thư mục này được chia sẻ với các peer khác)"
 
 #: src/OtherFunctions.cpp
 msgid "all"
@@ -6611,6 +6670,11 @@ msgstr[0] "Tìm thấy phần bị hỏng (%d) trong tệp %d phần %s - FileRe
 
 #: src/PartFile.cpp
 #, c-format
+msgid "'%s' does not match its file hash, and without the part hashset the corrupt part cannot be found. Waiting for the hashset."
+msgstr ""
+
+#: src/PartFile.cpp
+#, c-format
 msgid "Found completed part (%i) in %s"
 msgstr "Tìm thấy phần đã hoàn tất (%i) trong %s"
 
@@ -6704,6 +6768,10 @@ msgid "no options available"
 msgstr "không có tùy chọn nào khả dụng"
 
 #: src/Preferences.cpp
+msgid "Media metadata: FFProbePath is obsolete; aMule now uses its bundled MediaInfo parser. Removing the old setting."
+msgstr ""
+
+#: src/Preferences.cpp
 msgid "Invalid path mapping found, skipping"
 msgstr ""
 
@@ -6719,6 +6787,11 @@ msgstr "Cổng TCP không thể lớn hơn 65532 vì socket UDP của máy chủ
 #, c-format
 msgid "Default port will be used (%d)"
 msgstr "Cổng mặc định sẽ được sử dụng (%d)"
+
+#: src/Preferences.cpp
+#, c-format
+msgid "Ignoring a relative path in allowed-remote-dirs.dat (only absolute paths are accepted): %s"
+msgstr ""
 
 #: src/BandwidthLimitSlider.h
 msgid "Adjust the enabled limit from 1 KiB/s to line capacity."
@@ -6826,8 +6899,16 @@ msgid "Failed to transfer data from Cfg to Widget with the ID %d and key %s"
 msgstr "Không thể truyền dữ liệu từ Cfg sang Widget có ID %d và khóa %s"
 
 #: src/PrefsUnifiedDlg.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot extract media metadata."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
 msgid "The type of proxy you are connecting to"
 msgstr "Loại proxy mà bạn đang kết nối tới"
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Set in the daemon's own configuration (amule.conf); not editable remotely."
+msgstr ""
 
 #: src/PrefsUnifiedDlg.cpp
 #, c-format
@@ -7027,10 +7108,11 @@ msgid "The aMule web server is deprecated. Consider running the aMule API instea
 msgstr "Máy chủ web aMule đã lỗi thời. Hãy cân nhắc chạy aMule API thay thế."
 
 #: src/PrefsUnifiedDlg.cpp
+#, fuzzy
 msgid ""
-"Your Auto-update servers list is in blank.\n"
-"Please fill in at least one URL to point to a valid server.met file.\n"
-"Click on the button \"List\" by this checkbox to enter an URL."
+"Your server list sources are empty.\n"
+"Please add at least one URL of a valid server.met file.\n"
+"Click the \"Edit sources...\" button next to this checkbox to add one."
 msgstr ""
 "Danh sách máy chủ tự động cập nhật của bạn đang trống.\n"
 "Vui lòng điền ít nhất một URL trỏ đến tệp server.met hợp lệ.\n"
@@ -7084,17 +7166,9 @@ msgid "Select browser"
 msgstr "Chọn trình duyệt"
 
 #: src/PrefsUnifiedDlg.cpp
-msgid "Select ffprobe binary"
-msgstr "Chọn tệp thực thi ffprobe"
-
-#: src/PrefsUnifiedDlg.cpp
 #, c-format
 msgid "Executable%s"
 msgstr "Tệp thực thi%s"
-
-#: src/PrefsUnifiedDlg.cpp
-msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
-msgstr "Không tìm thấy ffprobe trong PATH hoặc tại các vị trí cài đặt tiêu chuẩn. Hãy cài đặt ffmpeg (đã bao gồm ffprobe) hoặc dùng Duyệt để chọn tệp thực thi thủ công."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Reset the settings on this page to their default values?"
@@ -7281,6 +7355,19 @@ msgstr ""
 #: src/PrefsUnifiedDlg.cpp
 msgid "Choose the local folder"
 msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Please enter an absolute path. A relative path would be resolved against the daemon's working directory, so it is not accepted."
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+msgid "Allowed folders for remote clients"
+msgstr ""
+
+#: src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Choose a folder remote clients may use"
+msgstr "Chọn thư mục cho các tệp đến"
 
 #: src/SearchDlg.cpp
 msgid "Clear Search History"
@@ -8097,6 +8184,10 @@ msgid "Media metadata extraction is disabled in preferences, so there is nothing
 msgstr ""
 
 #: src/SharedFileList.cpp
+msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
+msgstr ""
+
+#: src/SharedFileList.cpp
 #, c-format
 msgid "Re-extracting media metadata for %u shared file"
 msgid_plural "Re-extracting media metadata for %u shared files"
@@ -8144,6 +8235,11 @@ msgid "Discovered %u new shared file"
 msgid_plural "Discovered %u new shared files"
 msgstr[0] ""
 
+#: src/SharedFileList.cpp
+#, c-format
+msgid "Refused to rename '%s' to '%s': the new name must be a plain file name, not a path."
+msgstr ""
+
 #: src/SharedFilePeersListCtrl.cpp src/SourceListCtrl.cpp
 msgid "User Name"
 msgstr "Tên người dùng"
@@ -8179,14 +8275,6 @@ msgstr "Đường dẫn thư mục"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Tệp chia sẻ"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Thêm bình luận/đánh giá"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Chỉnh sửa bình luận/đánh giá"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
@@ -9327,6 +9415,16 @@ msgid "Hashset requested for unknown file: %s"
 msgstr "Yêu cầu hashset cho tệp không xác định: %s"
 
 #: src/UploadDiskIOThread.cpp
+#, fuzzy, c-format
+msgid "Could not start the upload disk readers: %s"
+msgstr "Không thể bắt đầu tìm kiếm Kad"
+
+#: src/UploadDiskIOThread.cpp
+#, c-format
+msgid "Upload disk reader error: %s"
+msgstr ""
+
+#: src/UploadDiskIOThread.cpp
 #, c-format
 msgid "Failed to open file (%s), removing from list of shared files."
 msgstr ""
@@ -10128,6 +10226,37 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#~ msgid "ERROR: "
+#~ msgstr "LỖI: "
+
+#~ msgid "WARNING: "
+#~ msgstr "CẢNH BÁO: "
+
+#~ msgid "When enabled, aMule runs ffprobe on each shared media file to fill in the Length / Bitrate / Codec columns other clients see when they find the file in a search. Requires ffmpeg (the ffprobe binary) to be installed."
+#~ msgstr "Khi được bật, aMule sẽ chạy ffprobe trên mỗi tệp media chia sẻ để điền vào các cột Thời lượng / Bitrate / Codec mà các client khác thấy khi họ tìm thấy tệp trong một lượt tìm kiếm. Yêu cầu cài đặt ffmpeg (tệp thực thi ffprobe)."
+
+#~ msgid "Path to ffprobe:"
+#~ msgstr "Đường dẫn đến ffprobe:"
+
+#~ msgid "Full path to the ffprobe binary. Leave empty to have aMule auto-detect it on startup."
+#~ msgstr "Đường dẫn đầy đủ đến tệp thực thi ffprobe. Để trống để aMule tự động phát hiện khi khởi động."
+
+#~ msgid "Detect"
+#~ msgstr "Phát hiện"
+
+#~ msgid "Search the standard install locations for an ffprobe binary and fill the path field."
+#~ msgstr "Tìm kiếm tệp thực thi ffprobe tại các vị trí cài đặt chuẩn và điền vào trường đường dẫn."
+
+#, fuzzy
+#~ msgid "Invalid ffprobe path"
+#~ msgstr "Tên tệp không hợp lệ."
+
+#~ msgid "Select ffprobe binary"
+#~ msgstr "Chọn tệp thực thi ffprobe"
+
+#~ msgid "ffprobe not found on PATH or in the standard install locations. Install ffmpeg (which ships ffprobe) or use Browse to pick a binary manually."
+#~ msgstr "Không tìm thấy ffprobe trong PATH hoặc tại các vị trí cài đặt tiêu chuẩn. Hãy cài đặt ffmpeg (đã bao gồm ffprobe) hoặc dùng Duyệt để chọn tệp thực thi thủ công."
 
 #~ msgid "Tray icon support requires libayatana-appindicator3 at compile time."
 #~ msgstr "Hỗ trợ biểu tượng khay hệ thống yêu cầu libayatana-appindicator3 tại thời điểm biên dịch."

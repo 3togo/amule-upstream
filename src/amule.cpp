@@ -531,13 +531,6 @@ int CamuleApp::OnExit()
 	glob_prefs = NULL;
 	CPreferences::EraseItemList();
 
-	// Shut down disk I/O thread before throttler -- eMule ref: emule.cpp shutdown order
-	if (uploadDiskIOThread) {
-		uploadDiskIOThread->EndThread();
-		delete uploadDiskIOThread;
-		uploadDiskIOThread = NULL;
-	}
-
 	delete uploadBandwidthThrottler;
 	uploadBandwidthThrottler = NULL;
 
@@ -1066,7 +1059,12 @@ bool CamuleApp::OnInit()
 	partFileWriteThread = new CPartFileWriteThread();
 	partFileHashThread = new CPartFileHashThread();
 	partMetWriter = new CPartMetWriter();
-	// Dedicated worker for ffprobe metadata, isolated from the shared
+	// Detect at startup even when there are no media files to schedule, so an
+	// enabled feature with a missing helper is reported once.
+	if (thePrefs::GetMediaMetadataEnabled()) {
+		thePrefs::IsMediaMetadataAvailable();
+	}
+	// Dedicated worker for media metadata, isolated from the shared
 	// CThreadScheduler so a slow or hung probe can never stall completions.
 	mediaProbeThread = new CMediaProbeThread();
 	// Dedicated worker for the free-space probe, isolated for the same reason: statvfs()
@@ -1558,7 +1556,8 @@ void CamuleApp::StartAmuleApi(bool startup)
 #endif
 		amuleapi_pid = 0;
 		try {
-			p = new CTerminationProcessAmuleApi(cmd, this);
+			p = new CTerminationProcessAmuleApi(
+				cmd, [this](int pid, int status) { OnAmuleApiTerminated(pid, status); });
 			m_amuleApiProcess = p;
 #ifdef __WINDOWS__
 			// wxWidgets' argv overload does not preserve trailing Windows backslashes.
@@ -2445,6 +2444,9 @@ void CamuleApp::OnCoreTimer(CTimerEvent &WXUNUSED(evt))
 	// tell the static analyser that the Kad recovery's clientudp->Close() further down can
 	// be reached with a null pointer.
 	clientudp->TickUtp();
+#ifdef ENABLE_NATT_SERVER_COORDINATION
+	serverconnect->ProcessHolePunchExtension();
+#endif
 #endif
 #ifdef AMULE_QUIC_TRANSPORT
 	clientudp->TickQuic();
@@ -2452,6 +2454,7 @@ void CamuleApp::OnCoreTimer(CTimerEvent &WXUNUSED(evt))
 
 	uploadqueue->Process();
 	downloadqueue->Process();
+	sharedfiles->ProcessED2K(true);
 	// theApp->clientcredits->Process();
 	theStats::CalculateRates();
 
@@ -2872,9 +2875,9 @@ void CamuleApp::OnMediaProbeFinished(CMediaProbeEvent &evt)
 		// and marking on those would mean one mistyped ffprobe path brands every media file
 		// in the library.
 		if (evt.MarkUnprobeable()) {
-			file->AddTagUnique(CTagInt32(FT_MEDIA_PROBE_FAILED, 1));
+			file->AddTagUnique(CTagInt32(FT_MEDIA_PROBE_FAILED, 2));
 			if (sharedFile) {
-				sharedFile->AddTagUnique(CTagInt32(FT_MEDIA_PROBE_FAILED, 1));
+				sharedFile->AddTagUnique(CTagInt32(FT_MEDIA_PROBE_FAILED, 2));
 			}
 			m_knownMetDirtiedMs = theStats::GetUptimeMillis();
 		}
@@ -3255,6 +3258,7 @@ wxString CamuleApp::GetLog(bool reset)
 		str = wxString(tmp_buffer);
 	}
 	delete[] tmp_buffer;
+	str = LogFileToEC(str);
 	if (reset) {
 		theLogger.CloseLogfile();
 		if (theLogger.OpenLogfile(logfileName)) {

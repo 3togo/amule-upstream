@@ -32,6 +32,7 @@
 #include "FileArea.h" // Needed for CFileArea (PartFileBufferedData)
 #include <array>      // Needed for std::array (m_ecTickState)
 #include <atomic>     // Needed for std::atomic (m_iWrites, flushed)
+#include <map>        // Needed for std::multimap (m_BufferedData_list)
 #include <memory>     // Needed for std::shared_ptr (m_metSave)
 #include <mutex>      // Needed for std::mutex (m_hpartfileMutex)
 
@@ -464,10 +465,13 @@ private:
 
 	uint64 m_lastRefreshedDLDisplay;
 
-	// Buffered data to be written
-	std::list<class PartFileBufferedData *> m_BufferedData_list;
+	// Buffered data to be written, keyed by end offset. Inserts stay logarithmic when a
+	// source sends many tiny packets.
+	std::multimap<uint64, class PartFileBufferedData *> m_BufferedData_list;
 
 	uint32 m_nTotalBufferData;
+	uint32 m_nBufferedSinceFlush = 0;
+	size_t m_nWritesSinceFlush = 0;
 	uint64 m_nLastBufferFlushTime;
 	std::atomic<int32> m_iWrites; // eMule ref: count of items queued to write thread (not yet PB_WRITTEN)
 	std::vector<bool> m_aChangedPart; // eMule ref: persistent tracking of parts needing hash verification
@@ -548,6 +552,11 @@ private:
 	SourceSet m_SrcList;
 	SourceSet m_A4AFsrclist;
 	bool m_hashsetneeded;
+	// When the outstanding hashset request was sent; 0 when none is pending.
+	uint64 m_hashsetRequestedAt = 0;
+	// The downloaded data failed the whole-file hash and there was no part hashset to tell
+	// which part is bad, so completion waits for one.
+	bool m_completionAwaitsHashset = false;
 	uint64 m_lastsearchtime;
 	bool m_localSrcReqQueued;
 
@@ -573,6 +582,10 @@ public:
 public:
 	bool IsHashSetNeeded() const { return m_hashsetneeded; }
 	void SetHashSetNeeded(bool value) { m_hashsetneeded = value; }
+	void HashsetRequested();
+	// Sources asked while there was nothing to download are asked again now.
+	void AskQueuedSourcesAgain();
+	void HashsetReceived();
 
 	uint64 GetCompletedSize() const { return completedsize; }
 	void SetCompletedSize(uint64 size) { completedsize = size; }

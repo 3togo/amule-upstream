@@ -536,17 +536,18 @@ bool CKnownFile::LoadHashsetFromFile(const CFileDataIO *file, bool checkhash)
 {
 	CMD4Hash checkid = file->ReadHash();
 
+	// Read into a scratch list: a rejected hashset must leave the stored one untouched.
 	uint16 parts = file->ReadUInt16();
-	m_hashlist.clear();
+	ArrayOfCMD4Hash hashlist;
 	for (uint16 i = 0; i < parts; ++i) {
-		CMD4Hash cur_hash = file->ReadHash();
-		m_hashlist.push_back(cur_hash);
+		hashlist.push_back(file->ReadHash());
 	}
 
 	// SLUGFILLER: SafeHash - always check for valid m_hashlist
 	if (!checkhash) {
 		m_abyFileHash = checkid;
 		if (parts <= 1) { // nothing to check
+			m_hashlist = hashlist;
 			return true;
 		}
 	} else {
@@ -560,14 +561,14 @@ bool CKnownFile::LoadHashsetFromFile(const CFileDataIO *file, bool checkhash)
 	}
 	// SLUGFILLER: SafeHash
 
-	if (!m_hashlist.empty()) {
-		CreateHashFromHashlist(m_hashlist, &checkid);
+	if (!hashlist.empty()) {
+		CreateHashFromHashlist(hashlist, &checkid);
 	}
 
 	if (m_abyFileHash == checkid) {
+		m_hashlist = hashlist;
 		return true;
 	} else {
-		m_hashlist.clear();
 		return false;
 	}
 }
@@ -1186,7 +1187,7 @@ CPacket *CKnownFile::CreateSrcInfoPacket(
 	return result;
 }
 
-void CKnownFile::CreateOfferedFilePacket(CMemFile *files, CServer *pServer, CUpDownClient *pClient)
+void CKnownFile::CreateOfferedFilePacket(CMemFile *files, CServer *pServer, CUpDownClient *pClient) const
 {
 
 	// Used both to offer files to the local server and to send shared files to another client.
@@ -1194,16 +1195,9 @@ void CKnownFile::CreateOfferedFilePacket(CMemFile *files, CServer *pServer, CUpD
 
 	wxCHECK_RET(!(pClient && pServer), "pClient and pServer cannot both be non-null");
 
-	// Only a publish to the server means "published". The flag exists so
-	// CSharedFileList::SendListToServer() can tell which files it still owes the server, and it
-	// is cleared when a server connection is made (CServerConnect). Setting it while answering
-	// a peer's browse request -- which this same function serves, with pClient instead of
-	// pServer -- told the publisher those files were already offered, so they silently stopped
-	// being published until the next server (re)connect. It also woke the shared-files view
-	// once per file, for a browse that changes nothing the user can see (issue #898).
-	if (pServer) {
-		SetPublishedED2K(true);
-	}
+	// Serialization does not imply publication: the server socket can reject the packet.
+	// CSharedFileList::SendListToServer marks only records accepted by that connection.
+	// Peer browse responses must also leave the server publication flag unchanged (#898).
 	files->WriteHash(GetFileHash());
 
 	uint32 nClientID = 0;

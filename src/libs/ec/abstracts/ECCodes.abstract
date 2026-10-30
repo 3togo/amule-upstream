@@ -331,6 +331,10 @@ EC_TAG_STATS_UL_SPEED                     0x0200
 	EC_TAG_STATS_INCOMING_FREE_SPACE          0x021D
 ## Versioned fixed-size contact histogram. Missing means unsupported.
 	EC_TAG_STATS_KAD_DISTRIBUTION             0x021E
+	EC_TAG_STATS_SESSION_SENT_BYTES           0x021F
+	EC_TAG_STATS_SESSION_RECEIVED_BYTES       0x0220
+	EC_TAG_STATS_ACTIVE_CONNECTIONS           0x0221
+	EC_TAG_STATS_UPTIME_SECONDS               0x0222
 
 EC_TAG_PARTFILE                           0x0300
 	EC_TAG_PARTFILE_NAME                      0x0301
@@ -632,6 +636,10 @@ EC_TAG_SELECT_PREFS                       0x1000
 		EC_TAG_MSGFILTER_SHOW_IN_LOG              0x1407
 		EC_TAG_MSGFILTER_FILTER_COMMENTS          0x1408
 		EC_TAG_MSGFILTER_COMMENT_KEYWORDS         0x1409
+## Explicit integer booleans, always returned, optional on SET even at EC_DETAIL_CMD.
+## Missing means an older core/client; never reset these settings on an omitted tag.
+		EC_TAG_MSGFILTER_ADVANCED                0x140A
+		EC_TAG_MSGFILTER_CAPTCHA                 0x140B
 
 	EC_TAG_PREFS_REMOTECTRL                   0x1500
 		EC_TAG_WEBSERVER_AUTORUN                  0x1501
@@ -673,6 +681,7 @@ EC_TAG_SELECT_PREFS                       0x1000
 		EC_TAG_SERVERS_AUTOCONN_STATIC_ONLY       0x170A
 		EC_TAG_SERVERS_MANUAL_HIGH_PRIO           0x170B
 		EC_TAG_SERVERS_UPDATE_URL                 0x170C
+		EC_TAG_SERVERS_ED2K_ACCELERATED_PUBLICATION 0x170D
 
 	EC_TAG_PREFS_FILES                        0x1800
 		EC_TAG_FILES_ICH_ENABLED                  0x1801
@@ -696,6 +705,7 @@ EC_TAG_SELECT_PREFS                       0x1000
 		EC_TAG_FILES_MMAP_SUPPORTED               0x1814
 		EC_TAG_FILES_MMAP_ENABLED                 0x1815
 		EC_TAG_FILES_SHARED_REVERIFY_DAYS          0x1816
+		EC_TAG_FILES_MEDIA_METADATA_AVAILABLE     0x1817
 
 #	EC_TAG_UNUSED                             0x1900
 #		EC_TAG_UNUSED                             0x1901
@@ -713,6 +723,7 @@ EC_TAG_SELECT_PREFS                       0x1000
 		EC_TAG_DIRECTORIES_FOLLOW_SYMLINKS        0x1A06
 		EC_TAG_DIRECTORIES_EXCLUDE_PATTERNS       0x1A07
 		EC_TAG_DIRECTORIES_EXCLUDE_REGEX          0x1A08
+		EC_TAG_DIRECTORIES_ALLOWED_ROOTS          0x1A09
 
 	EC_TAG_PREFS_STATISTICS                   0x1B00
 		EC_TAG_STATSGRAPH_WIDTH                   0x1B01

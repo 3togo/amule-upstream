@@ -65,6 +65,65 @@ require_tool() {
     }
 }
 
+# Copy the license files of every bundled DLL's package into licenses/,
+# plus the packages that ship without a DLL of their own: the CA bundle,
+# and libraries that may be linked statically or are header-only.
+collect_licenses() {
+    local dest="${PORTABLE_DIR}/licenses"
+    rm -rf "${dest}"
+    mkdir -p "${dest}"
+
+    local pkgs=() dll name pkg
+    for dll in "${PORTABLE_DIR}"/bin/*.dll; do
+        name=$(basename "${dll}")
+        if pkg=$(pacman -Qqo "${MINGW_PREFIX}/bin/${name}" 2>/dev/null); then
+            pkgs+=("${pkg}")
+        else
+            case "${name}" in
+                # Built from source into MINGW_PREFIX by packaging.yml, which
+                # installs their COPYING under share/licenses/<name>.
+                libupnp*.dll|libixml*.dll) pkgs+=(libupnp) ;;
+                libgd.dll) pkgs+=(libgd) ;;
+                *) echo "warning: no package owns ${name}" >&2 ;;
+            esac
+        fi
+    done
+    for pkg in boost crypto++ ca-certificates; do
+        pkgs+=("${MINGW_PACKAGE_PREFIX}-${pkg}")
+    done
+
+    local file short missing=()
+    for pkg in $(printf '%s\n' "${pkgs[@]}" | sort -u); do
+        short=${pkg#"${MINGW_PACKAGE_PREFIX}-"}
+        local files=()
+        if [[ "${pkg}" == libupnp || "${pkg}" == libgd ]]; then
+            files=("${MINGW_PREFIX}/share/licenses/${pkg}"/*)
+        elif pacman -Q "${pkg}" >/dev/null 2>&1; then
+            mapfile -t files < <(pacman -Qql "${pkg}" | grep "/share/licenses/.*[^/]$" || true)
+        fi
+        if [[ ${#files[@]} -eq 0 || ! -e "${files[0]}" ]]; then
+            # Some MSYS2 packages ship no license files, or ship them in a
+            # sibling package; use the copy in packaging/licenses.
+            local fallback="${REPO_ROOT}/packaging/licenses/${short}"
+            [[ "${short}" == wxwidgets* ]] && fallback="${REPO_ROOT}/packaging/licenses/wxwidgets"
+            if [[ -d "${fallback}" ]]; then
+                files=("${fallback}"/*)
+            else
+                missing+=("${short}")
+                continue
+            fi
+        fi
+        mkdir -p "${dest}/${short}"
+        for file in "${files[@]}"; do
+            cp -f "${file}" "${dest}/${short}/"
+        done
+    done
+    echo "==> Collected licenses for $(ls "${dest}" | wc -l) packages"
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo "warning: no license files found for: ${missing[*]}" >&2
+    fi
+}
+
 build() {
     require_tool cmake "mingw-w64-${ARCH}-cmake"
     require_tool mingw32-make "mingw-w64-${ARCH}-make"
@@ -80,6 +139,10 @@ build() {
         exit 1
     fi
 
+    local media_prefix="${BUILD_DIR}/media-prefix"
+    "${REPO_ROOT}/packaging/media/build-static.sh" "${media_prefix}" "${BUILD_DIR}/media-sources" \
+        -G "MinGW Makefiles"
+
     echo "==> Configuring cmake (Windows ${ARCH}, ${WINDOWS_MSYSTEM})"
     # Generator choice: "MinGW Makefiles" picks mingw32-make.exe from
     # the clangarm64 toolchain — matching the native Windows compiler.
@@ -94,6 +157,9 @@ build() {
     # same family of try_compile crashes that pushed us off Ninja.
     cmake -B "${BUILD_DIR}" -S "${REPO_ROOT}" -G "MinGW Makefiles" \
         -DCMAKE_BUILD_TYPE=Release \
+        -DMEDIAINFO_LIBRARY="${media_prefix}/lib/libmediainfo.a" \
+        -DMEDIA_ZEN_LIBRARY="${media_prefix}/lib/libzen.a" \
+        -DMEDIA_PROBE_STATIC=ON \
         -DCMAKE_C_COMPILER_LAUNCHER= \
         -DCMAKE_CXX_COMPILER_LAUNCHER= \
         -DBUILD_MONOLITHIC=YES \
@@ -113,6 +179,8 @@ build() {
     echo "==> Building"
     cmake --build "${BUILD_DIR}" -j"$(nproc)"
 
+    "${BUILD_DIR}/src/amule-media-probe.exe" --version
+
     # Kill any running aMule before install — the .exe files in the
     # destination would otherwise be locked. Common when iterating.
     taskkill //F //IM amule.exe //IM amulegui.exe //IM amuled.exe 2>/dev/null || true
@@ -120,6 +188,7 @@ build() {
     echo "==> Installing portable tree to ${PORTABLE_DIR}"
     rm -rf "${PORTABLE_DIR}"
     cmake --install "${BUILD_DIR}" --prefix "${PORTABLE_DIR}"
+    collect_licenses
 
     echo "==> Producing ${ZIP_NAME}"
     cd "$(dirname "${PORTABLE_DIR}")"

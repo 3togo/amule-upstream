@@ -41,15 +41,18 @@
 #include "ServerConnect.h"    // Needed for CServerConnect
 #include "KnownFileList.h"    // Needed for CKnownFileList
 #include "ThreadTasks.h"      // Needed for CThreadScheduler and CHasherTask
+#include "MediaProbe.h"       // Needed for MediaProbe::DetectedPath
 #include "MediaProbeThread.h" // Needed for CMediaProbeThread (media probe queue)
 #include "OtherFunctions.h"   // Needed for GetED2KFileTypeID / ED2KFT_* (MaybeScheduleMediaProbe)
 #include "ThreadScheduler.h"  // Needed for CThreadScheduler::GetPendingCount (bulk probe logging)
 #include "Preferences.h"      // Needed for thePrefs
 #include "UploadQueue.h"
+#include "ServerSocket.h"
 #include "DownloadQueue.h" // Needed for CDownloadQueue
 #include "amule.h"         // Needed for theApp
 #include "PartFile.h"      // Needed for PartFile
 #include "Server.h"        // Needed for CServer
+#include "ServerList.h"    // Needed for live UDP publication limits
 #include "Statistics.h"    // Needed for theStats
 #include "Logger.h"
 #include <common/Format.h>
@@ -711,6 +714,9 @@ bool CSharedFileList::AddFile(CKnownFile *pFile)
 
 	CKnownFileMap::value_type entry(pFile->GetFileHash(), pFile);
 	if (m_Files_map.insert(entry).second) {
+		// Known files added by a reload or watcher bypass SafeAddKFile.
+		// Every new shared entry must wake an idle ED2K publisher.
+		m_lastPublishED2KFlag = true;
 		m_listGeneration.fetch_add(1, std::memory_order_relaxed);
 		/* Keywords to publish on Kad */
 		m_keywords->AddKeywords(pFile);
@@ -748,22 +754,11 @@ bool CSharedFileList::MaybeScheduleMediaProbe(CKnownFile *pFile, MediaProbeMode 
 	// only the main thread removes a file from the list. It is that single-thread property
 	// doing the work, not the mutex.
 	//
-	// Probes local shared audio / video files with ffprobe to populate the six FT_MEDIA_*
-	// fields. Cost-limited three ways: only for files whose ED2K file-type is audio / video
-	// (a cheap extension filter -- a .zip renamed to .mp4 gets scheduled and ffprobe fails
-	// fast, but this skips the mass of docs / archives / images in a typical share tree),
-	// only when the file has no media metadata yet, and only one task at a time at ETP_Low
-	// so hashing and completion never starve. An empty ffprobe path is NOT "off": it means
-	// auto-detect.
+	// Extract metadata with the sibling helper on a low-priority worker. Only
+	// audio/video candidates without metadata or a current failure marker are queued.
 	if (!thePrefs::GetMediaMetadataEnabled()) {
 		return false;
 	}
-	// An empty preference is not "off" -- it means "whatever this machine has", which is what
-	// every place that documents the setting promises. The worker resolves it through
-	// MediaProbe::DetectedPath() and drops the job if that finds nothing; doing it there keeps
-	// the detection subprocess off this thread and pays for it once per process rather than
-	// once per file.
-	const wxString &ffprobePath = thePrefs::GetMediaMetadataFFProbePath();
 	// Shared with the GUI's menu-enable test (IsMediaProbeCandidate, in OtherFunctions): the
 	// view must not offer an action the scheduler will silently drop, which is what two copies
 	// of this rule would eventually produce.
@@ -785,17 +780,17 @@ bool CSharedFileList::MaybeScheduleMediaProbe(CKnownFile *pFile, MediaProbeMode 
 	}
 	// GetMetaDataVer(), not a second FT_MEDIA_LENGTH test: one definition of "this file has
 	// been probed", shared with the publishers and the UI. The length-only form here never
-	// considered a codec-only file probed, so every startup re-ran ffprobe on all of them.
-	if (mode == MediaProbeMode::Normal && pFile->GetMetaDataVer() > 0) {
+	// considered a codec-only file probed, so every startup re-ran the helper on all of them.
+	// A legacy failure still gets one retry even if the file retains preview metadata.
+	if (mode == MediaProbeMode::Normal && pFile->GetMetaDataVer() > 0 &&
+		pFile->GetIntTagValue(FT_MEDIA_PROBE_FAILED) != 1) {
 		AddDebugLogLineN(logMediaProbe,
 			CFormat(wxT("MediaProbe: skip (already has metadata) %s")) % pFile->GetFileName());
 		return false;
 	}
-	// A file ffprobe already tried and could not read is not re-tried on the normal path.
-	// Nothing about it has changed since the last attempt, so a share reload would spawn
-	// ffprobe on every broken file in the library, every time, to fail identically. Refresh
-	// deliberately ignores this -- that is the whole point of an explicit re-extraction.
-	if (mode == MediaProbeMode::Normal && pFile->GetIntTagValue(FT_MEDIA_PROBE_FAILED)) {
+	// Skip MediaInfo failures only. Legacy ffprobe marker 1 gets one retry;
+	// refresh always retries and successful extraction clears the marker.
+	if (mode == MediaProbeMode::Normal && pFile->GetIntTagValue(FT_MEDIA_PROBE_FAILED) == 2) {
 		AddDebugLogLineN(logMediaProbe,
 			CFormat(wxT("MediaProbe: skip (previous probe found nothing) %s")) %
 				pFile->GetFileName());
@@ -814,19 +809,23 @@ bool CSharedFileList::MaybeScheduleMediaProbe(CKnownFile *pFile, MediaProbeMode 
 	if (mode != MediaProbeMode::Refresh && !fullPath.FileExists()) {
 		return false;
 	}
-	// #280: run on the dedicated media-probe worker, NOT the shared
-	// CThreadScheduler -- a slow/hung ffprobe there wedges completions.
-	if (theApp->mediaProbeThread) {
-		AddDebugLogLineN(logMediaProbe,
-			CFormat(wxT("MediaProbe: queueing %s (ffprobe=%s)")) % pFile->GetFileName() %
-				ffprobePath);
-		theApp->mediaProbeThread->QueueProbe(pFile->GetFileHash(), fullPath, ffprobePath, bulk);
-		return true;
-	} else {
-		AddDebugLogLineN(logMediaProbe,
-			CFormat(wxT("MediaProbe: dropped %s - probe thread not ready")) %
-				pFile->GetFileName());
+	// A refresh count reports work the helper can actually attempt. Detect once
+	// (DetectedPath caches the answer) instead of accepting every file into a
+	// queue that the worker will discard when the sibling helper is missing.
+	if (MediaProbe::DetectedPath().IsEmpty()) {
+		return false;
 	}
+	// #280: run on the dedicated media-probe worker, NOT the shared
+	// CThreadScheduler -- a slow/hung helper there wedges completions.
+	if (theApp->mediaProbeThread) {
+		if (theApp->mediaProbeThread->QueueProbe(pFile->GetFileHash(), fullPath, bulk)) {
+			AddDebugLogLineN(logMediaProbe,
+				CFormat(wxT("MediaProbe: queueing %s")) % pFile->GetFileName());
+			return true;
+		}
+	}
+	AddDebugLogLineN(logMediaProbe,
+		CFormat(wxT("MediaProbe: dropped %s - probe thread not ready")) % pFile->GetFileName());
 	return false;
 }
 
@@ -837,12 +836,18 @@ bool CSharedFileList::MaybeScheduleMediaProbe(CKnownFile *pFile, MediaProbeMode 
 // ask.
 static bool MediaRefreshAvailable()
 {
-	if (thePrefs::GetMediaMetadataEnabled()) {
-		return true;
+	if (!thePrefs::GetMediaMetadataEnabled()) {
+		AddLogLineN(_("Media metadata extraction is disabled in preferences, so there is "
+			      "nothing to re-extract."));
+		return false;
 	}
-	AddLogLineN(_("Media metadata extraction is disabled in preferences, so there is nothing to "
-		      "re-extract."));
-	return false;
+	// The scheduler drops every file without a helper, silently after the one startup line.
+	if (!thePrefs::IsMediaMetadataAvailable()) {
+		AddLogLineN(_("This aMule has no media helper (amule-media-probe), so it cannot "
+			      "re-extract media metadata."));
+		return false;
+	}
+	return true;
 }
 
 unsigned CSharedFileList::RefreshAllMediaMetadata()
@@ -904,6 +909,17 @@ bool CSharedFileList::RefreshMediaMetadata(const CMD4Hash &hash)
 
 void CSharedFileList::SafeAddKFile(CKnownFile *toadd, bool bOnlyAdd)
 {
+	// Incomplete downloads remain shared even when their names match the filter.
+	// Completion must also detach an existing share, rather than just refuse a new insert.
+	if (!toadd->IsPartFile() && thePrefs::IsShareExcluded(toadd->GetFileName().GetPrintable())) {
+		if (GetFileByID(toadd->GetFileHash()) == toadd) {
+			// RemoveFile erases the current path key. Replace the old Temp/name key first.
+			RefreshPathIndex(toadd);
+			RemoveFile(toadd);
+		}
+		return;
+	}
+
 	// Straight insert first. If the hash isn't already in m_Files_map
 	// this succeeds and fires the notifier as before.
 	if (AddFile(toadd)) {
@@ -1523,6 +1539,19 @@ void CSharedFileList::ClearED2KPublishInfo()
 	Notify_SharedFilesEndBulkUpdate();
 }
 
+void CSharedFileList::RepublishOffered(const COfferFilesPublication &publication)
+{
+	m_lastPublishED2KFlag = true;
+	wxMutexLocker lock(list_mut);
+	Notify_SharedFilesBeginBulkUpdate();
+	for (const auto &entry : m_Files_map) {
+		if (publication.Contains(entry.first)) {
+			entry.second->SetPublishedED2K(false);
+		}
+	}
+	Notify_SharedFilesEndBulkUpdate();
+}
+
 void CSharedFileList::ClearKadSourcePublishInfo()
 {
 	wxMutexLocker lock(list_mut);
@@ -1536,7 +1565,13 @@ void CSharedFileList::ClearKadSourcePublishInfo()
 void CSharedFileList::RepublishFile(CKnownFile *pFile)
 {
 	CServer *server = theApp->serverconnect->GetCurrentServer();
-	if (server && (server->GetTCPFlags() & SRV_TCPFLG_COMPRESSION)) {
+	if (!server) {
+		return;
+	}
+	bool canRepublish = server->GetTCPFlags() & SRV_TCPFLG_COMPRESSION;
+	const CServerSocket *socket = theApp->serverconnect->GetConnectedSocket();
+	canRepublish = canRepublish || (socket && socket->GetOfferFilesAdvertisement());
+	if (canRepublish) {
 		m_lastPublishED2KFlag = true;
 		pFile->SetPublishedED2K(false); // FIXME: this creates a wrong 'No' for the ed2k shared info
 						// in the listview until the file is shared again.
@@ -1565,15 +1600,56 @@ static bool SortFunc(const CKnownFile *fileA, const CKnownFile *fileB)
 	return GetRealPrio(fileA->GetUpPriority()) < GetRealPrio(fileB->GetUpPriority());
 }
 
-void CSharedFileList::SendListToServer()
+bool CSharedFileList::SendListToServer()
 {
+	CServer *server = theApp->serverconnect->GetCurrentServer();
+	if (!server || !theApp->IsConnectedED2K()) {
+		return false;
+	}
+	CServerSocket *socket = theApp->serverconnect->GetConnectedSocket();
+	if (!socket || !socket->CanPublishOfferFiles(GetTickCount64())) {
+		return false;
+	}
+	auto &publication = socket->GetOfferFilesPublication();
+	const auto *policy = socket->GetOfferFilesAdvertisement();
+	if (policy && !publication.Due(GetTickCount64(),
+			      policy->PublicationIntervalMs(
+				      thePrefs::GetED2KAcceleratedPublication(), ED2KREPUBLISHTIME))) {
+		return false;
+	}
+	// Packet capacity applies to every record; the distinct-candidate budget
+	// applies only to hashes not previously offered on this connection.
+	uint32 limit =
+		COfferFilesAdvertisement::LegacyPacketLimit(server->GetSoftFiles(), server->GetHardFiles());
+	uint32 newCandidateLimit = limit;
+	if (policy) {
+		limit = policy->PacketLimit(server->GetHardFiles());
+		newCandidateLimit = policy->BatchLimit(
+			publication.Count(), server->GetSoftFiles(), server->GetHardFiles());
+		// UDP status updates change the list entry, while the socket owns a copy.
+		// Either source may tighten the connection snapshot, never enlarge it.
+		if (const CServer *listed = theApp->serverlist->GetServerByAddress(
+			    server->GetAddress(), server->GetPort())) {
+			limit = std::min(limit, policy->PacketLimit(listed->GetHardFiles()));
+			newCandidateLimit = std::min(newCandidateLimit,
+				policy->BatchLimit(
+					publication.Count(), listed->GetSoftFiles(), listed->GetHardFiles()));
+		}
+	} else if (const CServer *listed =
+			   theApp->serverlist->GetServerByAddress(server->GetAddress(), server->GetPort())) {
+		limit = std::min(
+			limit, COfferFilesAdvertisement::LegacyPacketLimit(0, listed->GetHardFiles()));
+	}
+	if (!limit) {
+		return false;
+	}
 	std::vector<CKnownFile *> SortedList;
 
 	{
 		wxMutexLocker lock(list_mut);
 
 		if (m_Files_map.empty() || !theApp->IsConnectedED2K()) {
-			return;
+			return false;
 		}
 
 		// Getting a sorted list of the non-published files.
@@ -1581,7 +1657,10 @@ void CSharedFileList::SendListToServer()
 
 		CKnownFileMap::iterator it = m_Files_map.begin();
 		for (; it != m_Files_map.end(); ++it) {
-			if (!it->second->GetPublishedED2K()) {
+			if ((!policy || newCandidateLimit ||
+				    publication.Contains(it->second->GetFileHash())) &&
+				!it->second->GetPublishedED2K() &&
+				(!it->second->IsLargeFile() || server->SupportsLargeFilesTCP())) {
 				SortedList.push_back(it->second);
 			}
 		}
@@ -1589,23 +1668,13 @@ void CSharedFileList::SendListToServer()
 
 	std::sort(SortedList.begin(), SortedList.end(), SortFunc);
 
-	// Limits for the server.
-
-	CServer *server = theApp->serverconnect->GetCurrentServer();
-	if (!server) {
-		return;
-	}
-
-	uint32 limit = server->GetSoftFiles();
-	if (limit == 0 || limit > 200) {
-		limit = 200;
-	}
-
 	if ((uint32)SortedList.size() < limit) {
 		limit = SortedList.size();
 		if (limit == 0) {
+			// Idle ticks remain constant-time, even with an exhausted soft budget.
+			// RepublishFile/AddFile and live limit changes reactivate this walk.
 			m_lastPublishED2KFlag = false;
-			return;
+			return false;
 		}
 	}
 
@@ -1618,23 +1687,30 @@ void CSharedFileList::SendListToServer()
 	// and a legacy non-LF server sees a short read against the count.
 	files.WriteUInt32(0);
 
+	std::vector<CKnownFile *> offered;
+	offered.reserve(limit);
 	uint32 count = 0;
+	uint32 newCandidates = 0;
 	// Add to packet
 	std::vector<CKnownFile *>::iterator sorted_it = SortedList.begin();
 	for (; (sorted_it != SortedList.end()) && (count < limit); ++sorted_it) {
 		CKnownFile *file = *sorted_it;
+		const bool newCandidate = !publication.Contains(file->GetFileHash());
+		if (policy && newCandidate && newCandidates >= newCandidateLimit) {
+			continue;
+		}
 		if (!file->IsLargeFile() || server->SupportsLargeFilesTCP()) {
 			file->CreateOfferedFilePacket(&files, server, NULL);
+			offered.push_back(file);
+			newCandidates += newCandidate;
 			++count;
 		}
-		file->SetPublishedED2K(true);
 	}
 
-	// Nothing to publish to this server -- e.g. every unpublished file in our prefix is >4GB
-	// and the server does not advertise SRV_TCPFLG_LARGEFILES. Sending an OP_OFFERFILES with
+	// Nothing eligible to publish to this server. Sending an OP_OFFERFILES with
 	// count=0 would just be ~28 bytes of TCP overhead per republish tick.
 	if (count == 0) {
-		return;
+		return false;
 	}
 
 	// Patch the count to match what we actually wrote.
@@ -1652,7 +1728,22 @@ void CSharedFileList::SendListToServer()
 	}
 
 	theStats::AddUpOverheadServer(packet->GetPacketSize());
-	theApp->serverconnect->SendPacket(packet, true);
+	// Published means offered to the connection, not acknowledged as indexed.
+	// Only mark records when ServerConnect accepts the packet for this connection.
+	if (theApp->serverconnect->SendPacket(packet, true, socket)) {
+		publication.Sent(GetTickCount64());
+		if (socket->AwaitingOfferFilesAdvertisement()) {
+			publication.SentBeforeAdvertisement(count);
+		}
+		for (CKnownFile *file : offered) {
+			if (socket->RequestedOfferFilesV1()) {
+				publication.Record(file->GetFileHash());
+			}
+			file->SetPublishedED2K(true);
+		}
+		return true;
+	}
+	return false;
 }
 
 void CSharedFileList::Process()
@@ -1686,11 +1777,57 @@ void CSharedFileList::Process()
 	}
 
 	Publish();
-	if (!m_lastPublishED2KFlag || (::GetTickCount64() - m_lastPublishED2K < ED2KREPUBLISHTIME)) {
+	ProcessED2K();
+}
+
+void CSharedFileList::ProcessED2K(bool acceleratedOnly)
+{
+	// An offline attempt must not advance the publication timer and postpone the
+	// first real offer after login. Disconnected sockets cannot accept a packet.
+	if (!theApp->IsConnectedED2K()) {
 		return;
 	}
-	SendListToServer();
-	m_lastPublishED2K = ::GetTickCount64();
+	CServerSocket *socket = theApp->serverconnect->GetConnectedSocket();
+	const auto *policy = socket ? socket->GetOfferFilesAdvertisement() : nullptr;
+	// The fast core-tick path must not change legacy maintenance scheduling.
+	if (acceleratedOnly && (!policy || !thePrefs::GetED2KAcceleratedPublication())) {
+		return;
+	}
+	const uint64 now = ::GetTickCount64();
+	if (socket && !socket->CanPublishOfferFiles(now)) {
+		return;
+	}
+	if (policy) {
+		const CServer *server = theApp->serverconnect->GetCurrentServer();
+		const CServer *listed = server ? theApp->serverlist->GetServerByAddress(
+							 server->GetAddress(), server->GetPort())
+					       : nullptr;
+		if (server && socket->GetOfferFilesPublication().UpdateLimits(server->GetSoftFiles(),
+				      server->GetHardFiles(),
+				      listed ? listed->GetSoftFiles() : 0,
+				      listed ? listed->GetHardFiles() : 0)) {
+			m_lastPublishED2KFlag = true;
+		}
+	}
+	// Once a second, from Process(); the core tick runs ten times as often.
+	if (policy && !acceleratedOnly && theLogger.IsEnabled(logServer)) {
+		AddDebugLogLineN(logServer,
+			CFormat("OFFERFILES queue: tick_ms=%llu pending_control_packets=%llu") % now %
+				static_cast<unsigned long long>(socket->GetPendingControlPacketCount()));
+	}
+	// A fresh negotiated connection may publish immediately. Measure subsequent
+	// intervals from queue acceptance, without catch-up batches after a late tick.
+	const bool due =
+		policy ? socket->GetOfferFilesPublication().Due(now,
+				 policy->PublicationIntervalMs(
+					 thePrefs::GetED2KAcceleratedPublication(), ED2KREPUBLISHTIME))
+		       : now - m_lastPublishED2K >= ED2KREPUBLISHTIME;
+	if (!m_lastPublishED2KFlag || !due) {
+		return;
+	}
+	if (SendListToServer()) {
+		m_lastPublishED2K = ::GetTickCount64();
+	}
 }
 
 SKadPublishFacts CSharedFileList::CurrentKadPublishFacts()
@@ -1868,6 +2005,18 @@ void CSharedFileList::VerifyLocalData(const CKnownFile *file) const
 
 bool CSharedFileList::RenameFile(CKnownFile *file, const CPath &newName)
 {
+	// A rename stays in the file's own folder: newName must be a bare file name, never a path. An
+	// EC/amuleapi client controls this string, and the completed-file branch below joins it to the
+	// file's directory and renames on disk, so a value with a directory component or a ".." element
+	// would escape the folder and move the file to an arbitrary location (CWE-22). Refusing it here
+	// covers every caller (EC, amuleapi, GUI).
+	if (!newName.IsBareFileName()) {
+		AddLogLineC(CFormat(_("Refused to rename '%s' to '%s': the new name must be a plain file "
+				      "name, not a path.")) %
+			    file->GetFileName() % newName);
+		return false;
+	}
+
 	if (file->IsPartFile()) {
 		CPartFile *pfile = dynamic_cast<CPartFile *>(file);
 
@@ -1889,7 +2038,26 @@ bool CSharedFileList::RenameFile(CKnownFile *file, const CPath &newName)
 			Kademlia::WordList oldwords = file->GetKadKeywords();
 			file->SetFileName(newName);
 			theApp->knownfiles->Save();
-			UpdateItem(file);
+			// Renaming a completed file changes its index key just like completion does.
+			// Do not index a known file that is no longer shared.
+			if (GetFileByID(file->GetFileHash()) != file) {
+				Notify_DownloadCtrlUpdateItem(file);
+				return true;
+			}
+			RefreshPathIndex(file);
+			if (thePrefs::IsShareExcluded(newName.GetPrintable())) {
+				// Remove the old keywords too: SetFileName has already replaced the word
+				// list.
+				{
+					wxMutexLocker lock(list_mut);
+					for (const wxString &word : oldwords) {
+						m_keywords->RemoveKeyword(word, file);
+					}
+				}
+				RemoveFile(file);
+				Notify_DownloadCtrlUpdateItem(file);
+				return true;
+			}
 			RepublishFile(file);
 
 			const Kademlia::WordList &newwords = file->GetKadKeywords();

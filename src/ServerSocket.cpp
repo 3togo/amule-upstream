@@ -47,6 +47,7 @@
 #include "Logger.h"
 #include <common/Format.h>
 #include "IPFilter.h"
+#include "SharedFileList.h"   // Needed for CSharedFileList
 #include "NetworkFunctions.h" // Needed for IsGoodIP
 #include "GuiEvents.h"        // Needed for Notify_*
 #ifdef ENABLE_NATT_SERVER_COORDINATION
@@ -73,6 +74,11 @@ void HandleLowIdHolePunchInfo(
 		info.tcpPort == 0) {
 		return;
 	}
+	if (info.peerId.has_value()) {
+		// The 0x61 a wake was waiting for, even one the guards below keep us from acting on: the
+		// requester already has its 0x61, so the wake's Lugdunum fallback must not dial it.
+		serverconnect->HolePunchExtensionWakes().Resolve(*info.peerId);
+	}
 	const uint32 peerIP = PeekUInt32(info.peerIP.data());
 	if (!IsGoodIP(peerIP, thePrefs::FilterLanIPs()) || theApp->ipfilter->IsFiltered(peerIP) ||
 		theApp->clientlist->IsBannedClient(CNetworkAddress::FromIPv4NetworkOrderOrAbsent(peerIP))) {
@@ -88,7 +94,9 @@ void HandleLowIdHolePunchInfo(
 	// 25-byte one, leaves us the target, who punches and waits for the peer's stream.
 	const bool requester = info.peerId.has_value() &&
 			       serverconnect->LowIdHolePunchPendingRequests().Take(*info.peerId, now);
-	serverconnect->LowIdHolePunchExpectedEndpoints().Register(info.peerIP, info.tcpPort, now);
+	const NatServerHolePunch::VouchedPeer peer{ info.userHash, info.peerCrypt };
+	serverconnect->LowIdHolePunchExpectedEndpoints().Register(info.peerIP, info.tcpPort, now, peer);
+	theApp->clientudp->ExpectNatTPeer(peerIP, info.udpPort, &info.userHash);
 	CPacket *punch = new CPacket(OP_HOLEPUNCH, 0, OP_EMULEPROT);
 	theStats::AddUpOverheadOther(punch->GetPacketSize());
 	theApp->clientudp->SendPacket(punch, peerIP, info.udpPort, false, nullptr, false, 0);
@@ -96,7 +104,7 @@ void HandleLowIdHolePunchInfo(
 		CFormat("Client UDP socket: OP_HOLEPUNCH to %s") %
 			Uint32_16toStringIP_Port(peerIP, info.udpPort));
 	if (requester) {
-		if (theApp->clientudp->DialLowIdHolePunchPeer(peerIP, info.tcpPort, info.udpPort)) {
+		if (theApp->clientudp->DialLowIdHolePunchPeer(peerIP, info.tcpPort, info.udpPort, peer)) {
 			serverconnect->LowIdHolePunchExpectedEndpoints().NoteDialled(
 				info.peerIP, info.udpPort);
 		}
@@ -359,6 +367,10 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 					AddDebugLogLineN(logServer,
 						"OP_IDCHANGE: server accepts LowID hole punch requests");
 				}
+				if (cur_server->SupportsHolePunchExtension()) {
+					AddDebugLogLineN(logServer,
+						"OP_IDCHANGE: server runs the hole-punch extension");
+				}
 #endif
 				// copy TCP flags into the server in the server list
 				if (pServer) {
@@ -565,19 +577,27 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 		// Cleaned.
 		case OP_SERVERIDENT: {
 			AddDebugLogLineN(logServer, "Server: OP_SERVERIDENT");
+			const bool firstIdent =
+				(connectionstate == CS_CONNECTED || connectionstate == CS_WAITFORLOGIN) &&
+				m_offerFilesPolicy.BeginAdvertisement();
+			COfferFilesAdvertisement offerFiles;
 
 			theStats::AddDownOverheadServer(size);
 			if (size < 38) {
 				AddLogLineN(_("Unknown server info received! - too short"));
+				if (firstIdent) {
+					m_offerFilesPolicy.RejectAdvertisement();
+				}
 				// throw wxString("Unknown server info received!");
 				break;
 			}
 			CServer *update = theApp->serverlist->GetServerByAddress(
 				cur_server->GetAddress(), cur_server->GetPort());
-			if (update) {
+			{
 				CMemFile data(packet, size);
 				CMD4Hash hash = data.ReadHash();
-				if (RawPeekUInt32(hash.GetHash()) == 0x2A2A2A2A) { // No endian problem here
+				if (update && RawPeekUInt32(hash.GetHash()) ==
+						      0x2A2A2A2A) { // No endian problem here
 					const wxString &rstrVersion = update->GetVersion();
 					if (!rstrVersion.IsEmpty()) {
 						update->SetVersion("eFarm " + rstrVersion);
@@ -599,16 +619,58 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 					// and by the .met-file parse path, which is what stops the
 					// "name correct on first display, garbled a few seconds
 					// later" regression (#831).
-					CTag tag(data, true);
-					if (tag.GetNameID() == ST_SERVERNAME) {
+					CTag tag(data, true, false);
+					offerFiles.AddTag(tag);
+					if (update && tag.GetNameID() == ST_SERVERNAME) {
 						update->SetListName(tag.GetStr());
-					} else if (tag.GetNameID() == ST_DESCRIPTION) {
+					} else if (update && tag.GetNameID() == ST_DESCRIPTION) {
 						update->SetDescription(tag.GetStr());
 					} // No more known tags from server
 				}
 
-				theApp->ShowConnectionState();
-				Notify_ServerRefresh(update);
+				if (firstIdent) {
+					m_offerFilesPolicy.Commit(data.GetPosition() == data.GetLength()
+									  ? offerFiles
+									  : COfferFilesAdvertisement());
+				}
+				if (firstIdent && m_offerFilesPolicy.Get()) {
+					if (m_offerFilesPublication.EarlyBatchExceeds(
+						    offerFiles.AdvertisedBatchLimit())) {
+						theApp->sharedfiles->RepublishOffered(
+							m_offerFilesPublication);
+					}
+					// Commit the connection's limits only after the complete
+					// advertisement validates. Cached UDP metadata must not hide the
+					// login snapshot.
+					cur_server->SetSoftFiles(offerFiles.SoftLimit());
+					cur_server->SetHardFiles(offerFiles.HardLimit());
+					if (update) {
+						update->SetSoftFiles(offerFiles.SoftLimit());
+						update->SetHardFiles(offerFiles.HardLimit());
+					}
+					AddDebugLogLineN(logServer,
+						CFormat("OFFERFILES v1: soft=%u hard=%u advertised batch=%u "
+							"interval=%u ms; "
+							"bounded batch=%u interval=%u ms; acceleration "
+							"%s") %
+							offerFiles.SoftLimit() % offerFiles.HardLimit() %
+							offerFiles.AdvertisedBatchLimit() %
+							offerFiles.AdvertisedIntervalMs() %
+							offerFiles.BatchLimit(
+								m_offerFilesPublication.Count()) %
+							offerFiles.IntervalMs() %
+							(thePrefs::GetED2KAcceleratedPublication()
+									? "enabled (experimental)"
+									: "disabled"));
+				} else if (firstIdent) {
+					AddDebugLogLineN(logServer,
+						"OFFERFILES: legacy pacing (absent or invalid "
+						"advertisement)");
+				}
+				if (update) {
+					theApp->ShowConnectionState();
+					Notify_ServerRefresh(update);
+				}
 			}
 			break;
 		}
@@ -722,7 +784,7 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 						logServer, "OP_NAT_CALLBACKREQUESTED", forwarded);
 #ifdef AMULE_UTP_TRANSPORT
 					if (theApp->clientudp != nullptr) {
-						theApp->clientudp->DialLugdunumNatCallbackPeer(forwarded);
+						theApp->clientudp->HandleForwardedCallback(forwarded);
 					}
 #endif
 				});
@@ -772,6 +834,10 @@ bool CServerSocket::ProcessPacket(const uint8_t *packet, uint32 size, int8 opcod
 		AddLogLineN(CFormat(_("Bogus packet received from server: %s")) % e.what());
 	} catch (const wxString &error) {
 		AddLogLineN(CFormat(_("Unhandled error while processing packet from server: %s")) % error);
+	}
+	if (opcode == OP_SERVERIDENT) {
+		m_offerFilesPolicy.RejectAdvertisement();
+		return true;
 	}
 
 	// Don't disconnect because of wrong sources.
@@ -825,7 +891,7 @@ void CServerSocket::ConnectToServer(CServer *server, bool bNoCrypt)
 	}
 }
 
-void CServerSocket::OnError(int DEBUG_ONLY(nErrorCode))
+void CServerSocket::OnError(int nErrorCode)
 {
 	AddDebugLogLineN(logServer,
 		CFormat("Error in serversocket: %s(%s:%i): %u") % cur_server->GetListName() %
@@ -841,6 +907,10 @@ bool CServerSocket::PacketReceived(CPacket *packet)
 
 	if (packet->GetProtocol() == OP_PACKEDPROT) {
 		if (!packet->UnPackPacket(250000)) {
+			if (packet->GetOpCode() == OP_SERVERIDENT &&
+				(connectionstate == CS_CONNECTED || connectionstate == CS_WAITFORLOGIN)) {
+				m_offerFilesPolicy.RejectAdvertisement();
+			}
 			AddDebugLogLineN(logZLib,
 				CFormat("Failed to decompress server TCP packet: protocol=0x%02x  "
 					"opcode=0x%02x  size=%u") %
@@ -886,6 +956,12 @@ void CServerSocket::OnClose(int WXUNUSED(nErrorCode))
 
 void CServerSocket::SetConnectionState(sint8 newstate)
 {
+	if (newstate != CS_CONNECTED) {
+		m_offerFilesPolicy.Reset();
+		m_offerFilesPublication.Reset();
+	} else {
+		m_offerFilesPolicy.IdAssigned(GetTickCount64());
+	}
 	connectionstate = newstate;
 	if (newstate < CS_CONNECTING) {
 		serverconnect->ConnectionFailed(this);
@@ -898,8 +974,14 @@ void CServerSocket::SetConnectionState(sint8 newstate)
 
 void CServerSocket::SendPacket(CPacket *packet, bool delpacket, bool controlpacket, uint32 actualPayloadSize)
 {
+	TrySendPacket(packet, delpacket, controlpacket, actualPayloadSize);
+}
+
+bool CServerSocket::TrySendPacket(
+	CPacket *packet, bool delpacket, bool controlpacket, uint32 actualPayloadSize)
+{
 	m_dwLastTransmission = GetTickCount64();
-	CEMSocket::SendPacket(packet, delpacket, controlpacket, actualPayloadSize);
+	return CEMSocket::TrySendPacket(packet, delpacket, controlpacket, actualPayloadSize);
 }
 
 void CServerSocket::OnHostnameResolved(uint32 ip)
