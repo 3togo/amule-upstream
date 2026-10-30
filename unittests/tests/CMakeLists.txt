@@ -3743,3 +3743,17 @@ add_executable (KadLookupPolicyTest KadLookupPolicyTest.cpp)
 target_include_directories (KadLookupPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (KadLookupPolicyTest muleunit mulecommon)
 add_test (NAME KadLookupPolicyTest COMMAND KadLookupPolicyTest)
+
+# Production Kad policies with deterministic clocks.
+add_executable (KadPacketTrackingTest
+	KadPacketTrackingTest.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/net/PacketTracking.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/routing/Contact.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/routing/RoutingBin.cpp
+	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
+	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
+)
+target_include_directories (KadPacketTrackingTest PRIVATE
+	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
+target_link_libraries (KadPacketTrackingTest muleunit mulecommon)
+add_test (NAME KadPacketTrackingTest COMMAND KadPacketTrackingTest)

@@ -27,8 +27,10 @@
 #ifndef KADEMLIA_NET_PACKETTRACKING_H
 #define KADEMLIA_NET_PACKETTRACKING_H
 
+#include <cstddef>
 #include <map>
 #include <list>
+#include <set>
 #include "../utils/UInt128.h"
 #include "../../Types.h"
 
@@ -56,6 +58,8 @@ struct TrackPacketsIn_Struct
 	struct TrackedRequestIn_Struct
 	{
 		uint32_t m_count;
+		uint32_t m_verifiedCount;
+		uint64_t m_verifiedFirstAdded;
 		uint64_t m_firstAdded;
 		uint8_t m_opcode;
 		bool m_dbgLogged;
@@ -76,13 +80,23 @@ struct TrackPacketsIn_Struct
 class CPacketTracking
 {
 public:
-	CPacketTracking() noexcept { lastTrackInCleanup = 0; }
+	enum class IncomingPacket
+	{
+		Allowed,
+		Drop,
+		MassiveFlood
+	};
+	static constexpr size_t MAX_TRACKED_IPS = 10000;
+	static constexpr size_t MAX_OUTGOING_REQUESTS = 4096;
+	static constexpr size_t MAX_LEGACY_CHALLENGES = 1024;
+
+	CPacketTracking() = default;
 	virtual ~CPacketTracking();
 
 protected:
 	void AddTrackedOutPacket(uint32_t ip, uint8_t opcode);
 	bool IsOnOutTrackList(uint32_t ip, uint8_t opcode, bool dontRemove = false);
-	bool InTrackListIsAllowedPacket(uint32_t ip, uint8_t opcode, bool validReceiverkey);
+	IncomingPacket InTrackListIsAllowedPacket(uint32_t ip, uint8_t opcode, bool validReceiverKey);
 	void InTrackListCleanup();
 	void AddLegacyChallenge(
 		const CUInt128 &contactID, const CUInt128 &challengeID, uint32_t ip, uint8_t opcode);
@@ -97,7 +111,9 @@ private:
 	TrackedPacketList listTrackedRequests;
 	TrackChallengeList listChallengeRequests;
 	TrackedPacketInMap m_mapTrackPacketsIn;
-	uint64_t lastTrackInCleanup;
+	// Ordered expiry avoids a full table scan on every new address under a flood.
+	std::set<std::pair<uint64_t, uint32_t>> m_incomingExpiry;
+	void UpdateIncomingExpiry(TrackPacketsIn_Struct &entry, uint64_t expires);
 };
 
 } // namespace Kademlia
