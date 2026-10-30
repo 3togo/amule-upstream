@@ -22,8 +22,9 @@ export const isUp = (c) => (c.upload_speed_bytes_per_second || 0) > 0 || ACTIVE(
 // picker and picks which ones start hidden (see ClientTable's defaultHidden),
 // so a column is always one click away instead of missing from a tab.
 export const softLabel = (c) => {
-  const name = c.software ? t("downloads_peer_soft_" + c.software) : "";
   const mod = c.client_mod_name;
+  const name = mod && c.software && c.software !== "emule" && c.software !== "old_emule"
+    ? mod : c.software ? t("downloads_peer_soft_" + c.software) : "";
   const software = mod && mod !== name ? `${name} (${mod})` : name;
   return [software, c.software === "unknown" ? "" : c.software_version].filter(Boolean).join(" ") || "—";
 };

@@ -22,6 +22,8 @@ const cases = [
   [{ software: 'emule', software_version: 'v0.70b', client_mod_name: 'eMule Qt 1.0' }, 'eMule (eMule Qt 1.0) v0.70b'],
   [{ software: 'emule', software_version: 'v0.70b', client_mod_name: null }, 'eMule v0.70b'],
   [{ software: 'amule', software_version: 'v2.3.3', client_mod_name: 'aMule' }, 'aMule v2.3.3'],
+  [{ software: 'amule', software_version: 'v2.3.3', client_mod_name: 'aMule SVN' }, 'aMule SVN v2.3.3'],
+  [{ software: 'old_emule', software_version: 'v0.49a', client_mod_name: 'old-mod' }, 'Old eMule (old-mod) v0.49a'],
   [{}, '—'],
 ];
 for (const [row, expected] of cases) {

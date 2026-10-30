@@ -36,6 +36,9 @@ wxString DownloadStateToStr(int state, bool queueFull);
 /// @return Human-readable client software name.
 const wxString GetSoftName(unsigned int software_ident);
 
+//! Software name with the existing non-eMule mod-name substitution.
+wxString GetSoftName(unsigned int software_ident, const wxString &modVersion);
+
 //! Display a self-declared mod alongside the software name, without repeating it.
 wxString FormatClientSoftware(const wxString &name, const wxString &modVersion);
 

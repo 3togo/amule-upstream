@@ -8,6 +8,7 @@ from pathlib import Path
 import socket
 import struct
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.error
@@ -91,7 +92,7 @@ def run(daemon, api, root):
         with socket.create_connection(('127.0.0.1', ec_port), timeout=0.2):
             return True
 
-    def ec_history(mod):
+    def ec_history(mod, version='v0.70b', software=0):
         ec = EC(ec_port)
         try:
             op, tags = ec.call(C['EC_OP_GET_CLIENT_HISTORY'])
@@ -99,14 +100,15 @@ def run(daemon, api, root):
             key, fields = tags[C['EC_TAG_CLIENT']]
             assert key == peer_hash
             assert fields[C['EC_TAG_CLIENT_MOD_VERSION']][0].rstrip(b'\0').decode() == mod
-            assert fields[C['EC_TAG_CLIENT_SOFT_VER_STR']][0].rstrip(b'\0').decode() == 'v0.70b'
+            assert fields[C['EC_TAG_CLIENT_SOFT_VER_STR']][0].rstrip(b'\0').decode() == version
+            assert fields[C['EC_TAG_CLIENT_SOFTWARE']][0] == software
         finally:
             ec.sock.close()
 
-    def identity(rows, mod):
+    def identity(rows, mod, version='v0.70b'):
         return next((row for row in rows if row['user_hash'] == peer_hash.hex()
                      and row.get('client_mod_name') == mod
-                     and row.get('software_version') == 'v0.70b'), None)
+                     and row.get('software_version') == version), None)
 
     try:
         core = launch(daemon, daemon_dir, '-o')
@@ -118,19 +120,57 @@ def run(daemon, api, root):
         token = request('/auth/login?include_token=true', {'password': 'mod-test'})['token']
         # Load history before the hello to exercise reconciliation of a cached old record.
         request('/known_clients')
-        for mod in ['AI v1.6', 'eMule Qt 1.0', '']:
+        cases = [
+            ('AI v1.6', 0, (0, 70, 1), False),
+            ('eMule Qt 1.0', 0, (0, 70, 1), False),
+            ('aMule SVN', 3, (2, 3, 3), False),
+            ('', 0, (0, 70, 1), False),
+            ('legacy mod', 0, (0, 48, 0), True),
+        ]
+        for mod, software, (major, minor, update), legacy in cases:
+            live_version = 'v0.48' if legacy else ('v2.3.3' if software == 3 else 'v0.70b')
+            stored_version = 'v0.48a' if legacy else live_version
             with socket.create_connection(('127.0.0.1', tcp_port), timeout=5) as peer:
                 def string_tag(code, value):
                     data = value.encode()
                     return bytes([2, 1, 0, code]) + struct.pack('<H', len(data)) + data
-                tags = string_tag(1, 'mod-history-peer')
-                tags += bytes([3, 1, 0, 0xfb]) + struct.pack('<I', (70 << 10) | (1 << 7))
-                tags += string_tag(0x55, mod)
-                hello = b'\x10' + peer_hash + struct.pack('<IHI', 0x0100007f, tcp_port, 3) + tags + bytes(6)
-                peer.sendall(b'\xe3' + struct.pack('<I', len(hello) + 1) + b'\x01' + hello)
-                wait_for(lambda: identity(request('/clients')['clients'], mod or None))
-                wait_for(lambda: identity(request('/known_clients')['known_clients'], mod or None))
-                ec_history(mod)
+
+                def send(protocol, opcode, payload):
+                    peer.sendall(bytes([protocol]) + struct.pack('<I', len(payload) + 1)
+                                 + bytes([opcode]) + payload)
+
+                def hello(identity):
+                    tags = [string_tag(1, 'mod-history-peer')]
+                    if not legacy:
+                        version = (software << 24) | (major << 17) | (minor << 10) | (update << 7)
+                        tags.append(bytes([3, 1, 0, 0xfb]) + struct.pack('<I', version))
+                    if identity:
+                        tags.append(string_tag(0x55, identity))
+                    send(0xe3, 0x01, b'\x10' + peer_hash +
+                         struct.pack('<IHI', 0x0100007f, tcp_port, len(tags)) + b''.join(tags) + bytes(6))
+
+                def advertise(identity):
+                    hello('' if legacy else identity)
+                    if legacy:
+                        # Old peers advertise their mod in the supplementary MuleInfo answer.
+                        tags = string_tag(0x55, identity)
+                        send(0xc5, 0x02, bytes([0x48, 1]) + struct.pack('<I', 1) + tags)
+
+                advertise(mod)
+                wait_for(lambda: identity(request('/clients')['clients'], mod or None, live_version))
+                wait_for(lambda: identity(request('/known_clients')['known_clients'], mod or None, live_version))
+                ec_history(mod, stored_version, software)
+                if mod:
+                    # Reuse the same client object. An absent tag must clear the old mod,
+                    # and supplementary packets must not count as additional sessions.
+                    sessions = request('/known_clients')['known_clients'][0]['session_count']
+                    advertise('')
+                    wait_for(lambda: identity(request('/clients')['clients'], None, live_version))
+                    ec_history('', stored_version, software)
+                    advertise(mod)
+                    wait_for(lambda: identity(request('/clients')['clients'], mod, live_version))
+                    ec_history(mod, stored_version, software)
+                    assert request('/known_clients')['known_clients'][0]['session_count'] == sessions
             # Restart without any live peers: the response must come from clients.met.
             stop(web)
             stop(core)
@@ -138,13 +178,13 @@ def run(daemon, api, root):
             assert saved[124:133] == b'AMULEMD1\x02'
             core = launch(daemon, daemon_dir, '-o')
             wait_for(ready)
-            ec_history(mod)
+            ec_history(mod, stored_version, software)
             web = launch(api, api_dir, '--foreground')
             wait_for(lambda: request('/health'))
             token = request('/auth/login?include_token=true', {'password': 'mod-test'})['token']
-            row = wait_for(lambda: identity(request('/known_clients')['known_clients'], mod or None))
+            row = wait_for(lambda: identity(request('/known_clients')['known_clients'], mod or None, stored_version))
             assert row['uploaded_bytes_total'] == 1234 and row['downloaded_bytes_total'] == 5678
-        print('PASS: live/cached/stored mod identity, bare version, EC, REST, restart and credits')
+        print('PASS: modern/legacy identity, missing-tag reset, stable sessions, EC, REST, restart and credits')
     except Exception:
         for log in logs:
             log.flush()
@@ -152,10 +192,16 @@ def run(daemon, api, root):
             print(log.name + ':\n' + log.read_text()[-4000:])
         raise
     finally:
+        cleanup_errors = []
         for proc in reversed(processes[:]):
-            stop(proc)
+            try:
+                stop(proc)
+            except Exception as error:
+                cleanup_errors.append(error)
         for log in logs:
             log.close()
+        if cleanup_errors and sys.exc_info()[0] is None:
+            raise cleanup_errors[0]
 
 
 if __name__ == '__main__':

@@ -141,9 +141,18 @@ const wxString GetSoftName(unsigned int software_ident)
 	}
 }
 
+wxString GetSoftName(unsigned int software_ident, const wxString &modVersion)
+{
+	if (software_ident != SO_EMULE && software_ident != SO_OLDEMULE && !modVersion.IsEmpty()) {
+		return modVersion;
+	}
+	return GetSoftName(software_ident);
+}
+
 wxString FormatClientSoftware(const wxString &name, const wxString &modVersion)
 {
-	if (modVersion.IsEmpty() || name == modVersion) {
+	if (modVersion.IsEmpty() || name == modVersion ||
+		(name.StartsWith(modVersion + " (") && name.EndsWith(")"))) {
 		return name;
 	}
 	return name + " (" + modVersion + ")";
