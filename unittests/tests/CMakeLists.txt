@@ -3768,4 +3768,8 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND Python3_Interpreter_FOUND AND 
 	add_test (NAME KadConstraintsIntegrationTest
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadConstraintsIntegrationTest.py $<TARGET_FILE:amuled>)
 	set_tests_properties (KadConstraintsIntegrationTest PROPERTIES LABELS "integration")
+	add_test (NAME KadLookupSchedulingIntegrationTest
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadLookupSchedulingIntegrationTest.py $<TARGET_FILE:amuled>)
+	set_tests_properties (KadLookupSchedulingIntegrationTest PROPERTIES
+		LABELS "integration" SKIP_RETURN_CODE 77)
 endif ()

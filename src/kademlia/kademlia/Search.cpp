@@ -1416,7 +1416,9 @@ bool CSearch::SendFindValue(CContact *contact, bool reaskMore)
 	try {
 		const uint64_t now = ::GetTickCount64();
 		m_requests.Prune(now);
-		if (m_stopping || contact->GetType() == 4 || !m_requests.CanSend(now, RequestLimit()) ||
+		// Both automatic fallback and user-triggered widening use this send path.
+		if (m_stopping || (reaskMore && !CanReaskMore()) || contact->GetType() == 4 ||
+			!m_requests.CanSend(now, RequestLimit()) ||
 			m_requests.Contains({ contact->GetIPAddress(), contact->GetUDPPort() })) {
 			return false;
 		}

@@ -26,6 +26,8 @@ The existing optional adaptive estimator may shorten interactive deadlines.
 `LateReplyGraceMs`, `WideningReasks`, node concurrency and all pending/concurrency
 budgets are configured through the shared policy; none is a helper-local fixed
 limit. Protocol-defined contact counts and wire representations remain separate.
+`WideningReasks=0` disables both user-triggered widening and the automatic
+dead-node fallback; both paths check the allowance before sending.
 
 ## Reference influence
 
@@ -42,6 +44,9 @@ independent deadlines, endpoint matching, late samples, duplicate completion,
 pending-record bounds, aggregate accounting across multiple searches, reservation
 release on stop/cancellation and expiry boundaries. Existing daemon EC lookup and
 index lifecycle tests exercise diagnostics and publication/search compatibility.
+`KadLookupSchedulingIntegrationTest` observes real UDP requests with widening
+disabled and enabled. It uses only owned addresses and skips when no owned
+Kad-compatible IPv4 address is available.
 
 The [public-network comparison](benchmarks/2026-10-30-kad-live/README.md) records
 24 paired searches from the original workspace implementation: faster first
