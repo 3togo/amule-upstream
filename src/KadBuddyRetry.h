@@ -29,12 +29,17 @@
 #include <cstdint>
 #include <cstddef>
 #include <map>
+#include <optional>
 #include <utility>
 
 namespace Kademlia
 {
 
-// Outgoing buddy discovery only. All times are monotonic milliseconds.
+class CContact;
+
+// Outgoing buddy discovery only. Keys identify the Kad UDP request destination:
+// its advertised TCP port may be stale or differ from the buddy response.
+// All times are monotonic milliseconds.
 class CBuddyRetry
 {
 public:
@@ -43,29 +48,23 @@ public:
 	static constexpr uint64_t MaximumSearchDelay = 20 * 60 * 1000;
 	static constexpr std::size_t MaximumFailedCandidates = 256;
 
-	bool CanRequest(uint32_t ip, uint16_t port, uint64_t now) const
+	bool CanRequest(const CContact &contact, uint64_t now) const;
+
+	bool CanRequest(uint32_t ip, uint16_t udpPort, uint64_t now) const
 	{
-		const auto entry = m_failed.find({ ip, port });
+		const auto entry = m_failed.find({ ip, udpPort });
 		return entry == m_failed.end() || now >= entry->second;
 	}
 
-	void ConnectionFailed(uint32_t ip, uint16_t port, uint64_t now)
+	// Snapshot the request destination before hello parsing can replace peer fields.
+	void ConnectionStarted(uint32_t ip, uint16_t udpPort) { m_attempt.emplace(ip, udpPort); }
+
+	void ConnectionFinished(bool failed, uint64_t now)
 	{
-		for (auto it = m_failed.begin(); it != m_failed.end();) {
-			if (now >= it->second) {
-				it = m_failed.erase(it);
-			} else {
-				++it;
-			}
+		if (failed && m_attempt) {
+			RememberFailure(m_attempt->first, m_attempt->second, now);
 		}
-		const auto key = std::make_pair(ip, port);
-		if (m_failed.count(key) == 0 && m_failed.size() >= MaximumFailedCandidates) {
-			// Evict the earliest expiry, not the first IP in numeric order.
-			m_failed.erase(std::min_element(m_failed.begin(),
-				m_failed.end(),
-				[](const auto &a, const auto &b) { return a.second < b.second; }));
-		}
-		m_failed[key] = now + CandidateCooldown;
+		m_attempt.reset();
 	}
 
 	bool CanStartSearch(uint64_t now) const { return !m_roundPending && now >= m_nextSearch; }
@@ -78,22 +77,52 @@ public:
 		if (!m_roundPending || lookupRunning || connecting) {
 			return false;
 		}
+		m_attempt.reset();
 		m_roundPending = false;
 		m_nextSearch = now + m_searchDelay;
 		m_searchDelay = std::min(m_searchDelay * 2, MaximumSearchDelay);
 		return true;
 	}
 
-	void Connected(uint32_t ip, uint16_t port)
+	void Connected()
 	{
-		m_failed.erase({ ip, port });
+		if (m_attempt) {
+			m_failed.erase(*m_attempt);
+		}
+		ResetSearch();
+	}
+
+	// A firewall recheck cancels discovery without forgetting failed destinations.
+	void ResetSearch()
+	{
+		m_attempt.reset();
 		m_roundPending = false;
 		m_nextSearch = 0;
 		m_searchDelay = InitialSearchDelay;
 	}
 
 private:
+	void RememberFailure(uint32_t ip, uint16_t udpPort, uint64_t now)
+	{
+		for (auto it = m_failed.begin(); it != m_failed.end();) {
+			if (now >= it->second) {
+				it = m_failed.erase(it);
+			} else {
+				++it;
+			}
+		}
+		const auto key = std::make_pair(ip, udpPort);
+		if (m_failed.count(key) == 0 && m_failed.size() >= MaximumFailedCandidates) {
+			// Evict the earliest expiry, not the first IP in numeric order.
+			m_failed.erase(std::min_element(m_failed.begin(),
+				m_failed.end(),
+				[](const auto &a, const auto &b) { return a.second < b.second; }));
+		}
+		m_failed[key] = now + CandidateCooldown;
+	}
+
 	std::map<std::pair<uint32_t, uint16_t>, uint64_t> m_failed;
+	std::optional<std::pair<uint32_t, uint16_t>> m_attempt;
 	uint64_t m_nextSearch = 0;
 	uint64_t m_searchDelay = InitialSearchDelay;
 	bool m_roundPending = false;

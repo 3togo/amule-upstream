@@ -37,6 +37,7 @@ if (BUILD_MONOLITHIC OR BUILD_DAEMON)
 		FriendList.cpp
 		IPFilter.cpp
 		KadAICHVotes.cpp
+		KadBuddyRetry.cpp
 		KnownFileList.cpp
 		ListenSocket.cpp
 		MuleUDPSocket.cpp

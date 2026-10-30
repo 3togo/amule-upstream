@@ -734,9 +734,20 @@ void CClientList::Process()
 			// goes next cycle. Already trying one: ignore this client, since the
 			// attempt in flight may still fail.
 			if (m_nBuddyStatus == Disconnected) {
+				// Recheck queued responses too: a failure may have been recorded
+				// after this candidate was admitted.
+				if (!m_buddyRetry.CanRequest(wxUINT32_SWAP_ALWAYS(cur_client->GetConnectIP()),
+					    cur_client->GetKadPort(),
+					    cur_tick)) {
+					cur_client->SetKadState(KS_NONE);
+					break;
+				}
 				buddy = Connecting;
 				m_nBuddyStatus = Connecting;
 				cur_client->SetKadState(KS_CONNECTING_BUDDY);
+				m_buddyRetry.ConnectionStarted(
+					wxUINT32_SWAP_ALWAYS(cur_client->GetConnectIP()),
+					cur_client->GetKadPort());
 				cur_client->TryToConnect(true);
 				Notify_ServerUpdateED2KInfo();
 			} else {
@@ -768,8 +779,7 @@ void CClientList::Process()
 				m_pBuddy.Link(cur_client CLIENT_DEBUGSTRING(
 					"CClientList::Process KS_CONNECTED_BUDDY m_pBuddy.Link"));
 				m_nBuddyStatus = Connected;
-				m_buddyRetry.Connected(wxUINT32_SWAP_ALWAYS(cur_client->GetConnectIP()),
-					cur_client->GetUserPort());
+				m_buddyRetry.Connected();
 				Notify_ServerUpdateED2KInfo();
 			}
 			if (m_pBuddy.GetClient() == cur_client && theApp->IsFirewalled() &&
@@ -824,8 +834,8 @@ void CClientList::Process()
 			// connections themselves have supported obfuscation since eMule 0.49a, but
 			// callback requests do not, so we could not answer one under RequireCrypt.
 			if (m_nBuddyStatus == Disconnected && m_buddyRetry.CanStartSearch(cur_tick) &&
-				Kademlia::CKademlia::GetPrefs()->GetFindBuddy() &&
-				!thePrefs::IsClientCryptLayerRequired()) {
+				!thePrefs::IsClientCryptLayerRequired() &&
+				Kademlia::CKademlia::GetPrefs()->GetFindBuddy()) {
 				AddDebugLogLineN(logKadMain, "Starting BuddySearch");
 				// We are a firewalled client with no buddy. We have also waited a set time
 				// to try to avoid a false firewalled status.. So lets look for a buddy..
@@ -1143,22 +1153,22 @@ bool CClientList::RequestTCP(Kademlia::CContact *contact, uint8_t connectOptions
 	return true;
 }
 
-bool CClientList::CanRequestBuddy(uint32_t ip, uint16_t tcpPort) const
+bool CClientList::CanRequestBuddy(const Kademlia::CContact &contact) const
 {
-	return m_buddyRetry.CanRequest(ip, tcpPort, ::GetTickCount64());
+	return m_buddyRetry.CanRequest(contact, ::GetTickCount64());
 }
 
-void CClientList::BuddyConnectionFailed(uint32_t ip, uint16_t tcpPort)
+void CClientList::BuddyConnectionFinished(bool fromSocket)
 {
 	if (Kademlia::CKademlia::IsRunning()) {
-		m_buddyRetry.ConnectionFailed(ip, tcpPort, ::GetTickCount64());
+		m_buddyRetry.ConnectionFinished(fromSocket, ::GetTickCount64());
 	}
 }
 
 void CClientList::RequestBuddy(Kademlia::CContact *contact, uint8_t connectOptions)
 {
 	// A late response must not bypass the same cooldown used before the UDP request.
-	if (!CanRequestBuddy(contact->GetIPAddress(), contact->GetTCPPort())) {
+	if (!CanRequestBuddy(*contact)) {
 		return;
 	}
 	uint32_t nContactIP = wxUINT32_SWAP_ALWAYS(contact->GetIPAddress());

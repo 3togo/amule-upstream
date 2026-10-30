@@ -996,10 +996,10 @@ void CSearch::StorePacket()
 	}
 	case FINDBUDDY: {
 		// Skip failed TCP endpoints before asking them to reserve another buddy slot.
-		if (!theApp->clientlist->CanRequestBuddy(from->GetIPAddress(), from->GetTCPPort())) {
+		if (!theApp->clientlist->CanRequestBuddy(*from)) {
 			AddDebugLogLineN(logKadSearch,
-				"Skipping buddy request to failed TCP endpoint " +
-					KadIPPortToString(from->GetIPAddress(), from->GetTCPPort()));
+				"Skipping buddy request to failed Kad destination " +
+					KadIPPortToString(from->GetIPAddress(), from->GetUDPPort()));
 			break;
 		}
 		AddDebugLogLineN(logKadSearch, "Search request type: FindBuddy");

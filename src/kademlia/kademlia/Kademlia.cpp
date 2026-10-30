@@ -353,6 +353,9 @@ void CKademlia::RecheckFirewalled()
 		// Something is forcing a new firewall check. Stop new buddy requests and tell the
 		// client to recheck its IP, which in turn rechecks the firewall.
 		instance->m_prefs->SetFindBuddy(false);
+		// An exhausted pre-recheck round must not re-arm discovery during the
+		// five-minute firewall settling interval below.
+		theApp->clientlist->ResetBuddySearch();
 		instance->m_prefs->SetRecheckIP();
 		// also UDP check
 		CUDPFirewallTester::ReCheckFirewallUDP(false);

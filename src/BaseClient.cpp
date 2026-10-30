@@ -1485,9 +1485,10 @@ bool CUpDownClient::Disconnected(const wxString &strReason, bool bFromSocket)
 		AddDebugLogLineN(logClient, "Buddy client disconnected - " + strReason);
 	}
 
+	// Local filtering, settings refusals and cleanup cancel the attempt without
+	// treating the destination as unreachable. Socket failures use its saved address.
 	if (GetKadState() == KS_CONNECTING_BUDDY) {
-		theApp->clientlist->BuddyConnectionFailed(
-			wxUINT32_SWAP_ALWAYS(GetConnectIP()), GetUserPort());
+		theApp->clientlist->BuddyConnectionFinished(bFromSocket);
 	}
 
 	// If this is a KAD client object, just delete it!
