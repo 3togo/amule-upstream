@@ -3332,12 +3332,15 @@ void CUpDownClientListRem::ProcessItemUpdate(const CEC_UpDownClient_Tag *tag, CC
 		client->m_clientSoftString = GetSoftName(client->m_clientSoft);
 		sw_updated = true;
 	}
-	if (tag->SoftVerStr(client->m_clientVerString) || sw_updated) {
+	const bool version_updated = tag->SoftVerStr(client->m_clientVerString);
+	const bool mod_updated = tag->ModVersion(client->m_strModVersion);
+	if (version_updated || mod_updated || sw_updated) {
 		if (client->m_clientSoftString == _("Unknown")) {
 			client->m_fullClientVerString = client->m_clientSoftString;
 		} else {
 			client->m_fullClientVerString =
-				client->m_clientSoftString + " " + client->m_clientVerString;
+				FormatClientSoftware(client->m_clientSoftString, client->m_strModVersion) +
+				" " + client->m_clientVerString;
 		}
 	}
 	// User hash
@@ -3413,7 +3416,6 @@ void CUpDownClientListRem::ProcessItemUpdate(const CEC_UpDownClient_Tag *tag, CC
 	tag->RemoteFilename(client->m_clientFilename);
 	tag->DisableViewShared(client->m_fNoViewSharedFiles);
 	tag->Version(client->m_nClientVersion);
-	tag->ModVersion(client->m_strModVersion);
 	tag->OSInfo(client->m_sClientOSInfo);
 	tag->AvailableParts(client->m_AvailPartCount);
 

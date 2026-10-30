@@ -24,6 +24,7 @@
 //
 
 #include "ClientVersionString.h"
+#include "DataToText.h"
 
 #include <muleunit/test.h>
 #include <protocol/ed2k/ClientSoftware.h>
@@ -100,4 +101,14 @@ TEST(ClientVersionString, BothPathsAgreeForTheSamePeer)
 	const uint32 packed = major * 100000 + minor * 1000 + update * 100;
 	ASSERT_EQUALS(FormatClientVersion(SO_EMULE, major, minor, update),
 		FormatPackedClientVersion(SO_EMULE, packed));
+}
+
+TEST(ClientVersionString, ModIdentityBelongsWithSoftware)
+{
+	ASSERT_EQUALS(wxString("eMule (AI v1.6)"), FormatClientSoftware("eMule", "AI v1.6"));
+	ASSERT_EQUALS(wxString("eMule (eMule Qt 1.0)"), FormatClientSoftware("eMule", "eMule Qt 1.0"));
+	ASSERT_EQUALS(wxString("eMule"), FormatClientSoftware("eMule", ""));
+	ASSERT_EQUALS(wxString("aMule SVN"), FormatClientSoftware("aMule SVN", "aMule SVN"));
+	ASSERT_EQUALS(wxString("eMule (AI v1.6) v0.70b"),
+		FormatClientSoftware("eMule", "AI v1.6") + " " + FormatClientVersion(SO_EMULE, 0, 70, 1));
 }

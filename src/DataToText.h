@@ -36,6 +36,9 @@ wxString DownloadStateToStr(int state, bool queueFull);
 /// @return Human-readable client software name.
 const wxString GetSoftName(unsigned int software_ident);
 
+//! Display a self-declared mod alongside the software name, without repeating it.
+wxString FormatClientSoftware(const wxString &name, const wxString &modVersion);
+
 /**
  * Get "Source From" text, i.e. where we got the source from.
  * @param source_from A ESourceFrom enum value.

@@ -141,6 +141,14 @@ const wxString GetSoftName(unsigned int software_ident)
 	}
 }
 
+wxString FormatClientSoftware(const wxString &name, const wxString &modVersion)
+{
+	if (modVersion.IsEmpty() || name == modVersion) {
+		return name;
+	}
+	return name + " (" + modVersion + ")";
+}
+
 wxString OriginToText(unsigned int source_from)
 {
 	switch ((ESourceFrom)source_from) {

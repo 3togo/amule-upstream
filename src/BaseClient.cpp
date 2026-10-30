@@ -878,6 +878,7 @@ bool CUpDownClient::ProcessHelloTypePacket(const CMemFile &data)
 			m_nKadPort,
 			m_nClientVersion,
 			m_clientSoft,
+			m_strModVersion,
 			static_cast<uint8>(m_nSourceFrom),
 			GetObfuscationStatus(),
 			!m_metaSessionCounted);
@@ -2556,7 +2557,6 @@ void CUpDownClient::ReGetClientSoft()
 	}
 
 	int iHashType = GetHashType();
-	wxString clientModString;
 	if (iHashType == SO_EMULE) {
 
 		m_clientSoft = m_byCompatibleClient;
@@ -2628,7 +2628,6 @@ void CUpDownClient::ReGetClientSoft()
 				m_clientVerString = "< v0.05";
 				break;
 			default:
-				clientModString = GetClientModString();
 				m_clientVerString = CFormat("v0.%u") % nClientMinVersion;
 				break;
 			}
@@ -2640,12 +2639,6 @@ void CUpDownClient::ReGetClientSoft()
 			m_nClientVersion =
 				MAKE_CLIENT_VERSION(nClientMajVersion, nClientMinVersion, nClientUpVersion);
 
-			if (m_clientSoft != SO_AMULE && m_clientSoft != SO_LXMULE &&
-				m_clientSoft != SO_HYDRANODE && m_clientSoft != SO_MLDONKEY &&
-				m_clientSoft != SO_NEW_MLDONKEY && m_clientSoft != SO_NEW2_MLDONKEY &&
-				m_clientSoft != SO_LPHANT && m_clientSoft != SO_EMULEPLUS) {
-				clientModString = GetClientModString();
-			}
 			// One renderer for every consumer: the history rows derive the same
 			// string from the stored numeric, and used to disagree with this one.
 			m_clientVerString = FormatClientVersion(
@@ -2718,10 +2711,8 @@ void CUpDownClient::ReGetClientSoft()
 	}
 
 	m_clientVersionString = m_clientVerString;
-	if (!clientModString.IsEmpty()) {
-		m_clientVerString += " - " + clientModString;
-	}
-	m_fullClientVerString = m_clientSoftString + " " + m_clientVerString;
+	m_fullClientVerString =
+		FormatClientSoftware(m_clientSoftString, m_strModVersion) + " " + m_clientVerString;
 
 	UpdateStats();
 }
