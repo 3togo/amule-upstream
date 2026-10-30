@@ -3757,3 +3757,9 @@ target_include_directories (KadPacketTrackingTest PRIVATE
 	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
 target_link_libraries (KadPacketTrackingTest muleunit mulecommon)
 add_test (NAME KadPacketTrackingTest COMMAND KadPacketTrackingTest)
+
+# Shared Kad policy parsing, validation and persistence without the application.
+add_executable (KadConstraintsTest KadConstraintsTest.cpp)
+target_include_directories (KadConstraintsTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (KadConstraintsTest muleunit mulecommon)
+add_test (NAME KadConstraintsTest COMMAND KadConstraintsTest)

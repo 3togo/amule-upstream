@@ -27,6 +27,7 @@
 #ifndef KADEMLIA_NET_PACKETTRACKING_H
 #define KADEMLIA_NET_PACKETTRACKING_H
 
+#include "../utils/KadConstraints.h"
 #include <cstddef>
 #include <map>
 #include <list>
@@ -86,9 +87,6 @@ public:
 		Drop,
 		MassiveFlood
 	};
-	static constexpr size_t MAX_TRACKED_IPS = 10000;
-	static constexpr size_t MAX_OUTGOING_REQUESTS = 4096;
-	static constexpr size_t MAX_LEGACY_CHALLENGES = 1024;
 
 	CPacketTracking() = default;
 	virtual ~CPacketTracking();

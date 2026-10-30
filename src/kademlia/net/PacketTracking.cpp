@@ -52,8 +52,8 @@ void CPacketTracking::AddTrackedOutPacket(uint32_t ip, uint8_t opcode)
 	TrackPackets_Struct track = { ip, now, opcode };
 	listTrackedRequests.push_front(track);
 	while (!listTrackedRequests.empty()) {
-		if (now - listTrackedRequests.back().inserted >= SEC2MS(180) ||
-			listTrackedRequests.size() > MAX_OUTGOING_REQUESTS) {
+		if (now - listTrackedRequests.back().inserted >= GetKadConstraints().trackingLifetimeMs ||
+			listTrackedRequests.size() > GetKadConstraints().outgoingRequests) {
 			listTrackedRequests.pop_back();
 		} else {
 			break;
@@ -93,7 +93,8 @@ bool CPacketTracking::IsOnOutTrackList(uint32_t ip, uint8_t opcode, bool dontRem
 	uint64_t now = ::GetTickCount64();
 	for (TrackedPacketList::iterator it = listTrackedRequests.begin(); it != listTrackedRequests.end();
 		++it) {
-		if (it->ip == ip && it->opcode == opcode && now - it->inserted < SEC2MS(180)) {
+		if (it->ip == ip && it->opcode == opcode &&
+			now - it->inserted < GetKadConstraints().trackingLifetimeMs) {
 			if (!dontRemove) {
 				listTrackedRequests.erase(it);
 			}
@@ -115,58 +116,60 @@ CPacketTracking::IncomingPacket CPacketTracking::InTrackListIsAllowedPacket(
 	// limits come from the estimated maximum frequency of such packets in normal operation,
 	// plus a buffer -- they are flood detection, not a guide to normal usage.
 
+	const auto &policy = GetKadConstraints();
 	uint32_t allowedPacketsPerMinute;
 	DEBUG_ONLY(const uint8_t dbgOrgOpcode = opcode;)
 
 	switch (opcode) {
 	case KADEMLIA2_BOOTSTRAP_REQ:
-		allowedPacketsPerMinute = 2;
+		allowedPacketsPerMinute = policy.bootstrapRate;
 		break;
 	case KADEMLIA2_HELLO_REQ:
-		allowedPacketsPerMinute = 3;
+		allowedPacketsPerMinute = policy.helloRate;
 		break;
 	case KADEMLIA2_REQ:
-		allowedPacketsPerMinute = 10;
+		allowedPacketsPerMinute = policy.routingRate;
 		break;
 	case KADEMLIA2_SEARCH_NOTES_REQ:
-		allowedPacketsPerMinute = 3;
+		allowedPacketsPerMinute = policy.searchRate;
 		break;
 	case KADEMLIA2_SEARCH_KEY_REQ:
-		allowedPacketsPerMinute = 3;
+		allowedPacketsPerMinute = policy.searchRate;
 		break;
 	case KADEMLIA2_SEARCH_SOURCE_REQ:
-		allowedPacketsPerMinute = 3;
+		allowedPacketsPerMinute = policy.searchRate;
 		break;
 	case KADEMLIA2_PUBLISH_KEY_REQ:
-		allowedPacketsPerMinute = 3;
+		allowedPacketsPerMinute = policy.publishKeywordRate;
 		break;
 	case KADEMLIA2_PUBLISH_SOURCE_REQ:
-		allowedPacketsPerMinute = 2;
+		allowedPacketsPerMinute = policy.publishSourceRate;
 		break;
 	case KADEMLIA2_PUBLISH_NOTES_REQ:
-		allowedPacketsPerMinute = 2;
+		allowedPacketsPerMinute = policy.publishNotesRate;
 		break;
 	case KADEMLIA_FIREWALLED2_REQ:
 		opcode = KADEMLIA_FIREWALLED_REQ;
 	/* fall through */
 	case KADEMLIA_FIREWALLED_REQ:
-		allowedPacketsPerMinute = 2;
+		allowedPacketsPerMinute = policy.firewallRate;
 		break;
 	case KADEMLIA_FINDBUDDY_REQ:
-		allowedPacketsPerMinute = 2;
+		allowedPacketsPerMinute = policy.buddyRate;
 		break;
 	case KADEMLIA_CALLBACK_REQ:
-		allowedPacketsPerMinute = 1;
+		allowedPacketsPerMinute = policy.callbackRate;
 		break;
 	case KADEMLIA2_PING:
-		allowedPacketsPerMinute = 2;
+		allowedPacketsPerMinute = policy.pingRate;
 		break;
 	default:
 		// not any request packets, so it's a response packet - no further checks on this point
 		return IncomingPacket::Allowed;
 	}
 
-	const uint32_t secondsPerPacket = 60 / allowedPacketsPerMinute;
+	const uint32_t intervalMs = 60000 / allowedPacketsPerMinute;
+	const uint32_t floodThreshold = allowedPacketsPerMinute * policy.floodMultiplier;
 	const uint64_t currentTick = ::GetTickCount64();
 
 	InTrackListCleanup();
@@ -176,7 +179,7 @@ CPacketTracking::IncomingPacket CPacketTracking::InTrackListIsAllowedPacket(
 	TrackPacketsIn_Struct *trackEntry;
 	if (it2 == m_mapTrackPacketsIn.end()) {
 		// Do not evict live quotas: address churn must not reset an abuser's budget.
-		if (m_mapTrackPacketsIn.size() >= MAX_TRACKED_IPS) {
+		if (m_mapTrackPacketsIn.size() >= GetKadConstraints().trackedIPs) {
 			return IncomingPacket::Drop;
 		}
 		trackEntry = new TrackPacketsIn_Struct();
@@ -191,17 +194,17 @@ CPacketTracking::IncomingPacket CPacketTracking::InTrackListIsAllowedPacket(
 		it != trackEntry->m_trackedRequests.end();
 		++it) {
 		if (it->m_opcode == opcode) {
-			const auto charge = [currentTick, secondsPerPacket, allowedPacketsPerMinute](
+			const auto charge = [currentTick, intervalMs, floodThreshold](
 						    uint32_t &count, uint64_t &first) {
-				const uint64_t drained = (currentTick - first) / SEC2MS(secondsPerPacket);
+				const uint64_t drained = (currentTick - first) / intervalMs;
 				if (drained >= count) {
 					count = 0;
 					first = currentTick;
 				} else {
 					count -= static_cast<uint32_t>(drained);
-					first += drained * SEC2MS(secondsPerPacket);
+					first += drained * intervalMs;
 				}
-				count = std::min(count + 1, allowedPacketsPerMinute * 5 + 1);
+				count = std::min(count + 1, floodThreshold + 1);
 			};
 			// All packets consume the drop budget. Only keyed packets consume the ban
 			// budget, so spoofed traffic cannot prime an honest peer's next packet to ban it.
@@ -212,15 +215,14 @@ CPacketTracking::IncomingPacket CPacketTracking::InTrackListIsAllowedPacket(
 			// remember only for easier cleanup
 			UpdateIncomingExpiry(*trackEntry,
 				std::max(trackEntry->m_lastExpire,
-					currentTick + static_cast<uint64_t>(SEC2MS(secondsPerPacket)) *
-							      it->m_count));
+					currentTick + static_cast<uint64_t>(intervalMs) * it->m_count));
 
 			if (CKademlia::IsRunningInLANMode() && ::IsLanIP(wxUINT32_SWAP_ALWAYS(ip))) {
 				return IncomingPacket::Allowed; // no flood detection in LAN mode
 			}
 
 			// now the actual check if this request is allowed
-			if (validReceiverKey && it->m_verifiedCount > allowedPacketsPerMinute * 5) {
+			if (validReceiverKey && it->m_verifiedCount > floodThreshold) {
 				// this is so far above the limit that it has to be an intentional flood /
 				// misuse. The listener applies the ban and routing expiry for keyed traffic.
 #ifdef __DEBUG__
@@ -258,8 +260,7 @@ CPacketTracking::IncomingPacket CPacketTracking::InTrackListIsAllowedPacket(
 	curTrackedRequest.m_verifiedCount = validReceiverKey ? 1 : 0;
 	curTrackedRequest.m_verifiedFirstAdded = currentTick;
 	// remember only for easier cleanup
-	UpdateIncomingExpiry(
-		*trackEntry, std::max(trackEntry->m_lastExpire, currentTick + SEC2MS(secondsPerPacket)));
+	UpdateIncomingExpiry(*trackEntry, std::max(trackEntry->m_lastExpire, currentTick + intervalMs));
 	trackEntry->m_trackedRequests.push_back(curTrackedRequest);
 	return IncomingPacket::Allowed;
 }
@@ -290,8 +291,8 @@ void CPacketTracking::AddLegacyChallenge(
 	TrackChallenge_Struct sTrack = { ip, now, opcode, contactID, challengeID };
 	listChallengeRequests.push_front(sTrack);
 	while (!listChallengeRequests.empty()) {
-		if (now - listChallengeRequests.back().inserted >= SEC2MS(180) ||
-			listChallengeRequests.size() > MAX_LEGACY_CHALLENGES) {
+		if (now - listChallengeRequests.back().inserted >= GetKadConstraints().trackingLifetimeMs ||
+			listChallengeRequests.size() > GetKadConstraints().legacyChallenges) {
 			AddDebugLogLineN(logKadPacketTracking,
 				"Challenge timed out, client not verified - " +
 					KadIPToString(listChallengeRequests.back().ip));
@@ -310,7 +311,8 @@ bool CPacketTracking::IsLegacyChallenge(
 	for (TrackChallengeList::iterator it = listChallengeRequests.begin();
 		it != listChallengeRequests.end();) {
 		TrackChallengeList::iterator it2 = it++;
-		if (it2->ip == ip && it2->opcode == opcode && now - it2->inserted < SEC2MS(180)) {
+		if (it2->ip == ip && it2->opcode == opcode &&
+			now - it2->inserted < GetKadConstraints().trackingLifetimeMs) {
 			wxASSERT(it2->challenge != 0 || opcode == KADEMLIA2_PING);
 			if (it2->challenge == 0 || it2->challenge == challengeID) {
 				contactID = it2->contactID;
@@ -334,7 +336,7 @@ bool CPacketTracking::HasActiveLegacyChallenge(uint32_t ip) const
 {
 	uint64_t now = ::GetTickCount64();
 	for (const auto &request : listChallengeRequests) {
-		if (request.ip == ip && now - request.inserted < SEC2MS(180)) {
+		if (request.ip == ip && now - request.inserted < GetKadConstraints().trackingLifetimeMs) {
 			return true;
 		}
 	}
