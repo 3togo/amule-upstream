@@ -3915,7 +3915,7 @@ bool TakeBoundedInteger(const picojson::object &obj,
 	if (it == obj.end())
 		return true;
 	if (!it->second.is<double>() || !IsIntegralJsonNumber(it->second.get<double>())) {
-		error = std::string(key) + " must be an integer";
+		error = std::string(key) + " must be a non-negative integer";
 		return false;
 	}
 	const double number = it->second.get<double>();
