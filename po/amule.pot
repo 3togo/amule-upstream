@@ -10018,7 +10018,7 @@ msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp

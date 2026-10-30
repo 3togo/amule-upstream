@@ -102,15 +102,17 @@ void CIndexed::ProcessIndexLoad()
 			if (!CPath::FileExists(path)) {
 				continue;
 			}
-			if (CPath::RenameFile(CPath(path), CPath(path + ".bad"), true)) {
+			wxString detail;
+			if (CPath::ReplaceEntry(CPath(path), CPath(path + ".bad"), &detail)) {
 				AddLogLineC(CFormat(_("Kad could not read %s. It was renamed to %s.bad, and "
 						      "a new index will be saved at shutdown.")) %
 					    path % path);
 			} else {
 				m_preservedFiles.push_back(path);
-				AddLogLineC(CFormat(_("Kad could not preserve the unreadable index %s as "
-						      "%s.bad. Its original file will not be overwritten.")) %
-					    path % path);
+				AddLogLineC(
+					CFormat(_("Kad could not preserve the unreadable index %s as "
+						  "%s.bad: %s. Its original file will not be overwritten.")) %
+					path % path % detail);
 			}
 		}
 		// Keep the publish delays our own searches recorded while the worker was reading.
