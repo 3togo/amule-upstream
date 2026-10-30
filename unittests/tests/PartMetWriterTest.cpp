@@ -372,7 +372,9 @@ TEST(WritePartMet, SharingViolationPreservesBothFilesAndReportsError)
 	const bool replaced = CPath::ReplaceEntry(Tmp(), Met(), &detail);
 	const auto elapsed = std::chrono::steady_clock::now() - started;
 	::CloseHandle(held);
-	ASSERT_TRUE(elapsed >= std::chrono::milliseconds(50));
+	// Windows sleep intervals are quantized by the system timer. Allow that
+	// rounding while checking that the sharing failure took the wait path.
+	ASSERT_TRUE(elapsed >= std::chrono::milliseconds(25));
 	ASSERT_FALSE(replaced);
 	ASSERT_FALSE(detail.empty());
 	ASSERT_EQUALS(7, ReadAll(Met())[0]);
