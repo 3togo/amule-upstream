@@ -114,14 +114,19 @@ inline bool CanFSHandleLargeFiles(const CPath &path)
 /**
  * Disable or enable the computer's energy-saving "standby" mode.
  */
-#if defined __WINDOWS__ || defined __WXMAC__
-#define PLATFORMSPECIFIC_CAN_PREVENT_SLEEP_MODE 1
-#else
-#define PLATFORMSPECIFIC_CAN_PREVENT_SLEEP_MODE 0
+#ifndef AMULE_CAN_PREVENT_SLEEP
+#define AMULE_CAN_PREVENT_SLEEP 0
 #endif
+#define PLATFORMSPECIFIC_CAN_PREVENT_SLEEP_MODE AMULE_CAN_PREVENT_SLEEP
 
-void PreventSleepMode();
+// Main-thread desired-state updates; actual acquisition/retry runs on a worker.
+// A GUI or detected desktop session permits portal Suspend / sleep:idle fallback,
+// which may require confirmation for user-started suspend. Daemons without a
+// desktop session use idle-only locks.
+void PreventSleepMode(bool hasGui = false);
 void AllowSleepMode();
+// Join/release before application services are torn down. No restart afterwards.
+void ShutdownSleepMode();
 
 }; /* namespace PlatformSpecific */
 

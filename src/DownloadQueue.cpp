@@ -510,7 +510,11 @@ void CDownloadQueue::Process()
 			}
 
 			if (mustPreventSleep) {
-				PlatformSpecific::PreventSleepMode();
+#ifdef AMULE_DAEMON
+				PlatformSpecific::PreventSleepMode(false);
+#else
+				PlatformSpecific::PreventSleepMode(true);
+#endif
 			} else {
 				PlatformSpecific::AllowSleepMode();
 			}

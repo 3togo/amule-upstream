@@ -3746,3 +3746,61 @@ add_executable (ECSRPConfigTest ECSRPConfigTest.cpp ${CMAKE_SOURCE_DIR}/src/Logg
 target_include_directories (ECSRPConfigTest PRIVATE ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
 target_link_libraries (ECSRPConfigTest PRIVATE ec mulecommon)
 add_test (NAME ECSRPConfigTest COMMAND ECSRPConfigTest)
+
+# Exercise the production tick/shutdown adapter with deterministic backend I/O.
+# MULEUNIT suppresses application logging; the library separately verifies that
+# failure details reach the controller event consumed by the production logger.
+if (TARGET wakeguard::wakeguard)
+	find_package (Threads REQUIRED)
+	add_executable (SleepModeTest
+		SleepModeTest.cpp
+		${CMAKE_SOURCE_DIR}/src/SleepMode.cpp
+		${CMAKE_SOURCE_DIR}/src/extern/libwakeguard/src/wakeguard.cpp
+		${CMAKE_SOURCE_DIR}/src/extern/libwakeguard/src/controller.cpp
+	)
+	target_include_directories (SleepModeTest PRIVATE
+		${CMAKE_BINARY_DIR}
+		${CMAKE_SOURCE_DIR}/src
+		${CMAKE_SOURCE_DIR}/src/include
+		${CMAKE_SOURCE_DIR}/src/libs
+		${CMAKE_SOURCE_DIR}/src/extern/libwakeguard/include
+		${CMAKE_SOURCE_DIR}/src/extern/libwakeguard/src
+		${CMAKE_BINARY_DIR}/src/extern/libwakeguard/include
+	)
+	target_compile_definitions (SleepModeTest PRIVATE
+		MULEUNIT wxUSE_GUI=0 AMULE_CAN_PREVENT_SLEEP=1 WAKEGUARD_STATIC_DEFINE)
+	target_link_libraries (SleepModeTest PRIVATE wxWidgets::BASE Threads::Threads)
+	add_test (NAME SleepModeGuiTest COMMAND SleepModeTest desktop)
+	add_test (NAME SleepModeDaemonTest COMMAND SleepModeTest daemon)
+	add_test (NAME SleepModeDaemonDesktopTest COMMAND SleepModeTest daemon-desktop)
+	set_tests_properties (SleepModeGuiTest SleepModeDaemonTest SleepModeDaemonDesktopTest PROPERTIES TIMEOUT 20)
+endif()
+
+if (TARGET wakeguard::wakeguard AND AMULE_SLEEP_SUPPORTED AND UNIX AND NOT APPLE)
+	add_executable (SleepModeProbe SleepModeProbe.cpp ${CMAKE_SOURCE_DIR}/src/SleepMode.cpp)
+	target_include_directories (SleepModeProbe PRIVATE
+		${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
+		${CMAKE_SOURCE_DIR}/src/libs)
+	target_compile_definitions (SleepModeProbe PRIVATE MULEUNIT wxUSE_GUI=0 AMULE_CAN_PREVENT_SLEEP=1)
+	target_link_libraries (SleepModeProbe PRIVATE wxWidgets::BASE wakeguard::wakeguard)
+	find_program (SLEEP_TEST_PYTHON NAMES python3 PATHS /usr/bin)
+	find_program (SLEEP_TEST_DBUS dbus-run-session)
+	if (SLEEP_TEST_PYTHON AND SLEEP_TEST_DBUS)
+		execute_process (COMMAND ${SLEEP_TEST_PYTHON} -c "from gi.repository import Gio"
+			RESULT_VARIABLE SLEEP_TEST_HAS_GIO OUTPUT_QUIET ERROR_QUIET)
+		if (SLEEP_TEST_HAS_GIO EQUAL 0)
+			add_test (NAME SleepModeIntegrationTest
+				COMMAND ${SLEEP_TEST_DBUS} -- ${SLEEP_TEST_PYTHON}
+				${CMAKE_CURRENT_SOURCE_DIR}/SleepModeIntegrationTest.py $<TARGET_FILE:SleepModeProbe>)
+			set_tests_properties (SleepModeIntegrationTest PROPERTIES TIMEOUT 60)
+		endif()
+	endif()
+endif()
+
+# A build without a compiled backend must remain linkable and advertise no UI support.
+add_executable (SleepModeUnavailableTest SleepModeUnavailableTest.cpp ${CMAKE_SOURCE_DIR}/src/SleepMode.cpp)
+target_include_directories (SleepModeUnavailableTest PRIVATE
+	${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs)
+target_compile_definitions (SleepModeUnavailableTest PRIVATE MULEUNIT wxUSE_GUI=0 AMULE_CAN_PREVENT_SLEEP=0)
+target_link_libraries (SleepModeUnavailableTest PRIVATE wxWidgets::BASE)
+add_test (NAME SleepModeUnavailableTest COMMAND SleepModeUnavailableTest)

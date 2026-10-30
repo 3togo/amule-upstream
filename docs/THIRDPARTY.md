@@ -68,6 +68,65 @@ linked into shipped daemon binaries (`amule`, `amuled`, `amulegui`,
 `amuleweb`, `amuleapi`), so the LGPL relinking clause does not constrain
 end-user binary distribution.
 
+## libwakeguard
+
+Cross-platform system-sleep inhibition, linked statically into `amule` and
+`amuled` when enabled. The remote GUI does not link it. License: MIT, compatible
+with aMule's GPLv2-or-later distribution.
+
+Upstream: <https://github.com/3togo/libwakeguard> — version 0.2.0. The exact pin,
+selected files and checksum manifest are recorded in
+[`src/extern/libwakeguard/AMULE_PROVENANCE.md`](../src/extern/libwakeguard/AMULE_PROVENANCE.md).
+The snapshot is unmodified; its licences/notices are also installed under
+`share/doc/amule/libwakeguard/`.
+
+> MIT License
+>
+> Copyright (c) 2026 libwakeguard contributors
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
+
+The upstream NOTICE also retains the following MIT notice for its behavioural
+reference, keepawake-rs. No Rust source or runtime is linked into aMule.
+
+> MIT License
+>
+> Copyright (c) 2022 Segev Finer
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
+
 ## libutp
 
 Micro Transport Protocol (uTP) library, vendored for the forthcoming uTP

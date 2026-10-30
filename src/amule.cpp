@@ -3118,8 +3118,8 @@ void CamuleApp::ReportShutdownStatus(const wxString &status)
 
 void CamuleApp::ShutDown()
 {
-	// Just in case
-	PlatformSpecific::AllowSleepMode();
+	// Join the inhibitor worker and release even if acquisition is still pending.
+	PlatformSpecific::ShutdownSleepMode();
 
 	// Log
 	AddDebugLogLineN(logGeneral, "CamuleApp::ShutDown() has started.");

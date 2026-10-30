@@ -940,6 +940,7 @@ if (NEED_LIB_MULEAPPCORE)
 		PlatformSpecific.cpp
 		RandomFunctions.cpp
 		RC4Encrypt.cpp
+		SleepMode.cpp
 		StateMachine.cpp
 		TerminationProcessAmuleApi.cpp
 		TerminationProcessAmuleweb.cpp
@@ -947,6 +948,15 @@ if (NEED_LIB_MULEAPPCORE)
 		UPnPBase.cpp
 		UserHash.cpp
 	)
+
+	if (TARGET wakeguard::wakeguard)
+		target_link_libraries (muleappcore PRIVATE wakeguard::wakeguard)
+	endif()
+	if (AMULE_SLEEP_SUPPORTED)
+		target_compile_definitions (muleappcore PUBLIC AMULE_CAN_PREVENT_SLEEP=1)
+	else()
+		target_compile_definitions (muleappcore PUBLIC AMULE_CAN_PREVENT_SLEEP=0)
+	endif()
 
 	target_compile_definitions (muleappcore
 		PRIVATE wxUSE_GUI=0
