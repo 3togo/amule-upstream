@@ -277,10 +277,8 @@ public:
 	uint16 GetBuddyPort();
 	bool RequestTCP(Kademlia::CContact *contact, uint8_t connectOptions);
 	void RequestBuddy(Kademlia::CContact *contact, uint8_t connectOptions);
-	bool CanRequestBuddy(const Kademlia::CContact &contact) const;
-	void BuddyConnectionFinished(bool fromSocket);
-	void ResetBuddyRetry() { m_buddyRetry = {}; }
-	void ResetBuddySearch() { m_buddyRetry.ResetSearch(); }
+	bool CanRequestBuddy(uint32_t ip) const;
+	void RecordBuddyFailure(uint32_t ip);
 	bool IncomingBuddy(Kademlia::CContact *contact, Kademlia::CUInt128 *buddyID);
 	void RemoveFromKadList(CUpDownClient *torem);
 	void AddToKadList(CUpDownClient *toadd);

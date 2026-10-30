@@ -235,18 +235,10 @@ add_test (NAME KadBuddyLivenessTest COMMAND KadBuddyLivenessTest)
 target_include_directories (KadBuddyLivenessTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (KadBuddyLivenessTest muleunit mulecommon)
 
-# Failed buddy endpoints and whole-search retry timing with a deterministic clock.
-add_executable (KadBuddyRetryTest
-	KadBuddyRetryTest.cpp
-	${CMAKE_SOURCE_DIR}/src/KadBuddyRetry.cpp
-	${CMAKE_SOURCE_DIR}/src/kademlia/routing/Contact.cpp
-	${CMAKE_SOURCE_DIR}/src/kademlia/utils/UInt128.cpp
-	${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp
-)
+# Failed buddy IP cooldown with a deterministic clock.
+add_executable (KadBuddyRetryTest KadBuddyRetryTest.cpp)
 add_test (NAME KadBuddyRetryTest COMMAND KadBuddyRetryTest)
-target_include_directories (KadBuddyRetryTest PRIVATE
-	${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include
-)
+target_include_directories (KadBuddyRetryTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (KadBuddyRetryTest muleunit mulecommon)
 
 # The Kad firewall state across an hourly recheck, with the clock passed in.

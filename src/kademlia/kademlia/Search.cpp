@@ -995,11 +995,8 @@ void CSearch::StorePacket()
 		break;
 	}
 	case FINDBUDDY: {
-		// Skip failed TCP endpoints before asking them to reserve another buddy slot.
-		if (!theApp->clientlist->CanRequestBuddy(*from)) {
-			AddDebugLogLineN(logKadSearch,
-				"Skipping buddy request to failed Kad destination " +
-					KadIPPortToString(from->GetIPAddress(), from->GetUDPPort()));
+		// Use the same network-order IP as GetConnectIP(), independent of peer ports.
+		if (!theApp->clientlist->CanRequestBuddy(wxUINT32_SWAP_ALWAYS(from->GetIPAddress()))) {
 			break;
 		}
 		AddDebugLogLineN(logKadSearch, "Search request type: FindBuddy");
