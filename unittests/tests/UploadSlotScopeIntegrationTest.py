@@ -65,7 +65,7 @@ class Peer:
                 _, size = struct.unpack('<BI', exact(self.sock, 5))
                 if exact(self.sock, size)[0] == opcode:
                     return True
-            except TimeoutError:
+            except socket.timeout:
                 return False
 
     def close(self):

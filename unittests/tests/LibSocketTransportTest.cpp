@@ -994,7 +994,10 @@ TEST(LibSocketTransport, BoundPortTracksTheLiveListenerAcrossFailedRebindAndClos
 		const uint16_t original = listener.BoundPort();
 		ASSERT_TRUE(original != 0);
 		boost::asio::io_context io;
-		boost::asio::ip::tcp::acceptor busy(io, { boost::asio::ip::tcp::v4(), 0 });
+		// Reserve the exact address without reuse; Windows and macOS can allow
+		// another bind against a wildcard listener with SO_REUSEADDR.
+		boost::asio::ip::tcp::acceptor busy(
+			io, { boost::asio::ip::address_v4::loopback(), 0 }, false);
 		address.Service(busy.local_endpoint().port());
 		ASSERT_FALSE(listener.Rebind(address));
 		ASSERT_EQUALS(original, listener.BoundPort());

@@ -2225,6 +2225,8 @@ add_executable (FatalAbortBacktraceTest
 	FatalAbortBacktraceTest.cpp
 )
 add_test (NAME FatalAbortBacktraceTest COMMAND FatalAbortBacktraceTest)
+# Multiple fatal-signal subprocesses and symbolization can exceed the fast lane's budget.
+set_tests_properties (FatalAbortBacktraceTest PROPERTIES LABELS "slow")
 target_link_libraries (FatalAbortBacktraceTest
 	muleunit
 	mulecommon
