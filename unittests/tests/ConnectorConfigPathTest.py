@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Exercise connector config paths offline, with every output in a temporary directory."""
 import configparser
+import hashlib
 import os
 from pathlib import Path
 import socket
@@ -67,12 +68,40 @@ def check_path(binary, root, argument, expected):
             assert expected.stat().st_mode & 0o777 == 0o600, expected
 
 
+def check_password_config(binary, root):
+    root.mkdir()
+    (root / 'config').mkdir()
+    remote = root / 'config/remote.conf'
+    remote.write_text(f'[EC]\nPassword={PASSWORD}\nZLIB=1\nForceZLIB=1\n')
+    source = root / 'amule.conf'
+    # Import only tests the presence of the verifier key; it cannot be a client credential.
+    source.write_text('[ExternalConnect]\nECPort=48123\nECPasswordVerifier=daemon-verifier\n')
+    run(binary, root, f'--create-config-from={source}')
+    config = read_config(remote)
+    assert config['EC']['Password'].lower() == PASSWORD, 'import erased remembered password'
+    assert config['EC']['ZLIB'] == '1', 'import changed saved compression'
+    assert config['EC']['ForceZLIB'] == '1', 'import changed saved compression override'
+    # A verifier-only daemon cannot provide a password, so an explicit -P must work.
+    run(binary, root, f'--create-config-from={source}', '-P', 'replacement')
+    config = read_config(remote)
+    assert config['EC']['Password'].lower() == hashlib.md5(b'replacement').hexdigest(), (
+        'import ignored explicitly supplied client password', config.items('EC'))
+    # An explicit empty password must remove a remembered credential on a normal save.
+    run(binary, root, '--write-config', '-P', '')
+    assert read_config(remote)['EC']['Password'] == '', 'save retained explicitly cleared password'
+    run(binary, root, f'--create-config-from={source}')
+    assert read_config(remote)['EC']['Password'] == '', 'verifier import created a client credential'
+    print(f'{Path(binary).name}: verifier import and explicit password writes passed', flush=True)
+
+
 def main():
     binaries = [str(Path(arg).resolve()) for arg in sys.argv[1:]]
     assert binaries, 'Pass amulecmd and/or amuleweb paths'
     with tempfile.TemporaryDirectory(prefix='amule-config-path-') as scratch:
         for index, binary in enumerate(binaries):
             base = Path(scratch).resolve() / str(index)
+            base.mkdir()
+            check_password_config(binary, base / 'password-config')
             # The portable marker prevents touching the real user config on Windows/macOS.
             cases = ['default', 'bare', 'absolute', 'dot-relative', 'parent-relative', 'subdirectory',
                      'new-directory']

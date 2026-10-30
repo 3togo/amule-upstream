@@ -588,7 +588,9 @@ bool CaMuleExternalConnector::OnCmdLineParsed(wxCmdLineParser &parser)
 	m_configFileName = FinalizeFilename(m_configFileName, m_configDir);
 
 	wxString aMuleConfigFile;
-	if (UsesConnectorConfigFile() && parser.Found("create-config-from", &aMuleConfigFile)) {
+	const bool createConfig =
+		UsesConnectorConfigFile() && parser.Found("create-config-from", &aMuleConfigFile);
+	if (createConfig) {
 		aMuleConfigFile = FinalizeFilename(aMuleConfigFile);
 		if (!::wxFileExists(aMuleConfigFile)) {
 			fprintf(stderr,
@@ -598,28 +600,13 @@ bool CaMuleExternalConnector::OnCmdLineParsed(wxCmdLineParser &parser)
 					.utf8_str());
 			exit(1);
 		}
+		// Preserve saved connector-only settings and the client credential when
+		// the daemon now stores only a verifier. Explicit -P below still wins.
+		LoadConfigFile();
 		CECFileConfig aMuleConfig(aMuleConfigFile);
 		LoadAmuleConfig(aMuleConfig);
-		if (m_password.IsEmpty())
-			Show(_("The daemon verifier cannot supply a client password. Use -P or the password "
-			       "prompt. A saved client password will be preserved.\n"));
-		SaveConfigFile();
-		exit(FlushConfigFile() ? 0 : 1);
-	}
-
-	if (UsesConnectorConfigFile()) {
+	} else if (UsesConnectorConfigFile()) {
 		LoadConfigFile();
-	}
-
-	if (!parser.Found("host", &m_host)) {
-		if (m_host.IsEmpty()) {
-			m_host = "127.0.0.1";
-		}
-	}
-
-	long port;
-	if (parser.Found("port", &port)) {
-		m_port = port;
 	}
 
 	if (UsesEcPasswordOption()) {
@@ -631,6 +618,25 @@ bool CaMuleExternalConnector::OnCmdLineParsed(wxCmdLineParser &parser)
 				m_password.Clear();
 			}
 		}
+	}
+
+	if (createConfig) {
+		if (m_password.IsEmpty())
+			Show(_("The daemon verifier cannot supply a client password. Use -P or the password "
+			       "prompt. A saved client password will be preserved.\n"));
+		SaveConfigFile();
+		exit(FlushConfigFile() ? 0 : 1);
+	}
+
+	if (!parser.Found("host", &m_host)) {
+		if (m_host.IsEmpty()) {
+			m_host = "127.0.0.1";
+		}
+	}
+
+	long port;
+	if (parser.Found("port", &port)) {
+		m_port = port;
 	}
 
 	if (parser.Found("force-zlib")) {
@@ -665,9 +671,8 @@ void CaMuleExternalConnector::LoadAmuleConfig(CECFileConfig &cfg)
 {
 	m_host = "127.0.0.1";
 	m_port = cfg.Read("/ExternalConnect/ECPort", 4712l);
-	cfg.ReadHash("/ExternalConnect/ECPassword", &m_password);
-	if (cfg.HasEntry("/ExternalConnect/ECPasswordVerifier")) {
-		m_password.Clear();
+	if (!cfg.HasEntry("/ExternalConnect/ECPasswordVerifier")) {
+		cfg.ReadHash("/ExternalConnect/ECPassword", &m_password);
 	}
 	m_language = cfg.Read("/eMule/Language", "");
 	theLogger.SetVerbose(cfg.Read("/eMule/VerboseDebug", 0l) != 0);
@@ -706,8 +711,7 @@ void CaMuleExternalConnector::SaveConfigFile()
 		m_configFile->Write("/Locale", m_language);
 		m_configFile->Write("/EC/Host", m_host);
 		m_configFile->Write("/EC/Port", m_port);
-		if (!m_password.IsEmpty())
-			m_configFile->WriteHash("/EC/Password", m_password);
+		m_configFile->WriteHash("/EC/Password", m_password);
 		// ZLIB was read in LoadConfigFile but never written here, so toggling --disable-
 		// zlib did not persist and any value in the config file silently reset to the
 		// enabled default on every save (#817).

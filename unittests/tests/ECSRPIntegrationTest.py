@@ -15,6 +15,7 @@ import time
 
 from AllSearchIntegrationTest import C, EC, tag, connect_daemon, free_ports, stop_daemon
 from DaemonConfig import write_amule_conf
+from ConnectorConfigPathTest import read_config
 import ECWire as W
 
 def wire_tags(fields):
@@ -308,7 +309,12 @@ def main(daemon,cmd,async_probe):
                     client_config.write_text('[EC]\nPassword='+remembered+'\n')
                     out=subprocess.run([cmd,'--config-file=remote.conf','--create-config-from='+str(root/'amule.conf')],cwd=root,env=env,capture_output=True,text=True,timeout=10)
                     assert out.returncode==0,out
-                    assert 'Password='+remembered in client_config.read_text(), 'config import erased remembered credential'
+                    imported = read_config(client_config)
+                    assert imported['EC']['Password'].lower() == remembered, 'config import erased remembered credential'
+                    out = subprocess.run(
+                        [cmd, '--config-file=remote.conf', '-c', 'status'],
+                        cwd=root, env=env, capture_output=True, text=True, timeout=20)
+                    assert out.returncode == 0 and 'Succeeded!' in out.stdout + out.stderr, out
                     # The retired setting cannot opt a connector out of encrypted SRP.
                     for encryption in ('0', '1'):
                         client_config.write_text(
