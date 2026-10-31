@@ -3498,12 +3498,7 @@ msgstr[1] ""
 
 #: src/IPFilter.cpp
 #, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr ""
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
+msgid "Failed to replace %s file, aborting update: %s"
 msgstr ""
 
 #: src/IPFilter.cpp
