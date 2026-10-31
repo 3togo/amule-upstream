@@ -2417,6 +2417,7 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 
 	CECEmptyTag cw(EC_TAG_PREFS_CORETWEAKS);
 	cw.AddTag(CECTag(EC_TAG_CORETW_MAX_CONN_PER_FIVE, static_cast<std::uint32_t>(200)));
+	cw.AddTag(CECTag(EC_TAG_CORETW_WRITE_BUFFER_LIMIT_MIB, static_cast<std::uint32_t>(256)));
 	cw.AddTag(CECTag(EC_TAG_CORETW_KAD_REASK_MS, static_cast<std::uint32_t>(1800000)));
 	resp.AddTag(cw);
 
@@ -2474,6 +2475,7 @@ TEST(Refresher, PreferencesExtendedCategoriesDecode)
 	ASSERT_EQUALS(std::string("junk,scam"), p.message_filter.comment_keywords);
 
 	ASSERT_EQUALS(static_cast<std::uint32_t>(200), p.advanced.max_new_connections_per_5_seconds);
+	ASSERT_EQUALS(static_cast<std::uint32_t>(256), p.advanced.write_buffer_limit_mib);
 	// EC carries milliseconds; the API speaks the minutes the core actually
 	// stores, so the decode divides by 60000 (#1159 section 5).
 	ASSERT_EQUALS(static_cast<std::uint32_t>(30), p.advanced.kad_source_reask_minutes);

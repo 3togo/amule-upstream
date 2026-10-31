@@ -2438,7 +2438,7 @@ Returns every preference category amuled carries over EC. The `general` and `con
   "online_signature": { "enabled": false, "directory": "/home/me/.aMule", "update_frequency_seconds": 5 },
   "advanced": {
     "max_new_connections_per_5_seconds": 200, "verbose_logging": false,
-    "file_buffer_bytes": 240000, "max_upload_queue_client_count": 5000,
+    "write_buffer_limit_mib": 128, "file_buffer_bytes": 240000, "max_upload_queue_client_count": 5000,
     "server_keepalive_timeout_minutes": 0, "kad_max_concurrent_source_search_count": 50,
     "kad_source_reask_minutes": 30, "source_reask_minutes": 15
   },
@@ -2533,6 +2533,7 @@ Downloading a database **now** is [`POST /geoip/update`](#post-apiv1geoipupdate)
 |---|---|---|---|
 | `connection.tcp_port` | `1`–`65532` | | the server UDP socket is TCP+3, and the core substitutes the default port for anything higher |
 | `connection.upload_slot_min_kibibytes_per_second` | `1`–`65535` | | the core clamps anything lower up to `1`, so a `0` would answer `200` and read back as `1` |
+| `advanced.write_buffer_limit_mib` | `1`–`1024` | | received download payload awaiting writes, in MiB; default 128 |
 | `advanced.file_buffer_bytes` | `0`–`3825000` | `15000` | stored as a `uint8` count of 15000-byte blocks |
 | `advanced.max_upload_queue_client_count` | `0`–`25500` | `100` | stored as a `uint8` count of hundreds |
 | `advanced.max_new_connections_per_5_seconds` | `0`–`65535` | | stored as a `uint16` |

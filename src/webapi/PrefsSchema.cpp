@@ -25,6 +25,7 @@
 #include "PrefsSchema.h"
 
 #include "SourceSearchLimits.h"
+#include "WriteBufferLimits.h"
 
 #include <cstring>
 #include <type_traits>
@@ -283,6 +284,7 @@ const PrefField kSchema[] = {
 	// s_iFileBufferSize is a uint8 holding val/15000, so the domain is 255 blocks of 15000 bytes
 	// and nothing between them.
 	PREF_U32_DOMAIN("advanced", "file_buffer_bytes", EC_TAG_CORETW_FILEBUFFER, 0u, 3825000u, 15000u, PrefAccess::ReadWrite, advanced.file_buffer_bytes),
+	PREF_U32_DOMAIN("advanced", "write_buffer_limit_mib", EC_TAG_CORETW_WRITE_BUFFER_LIMIT_MIB, WriteBufferLimits::minMiB, WriteBufferLimits::maxMiB, 0u, PrefAccess::ReadWrite, advanced.write_buffer_limit_mib),
 	// The core clamps these three, so a value outside the range would be changed, not stored.
 	PREF_U32_DOMAIN("advanced", "kad_max_concurrent_source_search_count", EC_TAG_CORETW_KAD_MAX_SEARCHES, KAD_MAX_SOURCE_SEARCHES.min, KAD_MAX_SOURCE_SEARCHES.max, 0u, PrefAccess::ReadWrite, advanced.kad_max_concurrent_source_search_count),
 	PREF_U32_SCALED_DOMAIN("advanced", "kad_source_reask_minutes", EC_TAG_CORETW_KAD_REASK_MS, KAD_SOURCE_REASK_MINUTES.min, KAD_SOURCE_REASK_MINUTES.max, PrefAccess::ReadWrite, advanced.kad_source_reask_minutes, 60000u),
