@@ -27,15 +27,11 @@
 #include "CCtypeAsciiScope.h"
 #include "Logger.h"
 #include <common/Format.h>
+#include <common/Path.h>
 #include <common/StringFunctions.h> // unicode2char
 #include <wx/intl.h>                // _() gettext macro
 
-#include <filesystem>
 #include <utility>
-
-#ifdef __WXMSW__
-#include <wx/msw/wrapwin.h>
-#endif
 
 CMaxMindDBDatabase::CMaxMindDBDatabase()
 : m_mmdb{}
@@ -80,9 +76,6 @@ bool CMaxMindDBDatabase::Replace(const wxString &downloadPath, const wxString &p
 		return false;
 	}
 
-	// Use a native replacement: wxRenameFile(overwrite=true)
-	// may remove the destination first or fall back to copying on failure.
-	std::error_code error;
 #ifdef __WXMSW__
 	// Windows cannot replace a memory-mapped file. Validation is complete before
 	// closing either mapping; a failed rename leaves the original file in place.
@@ -90,17 +83,10 @@ bool CMaxMindDBDatabase::Replace(const wxString &downloadPath, const wxString &p
 	const wxString originalPath = m_path;
 	candidate.Close();
 	Close();
-	if (!MoveFileExW(downloadPath.wc_str(), path.wc_str(), MOVEFILE_REPLACE_EXISTING)) {
-		error = std::error_code(GetLastError(), std::system_category());
-	}
-#else
-	const std::filesystem::path source(downloadPath.fn_str().data());
-	const std::filesystem::path destination(path.fn_str().data());
-	std::filesystem::rename(source, destination, error);
 #endif
-	if (error) {
-		AddLogLineC(CFormat(_("Failed to replace MaxMindDB database '%s': %s")) % path %
-			    wxString::FromUTF8(error.message().c_str()));
+	wxString detail;
+	if (!CPath::ReplaceEntry(CPath(downloadPath), CPath(path), &detail)) {
+		AddLogLineC(CFormat(_("Failed to replace MaxMindDB database '%s': %s")) % path % detail);
 #ifdef __WXMSW__
 		if (wasOpen) {
 			Open(originalPath);

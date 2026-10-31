@@ -14,7 +14,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-30 08:11+0000\n"
+"PO-Revision-Date: 2026-10-31 11:59+0000\n"
 "Last-Translator: Mike Akiba <mike2718@gmail.com>\n"
 "Language-Team: Chinese Simplified <kde-i18n-doc@kde.org>\n"
 "Language: zh_CN\n"
@@ -450,6 +450,10 @@ msgstr ""
 "EC 配置"
 
 #: src/amule.cpp
+msgid "Could not save AcceptExternalConnections to amule.conf."
+msgstr "无法保存 AcceptExternalConnections 到 amule.conf。"
+
+#: src/amule.cpp
 msgid "Password set and external connections enabled."
 msgstr "密码已设置，启用远程连接。"
 
@@ -526,9 +530,8 @@ msgid "Not starting %s: it is neither next to aMule nor on PATH."
 msgstr "没有在启动 %s：它不在 aMule 边上也不在 PATH 上。"
 
 #: src/amule.cpp
-#, fuzzy
 msgid "An exception occurred while launching amuleweb."
-msgstr "启动 amuleapi 时发生异常。"
+msgstr "启动 amuleweb 时发生异常。"
 
 #: src/amule.cpp
 #, c-format
@@ -537,7 +540,7 @@ msgstr "web 服务器正在运行，pid 为 %d"
 
 #: src/amule.cpp
 msgid "Could not prepare the amuleweb authentication token. The web server was not started."
-msgstr ""
+msgstr "无法准备 amuleweb 身份认证令牌。web 服务器未启动。"
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
 #: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
@@ -571,14 +574,13 @@ msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot 
 msgstr "您要求启动时运行 amuleapi，但 amuleapi 程序无法运行， 请先安装包含 amule REST API 服务器的 包，或者使用 -DBUILD_AMULEAPI=YES 选项从源码构建 aMule 并安装它。"
 
 #: src/amule.cpp
-#, fuzzy
 msgid "Could not prepare the amuleweb EC token."
-msgstr "无法删除 amuleapi EC 令牌文件：%s"
+msgstr "无法准备 amuleweb EC 令牌。"
 
 #: src/amule.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Could not remove the amuleweb EC token file: %s"
-msgstr "无法删除 amuleapi EC 令牌文件：%s"
+msgstr "无法删除 amuleweb EC 令牌文件：%s"
 
 #: src/amule.cpp
 #, c-format
@@ -776,6 +778,11 @@ msgstr "记录文件已被重置"
 msgid "ServerMessage: %s"
 msgstr "服务器消息：%s"
 
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "替换 MaxMindDB 数据库 '%s' 失败： %s"
+
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
 msgid "Skipped download of %s, because requested file is not newer."
@@ -893,11 +900,11 @@ msgstr "错误：当远程连接被禁用的时，aMule 服务程序无法使用
 
 #: src/amuled.cpp
 msgid "ERROR: An EC password is required. Run amuled --ec-config to set it."
-msgstr ""
+msgstr "错误：需要 EC 密码。运行 amuled --ec-config 来设置它。"
 
 #: src/amuled.cpp
 msgid "ERROR: Invalid ECPasswordVerifier in amule.conf. Run amuled --ec-config to set a new EC password."
-msgstr ""
+msgstr "错误：amule.conf 中的 ECPasswordVerifier 无效。运行 amuled --ec-config 来设置新的 EC 密码。"
 
 #: src/amuled.cpp
 msgid "amuled: OnInit - starting timer"
@@ -1316,7 +1323,7 @@ msgstr "全部"
 
 #: src/amule-remote-gui.cpp
 msgid "The EC password changed on the daemon, but the saved client password could not be updated."
-msgstr ""
+msgstr "已在 daemon 程序处更改了 EC 密码，但无法更新保存的客户端密码。"
 
 #: src/amule-remote-gui.cpp src/muuli_wdr.cpp
 msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
@@ -1328,14 +1335,12 @@ msgid "The daemon refused these folders because they are outside the folders it 
 msgstr "daemon 程序拒绝了这些文件夹，因为它们不在它允许的文件夹中（在 daemon 上配置）：%s"
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp
-#, fuzzy
 msgid "The EC password was not changed."
-msgstr "- TCP端口已更改。\n"
+msgstr "EC 密码未更改。"
 
 #: src/amule-remote-gui.cpp
-#, fuzzy
 msgid "The daemon could not apply the preference changes."
-msgstr "守护进程无法应用连接端口更改。"
+msgstr "daemon 程序无法应用首选项更改。"
 
 #: src/amule-remote-gui.cpp
 msgid "not readable"
@@ -2440,14 +2445,12 @@ msgid "External connections disabled due to empty password!"
 msgstr "密码未设置，已禁止远程连接！"
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "External connections disabled due to invalid ECPasswordVerifier!"
-msgstr "密码未设置，已禁止远程连接！"
+msgstr "因无效的 ECPasswordVerifer 禁用了外部连接！"
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "External connections disabled: could not prepare the EC token verifier."
-msgstr "配置文件中已禁止远程连接"
+msgstr "禁用了外部连接：无法准备 EC 令牌验证器。"
 
 #: src/ExternalConn.cpp
 #, c-format
@@ -2486,7 +2489,7 @@ msgstr "未知版本"
 
 #: src/ExternalConn.cpp
 msgid "An EC client of version 3.3.0 or later is required."
-msgstr ""
+msgstr "需要 3.3.0 或之后的 EC 客户端。"
 
 #: src/ExternalConn.cpp
 msgid "Incorrect EC version ID, there might be binary incompatibility. Use core and remote from same snapshot."
@@ -2498,7 +2501,7 @@ msgstr "您无法从任意开发快照连接到发布版本！*sigh* 防止可�
 
 #: src/ExternalConn.cpp
 msgid "Invalid SRP handshake or EC verifier."
-msgstr ""
+msgstr "无效的 SRP 握手或 EC 验证器。"
 
 #: src/ExternalConn.cpp
 msgid "Invalid protocol version."
@@ -2671,21 +2674,19 @@ msgstr "无法交换客户端到那个文件。"
 
 #: src/ExternalConn.cpp
 msgid "Duplicate remote-control preference groups are not allowed."
-msgstr ""
+msgstr "不允许重复的 remote-control 首选项组。"
 
 #: src/ExternalConn.cpp
 msgid "Only password-authenticated sessions may change the EC password."
-msgstr ""
+msgstr "只有密码认证的会话可以更改 EC 密码。"
 
 #: src/ExternalConn.cpp src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid "Could not update EC password verifier."
-msgstr "无法保存 amuleapi 密码：%s"
+msgstr "无法更新 EC 密码验证器。"
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "Could not apply preferences."
-msgstr "Kad 在首选项中被禁用。"
+msgstr "无法应用首选项。"
 
 #: src/ExternalConn.cpp
 #, c-format
@@ -2693,14 +2694,13 @@ msgid "Could not save the amuleapi password: %s"
 msgstr "无法保存 amuleapi 密码：%s"
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "Could not update EC password verifier. The other preferences were saved."
-msgstr "密码已设置，启用远程连接。"
+msgstr "无法更新 EC 密码验证器。保存了其他首选项。"
 
 #: src/ExternalConn.cpp
 #, c-format
 msgid "EC password changed by %s"
-msgstr ""
+msgstr "%s 更改了 EC 密码"
 
 #: src/ExternalConn.cpp
 msgid "One or more folders were outside the allowed remote directories and were left unchanged."
@@ -3013,7 +3013,7 @@ msgstr "不写入日志文件；只打印到控制台。"
 
 #: src/ExternalConnector.cpp
 msgid "The daemon verifier cannot supply a client password. Use -P or the password prompt.\n"
-msgstr ""
+msgstr "daemon 程序验证器无法提供客户端密码。使用 -P 或密码提示。\n"
 
 #: src/FileDetailDialog.cpp
 msgid "File Details"
@@ -3111,65 +3111,61 @@ msgstr "错误：未能在文件管理器中显示 “%s”。"
 
 #: src/FilterSelectionSummary.h
 msgid "The message filter is off; its selected rules are saved."
-msgstr ""
+msgstr "消息过滤器关闭；其选择的规则被保存。"
 
 #: src/FilterSelectionSummary.h
-#, fuzzy
 msgid "All incoming messages outside current chats will be discarded."
-msgstr "过滤收到的消息 (不包括当前对话):"
+msgstr "当前聊天以外的所有传入消息都将被丢弃。"
 
 #: src/FilterSelectionSummary.h
-#, fuzzy
 msgid "Messages from people not on your friend list will be discarded."
-msgstr "过滤来自好友列表外的消息"
+msgstr "来自不在好友名单上的人的消息将被丢弃。"
 
 #: src/FilterSelectionSummary.h
-#, fuzzy
 msgid "Messages from unknown clients will be discarded."
-msgstr "过滤来自未知用户的消息"
+msgstr "来自未知客户端的消息将被丢弃。"
 
 #: src/FilterSelectionSummary.h
 #, c-format
 msgid "Messages containing any of these terms will be discarded (ignoring case): %s."
-msgstr ""
+msgstr "将丢弃包含下列词语中任意一个词语的消息（忽略大小写）：%s。"
 
 #: src/FilterSelectionSummary.h
 msgid "No messages will be discarded by the message filter: the word list is empty."
-msgstr ""
+msgstr "消息过滤器不会丢弃消息：词语列表空白。"
 
 #: src/FilterSelectionSummary.h
 msgid "No messages will be discarded by the message filter: select at least one option."
-msgstr ""
+msgstr "消息过滤器不会丢丢弃消息：选择至少一个选项。"
 
 #: src/FilterSelectionSummary.h
 msgid "Current chats are exempt from these rules."
-msgstr ""
+msgstr "当前聊天豁免这些规则。"
 
 #: src/FilterSelectionSummary.h
 msgid "Advanced spam filtering for non-friends is also enabled."
-msgstr ""
+msgstr "也开启了非好友高级垃圾信息过滤。"
 
 #: src/FilterSelectionSummary.h
 msgid "First messages from non-friends require a CAPTCHA."
-msgstr ""
+msgstr "来自非好友的第一条消息需要解决人机验证。"
 
 #: src/FilterSelectionSummary.h
-#, fuzzy
 msgid "Received message text will also be written to the log."
-msgstr "在日志中显示接收的消息"
+msgstr "接收到的消息文本将被写入日志。"
 
 #: src/FilterSelectionSummary.h
 msgid "File comment filtering is off."
-msgstr ""
+msgstr "文件注释过滤关闭。"
 
 #: src/FilterSelectionSummary.h
 msgid "No file comments will be hidden: the word list is empty."
-msgstr ""
+msgstr "不会隐藏文件注释：词语列表空白。"
 
 #: src/FilterSelectionSummary.h
 #, c-format
 msgid "File comments containing any of these literal terms will be hidden (ignoring case): %s."
-msgstr ""
+msgstr "包含下列任意一个文字项的文件注释将被隐藏（忽略大小写）：%s。"
 
 #: src/FirstRunWizard.cpp
 msgid "Mobile / 4G-5G (20 / 5 Mbit)"
@@ -3620,14 +3616,9 @@ msgstr[0] "丢弃了 %u 行错误数据。"
 msgstr[1] "丢弃了 %u 行错误数据。"
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "删除%s文件失败，放弃更新。"
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr "重名命新的%s文件失败，放弃更新。"
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "重名命%s文件失败，放弃更新。"
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -4150,9 +4141,8 @@ msgid "Invalid password, not a MD5 hash!"
 msgstr "密码无效，不是一个 MD5 哈希值！"
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
-#, fuzzy
 msgid "Could not generate SRP credentials."
-msgstr "无法删除磁盘上的“%s”。"
+msgstr "无法生成 SRP 凭据。"
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
 #, c-format
@@ -4172,13 +4162,12 @@ msgid "EC connection failed. Empty reply."
 msgstr "远程连接失败，回复为空。"
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
-#, fuzzy
 msgid "Invalid SRP handshake or unsupported profile. Connection closed."
-msgstr "远程连接：错误回应，握手失败。连接已经关闭。"
+msgstr "无效的 SRP 握手或不支持的配置文件。连接关闭。"
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
 msgid "An EC daemon of version 3.3.0 or later is required."
-msgstr ""
+msgstr "需要 3.3.0 或之后的 EC daemon 程序版本。"
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
 msgid "External Connection: the daemon failed to prove it knows the password. Connection closed."
@@ -6283,9 +6272,8 @@ msgid "Check for a newer GeoIP database at startup and every week while aMule is
 msgstr "aMule 运行时，启动后及每周检查新的 GeoIP 数据库。"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
 msgid "Enable incoming message filtering (except current chat):"
-msgstr "过滤收到的消息 (不包括当前对话):"
+msgstr "启用传入消息过滤（当前聊天除外）："
 
 #: src/muuli_wdr.cpp
 msgid ""
@@ -6293,6 +6281,9 @@ msgid ""
 "Turning this off keeps your selected options and word list.\n"
 "Filtered messages are discarded without opening a chat or replying to the sender."
 msgstr ""
+"启用下方的过滤器选项。要过滤消息请选择至少一个选项。\n"
+"关闭这个会保留你选中的选项和词语列表。\n"
+"被过滤的消息将被丢弃，不会打开聊天或回复发送者。"
 
 #: src/muuli_wdr.cpp
 msgid "Filter all messages"
@@ -6316,6 +6307,9 @@ msgid ""
 "Terms match anywhere in a message: dog matches hotdog and black dog spotted.\n"
 "Wildcards are not supported. A * is literal, except that a word list of exactly * blocks every message."
 msgstr ""
+"丢弃含任何英文逗号隔开的词语的聊天消息。匹配忽略大小写和每个词语周围的空格。\n"
+"在消息的任何地方进行词语匹配：比如 dog 匹配 hotdog 和 black dog spotted。\n"
+"不支持通配符。 * 表达字面含义，不过如果词语列表中只有 *，那么每条消息都将被丢弃。"
 
 #: src/muuli_wdr.cpp
 msgid "Enable advanced spam filter"
@@ -6338,14 +6332,12 @@ msgid "Show received messages in the log"
 msgstr "在日志中显示接收的消息"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
 msgid "File comments"
-msgstr "文件评论"
+msgstr "文件注释"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
 msgid "Filter file comments containing (use ',' as separator):"
-msgstr "过滤包含以下内容的备注 (使用“,”作为分隔符):"
+msgstr "过滤包含以下内容的文件注释 (使用“,”作为分隔符)："
 
 #: src/muuli_wdr.cpp
 msgid ""
@@ -6353,11 +6345,13 @@ msgid ""
 "Matching ignores case and spaces around each term. Terms match anywhere in a comment: dog matches hotdog and black dog spotted.\n"
 "Wildcards are not supported; * is matched literally."
 msgstr ""
+"隐藏含有任何英文逗号隔开词语的来自其他用户的文件注释。这不过滤聊天消息。\n"
+"匹配忽略大小写和每个词语周围的空格。在注释的所有地方进行匹配：比如 dog 匹配 hotdog 和 black dog spotted。\n"
+"不支持通配符；* 表示的是字面含义。"
 
 #: src/muuli_wdr.cpp
-#, fuzzy
 msgid "With these settings"
-msgstr "记住这些设置"
+msgstr "使用这些设置"
 
 #: src/muuli_wdr.cpp
 msgid "Enable Proxy"
@@ -8676,14 +8670,14 @@ msgid "Crypt overhead (UDP): %s"
 msgstr "加密开销 (UDP): %s"
 
 #: src/Statistics.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "LowID to LowID Data (Session): %s"
-msgstr "本次下载 (总共): %s"
+msgstr "LowID 到 LowID 数据 (会话): %s"
 
 #: src/Statistics.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "IPv6 Data (Session): %s"
-msgstr "本次上传 (全部): %s"
+msgstr "IPv6 数据 (会话): %s"
 
 #: src/Statistics.cpp
 #, c-format
@@ -8786,29 +8780,28 @@ msgid "Peak Connections (estimate): %i"
 msgstr "最高连接（估计值）： %i"
 
 #: src/Statistics.cpp
-#, fuzzy
 msgid "NAT Traversal (Session)"
-msgstr "NAT穿透（uTP）"
+msgstr "NAT 穿透（会话）"
 
 #: src/Statistics.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Server Hole Punches: %s"
-msgstr "服务器开销 (数据包): %s"
+msgstr "服务器打洞： %s"
 
 #: src/Statistics.cpp
 #, c-format
 msgid "Successful Server Hole Punches: %s"
-msgstr ""
+msgstr "成功的服务器打洞：%s"
 
 #: src/Statistics.cpp
 #, c-format
 msgid "Lugdunum Callbacks: %s"
-msgstr ""
+msgstr "Lugdunum 回调： %s"
 
 #: src/Statistics.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Successful Lugdunum Callbacks: %s"
-msgstr "成功更新 %s"
+msgstr "成功的 Lugdunum 回调：%s"
 
 #: src/Statistics.cpp
 #, c-format
@@ -10456,8 +10449,8 @@ msgid "Kad could not read %s. It was renamed to %s.bad, and a new index will be 
 msgstr "Kad 无法读取 %s。它被重命名为 %s.bad。将在关机时保存新的索引。"
 
 #: src/kademlia/kademlia/Indexed.cpp
-#, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+#, fuzzy, c-format
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr "Kad 无法将不可读的 %s 索引保留为 %s.bad。其原始文件不会被覆盖。"
 
 #: src/kademlia/kademlia/Indexed.cpp
@@ -10470,44 +10463,51 @@ msgstr "Kad 无法保存索引。该文件之前的副本被保留。"
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Could not remove legacy ECPassword; cleanup will be retried on restart."
-msgstr ""
+msgstr "删不掉旧的 ECPassword；将在重启时重新尝试清理。"
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Could not persist ECPasswordVerifier; using the legacy ECPassword in memory for this run. Migration will be retried on restart."
-msgstr ""
+msgstr "无法持久化 ECPasswordVerifier；本次运行使用内存中的旧 ECPassword。将在重启时重新尝试迁移。"
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
-#, fuzzy
 msgid "Could not generate ECPasswordVerifier; external connections are disabled."
-msgstr "密码已设置，启用远程连接。"
+msgstr "无法生成 ECPasswordVerifier；禁用了外部连接。"
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "EC password change rejected: could not generate ECPasswordVerifier. The active credential is unchanged."
-msgstr ""
+msgstr "EC 密码更改被拒绝：无法生成 ECPasswordVerifier。活动的凭据未更改。"
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "EC password change rejected: could not persist ECPasswordVerifier. The active credential is unchanged."
-msgstr ""
+msgstr "EC 密码更改被拒绝：无法持久化 ECPasswordVerifier。活动的凭据未更改。"
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "EC password change rejected: could not store ECPasswordVerifier. The active credential is unchanged."
-msgstr ""
+msgstr "EC 密码更改被拒绝：无法存储 ECPasswordVerifier。活动的凭据未更改。"
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "ECPassword contains an invalid or empty-password digest. Run amuled --ec-config to set a new EC password."
-msgstr ""
+msgstr "ECPassword 包含无效或空密码摘要。运行 amuled --ec-config 来设置新的 EC 密码。"
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Invalid or unsupported ECPasswordVerifier; refusing external connections."
-msgstr ""
+msgstr "无效或不支持的 ECPasswordVerifier；拒绝外部连接。"
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Could not compare legacy ECPassword with ECPasswordVerifier; refusing external connections."
-msgstr ""
+msgstr "无法将旧的 ECPassword 和 ECPasswordVerifier 进行比较；拒绝外部连接。"
 
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
-msgstr ""
+msgstr "降级后迁移已更改的旧的 ECPassword；之前的验证器不再对本次运行进行身份认证。"
+
+#, c-format
+#~ msgid "Failed to remove %s file, aborting update."
+#~ msgstr "删除%s文件失败，放弃更新。"
+
+#, c-format
+#~ msgid "Failed to rename new %s file, aborting update."
+#~ msgstr "重名命新的%s文件失败，放弃更新。"
 
 #~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
 #~ msgstr "错误：如果需要使用外部连接，必须设置一个可用的密码，aMule daemon不能在没有启用外部连接的情况下使用。要运行aMule daemon，你必须设置~/.aMule/amule.conf文件中的\"ECPassword\"字段，使它有一个合适的值。执行amuled --ce-config来设置这个密码。更多信息请访问https://amule-org.github.io/docs"
@@ -10649,10 +10649,6 @@ msgstr ""
 
 #~ msgid "Upload graph scale:"
 #~ msgstr "上传图表尺寸："
-
-#, c-format
-#~ msgid "Failed to rename %s file, aborting update."
-#~ msgstr "重名命%s文件失败，放弃更新。"
 
 #~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
 #~ msgstr "每次启动 aMule 时，从所选源重新下载 GeoIP 数据库。"

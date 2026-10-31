@@ -217,9 +217,12 @@ void CKnownFileList::Save()
 
 		file.Seek(0);
 		file.WriteUInt8(bContainsAnyLargeFiles ? MET_HEADER_WITH_LARGEFILES : MET_HEADER);
-		file.Close();
+		if (!file.Close()) {
+			throw CIOFailureException("Cannot commit saved known files");
+		}
 	} catch (const CIOFailureException &e) {
 		AddLogLineC(CFormat(_("Error while saving %s file: %s")) % m_filename % e.what());
+		return;
 	}
 	AddDebugLogLineN(logKnownFiles, CFormat("finished saving %s") % m_filename);
 }

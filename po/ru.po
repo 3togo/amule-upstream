@@ -454,6 +454,10 @@ msgstr ""
 "EC конфигурация"
 
 #: src/amule.cpp
+msgid "Could not save AcceptExternalConnections to amule.conf."
+msgstr ""
+
+#: src/amule.cpp
 msgid "Password set and external connections enabled."
 msgstr "Пароль задан и внешние соединения разрешены."
 
@@ -779,6 +783,11 @@ msgstr "Журнал был очищен"
 #, c-format
 msgid "ServerMessage: %s"
 msgstr "Сообщение сервера: %s"
+
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "Не удалось заменить базу данных MaxMindDB «%s»: %s"
 
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
@@ -3647,14 +3656,9 @@ msgstr[1] "%u испорченных строки пропущено."
 msgstr[2] "%u испорченных строк пропущено."
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "Не удалось удалить файл %s, обновление прервано."
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr "Не удалось переименовать новый файл %s, обновление прервано."
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "Не удалось переименовать файл %s, обновление прервано."
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -10549,8 +10553,8 @@ msgid "Kad could not read %s. It was renamed to %s.bad, and a new index will be 
 msgstr "Kad не смогла прочитать %s. Файл переименован в %s.bad, новый индекс будет сохранён при завершении работы."
 
 #: src/kademlia/kademlia/Indexed.cpp
-#, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+#, fuzzy, c-format
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr "Kad не смогла сохранить нечитаемый индекс %s как %s.bad. Исходный файл не будет перезаписан."
 
 #: src/kademlia/kademlia/Indexed.cpp
@@ -10601,6 +10605,14 @@ msgstr ""
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
 msgstr ""
+
+#, c-format
+#~ msgid "Failed to remove %s file, aborting update."
+#~ msgstr "Не удалось удалить файл %s, обновление прервано."
+
+#, c-format
+#~ msgid "Failed to rename new %s file, aborting update."
+#~ msgstr "Не удалось переименовать новый файл %s, обновление прервано."
 
 #~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
 #~ msgstr "ОШИБКА: для использования внешних подключений требуется действительный пароль, а демон aMule не может работать без внешних подключений. Чтобы запустить демон aMule, необходимо задать поле «ECPassword» в файле ~/.aMule/amule.conf с подходящим значением. Запустите amuled с флагом --ec-config, чтобы задать пароль. Дополнительную информацию можно найти на https://amule-org.github.io/docs"
@@ -10742,10 +10754,6 @@ msgstr ""
 
 #~ msgid "Upload graph scale:"
 #~ msgstr "Масштаб графика отдачи:"
-
-#, c-format
-#~ msgid "Failed to rename %s file, aborting update."
-#~ msgstr "Не удалось переименовать файл %s, обновление прервано."
 
 #~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
 #~ msgstr "Повторно загружать базу данных GeoIP из выбранного источника при каждом запуске aMule."
