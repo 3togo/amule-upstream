@@ -329,6 +329,12 @@ add_test (NAME KadPublishPolicyTest COMMAND KadPublishPolicyTest)
 target_include_directories (KadPublishPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (KadPublishPolicyTest muleunit mulecommon)
 
+# Deterministic source retry eligibility and dead-source expiry policy.
+add_executable (SourceRetryPolicyTest SourceRetryPolicyTest.cpp)
+target_include_directories (SourceRetryPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
+target_link_libraries (SourceRetryPolicyTest muleunit mulecommon)
+add_test (NAME SourceRetryPolicyTest COMMAND SourceRetryPolicyTest)
+
 # EC writes reach these setters directly, so they must clamp to the shared limits.
 add_executable (SourceSearchLimitsTest SourceSearchLimitsTest.cpp)
 add_test (NAME SourceSearchLimitsTest COMMAND SourceSearchLimitsTest)
@@ -454,6 +460,12 @@ target_include_directories (UdpObfuscationPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}
 target_compile_features (UdpObfuscationPolicyTest PRIVATE cxx_std_17)
 target_link_libraries (UdpObfuscationPolicyTest muleunit mulecommon)
 add_test (NAME UdpObfuscationPolicyTest COMMAND UdpObfuscationPolicyTest)
+
+add_executable (UdpThrottleChargeTest UdpThrottleChargeTest.cpp)
+target_include_directories (UdpThrottleChargeTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
+target_compile_features (UdpThrottleChargeTest PRIVATE cxx_std_17)
+target_link_libraries (UdpThrottleChargeTest muleunit mulecommon)
+add_test (NAME UdpThrottleChargeTest COMMAND UdpThrottleChargeTest)
 
 add_executable (EncryptionRequirementTest EncryptionRequirementTest.cpp)
 target_include_directories (EncryptionRequirementTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
