@@ -27,6 +27,7 @@
 
 #include "PartFile.h"            // Interface declarations.
 #include "PartFileBuffering.h"   // Needed for ordered buffered writes
+#include "SourceRetryPolicy.h"   // Needed for source reask eligibility
 #include "BlockReservation.h"    // Needed for selecting unreserved block intervals
 #include "PartFileWriteThread.h" // Needed for PB_READY etc.
 #include "PartMetWriter.h"       // Needed for CPartMetWriter
@@ -1519,74 +1520,27 @@ bool CPartFile::GetNextEmptyBlockInPart(uint16 partNumber, Requested_Block_Struc
 	if (partNumber >= GetPartCount() || GetPartSize(partNumber) == 0) {
 		return false;
 	}
-	// Find start of this part
-	uint64 partStart = (PARTSIZE * partNumber);
-	uint64 start = partStart;
-
-	// What is the end limit of this block, i.e. can't go outside part (or filesize)
-	uint64 partEnd = partStart + GetPartSize(partNumber) - 1;
-	// Loop until find a suitable gap and return true, or no more gaps and return false
-	CGapList::const_iterator it = m_gaplist.begin();
-	while (true) {
-		bool noGap = true;
-		uint64 gapStart, end;
-
-		// Find the first gap from the start position
-		for (; it != m_gaplist.end(); ++it) {
-			gapStart = it.start();
-			end = it.end();
-
-			// Want gaps that overlap start<->partEnd
-			if (gapStart <= partEnd && end >= start) {
-				noGap = false;
-				break;
-			} else if (gapStart > partEnd) {
-				break;
-			}
-		}
-
-		// If no gaps after start, exit
-		if (noGap) {
-			return false;
-		}
-		// Update start position if gap starts after current pos
-		if (start < gapStart) {
-			start = gapStart;
-		}
-		// Find end, keeping within the max block size and the part limit
-		uint64 blockLimit = partStart + (BLOCKSIZE * (((start - partStart) / BLOCKSIZE) + 1)) - 1;
-		if (end > blockLimit) {
-			end = blockLimit;
-		}
-		if (end > partEnd) {
-			end = partEnd;
-		}
-		// eMule ref: CPartFile::ShrinkToAvoidAlreadyRequested()
-		const auto available = FindUnreservedBlock(CBlockRange{ start, end },
-			m_requestedblocks_list,
-			[](const Requested_Block_Struct *block) {
-				return CBlockRange{ block->StartOffset, block->EndOffset };
-			});
-		if (available) {
-			// Was this block to be returned
-			if (result != NULL) {
-				result->StartOffset = available->start;
-				result->EndOffset = available->end;
-				md4cpy(result->FileID, GetFileHash().GetHash());
-				result->transferred = 0;
-			}
-			return true;
-		} else {
-			// Reposition to end of that gap
-			start = end + 1;
-		}
-		// If tried all gaps then break out of the loop
-		if (end == partEnd) {
-			break;
-		}
+	const uint64 partStart = PARTSIZE * partNumber;
+	const auto available = FindNextDownloadBlock(
+		CBlockRange{ partStart, partStart + GetPartSize(partNumber) - 1 },
+		BLOCKSIZE,
+		m_gaplist.begin(),
+		m_gaplist.end(),
+		[](const CGapList::const_iterator &gap) { return CBlockRange{ gap.start(), gap.end() }; },
+		m_requestedblocks_list,
+		[](const Requested_Block_Struct *block) {
+			return CBlockRange{ block->StartOffset, block->EndOffset };
+		});
+	if (!available) {
+		return false;
 	}
-	// No suitable gap found
-	return false;
+	if (result != nullptr) {
+		result->StartOffset = available->start;
+		result->EndOffset = available->end;
+		md4cpy(result->FileID, GetFileHash().GetHash());
+		result->transferred = 0;
+	}
+	return true;
 }
 
 void CPartFile::FillGap(uint64 start, uint64 end)
@@ -1776,9 +1730,9 @@ uint32 CPartFile::Process(uint8 m_icounter)
 					}
 				}
 				// doubled reasktime for no needed parts - save connections and traffic
-				if (!((!cur_src->GetLastAskedTime()) ||
-					    (dwCurTick - cur_src->GetLastAskedTime()) >
-						    thePrefs::GetSourceReaskTime() * 2)) {
+				const uint64 reask = thePrefs::GetSourceReaskTime();
+				if (!SourceRetryPolicy::IsDue(
+					    dwCurTick, cur_src->GetLastAskedTime(), reask * 2)) {
 					break;
 				}
 				// Recheck this client to see if still NNP..
@@ -1800,10 +1754,10 @@ uint32 CPartFile::Process(uint8 m_icounter)
 
 				// Give up to 1 min for UDP to respond..
 				// If we are within on min on TCP, do not try..
+				const uint64 reask = thePrefs::GetSourceReaskTime();
 				if (theApp->IsConnected() &&
-					((!cur_src->GetLastAskedTime()) ||
-						(dwCurTick - cur_src->GetLastAskedTime()) >
-							thePrefs::GetSourceReaskTime() - 20000)) {
+					SourceRetryPolicy::IsDue(
+						dwCurTick, cur_src->GetLastAskedTime(), reask - 20000)) {
 					cur_src->UDPReaskForDownload();
 				}
 
@@ -1815,10 +1769,9 @@ uint32 CPartFile::Process(uint8 m_icounter)
 			case DS_NONE:
 			case DS_WAITCALLBACK:
 			case DS_WAITCALLBACKKAD: {
-				if (theApp->IsConnected() &&
-					((!cur_src->GetLastAskedTime()) ||
-						(dwCurTick - cur_src->GetLastAskedTime()) >
-							thePrefs::GetSourceReaskTime())) {
+				if (theApp->IsConnected() && SourceRetryPolicy::IsDue(dwCurTick,
+								     cur_src->GetLastAskedTime(),
+								     thePrefs::GetSourceReaskTime())) {
 					if (!cur_src->AskForDownload()) {
 						// I left this break here just as a reminder
 						// just in case re rearange things..

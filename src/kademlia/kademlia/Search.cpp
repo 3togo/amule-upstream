@@ -995,6 +995,10 @@ void CSearch::StorePacket()
 		break;
 	}
 	case FINDBUDDY: {
+		// Use the same network-order IP as GetConnectIP(), independent of peer ports.
+		if (!theApp->clientlist->CanRequestBuddy(wxUINT32_SWAP_ALWAYS(from->GetIPAddress()))) {
+			break;
+		}
 		AddDebugLogLineN(logKadSearch, "Search request type: FindBuddy");
 		// Send a buddy request as we are firewalled.
 		// As a safeguard, check to see if we already requested the max nodes.
