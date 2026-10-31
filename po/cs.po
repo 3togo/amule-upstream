@@ -10,7 +10,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-28 08:19+0000\n"
+"PO-Revision-Date: 2026-10-31 11:58+0000\n"
 "Last-Translator: David Watzke <david@watzke.cz>\n"
 "Language-Team: cs <cs@li.org>\n"
 "Language: cs\n"
@@ -449,7 +449,7 @@ msgstr ""
 
 #: src/amule.cpp
 msgid "Could not save AcceptExternalConnections to amule.conf."
-msgstr ""
+msgstr "Nepodařilo se uložit AcceptExternalConnections do amule.conf."
 
 #: src/amule.cpp
 msgid "Password set and external connections enabled."
@@ -528,9 +528,8 @@ msgid "Not starting %s: it is neither next to aMule nor on PATH."
 msgstr "Nespouštím %s: není vedle aMule ani v PATH."
 
 #: src/amule.cpp
-#, fuzzy
 msgid "An exception occurred while launching amuleweb."
-msgstr "Došlo k výjimce při spuštění amuleapi."
+msgstr "Došlo k výjimce při spouštění amuleweb."
 
 #: src/amule.cpp
 #, c-format
@@ -539,7 +538,7 @@ msgstr "Webový server běží s PID %d"
 
 #: src/amule.cpp
 msgid "Could not prepare the amuleweb authentication token. The web server was not started."
-msgstr ""
+msgstr "Nepodařilo se připravit ověřovací token amuleweb. Webový server nebyl spuštěn."
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
 #: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
@@ -573,14 +572,13 @@ msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot 
 msgstr "Požádali jste o spuštění amuleapi po startu, avšak binární soubor amuleapi nelze spustit. Nainstalujte balíček obsahující REST API server aMule, nebo sestavte aMule ze zdrojového kódu pomocí přepínače -DBUILD_AMULEAPI=YES a pak jej nainstalujte."
 
 #: src/amule.cpp
-#, fuzzy
 msgid "Could not prepare the amuleweb EC token."
-msgstr "Nepodařilo se odebrat soubor amuleapi EC tokenu: %s"
+msgstr "Nepodařilo se připravit EC token amuleweb."
 
 #: src/amule.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Could not remove the amuleweb EC token file: %s"
-msgstr "Nepodařilo se odebrat soubor amuleapi EC tokenu: %s"
+msgstr "Nepodařilo se odebrat soubor EC tokenu amuleapi: %s"
 
 #: src/amule.cpp
 #, c-format
@@ -720,7 +718,7 @@ msgid ""
 " OnlineSignature will be DISABLED until you fix it on preferences."
 msgstr ""
 "Složka pro soubory online podpisů, kterou jste zadali, je NEPLATNÁ!\n"
-"OnlinePodpis bude VYPNUT, dokud neprovedete opravu v nastaveních."
+" OnlinePodpis bude ZAKÁZÁN, dokud neprovedete opravu v nastaveních."
 
 #: src/amule.cpp
 msgid "Server hostname notified"
@@ -777,6 +775,11 @@ msgstr "Protokol byl vymazán"
 #, c-format
 msgid "ServerMessage: %s"
 msgstr "Zpráva od serveru: %s"
+
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "Selhalo nahrazení databáze MaxMindDB '%s': %s"
 
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
@@ -895,11 +898,11 @@ msgstr "CHYBA: Démona aMule nelze používat se zakázanými externími připoj
 
 #: src/amuled.cpp
 msgid "ERROR: An EC password is required. Run amuled --ec-config to set it."
-msgstr ""
+msgstr "CHYBA: EC heslo je vyžadováno. Spusťte amuled --ec-config pro jeho nastavení."
 
 #: src/amuled.cpp
 msgid "ERROR: Invalid ECPasswordVerifier in amule.conf. Run amuled --ec-config to set a new EC password."
-msgstr ""
+msgstr "CHYBA: Neplatný ECPasswordVerifier v amule.conf. Spusťte amuled --ec-config pro nastavení nového EC hesla."
 
 #: src/amuled.cpp
 msgid "amuled: OnInit - starting timer"
@@ -1318,16 +1321,16 @@ msgstr "Vše"
 
 #: src/amule-remote-gui.cpp
 msgid "The EC password changed on the daemon, but the saved client password could not be updated."
-msgstr ""
+msgstr "Heslo EC změněno na daemonu, ale heslo uloženého klienta nešlo aktualizovat."
 
 #: src/amule-remote-gui.cpp src/muuli_wdr.cpp
 msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
-msgstr ""
+msgstr "Chcete-li povolit složku, přidejte ji do souboru allowed-remote-dirs.dat, který je ve složce konfigurace daemona a zadejte ve formáte jedna absolutní cesta na řádek, poté restartujte daemon."
 
 #: src/amule-remote-gui.cpp
 #, c-format
 msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
-msgstr ""
+msgstr "Daemon odmítl tyto složky, protože jsou mimo daemonem povolené složky (nastavené na daemonu):%s"
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp
 #, fuzzy
@@ -1345,7 +1348,7 @@ msgstr "nelze číst"
 
 #: src/amule-remote-gui.cpp
 msgid "outside the folders the daemon allows (configured on the daemon)"
-msgstr ""
+msgstr "mimo složky povolené daemonem (nastaveno na daemonu)"
 
 #: src/amule-remote-gui.cpp
 msgid "not found"
@@ -1375,14 +1378,13 @@ msgid "Can't create directory '%s' for category '%s', keeping directory '%s'."
 msgstr "Nelze vytvořit adresář '%s' pro kategorii '%s', ponechává se adresář '%s'."
 
 #: src/amule-remote-gui.cpp
-#, fuzzy
 msgid "the daemon refused the request"
-msgstr "Daemon odmítl požadavek."
+msgstr "daemon odmítl požadavek"
 
 #: src/amule-remote-gui.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "The daemon refused the category: %s"
-msgstr "Daemon odmítl požadavek."
+msgstr "Daemon odmítl kategorii: %s"
 
 #: src/amule-remote-gui.cpp src/ExternalConn.cpp src/ServerList.cpp
 msgid "Invalid URL"
@@ -2411,15 +2413,15 @@ msgstr "Neplatný odkaz eD2k! CHYBA: %s"
 
 #: src/ECSpecialMuleTags.cpp
 msgid "Refused a remote request to set the web-server template: the value must be a plain template name, not a path."
-msgstr ""
+msgstr "Odmítnut vzdálený požadavek na nastavení šablony webového serveru: hodnota musí být prostý název šablony, nikoli cestou."
 
 #: src/ECSpecialMuleTags.cpp
 msgid "Refused a remote request to change the online-signature folder: it can only be set in the daemon's own configuration."
-msgstr ""
+msgstr "Odmítnut vzdálený požadavek na změnu složky online podpisu: lze jí nastavit pouze ve vlastním nastavení daemona."
 
 #: src/ECSpecialMuleTags.cpp
 msgid "Refused a remote request to change the follow-symlinks-in-shares setting: it can only be set in the daemon's own configuration."
-msgstr ""
+msgstr "Odmítnut vzdálený požadavek na změnu předvolby následování symbolických odkazů ve sdílení: lze jí změnit pouze ve vlastním nastavení daemona."
 
 #: src/EditServerListDlg.cpp
 msgid "Edit server list sources"
@@ -2455,19 +2457,17 @@ msgid "External connections disabled due to empty password!"
 msgstr "Externí připojení jsou zakázána kvůli prázdnému heslu!"
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "External connections disabled due to invalid ECPasswordVerifier!"
-msgstr "Externí připojení jsou zakázána kvůli prázdnému heslu!"
+msgstr "Externí připojení jsou zakázána kvůli neplatnému ECPasswordVerifier!"
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "External connections disabled: could not prepare the EC token verifier."
-msgstr "Externí připojení jsou zakázána v konfiguračním souboru"
+msgstr "Externí připojení zakázána: nepodařilo se připravit ověřovač tokenu EC."
 
 #: src/ExternalConn.cpp
 #, c-format
 msgid "Remote clients cannot change folders: no folder is listed in %s"
-msgstr ""
+msgstr "Vzdálené klienti nemohou změnit složky: žádná složka není uvedena v %s"
 
 #: src/ExternalConn.cpp
 msgid "External connections disabled in config file"
@@ -2501,7 +2501,7 @@ msgstr "Neznámá verze"
 
 #: src/ExternalConn.cpp
 msgid "An EC client of version 3.3.0 or later is required."
-msgstr ""
+msgstr "Je vyžadován EC klient verze 3.3.0 nebo vyšší."
 
 #: src/ExternalConn.cpp
 msgid "Incorrect EC version ID, there might be binary incompatibility. Use core and remote from same snapshot."
@@ -2513,7 +2513,7 @@ msgstr "Nelze se připojit k vydané verzi z libovolného vývojového snapshotu
 
 #: src/ExternalConn.cpp
 msgid "Invalid SRP handshake or EC verifier."
-msgstr ""
+msgstr "Neplatné handshake SRP nebo ověřovač EC."
 
 #: src/ExternalConn.cpp
 msgid "Invalid protocol version."
@@ -2686,21 +2686,19 @@ msgstr "Klient nemohl být vyměněn do tohoto souboru."
 
 #: src/ExternalConn.cpp
 msgid "Duplicate remote-control preference groups are not allowed."
-msgstr ""
+msgstr "Duplicitní skupiny předvoleb dálkového ovládání nejsou povoleny."
 
 #: src/ExternalConn.cpp
 msgid "Only password-authenticated sessions may change the EC password."
-msgstr ""
+msgstr "Heslo EC mohou měnit relace, které jsou ověřené heslem."
 
 #: src/ExternalConn.cpp src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid "Could not update EC password verifier."
-msgstr "Nepodařilo se uložit heslo amuleapi: %s"
+msgstr "Nepodařilo se aktualizovat ověřovač EC hesla."
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "Could not apply preferences."
-msgstr "Síť Kad je v nastavení zakázána."
+msgstr "Nepodařilo se použít předvolby."
 
 #: src/ExternalConn.cpp
 #, c-format
@@ -2708,14 +2706,13 @@ msgid "Could not save the amuleapi password: %s"
 msgstr "Nepodařilo se uložit heslo amuleapi: %s"
 
 #: src/ExternalConn.cpp
-#, fuzzy
 msgid "Could not update EC password verifier. The other preferences were saved."
-msgstr "Heslo bylo nastaveno a externí připojení povolena."
+msgstr "Nepodařilo se aktualizovat ověřovač EC hesla. Ostatní předvolby byly uloženy."
 
 #: src/ExternalConn.cpp
 #, c-format
 msgid "EC password changed by %s"
-msgstr ""
+msgstr "Heslo EC změnil(a) %s"
 
 #: src/ExternalConn.cpp
 msgid "One or more folders were outside the allowed remote directories and were left unchanged."
@@ -3637,14 +3634,9 @@ msgstr[1] "%u chybné řádky byly zahozeny."
 msgstr[2] "%u chybných řádků bylo zahozeno."
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "Soubor %s se nepodařilo odstranit, aktualizace bude ukončena."
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr "Nepodařilo se přejmenovat nový soubor %s, aktualizace se přerušuje."
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "Soubor %s se nepodařilo přejmenovat, aktualizace bude ukončena."
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -5754,7 +5746,7 @@ msgstr "Velikost fronty odesílání: 5000 klientů"
 
 #: src/muuli_wdr.cpp
 msgid "Server connection refresh interval: Disable"
-msgstr "Interval obnovení připojení k serveru: Zakázat"
+msgstr "Interval obnovení připojení k serveru: zakázáno"
 
 #: src/muuli_wdr.cpp
 msgid "Disable computer's timed standby mode"
@@ -7475,7 +7467,7 @@ msgstr[2] "Interval obnovování připojení k serveru: %d minut"
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Server connection refresh interval: Disabled"
-msgstr "Interval obnovování připojení k serveru: vypnuto"
+msgstr "Interval obnovování připojení k serveru: zakázáno"
 
 #: src/PrefsUnifiedDlg.cpp
 #, fuzzy
@@ -10523,7 +10515,7 @@ msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
@@ -10574,6 +10566,14 @@ msgstr ""
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
 msgstr ""
+
+#, c-format
+#~ msgid "Failed to remove %s file, aborting update."
+#~ msgstr "Soubor %s se nepodařilo odstranit, aktualizace bude ukončena."
+
+#, c-format
+#~ msgid "Failed to rename new %s file, aborting update."
+#~ msgstr "Nepodařilo se přejmenovat nový soubor %s, aktualizace se přerušuje."
 
 #~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
 #~ msgstr "CHYBA: K použití externích připojení je vyžadováno platné heslo a démon aMule nelze bez externích připojení spustit. Chcete-li spustit démon aMule, musíte nastavit pole \"ECPassword\" v souboru ~/.aMule/amule.conf na odpovídající hodnotu. Heslo nastavíte spuštěním amuled s příznakem --ec-config. Další informace naleznete na https://amule-org.github.io/docs"
@@ -10710,10 +10710,6 @@ msgstr ""
 
 #~ msgid "Upload graph scale:"
 #~ msgstr "Měřítko grafu odesílání:"
-
-#, c-format
-#~ msgid "Failed to rename %s file, aborting update."
-#~ msgstr "Soubor %s se nepodařilo přejmenovat, aktualizace bude ukončena."
 
 #~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
 #~ msgstr "Znovu stáhnout GeoIP databázi z vybraného zdroje při každém spuštění aMule."

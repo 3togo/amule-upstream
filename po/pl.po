@@ -772,6 +772,11 @@ msgstr "Logi zostały zresetowane"
 msgid "ServerMessage: %s"
 msgstr "Wiadomość z serwera: %s"
 
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "Nie udało się otworzyć: %s (%s)"
+
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
 msgid "Skipped download of %s, because requested file is not newer."
@@ -3649,14 +3654,9 @@ msgstr[1] "%u niepoprawne linie zostały odrzucone."
 msgstr[2] "%u niepoprawnych linii zostało odrzuconych."
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "Nie można usunąć pliku %s, przerwana aktualizacja."
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr "Nie można załadować danych kraju dla '%s'."
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "Nie można zmienić nazwy pliku %s, przerwana aktualizacja."
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -10572,7 +10572,7 @@ msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
@@ -10623,6 +10623,14 @@ msgstr ""
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
 msgstr ""
+
+#, c-format
+#~ msgid "Failed to remove %s file, aborting update."
+#~ msgstr "Nie można usunąć pliku %s, przerwana aktualizacja."
+
+#, c-format
+#~ msgid "Failed to rename new %s file, aborting update."
+#~ msgstr "Nie można załadować danych kraju dla '%s'."
 
 #~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
 #~ msgstr "BŁĄD: Do korzystania z połączeń zewnętrznych wymagane jest prawidłowe hasło, a demon aMule nie może działać bez połączeń zewnętrznych. Aby uruchomić demona aMule, musisz ustawić pole \"ECPassword\" w pliku ~/.aMule/amule.conf na odpowiednią wartość. Uruchom amuled z flagą --ec-config, aby ustawić hasło. Więcej informacji można znaleźć na https://amule-org.github.io/docs"
@@ -10712,10 +10720,6 @@ msgstr ""
 
 #~ msgid "Upload graph scale:"
 #~ msgstr "Skala wykresu przesyłania:"
-
-#, c-format
-#~ msgid "Failed to rename %s file, aborting update."
-#~ msgstr "Nie można zmienić nazwy pliku %s, przerwana aktualizacja."
 
 #~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
 #~ msgstr "Pobieraj ponownie bazę danych GeoIP z wybranego źródła przy każdym uruchomieniu aMule."

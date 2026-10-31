@@ -769,6 +769,11 @@ msgstr "로그가 초기화되었습니다."
 msgid "ServerMessage: %s"
 msgstr "서버메시지: %s"
 
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "%s(%s)을 열지 못했습니다."
+
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
 msgid "Skipped download of %s, because requested file is not newer."
@@ -3632,14 +3637,9 @@ msgstr[0] "%u개의 잘못된 형식의 줄을 무시했습니다."
 msgstr[1] "%u개의 잘못된 형식의 줄을 무시했습니다."
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "%s 파일 삭제에 실패하여 갱신을 중단합니다."
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr "새 %s 파일의 이름 변경에 실패하여 갱신을 중단합니다."
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "%s 파일 이름 변경에 실패하여 갱신을 중단합니다."
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -10512,7 +10512,7 @@ msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
@@ -10563,6 +10563,14 @@ msgstr ""
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
 msgstr ""
+
+#, c-format
+#~ msgid "Failed to remove %s file, aborting update."
+#~ msgstr "%s 파일 삭제에 실패하여 갱신을 중단합니다."
+
+#, c-format
+#~ msgid "Failed to rename new %s file, aborting update."
+#~ msgstr "새 %s 파일의 이름 변경에 실패하여 갱신을 중단합니다."
 
 #~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
 #~ msgstr "오류: 외부 연결을 사용하려면 유효한 암호가 필요하며, 외부 연결 없이는 aMule 데몬을 사용할 수 없습니다. aMule 데몬을 실행하려면 ~/.aMule/amule.conf 파일의 \"ECPassword\" 필드에 적절한 값을 설정해야 합니다. 암호를 설정하려면 --ec-config 플래그로 amuled를 실행하세요. 자세한 정보는 https://amule-org.github.io/docs 에서 확인할 수 있습니다."
@@ -10652,10 +10660,6 @@ msgstr ""
 
 #~ msgid "Upload graph scale:"
 #~ msgstr "올려주기 그래프 배율:"
-
-#, c-format
-#~ msgid "Failed to rename %s file, aborting update."
-#~ msgstr "%s 파일 이름 변경에 실패하여 갱신을 중단합니다."
 
 #~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
 #~ msgstr "aMule을 시작할 때마다 선택한 소스에서 GeoIP 데이터베이스를 다시 내려받습니다."

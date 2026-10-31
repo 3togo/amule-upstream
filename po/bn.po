@@ -757,6 +757,11 @@ msgstr "লগ রিসেট করা হয়েছে"
 msgid "ServerMessage: %s"
 msgstr "ServerMessage: %s"
 
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "%s ফাইলের নাম পরিবর্তন করতে ব্যর্থ হয়েছে, আপডেট বাতিল করা হচ্ছে।"
+
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
 msgid "Skipped download of %s, because requested file is not newer."
@@ -3602,14 +3607,9 @@ msgstr[0] "%uটি ত্রুটিপূর্ণ লাইন বাতি�
 msgstr[1] "%uটি ত্রুটিপূর্ণ লাইন বাতিল করা হয়েছে।"
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "%s ফাইল সরাতে ব্যর্থ হয়েছে, আপডেট বাতিল করা হচ্ছে।"
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr "নতুন %s ফাইলের নাম পরিবর্তন করতে ব্যর্থ হয়েছে, আপডেট বাতিল করা হচ্ছে।"
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "%s ফাইলের নাম পরিবর্তন করতে ব্যর্থ হয়েছে, আপডেট বাতিল করা হচ্ছে।"
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -10447,7 +10447,7 @@ msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
@@ -10498,6 +10498,14 @@ msgstr ""
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
 msgstr ""
+
+#, c-format
+#~ msgid "Failed to remove %s file, aborting update."
+#~ msgstr "%s ফাইল সরাতে ব্যর্থ হয়েছে, আপডেট বাতিল করা হচ্ছে।"
+
+#, c-format
+#~ msgid "Failed to rename new %s file, aborting update."
+#~ msgstr "নতুন %s ফাইলের নাম পরিবর্তন করতে ব্যর্থ হয়েছে, আপডেট বাতিল করা হচ্ছে।"
 
 #~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
 #~ msgstr "ত্রুটি: বাহ্যিক সংযোগ ব্যবহার করতে একটি বৈধ পাসওয়ার্ড প্রয়োজন, এবং বাহ্যিক সংযোগ ছাড়া aMule ডেমন ব্যবহার করা যাবে না। aMule ডেমন চালাতে, আপনাকে ~/.aMule/amule.conf ফাইলে \"ECPassword\" ফিল্ডে একটি উপযুক্ত মান সেট করতে হবে। পাসওয়ার্ড সেট করতে --ec-config ফ্ল্যাগ দিয়ে amuled চালান। আরও তথ্যের জন্য https://amule-org.github.io/docs দেখুন"
@@ -10583,10 +10591,6 @@ msgstr ""
 
 #~ msgid "Upload graph scale:"
 #~ msgstr "আপলোড গ্রাফ স্কেল:"
-
-#, c-format
-#~ msgid "Failed to rename %s file, aborting update."
-#~ msgstr "%s ফাইলের নাম পরিবর্তন করতে ব্যর্থ হয়েছে, আপডেট বাতিল করা হচ্ছে।"
 
 #~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
 #~ msgstr "প্রতিবার aMule শুরু হওয়ার সময় নির্বাচিত উৎস থেকে GeoIP ডেটাবেস পুনরায় ডাউনলোড করুন।"
