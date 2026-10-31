@@ -83,6 +83,20 @@
 // CClientUDPSocket -- Extended eMule UDP socket
 //
 
+namespace
+{
+#ifdef AMULE_UTP_TRANSPORT
+constexpr bool kUtpBuilt = true;
+#else
+constexpr bool kUtpBuilt = false;
+#endif
+#ifdef AMULE_QUIC_TRANSPORT
+constexpr bool kQuicBuilt = true;
+#else
+constexpr bool kQuicBuilt = false;
+#endif
+} // namespace
+
 #if defined(AMULE_UTP_TRANSPORT) || defined(AMULE_QUIC_TRANSPORT)
 namespace
 {
@@ -198,8 +212,8 @@ NatKeyFrame::Callbacks CClientUDPSocket::KeyFrameCallbacks()
 		if (length != 0) {
 			packet->CopyToDataBuffer(0, payload, static_cast<unsigned int>(length));
 		}
-		return TrySendPacket(
-			packet, ip, port, key != nullptr, key != nullptr ? key->data() : nullptr, false, 0);
+		return TrySendTransportPacket(
+			packet, ip, port, key != nullptr, key != nullptr ? key->data() : nullptr);
 	};
 	return callbacks;
 }
@@ -437,14 +451,7 @@ void CClientUDPSocket::SendUtpDatagram(const uint8_t *payload,
 	// to listen on a TCP port equal to the UDP port being dialled, keying the
 	// datagram on that client's hash so the real recipient could not decrypt.
 	//
-	// Counted here rather than inside QueueUtpDatagram(), which is deliberately
-	// free of the application's headers. The figure is the datagram that
-	// leaves: the payload, the two-byte 0xB2 envelope, and the crypt header
-	// when there is one. OnPacketReceived() counts the raw datagram before
-	// decryption, so without that last term aMule would under-report its own
-	// upload by eight bytes for every obfuscated datagram.
-	const std::uint64_t overhead = length + kUtpEnvelopeBytes + (encrypt ? kUtpCryptHeaderBytes : 0);
-	theStats::AddUpOverheadOther(overhead);
+	// Not counted as overhead: the client socket counts the stream bytes, as for TCP.
 	QueueUtpDatagram<CPacket>(*this, payload, length, ip, port, encrypt, userHash);
 }
 
@@ -610,13 +617,20 @@ void CClientUDPSocket::OnPacketReceived(
 				// Counted as overhead like every sibling branch: these bytes cross
 				// the wire whether or not we can serve the frame, and leaving them
 				// out makes aMule's own figures disagree with what the link shows.
+				// The exception is a frame of a transport this build runs: the
+				// client socket counts its stream bytes, as for TCP.
 				//
 				// This branch still reaches no *packet* accounting, which is what
 				// keeps a dropped frame from feeding a ban: CPacketTracking is only
 				// entered from the Kad listener, and an eMuleAI peer's NAT-T
 				// traffic would otherwise read as malformed. Statistics and bans are
 				// separate subsystems; only the second one must stay out of reach.
-				theStats::AddDownOverheadOther(length);
+				if (!IsBuiltTransportFrame(
+					    ClassifyReservedProt2Frame(decryptedBuffer + 1, packetLen - 1),
+					    kUtpBuilt,
+					    kQuicBuilt)) {
+					theStats::AddDownOverheadOther(length);
+				}
 				ProcessReservedProt2Frame(decryptedBuffer + 1,
 					packetLen - 1,
 					ip,
@@ -1016,6 +1030,45 @@ void CClientUDPSocket::CompleteLugdunumCallbackRendezvous(const LugdunumNatTrave
 	m_lugdunumCallbackRendezvous.Complete(key);
 }
 
+void CClientUDPSocket::NoteRendezvousAttempt(NatServerHolePunch::RendezvousPath path,
+	uint32 ip,
+	const std::array<std::uint8_t, 16> *peerHash,
+	bool countAttempt)
+{
+	std::optional<NatServerHolePunch::Hash> hash;
+	if (peerHash != nullptr) {
+		hash = *peerHash;
+	}
+	if (!m_rendezvousOutcomes.NoteAttempt(path, ip, hash, ::GetTickCount64()) || !countAttempt) {
+		return;
+	}
+	if (path == NatServerHolePunch::RendezvousPath::ServerPunch) {
+		theStats::AddServerHolePunchAttempt();
+	} else {
+		theStats::AddLugdunumCallbackAttempt();
+	}
+}
+
+void CClientUDPSocket::NoteLugdunumCallbackRequested(uint32 targetId)
+{
+	m_requestedCallbackTargets.Note(targetId, ::GetTickCount64());
+}
+
+bool CClientUDPSocket::NoteRendezvousHello(uint32 ip, const std::array<std::uint8_t, 16> &peerHash)
+{
+	const std::optional<NatServerHolePunch::RendezvousPath> path =
+		m_rendezvousOutcomes.TakeSuccess(ip, peerHash, ::GetTickCount64());
+	if (!path) {
+		return false;
+	}
+	if (*path == NatServerHolePunch::RendezvousPath::ServerPunch) {
+		theStats::AddServerHolePunchSuccess();
+	} else {
+		theStats::AddLugdunumCallbackSuccess();
+	}
+	return true;
+}
+
 void CClientUDPSocket::SendLugdunumNatCallbackRequest(const LugdunumNatTraversal::CallbackFailureKey &key)
 {
 	if (theApp->serverconnect == nullptr || !Ok()) {
@@ -1154,6 +1207,12 @@ bool CClientUDPSocket::DialLugdunumNatCallbackPeer(const LugdunumNatTraversal::F
 	client->SetUDPPort(target.udpPort);
 	client->MarkLowIdHolePunchDial();
 	client->MarkLugdunumCallbackDial(failureKey);
+	// A reverse callback for our own request still records the rendezvous, for its success, but
+	// the request already counted the attempt.
+	NoteRendezvousAttempt(NatServerHolePunch::RendezvousPath::LugdunumCallback,
+		target.ip,
+		callback.hasObfuscation ? &callback.userHash : nullptr,
+		!m_requestedCallbackTargets.Take(callback.requesterId, ::GetTickCount64()));
 	const bool started = LugdunumNatTraversal::RunCallbackDialApplication(
 		failureKey,
 		[client]() { return client->TryServerVouchedLowIdUtpDial(); },

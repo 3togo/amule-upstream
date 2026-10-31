@@ -44,6 +44,7 @@
 #include "DialogLayout.h" // Scrollable details dialogs
 #include "TextClearButton.h"
 #include "OtherFunctions.h" // Needed for LabelWithColon
+#include "SourceSearchLimits.h"
 
 #include <wx/artprov.h> // Needed for the "amule:" art ids (status bar + transfer window icons)
 #include <wx/intl.h>
@@ -2172,11 +2173,11 @@ wxSizer *PreferencesaMuleTweaksTab( wxWindow *parent, bool call_fit, bool set_si
     item6->Add( new wxStaticText( item5, -1, _("Max new connections / 5 secs"), wxDefaultPosition, wxDefaultSize, 0 ), wxSizerFlags().CenterVertical() );
     item6->Add( new wxSpinCtrl( item5, IDC_MAXCON5SEC, "50", wxDefaultPosition, wxDefaultSize, 0, 20, 500, 50 ), wxSizerFlags().CenterVertical() );
     item6->Add( new wxStaticText( item5, -1, _("Concurrent Kad source lookups"), wxDefaultPosition, wxDefaultSize, 0 ), wxSizerFlags().CenterVertical() );
-    item6->Add( new wxSpinCtrl( item5, IDC_KADMAXSEARCHES, "30", wxDefaultPosition, wxDefaultSize, 0, 5, 50, 30 ), wxSizerFlags().CenterVertical() );
+    item6->Add( new wxSpinCtrl( item5, IDC_KADMAXSEARCHES, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0, KAD_MAX_SOURCE_SEARCHES.min, KAD_MAX_SOURCE_SEARCHES.max, KAD_MAX_SOURCE_SEARCHES.def ), wxSizerFlags().CenterVertical() );
     item6->Add( new wxStaticText( item5, -1, _("Kad source re-search interval (minutes)"), wxDefaultPosition, wxDefaultSize, 0 ), wxSizerFlags().CenterVertical() );
-    item6->Add( new wxSpinCtrl( item5, IDC_KADREASKTIME, "30", wxDefaultPosition, wxDefaultSize, 0, 30, 60, 30 ), wxSizerFlags().CenterVertical() );
+    item6->Add( new wxSpinCtrl( item5, IDC_KADREASKTIME, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0, KAD_SOURCE_REASK_MINUTES.min, KAD_SOURCE_REASK_MINUTES.max, KAD_SOURCE_REASK_MINUTES.def ), wxSizerFlags().CenterVertical() );
     item6->Add( new wxStaticText( item5, -1, _("Source re-ask interval (minutes)"), wxDefaultPosition, wxDefaultSize, 0 ), wxSizerFlags().CenterVertical() );
-    item6->Add( new wxSpinCtrl( item5, IDC_SOURCEREASKTIME, "15", wxDefaultPosition, wxDefaultSize, 0, 15, 60, 15 ), wxSizerFlags().CenterVertical() );
+    item6->Add( new wxSpinCtrl( item5, IDC_SOURCEREASKTIME, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0, SOURCE_REASK_MINUTES.min, SOURCE_REASK_MINUTES.max, SOURCE_REASK_MINUTES.def ), wxSizerFlags().CenterVertical() );
     item4->Add( item6, wxSizerFlags().Border(wxTOP, 5) );
 
     wxStaticText *item8 = new wxStaticText( item5, IDC_FILEBUFFERSIZE_STATIC, _("File Buffer Size: 240000 bytes"), wxDefaultPosition, wxDefaultSize, 0 );
@@ -2311,7 +2312,7 @@ wxSizer *PreferencesRemoteControlsTab( wxWindow *parent, bool call_fit, bool set
     wxStaticText *item5 = new wxStaticText( item2, IDC_EXT_CONN_IPTEXT, _("IP of the listening interface:"), wxDefaultPosition, wxDefaultSize, wxST_NO_AUTORESIZE );
     item4->Add( item5, wxSizerFlags().Expand().CenterVertical().Border(wxLEFT, 5) );
 #ifdef CLIENT_GUI
-    // Hidden in the remote GUI, as the whole EC-listener config group is, so a plain text field is
+    // Hidden in the remote GUI, like the other EC listener settings, so a plain text field is
     // enough -- no point offering a drop-down of the wrong host's addresses. See PrefsUnifiedDlg
     // amuledOnlyPrefs[].
     CMuleTextCtrl *item6 = new CMuleTextCtrl( parent, IDC_EXT_CONN_IP, "", wxDefaultPosition, wxDefaultSize, 0 );
@@ -2327,7 +2328,7 @@ wxSizer *PreferencesRemoteControlsTab( wxWindow *parent, bool call_fit, bool set
     wxStaticText *item6b = new wxStaticText( item2, IDC_EC_INTERFACETEXT, _("Bind to network interface (empty for any):"), wxDefaultPosition, wxDefaultSize, wxST_NO_AUTORESIZE );
     item4->Add( item6b, wxSizerFlags().Expand().CenterVertical().Border(wxLEFT, 5) );
 #ifdef CLIENT_GUI
-    // Hidden in the remote GUI, as the whole EC-listener config group is, so a plain text field is
+    // Hidden in the remote GUI, like the other EC listener settings, so a plain text field is
     // enough -- no point populating a drop-down of the wrong host's interfaces. See PrefsUnifiedDlg
     // amuledOnlyPrefs[].
     wxTextCtrl *item6c = new wxTextCtrl( parent, IDC_EC_INTERFACE, "", wxDefaultPosition, wxDefaultSize, 0 );
@@ -2357,8 +2358,6 @@ wxSizer *PreferencesRemoteControlsTab( wxWindow *parent, bool call_fit, bool set
     CMuleTextCtrl *item13 = new CMuleTextCtrl( item2, IDC_EXT_CONN_PASSWD, "", wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD );
     item11->Add( item13, wxSizerFlags(1).Center().Border(wxLEFT, 5) );
     item1->Add( item11, wxSizerFlags().Expand().CenterVertical() );
-    wxCheckBox *item13b = new wxCheckBox( item2, IDC_EXT_CONN_REQUIRE_ENCRYPTION, _("Require encrypted connections (rejects clients that cannot encrypt)"), wxDefaultPosition, wxDefaultSize, 0 );
-    item1->Add( item13b, wxSizerFlags().CenterVertical().Border(wxALL, 5) );
     item0->Add( item1, wxSizerFlags().Expand().Border(wxALL, 0) );
 
 #ifndef CLIENT_GUI
@@ -3244,7 +3243,10 @@ wxSizer *PreferencesFilteringTab( wxWindow *parent, bool call_fit, bool set_size
     wxStaticBox *item2 = new wxStaticBox( parent, -1, _("Messages") );
     wxStaticBoxSizer *item1 = new wxStaticBoxSizer( item2, wxVERTICAL );
 
-    wxCheckBox *item3 = new wxCheckBox( item2, IDC_MSGFILTER, _("Filter incoming messages (except current chat):"), wxDefaultPosition, wxDefaultSize, 0 );
+    wxCheckBox *item3 = new wxCheckBox( item2, IDC_MSGFILTER, _("Enable incoming message filtering (except current chat):"), wxDefaultPosition, wxDefaultSize, 0 );
+    item3->SetToolTip(_("Enable the filter options below. Select at least one option to filter messages.\n"
+                    "Turning this off keeps your selected options and word list.\n"
+                    "Filtered messages are discarded without opening a chat or replying to the sender."));
     item1->Add( item3, wxSizerFlags().CenterVertical().Border(wxALL, 0) );
     wxCheckBox *item4 = new wxCheckBox( item2, IDC_MSGFILTER_ALL, _("Filter all messages"), wxDefaultPosition, wxDefaultSize, 0 );
     item1->Add( item4, wxSizerFlags().CenterVertical().Border(wxLEFT, 25) );
@@ -3255,7 +3257,12 @@ wxSizer *PreferencesFilteringTab( wxWindow *parent, bool call_fit, bool set_size
     wxCheckBox *item7 = new wxCheckBox( item2, IDC_MSGFILTER_WORD, _("Filter messages containing (use ',' as separator):"), wxDefaultPosition, wxDefaultSize, 0 );
     item1->Add( item7, wxSizerFlags().CenterVertical().Border(wxLEFT, 25) );
     wxTextCtrl *item8 = new wxTextCtrl( item2, IDC_MSGWORD, "", wxDefaultPosition, wxSize(80,-1), 0 );
-    item8->SetToolTip( _("add here the words amule should filter and block messages including it") );
+    item7->SetToolTip(_("Discard chat messages containing any comma-separated term. Matching ignores case and "
+                    "spaces around each term.\n"
+                    "Terms match anywhere in a message: dog matches hotdog and black dog spotted.\n"
+                    "Wildcards are not supported. A * is literal, except that a word list of exactly * "
+                    "blocks every message."));
+    item8->SetToolTip( item7->GetToolTipText() );
     item1->Add( item8, wxSizerFlags().Expand().CenterVertical().Border(wxLEFT, 50) );
     wxCheckBox *advancedSpam = new wxCheckBox(item2, IDC_MSGADVSPAM, _("Enable advanced spam filter"));
     advancedSpam->SetToolTip(_("Block unsolicited links and repeated messages from non-friends."));
@@ -3266,15 +3273,28 @@ wxSizer *PreferencesFilteringTab( wxWindow *parent, bool call_fit, bool set_size
     wxCheckBox *item9 = new wxCheckBox( item2, IDC_MSGLOG, _("Show received messages in the log"), wxDefaultPosition, wxDefaultSize, 0 );
     item1->Add( item9, wxSizerFlags().CenterVertical().Border(wxALL, 0) );
     item0->Add( item1, wxSizerFlags().Expand().CenterVertical().Border(wxALL, 0) );
-    wxStaticBox *item11 = new wxStaticBox( parent, -1, _("Comments") );
+    wxStaticBox *item11 = new wxStaticBox( parent, -1, _("File comments") );
     wxStaticBoxSizer *item10 = new wxStaticBoxSizer( item11, wxVERTICAL );
 
-    wxCheckBox *item12 = new wxCheckBox( item11, IDC_FILTERCOMMENTS, _("Filter comments containing (use ',' as separator):"), wxDefaultPosition, wxDefaultSize, 0 );
+    wxCheckBox *item12 = new wxCheckBox( item11, IDC_FILTERCOMMENTS, _("Filter file comments containing (use ',' as separator):"), wxDefaultPosition, wxDefaultSize, 0 );
+    item12->SetToolTip(_("Hide file comments from other users containing any comma-separated term. This does not "
+                     "filter chat messages.\n"
+                     "Matching ignores case and spaces around each term. Terms match anywhere in a comment: "
+                     "dog matches hotdog and black dog spotted.\n"
+                     "Wildcards are not supported; * is matched literally."));
     item10->Add( item12, wxSizerFlags().CenterVertical().Border(wxALL, 0) );
     wxTextCtrl *item13 = new wxTextCtrl( item11, IDC_COMMENTWORD, "", wxDefaultPosition, wxSize(80,-1), 0 );
-    item13->SetToolTip( _("add here the words amule should filter and block messages including it") );
+    item13->SetToolTip( item12->GetToolTipText() );
     item10->Add( item13, wxSizerFlags().Expand().CenterVertical().Border(wxLEFT, 50) );
     item0->Add( item10, wxSizerFlags().Expand().CenterVertical().Border(wxALL, 0) );
+    wxStaticBoxSizer *summaryBox = new wxStaticBoxSizer( wxVERTICAL, parent, _("With these settings") );
+    wxTextCtrl *summary = new wxTextCtrl( summaryBox->GetStaticBox(), IDC_FILTER_SUMMARY, wxEmptyString,
+        wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY );
+    summary->SetName( "Filter selection summary" );
+    // Reserve a stable, font-scaled area. Long lists wrap and scroll instead of resizing the page.
+    summary->SetMinSize( wxSize( -1, summary->GetCharHeight() * 6 + summary->FromDIP(12) ) );
+    summaryBox->Add( summary, wxSizerFlags(1).Expand() );
+    item0->Add( summaryBox, wxSizerFlags().Expand().Border(wxTOP, 5) );
     if (set_sizer)
     {
         parent->SetSizer( item0 );
@@ -3373,9 +3393,6 @@ wxSizer *CoreConnect( wxWindow *parent, bool call_fit, bool set_sizer )
     wxCheckBox *item13 = new wxCheckBox( parent, ID_EC_SAVE, _("Remember those settings"), wxDefaultPosition, wxDefaultSize, 0 );
     item13->SetValue( TRUE );
     item0->Add( item13, wxSizerFlags().CenterVertical().Border(wxALL, 5) );
-    wxCheckBox *item13a = new wxCheckBox( parent, ID_EC_ENCRYPTION, _("Encrypt the connection (recommended)"), wxDefaultPosition, wxDefaultSize, 0 );
-    item13a->SetValue( TRUE );
-    item0->Add( item13a, wxSizerFlags().CenterVertical().Border(wxALL, 5) );
     wxCheckBox *item13b = new wxCheckBox( parent, ID_EC_FORCE_ZLIB, _("Force ZLIB compression"), wxDefaultPosition, wxDefaultSize, 0 );
     item0->Add( item13b, wxSizerFlags().CenterVertical().Border(wxALL, 5) );
     wxBoxSizer *item14 = new wxBoxSizer( wxHORIZONTAL );
