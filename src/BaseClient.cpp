@@ -1497,6 +1497,12 @@ bool CUpDownClient::Disconnected(const wxString &strReason, bool bFromSocket)
 		AddDebugLogLineN(logClient, "Buddy client disconnected - " + strReason);
 	}
 
+	// Local filtering, settings refusals and cleanup do not mark the IP as failed.
+	// An advertised IPv6 dial did not try GetConnectIP(); leave IPv4 fallback eligible.
+	if (GetKadState() == KS_CONNECTING_BUDDY && bFromSocket && !m_dialingIPv6) {
+		theApp->clientlist->RecordBuddyFailure(GetConnectIP());
+	}
+
 	// If this is a KAD client object, just delete it!
 	SetKadState(KS_NONE);
 

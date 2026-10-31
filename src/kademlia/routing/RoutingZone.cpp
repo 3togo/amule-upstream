@@ -366,12 +366,16 @@ void CRoutingZone::WriteFile()
 				c->GetUDPKey().StoreToFile(file);
 				file.WriteUInt8(c->IsIPVerified() ? 1 : 0);
 			}
-			file.Close();
+			if (!file.Close()) {
+				throw CIOFailureException("Cannot commit 'nodes.dat'");
+			}
+		} else {
+			throw CIOFailureException("Cannot open 'nodes.dat' staging file");
 		}
 		AddLogLineN(
 			CFormat(wxPLURAL("Wrote %d Kad contact", "Wrote %d Kad contacts", count)) % count);
 	} catch (const CIOFailureException &e) {
-		AddDebugLogLineC(logKadRouting, "IO failure in CRoutingZone::writeFile: " + e.what());
+		AddLogLineC(CFormat(_("Error while saving %s file: %s")) % m_filename % e.what());
 	}
 }
 

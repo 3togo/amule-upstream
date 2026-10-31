@@ -419,6 +419,10 @@ msgid ""
 msgstr "Potvrda izlaza"
 
 #: src/amule.cpp
+msgid "Could not save AcceptExternalConnections to amule.conf."
+msgstr ""
+
+#: src/amule.cpp
 #, fuzzy
 msgid "Password set and external connections enabled."
 msgstr "Nova vanjska veza prihvacena\n"
@@ -744,6 +748,11 @@ msgstr ""
 #, c-format
 msgid "ServerMessage: %s"
 msgstr ""
+
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "Neuspjelo otvaranje %s (%s)"
 
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
@@ -3576,14 +3585,9 @@ msgstr[1] ""
 msgstr[2] ""
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr ""
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr ""
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "Neuspjelo otvaranje %s (%s)"
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -10441,7 +10445,7 @@ msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp

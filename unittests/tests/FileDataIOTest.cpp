@@ -900,3 +900,59 @@ TEST(CFile, GetAvailable)
 
 	ASSERT_EQUALS(0u, file.GetAvailable());
 }
+
+TEST(CFile, SafeWriteReplacesOnlyOnExplicitClose)
+{
+	{
+		CFile file(TestFile(), CFile::write);
+		file.WriteUInt8(7);
+	}
+	{
+		CFile file(TestFile(), CFile::write_safe);
+		file.WriteUInt8(9);
+		CFile live(TestFile(), CFile::read);
+		ASSERT_EQUALS(7, live.ReadUInt8());
+		live.Close();
+		ASSERT_TRUE(file.Close());
+		ASSERT_EQUALS(TestFile(), file.GetFilePath());
+		ASSERT_FALSE(TestFile().AppendExt(".new").FileExists());
+		file.Reopen(CFile::read);
+		ASSERT_EQUALS(9, file.ReadUInt8());
+	}
+	{
+		CFile abandoned(TestFile(), CFile::write_safe);
+		abandoned.WriteUInt8(11);
+	}
+	CFile live(TestFile(), CFile::read);
+	ASSERT_EQUALS(9, live.ReadUInt8());
+	CPath::RemoveFile(TestFile().AppendExt(".new"));
+}
+
+TEST(CFile, FailedSafeWritePreservesLiveFileAndRestoresPath)
+{
+	{
+		CFile file(TestFile(), CFile::write);
+		file.WriteUInt8(7);
+	}
+	CFile file(TestFile(), CFile::write_safe);
+	file.WriteUInt8(9);
+	// A directory at the live destination prevents promotion. Both the destination
+	// entry and the completed candidate must survive failure.
+	const CPath original = TestFile().AppendExt(".original");
+	ASSERT_TRUE(CPath::RenameFile(TestFile(), original));
+	ASSERT_TRUE(CPath::MakeDir(TestFile()));
+	const bool closed = file.Close();
+	const bool stillDirectory = TestFile().DirExists();
+	CPath::RemoveDir(TestFile());
+	CPath::RenameFile(original, TestFile());
+	ASSERT_FALSE(closed);
+	ASSERT_TRUE(stillDirectory);
+	ASSERT_FALSE(file.IsOpened());
+	ASSERT_EQUALS(TestFile(), file.GetFilePath());
+	file.Reopen(CFile::read);
+	ASSERT_EQUALS(7, file.ReadUInt8());
+	CFile candidate(TestFile().AppendExt(".new"), CFile::read);
+	ASSERT_EQUALS(9, candidate.ReadUInt8());
+	candidate.Close();
+	CPath::RemoveFile(TestFile().AppendExt(".new"));
+}
