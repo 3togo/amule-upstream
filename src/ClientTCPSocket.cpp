@@ -523,10 +523,6 @@ bool CClientTCPSocket::ProcessPacket(const uint8_t *buffer, uint32 size, uint8 o
 			if (bNewClient) {
 				m_client->Safe_Delete();
 				m_client = NULL;
-			} else if (m_client->GetKadState() == KS_CONNECTING_BUDDY) {
-				// A filter changed during the handshake: cancel without recording a
-				// failed buddy IP. Disconnect still owns the socket cleanup below.
-				m_client->SetKadState(KS_NONE);
 			}
 			Disconnect("IPFilter");
 			return false;
