@@ -75,11 +75,11 @@ void TestFields(const wxString &WXUNUSED(screenshot))
 	Input(*panel, _("Title"))->SetValue("OR AND NOT");
 	Input(*panel, _("Codec"))->SetValue("FLAC");
 	auto *duration = dynamic_cast<wxSpinCtrl *>(
-		wxWindow::FindWindowByName(_("Minimum duration (minutes)"), panel));
+		wxWindow::FindWindowByName(_("Minimum duration (seconds)"), panel));
 	auto *bitrate =
 		dynamic_cast<wxSpinCtrl *>(wxWindow::FindWindowByName(_("Minimum bitrate (kbps)"), panel));
 	Check(duration && bitrate, "Missing numeric metadata controls");
-	duration->SetValue(62);
+	duration->SetValue(3720);
 	bitrate->SetValue(320);
 	panel->Read(value);
 	Check(value.minLength == 3720 && value.minBitrateKbps == 320 &&

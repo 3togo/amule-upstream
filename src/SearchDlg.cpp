@@ -43,6 +43,7 @@
 #include "SearchModeIcons.h"
 #include "SearchTypeChoices.h"
 #include "SearchMetadataPanel.h"
+#include "SearchQueryDialog.h"
 #include "SearchHistory.h"  // Needed for ApplySearchHistoryEntry
 #include "SearchListCtrl.h" // Needed for CSearchListCtrl
 #include "muuli_wdr.h"      // Needed for IDC_STARTS
@@ -145,6 +146,9 @@ CSearchDlg::CSearchDlg(wxWindow *pParent)
 		event.Skip();
 	});
 	m_metadataFields->Bind(wxEVT_TEXT_ENTER, &CSearchDlg::OnBnClickedStart, this);
+	m_translateQuery = new wxButton(m_metadataFields->GetParent(), wxID_ANY, _("Translate query..."));
+	s_extended_sizer->Add(m_translateQuery, wxSizerFlags().Border(wxALL, 5));
+	m_translateQuery->Bind(wxEVT_BUTTON, &CSearchDlg::OnTranslateQuery, this);
 
 	FixSearchTypes();
 
@@ -510,6 +514,21 @@ void CSearchDlg::OnSearchNameContextMenu(wxContextMenuEvent &WXUNUSED(evt))
 	PopupMenu(&menu);
 }
 
+void CSearchDlg::OnTranslateQuery(wxCommandEvent &WXUNUSED(event))
+{
+	CSearchQueryDialog dialog(this, CastChild(IDC_SEARCHNAME, wxTextEntry)->GetValue());
+	if (dialog.ShowModal() != wxID_OK)
+		return;
+	CSearchQueryPreview preview;
+	if (!dialog.ReadPreview(preview))
+		return;
+	m_metadataFields->Set(preview.metadata);
+	CastChild(IDC_SEARCHNAME, wxTextEntry)->SetValue(preview.keywords);
+	wxCommandEvent changed;
+	OnFieldChanged(changed);
+	// Applying the preview only edits controls. Search remains an explicit action.
+}
+
 void CSearchDlg::FixSearchTypes()
 {
 	wxBitmapComboBox *searchchoice = CastChild(ID_SEARCHTYPE, wxBitmapComboBox);
@@ -521,6 +540,7 @@ void CSearchDlg::FixSearchTypes()
 	supportsAll = theApp->m_connect && theApp->m_connect->ServerSupportsSearchAll();
 	m_metadataFields->SetSupported(
 		theApp->m_connect && theApp->m_connect->ServerSupportsSearchMetadata());
+	m_translateQuery->Enable(theApp->m_connect && theApp->m_connect->ServerSupportsSearchMetadata());
 #endif
 	long savedType = 0;
 	wxConfigBase::Get()->Read("/eMule/DefaultSearchType", &savedType, 0);

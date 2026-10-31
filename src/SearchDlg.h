@@ -228,6 +228,8 @@ public:
 private:
 	CSearchList::CSearchParams ReadSearchParams(bool showWarning);
 	CSearchMetadataPanel *m_metadataFields = nullptr;
+	wxButton *m_translateQuery = nullptr;
+	void OnTranslateQuery(wxCommandEvent &event);
 	bool TryReuseSearch(const CSearchList::CSearchParams &params);
 	void ClearSearchRequests();
 

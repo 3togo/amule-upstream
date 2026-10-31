@@ -64,7 +64,7 @@ CSearchMetadataPanel::CSearchMetadataPanel(wxWindow *parent)
 		grid->Add(field, wxSizerFlags(1).Expand());
 		return field;
 	};
-	m_length = addNumber(_("Minimum duration (minutes)"), SEARCH_MAX_MIN_DURATION_SECONDS / 60);
+	m_length = addNumber(_("Minimum duration (seconds)"), SEARCH_MAX_MIN_DURATION_SECONDS);
 	m_bitrate = addNumber(_("Minimum bitrate (kbps)"), SEARCH_MAX_MIN_BITRATE_KBPS);
 	m_help = new wxStaticText(this, wxID_ANY, wxEmptyString);
 	auto *layout = new wxBoxSizer(wxVERTICAL);
@@ -80,8 +80,30 @@ void CSearchMetadataPanel::Read(CSearchList::CSearchParams &params) const
 	params.album = m_fields[Album]->GetValue();
 	params.title = m_fields[Title]->GetValue();
 	params.codec = m_fields[Codec]->GetValue();
-	params.minLength = m_length->GetValue() * 60;
+	params.minLength = m_length->GetValue();
 	params.minBitrateKbps = m_bitrate->GetValue();
+}
+
+void CSearchMetadataPanel::Read(CSearchMetadata &metadata) const
+{
+	CSearchList::CSearchParams params;
+	Read(params);
+	metadata.artist = params.artist;
+	metadata.album = params.album;
+	metadata.title = params.title;
+	metadata.codec = params.codec;
+	metadata.minLength = params.minLength;
+	metadata.minBitrateKbps = params.minBitrateKbps;
+}
+
+void CSearchMetadataPanel::Set(const CSearchMetadata &metadata)
+{
+	m_fields[Artist]->ChangeValue(metadata.artist);
+	m_fields[Album]->ChangeValue(metadata.album);
+	m_fields[Title]->ChangeValue(metadata.title);
+	m_fields[Codec]->ChangeValue(metadata.codec);
+	m_length->SetValue(static_cast<int>(metadata.minLength));
+	m_bitrate->SetValue(static_cast<int>(metadata.minBitrateKbps));
 }
 
 bool CSearchMetadataPanel::HasValues() const

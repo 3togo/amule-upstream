@@ -134,6 +134,8 @@ if (BUILD_MONOLITHIC OR BUILD_REMOTEGUI)
 		PrefsUnifiedDlg.cpp
 		SearchDlg.cpp
 		SearchMetadataPanel.cpp
+		SearchQueryTranslator.cpp
+		SearchQueryDialog.cpp
 			SearchHistory.cpp
 		SearchListCtrl.cpp
 		SearchColumnFit.cpp

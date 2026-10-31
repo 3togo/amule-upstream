@@ -32,6 +32,7 @@
 class wxTextCtrl;
 class wxStaticText;
 class wxSpinCtrl;
+struct CSearchMetadata;
 
 // Shared media controls for aMule and amulegui.
 class CSearchMetadataPanel : public wxPanel
@@ -39,6 +40,8 @@ class CSearchMetadataPanel : public wxPanel
 public:
 	explicit CSearchMetadataPanel(wxWindow *parent);
 	void Read(CSearchList::CSearchParams &params) const;
+	void Read(CSearchMetadata &metadata) const;
+	void Set(const CSearchMetadata &metadata);
 	bool HasValues() const;
 	void Reset();
 	void SetSupported(bool supported);
