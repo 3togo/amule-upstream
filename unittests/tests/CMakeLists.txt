@@ -3190,7 +3190,7 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 			add_test (NAME MessageRegexApiIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u ${CMAKE_CURRENT_SOURCE_DIR}/MessageRegexIntegrationTest.py
 					$<TARGET_FILE:amuled> $<TARGET_FILE:amuleapi>)
-			set_tests_properties (MessageRegexApiIntegrationTest PROPERTIES LABELS "integration")
+			set_tests_properties (MessageRegexApiIntegrationTest PROPERTIES SKIP_RETURN_CODE 77 LABELS "integration")
 		endif ()
 		add_test (NAME ChatSpamFilterIntegrationTest
 			COMMAND ${Python3_EXECUTABLE}

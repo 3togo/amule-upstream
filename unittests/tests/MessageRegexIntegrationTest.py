@@ -91,9 +91,13 @@ def run(binary, api_binary=None):
                 with (root/'api.log').open('w') as log:
                     subprocess.run(command+['--set-admin-pass-stdin'], input=b'regression\n',
                         check=True, env=env, stdout=log, stderr=log, timeout=10)
-                    (api_config/'amuleapi.conf').write_text('[EC]\nPassword=regression\n')
+                    settings = configparser.ConfigParser(interpolation=None)
+                    settings.optionxform = str
+                    settings['EC'] = {'Password': 'regression'}
+                    with (api_config/'amuleapi.conf').open('w') as configuration:
+                        settings.write(configuration)
                     api = subprocess.Popen(command+['--host=127.0.0.1', '--port='+str(ports[0]),
-                        '--http-port='+str(ports[3]), '--disable-ec-encryption'],
+                        '--http-port='+str(ports[3])],
                         env=env, stdout=log, stderr=log)
                 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
                 token = None
