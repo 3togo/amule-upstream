@@ -10895,7 +10895,7 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 	std::string error;
 	std::string query;
 	if (obj.find("query") == obj.end())
-		return ErrorResponse(400, "bad_request", "Missing required field: query");
+		return ErrorResponse(400, "bad_request", "required string field `query` is missing");
 	if (!TakeSearchString(obj, "query", query, error))
 		return ErrorResponse(400, "bad_request", error.c_str());
 	if (query.empty())
