@@ -135,14 +135,7 @@ private:
 	uint64 m_reportStarted = 0;
 	uint64 m_lastSample = 0;
 	std::map<std::string, UploadReadDiagnostics::Volume> m_volumes;
-	struct WaitingRead
-	{
-		uint64 session;
-		uint64 start;
-		uint64 end;
-		uint64 since;
-	};
-	std::map<uint32, WaitingRead> m_waitingReads;
+	std::map<uint32, UploadReadDiagnostics::DispatchWait> m_waitingReads;
 	std::array<uint64, 4> m_slotSamples{};
 	uint64 m_slotSamplePasses = 0;
 	bool m_started = false;

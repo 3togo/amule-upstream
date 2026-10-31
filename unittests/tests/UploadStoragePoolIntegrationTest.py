@@ -82,8 +82,8 @@ def run(binary, fixture, stage):
         write_amule_conf(root, ec_port, Port=peer_port, UDPEnable=0, FilterLanIPs=0,
                          MaxUpload=3500, SlotAllocation=100, MMapEnabled=int(stage in ('mapped-copy', 'mapped-fault')),
                          SharedFileReverifyDays=0, IncomingDir=incoming,
-                         VerboseDebug=int(stage == 'diagnostics'), VerboseDebugLogfile=0,
-                         sections={'Debug': {'Cat_FileIO': int(stage == 'diagnostics')}})
+                         VerboseDebug=int(stage in ('diagnostics', 'packet-session')), VerboseDebugLogfile=0,
+                         sections={'Debug': {'Cat_FileIO': int(stage in ('diagnostics', 'packet-session'))}})
         notify_r, notify_w = os.pipe()
         release_r, release_w = os.pipe()
         arm = root / 'armed'
@@ -192,6 +192,7 @@ def run(binary, fixture, stage):
                     busy.until(0x55)
                     busy.request([(BLOCK, 2 * BLOCK)])
                     busy.barrier()
+                    time.sleep(1)  # delivery must include the coordinator's held packet build
                     os.write(release_w, b'R')
                     wait_read(notify_r, BLOCK)  # new session's block is now being packed
                     os.write(release_w, b'R')
@@ -208,7 +209,16 @@ def run(binary, fixture, stage):
                         packed += data[24:]
                     assert len(packed) == packed_size, 'compressed length differs'
                     assert zlib.decompress(packed) == bad_data[0][BLOCK:2 * BLOCK], 'upload data differs'
-                    print('packet-session: slot reused while packing; old packets discarded, new payload verified')
+                    deadline = time.monotonic() + 65
+                    while True:
+                        text = (root / 'logfile').read_text(errors='replace')
+                        if 'Upload slots:' in text:
+                            waits = [int(value) for value in re.findall(r'delivery_ms_max=(\d+)', text)]
+                            assert waits and max(waits) >= 900, ('packet-build delay omitted', waits)
+                            break
+                        assert proc.poll() is None and time.monotonic() < deadline, text[-5000:]
+                        time.sleep(0.1)
+                    print('packet-session: old packets discarded, new payload verified, packet-build delay recorded')
                     return
                 if stage == 'open-failure':
                     # The request owns an uncached entry, but Open() never produces a handle.

@@ -282,7 +282,11 @@ void CUploadDiskIOThread::DispatchReads()
 		const auto known = m_clientStorage.find(clientId);
 		if (known != m_clientStorage.end() && !m_pool->CanSubmit(known->second)) {
 			if (m_diagnostics) {
-				++m_volumes[known->second].busySkips;
+				const auto waiting = m_waitingReads.find(clientId);
+				// Idle/receiver-limited slots do not need a read from this volume.
+				if (waiting != m_waitingReads.end() && waiting->second.active) {
+					++m_volumes[known->second].busySkips;
+				}
 			}
 			continue;
 		}
@@ -297,9 +301,10 @@ void CUploadDiskIOThread::DispatchReads()
 		if (m_pool->Submit(storage, req)) {
 			if (m_diagnostics) {
 				const auto waiting = m_waitingReads.find(clientId);
-				if (waiting != m_waitingReads.end() && waiting->second.since != 0) {
-					m_volumes[storage].dispatch.Add(now - waiting->second.since);
-					waiting->second.since = 0;
+				if (waiting != m_waitingReads.end() && waiting->second.active) {
+					m_volumes[storage].dispatch.Add(
+						waiting->second.Elapsed(GetTickCount64()));
+					waiting->second.Reset();
 				}
 			}
 			m_pendingClients.insert(clientId);
@@ -343,14 +348,18 @@ void CUploadDiskIOThread::ObserveDiagnostics(uint64 now)
 		for (const auto &ref : theApp->uploadqueue->GetUploadingList()) {
 			auto *client = ref.GetClient();
 			auto *socket = client->GetSocket();
+			const uint32 id = client->ECID();
 			if (!socket || !client->IsConnected() || client->m_bIOError) {
+				const auto waiting = m_waitingReads.find(id);
+				if (waiting != m_waitingReads.end()) {
+					waiting->second.Reset();
+				}
 				continue;
 			}
 			wxMutexLocker blocks(client->m_blockListLock);
 			const auto target = client->GetUploadDatarate() > BIGBUFFER_MINDATARATE
 						    ? 10 * EMBLOCKSIZE + 1
 						    : EMBLOCKSIZE + 1;
-			const uint32 id = client->ECID();
 			const auto state = UploadReadDiagnostics::Classify(m_pendingClients.count(id) != 0,
 				!client->m_BlockRequests_queue.empty(),
 				socket->QueuedUploadPayload() >= target);
@@ -359,20 +368,15 @@ void CUploadDiskIOThread::ObserveDiagnostics(uint64 now)
 			}
 			if (state == UploadReadDiagnostics::SlotState::Storage) {
 				const auto *block = client->m_BlockRequests_queue.front();
-				auto it = m_waitingReads.find(id);
-				if (it == m_waitingReads.end() || it->second.since == 0 ||
-					it->second.session != client->m_uploadReadSession ||
-					it->second.start != block->StartOffset ||
-					it->second.end != block->EndOffset) {
-					m_waitingReads[id] = { client->m_uploadReadSession,
-						block->StartOffset,
-						block->EndOffset,
-						now };
-				}
+				m_waitingReads[id].Observe(client->m_uploadReadSession,
+					block->StartOffset,
+					block->EndOffset,
+					block->FileID,
+					now);
 			} else {
 				const auto it = m_waitingReads.find(id);
 				if (it != m_waitingReads.end()) {
-					it->second.since = 0;
+					it->second.Reset();
 				}
 			}
 		}
@@ -477,17 +481,7 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 			continue;
 		}
 		auto &req = completed.job;
-		if (m_diagnostics && req->diagnosticEpoch == m_diagnosticEpoch && req->readFinished != 0 &&
-			!req->closeOnly) {
-			auto &volume = m_volumes[req->storage];
-			const uint64 started = req->readStarted.load(std::memory_order_relaxed);
-			volume.read.Add(req->readFinished - started);
-			if (!completed.error && req->result == READ_OK) {
-				volume.bytes += req->uEndOffset - req->uStartOffset;
-			}
-			volume.deliveryMaximum =
-				std::max(volume.deliveryMaximum, GetTickCount64() - req->readFinished);
-		}
+
 		m_pendingClients.erase(req->clientId);
 		if (deliver && req->result == READ_DEFERRED) {
 			// File completion may briefly park a request. Worker completion wakes must
@@ -508,6 +502,19 @@ void CUploadDiskIOThread::DrainCompletions(bool deliver)
 				turn->second.continues = req->continues;
 			}
 			dataQueued = ReadCompletionRoutine(*req) || dataQueued;
+		}
+		if (m_diagnostics && req->diagnosticEpoch == m_diagnosticEpoch && req->readFinished != 0 &&
+			!req->closeOnly) {
+			auto &volume = m_volumes[req->storage];
+			const uint64 started = req->readStarted.load(std::memory_order_relaxed);
+			volume.read.Add(req->readFinished - started);
+			if (!completed.error && req->result == READ_OK) {
+				volume.bytes += req->uEndOffset - req->uStartOffset;
+			}
+			// Delivery ends when packet preparation/queueing has finished, not when
+			// the coordinator first takes the completion out of the worker pool.
+			volume.deliveryMaximum =
+				std::max(volume.deliveryMaximum, GetTickCount64() - req->readFinished);
 		}
 	}
 	// Publish every ready result before waking the sender. Never wait for an

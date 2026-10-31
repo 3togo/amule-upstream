@@ -51,7 +51,7 @@ def usage(pid):
     return cpu, switches
 
 
-def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_rates=False, fileio=False):
+def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_rates=False, fileio=None):
     with tempfile.TemporaryDirectory(prefix='amule-upload-refill-') as directory:
         root = Path(directory)
         incoming = root / 'Incoming'
@@ -64,11 +64,13 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_
         if check_display_rates:
             (incoming / 'switch.bin').write_bytes(os.urandom(65536))
         ec_port, peer_port = free_ports(2, peer_index=1)
+        # Existing callers retain their original logging defaults. Explicit on/off
+        # benchmark modes keep global logging identical and change one category.
+        logging_options = {} if fileio is None else {
+            'VerboseDebug': 1, 'sections': {'Debug': {'Cat_FileIO': int(fileio)}}}
         write_amule_conf(root, ec_port, Port=peer_port, UDPEnable=0, FilterLanIPs=0,
                          MaxUpload=rate, SlotAllocation=10, MaxConnections=200,
-                         # Keep the global logger setting identical in both benchmark arms.
-                         IncomingDir=incoming, VerboseDebug=1,
-                         sections={'Debug': {'Cat_FileIO': int(fileio)}})
+                         IncomingDir=incoming, **logging_options)
         env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8')
         stop = threading.Event()
         draining = threading.Event()
@@ -256,13 +258,17 @@ if __name__ == '__main__':
     parser.add_argument('--slots', type=int, default=3)
     parser.add_argument('--rate', type=int, default=2560, help='upload cap in KiB/s')
     parser.add_argument('--compress', action='store_true')
-    parser.add_argument('--fileio', action='store_true', help='enable FileIO diagnostics for overhead comparisons')
+    logging = parser.add_mutually_exclusive_group()
+    logging.add_argument('--fileio', dest='fileio', action='store_const', const=True, default=None,
+                         help='enable FileIO diagnostics for overhead comparisons')
+    logging.add_argument('--no-fileio', dest='fileio', action='store_const', const=False,
+                         help='disable FileIO while retaining the same global logger setting')
     parser.add_argument('--pause-ms', type=float, default=0, help='delay each packet on first peer')
     parser.add_argument('--storage-delay-fixture', help='also run controlled read-delay cases (Linux)')
     args = parser.parse_args()
-    print(json.dumps(retry_port_collisions(
-        run, str(Path(args.binary).resolve()), args.seconds, args.slots, args.rate,
-        args.compress, args.pause_ms, False, args.fileio)))
+    print(json.dumps(retry_port_collisions(lambda: run(
+        str(Path(args.binary).resolve()), args.seconds, args.slots, args.rate,
+        args.compress, args.pause_ms, fileio=args.fileio))))
     if args.storage_delay_fixture:
         from UploadStorageDelayIntegrationTest import run as run_storage_delay
         for case in ('small', 'full', 'large', 'mixed'):

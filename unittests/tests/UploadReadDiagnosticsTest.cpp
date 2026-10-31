@@ -27,16 +27,23 @@ TEST(UploadReadDiagnostics, HistogramBoundsAndReset)
 
 TEST(UploadReadDiagnostics, EverySampleHasOneState)
 {
-	for (bool pending : { false, true }) {
-		for (bool requests : { false, true }) {
-			for (bool target : { false, true }) {
-				const auto expected = pending     ? SlotState::Reading
-						      : !requests ? SlotState::Peer
-						      : target    ? SlotState::Receiver
-								  : SlotState::Storage;
-				ASSERT_TRUE(Classify(pending, requests, target) == expected);
-			}
-		}
+	struct Case
+	{
+		bool pending;
+		bool requests;
+		bool atTarget;
+		SlotState state;
+	};
+	const Case cases[] = { { false, false, false, SlotState::Peer },
+		{ false, false, true, SlotState::Peer },
+		{ false, true, false, SlotState::Storage },
+		{ false, true, true, SlotState::Receiver },
+		{ true, false, false, SlotState::Reading },
+		{ true, false, true, SlotState::Reading },
+		{ true, true, false, SlotState::Reading },
+		{ true, true, true, SlotState::Reading } };
+	for (const auto &sample : cases) {
+		ASSERT_TRUE(Classify(sample.pending, sample.requests, sample.atTarget) == sample.state);
 	}
 }
 
@@ -89,4 +96,44 @@ TEST(UploadReadDiagnostics, FailedReadsStillHaveTiming)
 	ASSERT_TRUE(caught);
 	ASSERT_EQUALS(uint64_t{ 10 }, started.load());
 	ASSERT_EQUALS(uint64_t{ 11 }, finished);
+}
+
+TEST(UploadReadDiagnostics, HistogramCoversEveryPowerOfTwoBoundary)
+{
+	for (unsigned bit = 0; bit < 64; ++bit) {
+		const uint64_t bound = uint64_t{ 1 } << bit;
+		Histogram exact;
+		exact.Add(bound);
+		ASSERT_EQUALS(bound, exact.Median());
+		if (bound > 1) {
+			Histogram lower;
+			lower.Add(bound - 1);
+			ASSERT_EQUALS(bound == 2 ? uint64_t{ 1 } : bound, lower.Median());
+		}
+		Histogram upper;
+		upper.Add(bound + 1);
+		ASSERT_EQUALS(bit == 63 ? std::numeric_limits<uint64_t>::max() : bound << 1, upper.Median());
+	}
+}
+
+TEST(UploadReadDiagnostics, DispatchWaitResetsForChangedRequestsAndInactiveSlots)
+{
+	DispatchWait wait;
+	std::array<uint8_t, 16> first{};
+	auto second = first;
+	second[0] = 1;
+	wait.Observe(1, 0, 10, first.data(), 0);
+	ASSERT_EQUALS(uint64_t{ 20 }, wait.Elapsed(20));
+	wait.Observe(1, 0, 10, first.data(), 20);
+	ASSERT_EQUALS(uint64_t{ 30 }, wait.Elapsed(30));
+	wait.Observe(1, 0, 10, second.data(), 30);
+	ASSERT_EQUALS(uint64_t{ 10 }, wait.Elapsed(40));
+	wait.Observe(2, 0, 10, second.data(), 40);
+	ASSERT_EQUALS(uint64_t{ 10 }, wait.Elapsed(50));
+	wait.Observe(2, 10, 20, second.data(), 50);
+	ASSERT_EQUALS(uint64_t{ 10 }, wait.Elapsed(60));
+	wait.Reset();
+	ASSERT_EQUALS(uint64_t{ 0 }, wait.Elapsed(70));
+	wait.Observe(2, 10, 20, second.data(), 80);
+	ASSERT_EQUALS(uint64_t{ 5 }, wait.Elapsed(85));
 }
