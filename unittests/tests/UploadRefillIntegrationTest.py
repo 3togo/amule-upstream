@@ -51,7 +51,7 @@ def usage(pid):
     return cpu, switches
 
 
-def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_rates=False):
+def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_rates=False, fileio=False):
     with tempfile.TemporaryDirectory(prefix='amule-upload-refill-') as directory:
         root = Path(directory)
         incoming = root / 'Incoming'
@@ -66,7 +66,9 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_
         ec_port, peer_port = free_ports(2, peer_index=1)
         write_amule_conf(root, ec_port, Port=peer_port, UDPEnable=0, FilterLanIPs=0,
                          MaxUpload=rate, SlotAllocation=10, MaxConnections=200,
-                         IncomingDir=incoming)
+                         # Keep the global logger setting identical in both benchmark arms.
+                         IncomingDir=incoming, VerboseDebug=1,
+                         sections={'Debug': {'Cat_FileIO': int(fileio)}})
         env = dict(os.environ, HOME=str(root), XDG_CONFIG_HOME=str(root / 'xdg'), LC_ALL='C.UTF-8')
         stop = threading.Event()
         draining = threading.Event()
@@ -217,7 +219,13 @@ def run(binary, seconds, slots, rate, compress=False, pause_ms=0, check_display_
                     observer.check_file_switch(sockets, files['switch.bin'], switched, received)
                     observer.check_idle(received)
                 mib = sum(delivered) / 1024**2
+                diagnostic_log = (root / 'logfile').read_text(errors='replace')
+                summaries = diagnostic_log.count('Upload slots:')
+                assert fileio or summaries == 0, 'FileIO output while disabled'
+                if fileio and seconds >= 65:
+                    assert summaries > 0, 'FileIO interval summary missing'
                 return dict(seconds=elapsed, slots=slots, rate_kib=rate, compress=compress, pause_ms=pause_ms,
+                            fileio=fileio, diagnostic_summaries=summaries,
                             compressed_packets=compressed_packets,
                             mib_per_second=mib / elapsed, cpu_ms_per_mib=1000 * (cpu_after - cpu) / mib,
                             context_switches_per_second=(switches_after - switches) / elapsed,
@@ -248,12 +256,13 @@ if __name__ == '__main__':
     parser.add_argument('--slots', type=int, default=3)
     parser.add_argument('--rate', type=int, default=2560, help='upload cap in KiB/s')
     parser.add_argument('--compress', action='store_true')
+    parser.add_argument('--fileio', action='store_true', help='enable FileIO diagnostics for overhead comparisons')
     parser.add_argument('--pause-ms', type=float, default=0, help='delay each packet on first peer')
     parser.add_argument('--storage-delay-fixture', help='also run controlled read-delay cases (Linux)')
     args = parser.parse_args()
     print(json.dumps(retry_port_collisions(
         run, str(Path(args.binary).resolve()), args.seconds, args.slots, args.rate,
-        args.compress, args.pause_ms)))
+        args.compress, args.pause_ms, fileio=args.fileio)))
     if args.storage_delay_fixture:
         from UploadStorageDelayIntegrationTest import run as run_storage_delay
         for case in ('small', 'full', 'large', 'mixed'):
