@@ -26,6 +26,8 @@
 #include <wx/wx.h>
 #include "Preferences.h"
 #include "FolderAccess.h"
+#include "ECClientPassword.h"
+#include "libs/ec/cpp/ECSRPConfig.h"
 #include "ServerListSources.h"
 #include <wx/file.h>
 
@@ -213,14 +215,15 @@ wxString CPreferences::s_WebTemplate;
 bool CPreferences::s_showCatTabInfos;
 AllCategoryFilter CPreferences::s_allcatFilter;
 bool CPreferences::s_AcceptExternalConnections;
-bool CPreferences::s_ECRequireEncryption;
 wxString CPreferences::s_ECAddr;
 wxString CPreferences::s_ECNetworkInterface;
 uint32 CPreferences::s_ECPort;
 uint32 CPreferences::s_ECAuthFailureWindowSeconds;
 uint32 CPreferences::s_ECAuthFailureThreshold;
 uint32 CPreferences::s_ECAuthLockoutSeconds;
-wxString CPreferences::s_ECPassword;
+wxString CPreferences::s_ECPasswordVerifier;
+wxString CPreferences::s_ECPasswordLoadError;
+wxString CPreferences::s_ECPasswordInput;
 bool CPreferences::s_TransmitOnlyUploadingClients;
 bool CPreferences::s_IPFilterClients;
 bool CPreferences::s_IPFilterServers;
@@ -473,6 +476,77 @@ public:
 	}
 #endif
 };
+
+// The UI holds a placeholder, never a copy of the daemon verifier or old digest.
+class Cfg_ECPassword : public Cfg_Str
+{
+public:
+	Cfg_ECPassword(wxString &input)
+	: Cfg_Str("/ExternalConnect/ECPasswordVerifier", input)
+	{
+	}
+	void LoadFromFile(wxConfigBase *cfg) override
+	{
+#ifndef CLIENT_GUI
+		wxString verifier, error;
+		const bool loaded = ECSRP::LoadCredential(*cfg, verifier, error);
+		CPreferences::SetECPasswordLoadError(loaded ? wxString() : error);
+		if (!loaded)
+			verifier = "invalid";
+		CPreferences::LoadECVerifier(verifier);
+		if (!error.IsEmpty())
+			AddLogLineCS(error);
+		m_value = CPreferences::ECPasswordVerifier().IsEmpty() ? "" : "********";
+#endif
+	}
+	void SaveToFile(wxConfigBase *) override {}
+#ifndef AMULE_DAEMON
+	bool TransferToWindow() override
+	{
+		if (auto *field = wxDynamicCast(m_widget, wxTextCtrl)) {
+			field->ChangeValue(ECClientPassword::Display(m_value));
+			field->DiscardEdits();
+			return true;
+		}
+		return false;
+	}
+	bool TransferFromWindow() override
+	{
+		if (const auto *field = wxDynamicCast(m_widget, wxTextCtrl)) {
+			SetChanged(
+				ECClientPassword::ReadInput(m_value, field->GetValue(), field->IsModified()));
+			return true;
+		}
+		return false;
+	}
+#endif
+};
+
+#ifndef CLIENT_GUI
+bool CPreferences::SetECPass(const wxString &digest)
+{
+	wxString error;
+	const bool ok = ECSRP::StoreCredential(*wxConfigBase::Get(), digest, s_ECPasswordVerifier, error);
+	if (ok)
+		s_ECPasswordLoadError.clear();
+	if (!error.IsEmpty())
+		AddLogLineC(error);
+	return ok;
+}
+
+bool CPreferences::SetECPasswordVerifier(const wxString &record)
+{
+	wxString error;
+	const bool ok =
+		ECSRP::StorePreparedCredential(*wxConfigBase::Get(), record, s_ECPasswordVerifier, error);
+	if (!error.IsEmpty())
+		AddLogLineC(error);
+	if (ok)
+		s_ECPasswordLoadError.clear();
+	return ok;
+}
+
+#endif
 
 /** Cfg class for CPath. */
 class Cfg_Path : public Cfg_Str
@@ -1161,10 +1235,14 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	NewCfgItem(IDC_MAXCON,
 		(MkCfg_Int("/eMule/MaxConnections", s_maxconnections, GetRecommendedMaxConnections())));
 	NewCfgItem(IDC_MAXCON5SEC, (MkCfg_Int("/eMule/MaxConnectionsPerFiveSeconds", s_MaxConperFive, 50)));
-	NewCfgItem(
-		IDC_KADMAXSEARCHES, (MkCfg_Int("/eMule/KadMaxSourceSearches", s_kadMaxSourceSearches, 30)));
-	NewCfgItem(IDC_KADREASKTIME, (MkCfg_Int("/eMule/KadSourceReaskMinutes", s_kadSourceReaskMins, 30)));
-	NewCfgItem(IDC_SOURCEREASKTIME, (MkCfg_Int("/eMule/SourceReaskMinutes", s_sourceReaskMins, 15)));
+	NewCfgItem(IDC_KADMAXSEARCHES,
+		(MkCfg_Int(
+			"/eMule/KadMaxSourceSearches", s_kadMaxSourceSearches, KAD_MAX_SOURCE_SEARCHES.def)));
+	NewCfgItem(IDC_KADREASKTIME,
+		(MkCfg_Int(
+			"/eMule/KadSourceReaskMinutes", s_kadSourceReaskMins, KAD_SOURCE_REASK_MINUTES.def)));
+	NewCfgItem(IDC_SOURCEREASKTIME,
+		(MkCfg_Int("/eMule/SourceReaskMinutes", s_sourceReaskMins, SOURCE_REASK_MINUTES.def)));
 
 	/** Proxy */
 	NewCfgItem(ID_PROXY_ENABLE_PROXY,
@@ -1280,8 +1358,6 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	NewCfgItem(IDC_EXT_CONN_ACCEPT,
 		(new Cfg_Bool(
 			"/ExternalConnect/AcceptExternalConnections", s_AcceptExternalConnections, false)));
-	NewCfgItem(IDC_EXT_CONN_REQUIRE_ENCRYPTION,
-		(new Cfg_Bool("/ExternalConnect/RequireEncryption", s_ECRequireEncryption, false)));
 	// Loopback by default, so a fresh install does not expose the external connection --
 	// which grants full control of the daemon -- to the whole network before the user has
 	// thought about it. Existing configs are untouched: aMule writes every key on save, so
@@ -1291,8 +1367,7 @@ void CPreferences::BuildItemList(const wxString &appdir)
 	NewCfgItem(IDC_EC_INTERFACE,
 		(new Cfg_Str("/ExternalConnect/ECNetworkInterface", s_ECNetworkInterface, "")));
 	NewCfgItem(IDC_EXT_CONN_TCP_PORT, (MkCfg_Int("/ExternalConnect/ECPort", s_ECPort, 4712)));
-	NewCfgItem(IDC_EXT_CONN_PASSWD,
-		(new Cfg_Str_Encrypted("/ExternalConnect/ECPassword", s_ECPassword, "")));
+	NewCfgItem(IDC_EXT_CONN_PASSWD, (new Cfg_ECPassword(s_ECPasswordInput)));
 	NewCfgItem(IDC_UPNP_EC_ENABLED,
 		(new Cfg_Bool("/ExternalConnect/UPnPECEnabled", s_UPnPECEnabled, false)));
 	// Brute-force throttle for the EC password exchange. Config-only, with no dialog field:
@@ -1747,24 +1822,10 @@ void CPreferences::LoadAllItems(wxConfigBase *cfg)
 		cfg->Write("/eMule/MaxConPerFiveDefaultBumped", true);
 	}
 
-	// Keep the source-search knobs within their supported ranges even if amule.conf was
-	// hand-edited. SourceReaskMinutes must stay >= 15 so the UDP reask (issued at getter -
-	// 20s) never drops below the ~10 min floor that gets clients auto-banned for reask spam.
-	if (s_kadMaxSourceSearches < 5) {
-		s_kadMaxSourceSearches = 5;
-	} else if (s_kadMaxSourceSearches > 50) {
-		s_kadMaxSourceSearches = 50;
-	}
-	if (s_kadSourceReaskMins < 30) {
-		s_kadSourceReaskMins = 30;
-	} else if (s_kadSourceReaskMins > 60) {
-		s_kadSourceReaskMins = 60;
-	}
-	if (s_sourceReaskMins < 15) {
-		s_sourceReaskMins = 15;
-	} else if (s_sourceReaskMins > 60) {
-		s_sourceReaskMins = 60;
-	}
+	// amule.conf may have been edited by hand.
+	s_kadMaxSourceSearches = static_cast<uint16>(KAD_MAX_SOURCE_SEARCHES.Clamp(s_kadMaxSourceSearches));
+	s_kadSourceReaskMins = KAD_SOURCE_REASK_MINUTES.Clamp(s_kadSourceReaskMins);
+	s_sourceReaskMins = SOURCE_REASK_MINUTES.Clamp(s_sourceReaskMins);
 #endif
 
 	// Compile the shared-file exclusion filter from the values just loaded.
@@ -2773,6 +2834,7 @@ bool CPreferences::HasExcludedFolderBelow(const CPath &root, const CPath &path)
 	return ShareExclude::HasExcludedFolderBelow(s_ShareExcludeFilter, root, path);
 }
 
+// Keep FilterSelectionSummary::Describe() in sync with changes to these filtering rules.
 bool CPreferences::IsMessageFiltered(const wxString &message)
 {
 	if (s_FilterAllMessages) {

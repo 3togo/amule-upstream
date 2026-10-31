@@ -103,6 +103,8 @@ bool BackupConfig(const wxString &path)
 bool SaveText(const wxString &path, const wxString &contents)
 {
 	const auto bytes = contents.utf8_str();
+	if (!bytes && !contents.empty())
+		return false;
 	return AtomicProfileWrite(path, [&](wxFile &file) {
 		return bytes.length() == 0 || file.Write(bytes.data(), bytes.length()) == bytes.length();
 	});
