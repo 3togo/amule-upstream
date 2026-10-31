@@ -534,11 +534,10 @@ void CIPFilter::DownloadFinished(uint32 result)
 		wxString newDat = thePrefs::GetConfigDir() + "ipfilter.download";
 		wxString oldDat = thePrefs::GetConfigDir() + datName;
 
-		if (wxFileExists(oldDat) && !wxRemoveFile(oldDat)) {
-			AddLogLineC(CFormat(_("Failed to remove %s file, aborting update.")) % datName);
-			result = HTTP_Error;
-		} else if (!wxRenameFile(newDat, oldDat)) {
-			AddLogLineC(CFormat(_("Failed to rename new %s file, aborting update.")) % datName);
+		wxString detail;
+		if (!CPath::ReplaceEntry(CPath(newDat), CPath(oldDat), &detail)) {
+			AddLogLineC(CFormat(_("Failed to replace %s file, aborting update: %s")) % datName %
+				    detail);
 			result = HTTP_Error;
 		} else {
 			AddLogLineN(CFormat(_("Successfully updated %s")) % datName);

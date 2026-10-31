@@ -403,6 +403,10 @@ msgid ""
 msgstr ""
 
 #: src/amule.cpp
+msgid "Could not save AcceptExternalConnections to amule.conf."
+msgstr ""
+
+#: src/amule.cpp
 msgid "Password set and external connections enabled."
 msgstr ""
 
@@ -716,6 +720,11 @@ msgstr ""
 #: src/amule.cpp
 #, c-format
 msgid "ServerMessage: %s"
+msgstr ""
+
+#: src/amule.cpp
+#, c-format
+msgid "Failed to replace nodes.dat: %s"
 msgstr ""
 
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
@@ -3493,12 +3502,7 @@ msgstr[1] ""
 
 #: src/IPFilter.cpp
 #, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr ""
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
+msgid "Failed to replace %s file, aborting update: %s"
 msgstr ""
 
 #: src/IPFilter.cpp
@@ -10201,7 +10205,7 @@ msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp

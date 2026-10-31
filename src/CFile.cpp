@@ -348,7 +348,13 @@ bool CFile::Close()
 		m_filePath = m_filePath.RemoveExt(); // restore m_filePath for Reopen()
 		// A short write must not replace the original file.
 		if (closed && !drainError) {
-			closed = CPath::RenameFile(filePathTemp, m_filePath, true);
+			wxString detail;
+			closed = CPath::ReplaceEntry(filePathTemp, m_filePath, &detail);
+			if (!closed) {
+				AddDebugLogLineC(logCFile,
+					CFormat("Error replacing %s: %s") % m_filePath.GetPrintable() %
+						detail);
+			}
 		}
 	}
 

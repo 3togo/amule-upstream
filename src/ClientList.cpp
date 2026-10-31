@@ -785,7 +785,7 @@ void CClientList::Process()
 	if (buddy == Disconnected) {
 		if (m_nBuddyStatus != Disconnected || m_pBuddy.IsLinked()) {
 			const bool udpFirewalled = Kademlia::CUDPFirewallTester::IsFirewalledUDP(true);
-			if (Kademlia::CKademlia::IsRunning() &&
+			if (m_nBuddyStatus == Connected && Kademlia::CKademlia::IsRunning() &&
 				Kademlia::NeedsBuddy(theApp->IsFirewalled(),
 					udpFirewalled,
 					Kademlia::CUDPFirewallTester::IsVerified())) {
@@ -1124,6 +1124,16 @@ bool CClientList::RequestTCP(Kademlia::CContact *contact, uint8_t connectOptions
 	AddToKadList(pNewClient); // This was a direct adding, but I like to check duplicates
 	AddClient(pNewClient);
 	return true;
+}
+
+bool CClientList::CanRequestBuddy(uint32_t ip) const
+{
+	return m_buddyRetry.CanRequest(ip, ::GetTickCount64());
+}
+
+void CClientList::RecordBuddyFailure(uint32_t ip)
+{
+	m_buddyRetry.RecordFailure(ip, ::GetTickCount64());
 }
 
 void CClientList::RequestBuddy(Kademlia::CContact *contact, uint8_t connectOptions)

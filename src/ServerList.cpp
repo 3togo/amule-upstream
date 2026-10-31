@@ -780,14 +780,15 @@ bool CServerList::SaveServerMet()
 			servermet.WriteUInt32(tagcount);
 			servermet.Write(tags.GetRawBuffer(), static_cast<size_t>(tags.GetLength()));
 		}
-		// Now server.met.new is ready to be closed and renamed to server.met.
-		// But first rename existing server.met to server.met.bak (replacing old .bak file).
-		const CPath oldservermet = CPath(thePrefs::GetConfigDir() + "server.met.bak");
-		if (curservermet.FileExists()) {
-			CPath::RenameFile(curservermet, oldservermet, true);
+		// Keep the live entry until the staged writer has drained and committed.
+		// Moving it to .bak first would leave no server.met after a failed Close().
+		if (curservermet.FileExists() && !CPath::BackupFile(curservermet, ".bak")) {
+			throw CIOFailureException("Cannot back up 'server.met'");
 		}
 
-		servermet.Close();
+		if (!servermet.Close()) {
+			throw CIOFailureException("Cannot commit 'server.met'");
+		}
 
 	} catch (const CIOFailureException &e) {
 		AddLogLineC(CFormat(_("IO failure while writing 'server.met': %s")) % e.what());
