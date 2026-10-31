@@ -768,6 +768,11 @@ msgstr "Jurnalul a fost resetat"
 msgid "ServerMessage: %s"
 msgstr "Mesaj server: %s"
 
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "A eșuat deschiderea %s (%s)"
+
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
 msgid "Skipped download of %s, because requested file is not newer."
@@ -3640,14 +3645,9 @@ msgstr[1] "%u linii incorecte au fost descărcate."
 msgstr[2] "%u de linii incorecte au fost descărcate."
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "A eșuat eliminarea fișierului %s , se abandonează actualizarea."
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr "A eșuat redenumirea fișierului nou %s , se abandonează actualizarea."
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "A eșuat redenumirea fișierului %s file, se abandonează actualizarea."
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -10572,7 +10572,7 @@ msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
@@ -10623,6 +10623,14 @@ msgstr ""
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
 msgstr ""
+
+#, c-format
+#~ msgid "Failed to remove %s file, aborting update."
+#~ msgstr "A eșuat eliminarea fișierului %s , se abandonează actualizarea."
+
+#, c-format
+#~ msgid "Failed to rename new %s file, aborting update."
+#~ msgstr "A eșuat redenumirea fișierului nou %s , se abandonează actualizarea."
 
 #, fuzzy
 #~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
@@ -10719,10 +10727,6 @@ msgstr ""
 
 #~ msgid "Upload graph scale:"
 #~ msgstr "Scală grafic încărcare:"
-
-#, c-format
-#~ msgid "Failed to rename %s file, aborting update."
-#~ msgstr "A eșuat redenumirea fișierului %s file, se abandonează actualizarea."
 
 #~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
 #~ msgstr "Redescarcă baza de date GeoIP din sursa selectată de fiecare dată când pornește aMule."
