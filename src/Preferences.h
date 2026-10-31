@@ -37,6 +37,7 @@ class CRegex;
 #include "Proxy.h"
 #include "ShareExclude.h"
 #include "OtherStructs.h"
+#include "SourceSearchLimits.h"
 
 #include <common/ClientVersion.h> // Needed for __GIT__
 
@@ -341,15 +342,24 @@ public:
 	// Concurrent files that may search Kad for sources at once (was the
 	// KADEMLIATOTALFILE constant). Compared against a uint8 source-count.
 	static uint16 GetKadMaxSourceSearches() { return s_kadMaxSourceSearches; }
-	static void SetKadMaxSourceSearches(uint16 val) { s_kadMaxSourceSearches = val; }
+	static void SetKadMaxSourceSearches(uint64 val)
+	{
+		s_kadMaxSourceSearches = static_cast<uint16>(KAD_MAX_SOURCE_SEARCHES.Clamp(val));
+	}
 	// Per-file Kad re-search interval (was KADEMLIAREASKTIME). Stored in
 	// minutes; returned/accepted in milliseconds to match the tick arithmetic.
 	static uint64 GetKadSourceReaskTime() { return s_kadSourceReaskMins * 60000; }
-	static void SetKadSourceReaskTime(uint64 val) { s_kadSourceReaskMins = val / 60000; }
+	static void SetKadSourceReaskTime(uint64 val)
+	{
+		s_kadSourceReaskMins = KAD_SOURCE_REASK_MINUTES.Clamp(val / 60000);
+	}
 	// Interval before re-asking a known source (was FILEREASKTIME). Same
 	// minutes-stored / milliseconds-exposed convention.
 	static uint64 GetSourceReaskTime() { return s_sourceReaskMins * 60000; }
-	static void SetSourceReaskTime(uint64 val) { s_sourceReaskMins = val / 60000; }
+	static void SetSourceReaskTime(uint64 val)
+	{
+		s_sourceReaskMins = SOURCE_REASK_MINUTES.Clamp(val / 60000);
+	}
 
 	static const wxString &GetLanguageID() { return s_languageID; }
 	static void SetLanguageID(const wxString &new_id) { s_languageID = new_id; }
@@ -588,16 +598,6 @@ public:
 	// External Connections
 	static bool AcceptExternalConnections() { return s_AcceptExternalConnections; }
 
-	/**
-	 * Refuse any EC session that did not negotiate transport encryption.
-	 *
-	 * Off by default, because turning it on locks out every client built before encryption
-	 * existed. Deliberately a flat policy rather than one keyed on the peer's address: only the
-	 * client knows what it dialed, and this side's peer-IP view misclassifies tunnels. Candidate
-	 * for defaulting on once encryption-capable clients are the norm.
-	 */
-	static bool ECRequireEncryption() { return s_ECRequireEncryption; }
-	static void SetECRequireEncryption(bool val) { s_ECRequireEncryption = val; }
 	static void EnableExternalConnections(bool val) { s_AcceptExternalConnections = val; }
 	static const wxString &GetECAddress() { return s_ECAddr; }
 	static const wxString &GetECNetworkInterface() { return s_ECNetworkInterface; }
@@ -609,8 +609,25 @@ public:
 	static uint32 ECAuthFailureThreshold() { return s_ECAuthFailureThreshold; }
 	static uint32 ECAuthLockoutSeconds() { return s_ECAuthLockoutSeconds; }
 	static void SetECPort(uint32 val) { s_ECPort = val; }
-	static const wxString &ECPassword() { return s_ECPassword; }
-	static void SetECPass(const wxString &pass) { s_ECPassword = pass; }
+	static const wxString &ECPasswordVerifier() { return s_ECPasswordVerifier; }
+#ifndef CLIENT_GUI
+	static bool SetECPass(const wxString &pass);
+	static bool SetECPasswordVerifier(const wxString &record);
+	static const wxString &ECPasswordLoadError() { return s_ECPasswordLoadError; }
+#endif
+	static const wxString &PendingECPass() { return s_ECPasswordInput; }
+	static void ClearPendingECPass()
+	{
+		s_ECPasswordInput = s_ECPasswordVerifier.IsEmpty() ? "" : "********";
+	}
+	static void SetECPasswordLoadError(const wxString &error) { s_ECPasswordLoadError = error; }
+	static void LoadECVerifier(const wxString &verifier)
+	{
+		const bool placeholder = s_ECPasswordInput.IsEmpty() || s_ECPasswordInput == "********";
+		s_ECPasswordVerifier = verifier;
+		if (placeholder)
+			ClearPendingECPass();
+	}
 	static bool IsTransmitOnlyUploadingClients() { return s_TransmitOnlyUploadingClients; }
 
 	// Fast ED2K Links Handler Toggling
@@ -1154,14 +1171,15 @@ protected:
 
 	// Kry - external connections
 	static bool s_AcceptExternalConnections;
-	static bool s_ECRequireEncryption;
 	static wxString s_ECAddr;
 	static wxString s_ECNetworkInterface;
 	static uint32 s_ECPort;
 	static uint32 s_ECAuthFailureWindowSeconds;
 	static uint32 s_ECAuthFailureThreshold;
 	static uint32 s_ECAuthLockoutSeconds;
-	static wxString s_ECPassword;
+	static wxString s_ECPasswordVerifier;
+	static wxString s_ECPasswordLoadError;
+	static wxString s_ECPasswordInput;
 	static bool s_TransmitOnlyUploadingClients;
 
 	// Kry - IPFilter

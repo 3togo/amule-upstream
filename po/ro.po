@@ -511,19 +511,27 @@ msgid "Not starting %s: it is neither next to aMule nor on PATH."
 msgstr ""
 
 #: src/amule.cpp
+msgid "An exception occurred while launching amuleweb."
+msgstr ""
+
+#: src/amule.cpp
 #, c-format
 msgid "web server running on pid %d"
 msgstr "serverul web rulează pe pid %d"
 
 #: src/amule.cpp
-#, fuzzy
-msgid "You requested to run web server on startup, but the amuleweb binary cannot be run. Please install the package containing aMule web server, or build aMule from source with -DBUILD_WEBSERVER=YES and install it."
-msgstr "Ați solicitat să ruleze la pornire serverul web, dar fișierul binar amuleweb nu poate fi rulat. Instalați pachetul care conține serverul web aMule, sau compilați aMule utilizând --enable-webserver și apoi rulați make install"
+msgid "Could not prepare the amuleweb authentication token. The web server was not started."
+msgstr ""
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
 #: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "EROARE"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "You requested to run web server on startup, but the amuleweb binary cannot be run. Please install the package containing aMule web server, or build aMule from source with -DBUILD_WEBSERVER=YES and install it."
+msgstr "Ați solicitat să ruleze la pornire serverul web, dar fișierul binar amuleweb nu poate fi rulat. Instalați pachetul care conține serverul web aMule, sau compilați aMule utilizând --enable-webserver și apoi rulați make install"
 
 #: src/amule.cpp
 #, c-format
@@ -547,6 +555,16 @@ msgstr ""
 #, fuzzy
 msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot be run. Please install the package containing aMule's REST API server, or build aMule from source with -DBUILD_AMULEAPI=YES and install it."
 msgstr "Ați solicitat să ruleze la pornire serverul web, dar fișierul binar amuleweb nu poate fi rulat. Instalați pachetul care conține serverul web aMule, sau compilați aMule utilizând --enable-webserver și apoi rulați make install"
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Could not prepare the amuleweb EC token."
+msgstr "Nu s-a putut elimina înregistrarea tipului de fișier."
+
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Could not remove the amuleweb EC token file: %s"
+msgstr "Nu s-a putut elimina înregistrarea tipului de fișier."
 
 #: src/amule.cpp
 #, fuzzy, c-format
@@ -862,9 +880,12 @@ msgid "ERROR: aMule daemon cannot be used when external connections are disabled
 msgstr "EROARE: Demonul aMule nu poate fi utilizat când conexiunile externe sunt dezactivate. Pentru a se activa Conexiuni Externe, utilizați fie un aMule normal, se pornește amuled cu opțiunea --ec-config sau configurați cheia \"AcceptExternalConnections\" la 1 în fișierul ~/.aMule/amule.conf"
 
 #: src/amuled.cpp
-#, fuzzy
-msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
-msgstr "EROARE: Este necesară o parolă validă pentru utilizarea conexiunilor externe, iar demonul aMule nu se poate utiliza fără conexiuni externe. Pentru a rula demonul aMule, trebuie să configurați câmpul \"ECPassword\" în fișierul ~/.aMule/amule.conf cu o valoare corespunzătoare. Executați amuled cu marcajul --ec-config pentru configurarea parolei. Mai multe informații pot fi găsite la https://amule-org.github.io/docs"
+msgid "ERROR: An EC password is required. Run amuled --ec-config to set it."
+msgstr ""
+
+#: src/amuled.cpp
+msgid "ERROR: Invalid ECPasswordVerifier in amule.conf. Run amuled --ec-config to set a new EC password."
+msgstr ""
 
 #: src/amuled.cpp
 msgid "amuled: OnInit - starting timer"
@@ -1277,6 +1298,10 @@ msgstr ""
 msgid "All"
 msgstr "Toate"
 
+#: src/amule-remote-gui.cpp
+msgid "The EC password changed on the daemon, but the saved client password could not be updated."
+msgstr ""
+
 #: src/amule-remote-gui.cpp src/muuli_wdr.cpp
 msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
 msgstr ""
@@ -1286,8 +1311,13 @@ msgstr ""
 msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
 msgstr ""
 
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp
+#, fuzzy
+msgid "The EC password was not changed."
+msgstr "- Portul TCP s-a schimbat.\n"
+
 #: src/amule-remote-gui.cpp
-msgid "The daemon could not apply the connection port changes."
+msgid "The daemon could not apply the preference changes."
 msgstr ""
 
 #: src/amule-remote-gui.cpp
@@ -1862,6 +1892,14 @@ msgstr "Utilizatorul %s (%u) interzice accesul la lista directoarelor/fișierelo
 msgid "File Comments"
 msgstr "Comentarii fișier"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Adaugă comentariu/evaluare"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Editare comentariu/evaluare"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Utilizator"
@@ -2410,6 +2448,16 @@ msgid "External connections disabled due to empty password!"
 msgstr "Conexiunile externe sunt dezactivate datorită lipsei parolei!"
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "External connections disabled due to invalid ECPasswordVerifier!"
+msgstr "Conexiunile externe sunt dezactivate datorită lipsei parolei!"
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "External connections disabled: could not prepare the EC token verifier."
+msgstr "Conexiunile externe sunt dezactivate în fișierul de configurare"
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote clients cannot change folders: no folder is listed in %s"
 msgstr ""
@@ -2431,6 +2479,11 @@ msgid "External connection refused due to empty password in preferences!"
 msgstr "Conexiunea externă este refuzată datorită lipsei parolei în preferințe!"
 
 #: src/ExternalConn.cpp
+#, fuzzy, c-format
+msgid "Too many failed connection attempts; try again in %d seconds."
+msgstr "Se va reîncerca conectarea automată la server în %d secundă"
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Connecting client: %s %s"
 msgstr "Se conectează clientul: %s %s"
@@ -2438,6 +2491,10 @@ msgstr "Se conectează clientul: %s %s"
 #: src/ExternalConn.cpp
 msgid "Unknown version"
 msgstr "Versiune necunoscută"
+
+#: src/ExternalConn.cpp
+msgid "An EC client of version 3.3.0 or later is required."
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Incorrect EC version ID, there might be binary incompatibility. Use core and remote from same snapshot."
@@ -2448,33 +2505,16 @@ msgid "You cannot connect to a release version from an arbitrary development sna
 msgstr "Nu vă puteți conecta la o versiune lansată dintr-o versiune în dezvoltare arbitrară! *uf* se pot preveni disfuncțiile"
 
 #: src/ExternalConn.cpp
+msgid "Invalid SRP handshake or EC verifier."
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "Invalid protocol version."
 msgstr "Versiune protocol nevalidă."
 
 #: src/ExternalConn.cpp
 msgid "Missing protocol version tag."
 msgstr "Lipsește eticheta versiunii protocolului."
-
-#: src/ExternalConn.cpp
-#, fuzzy, c-format
-msgid "Too many failed connection attempts; try again in %d seconds."
-msgstr "Se va reîncerca conectarea automată la server în %d secundă"
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: invalid hash specified as EC password."
-msgstr "Autentificare eșuată: indexul specificat este nevalid ca parolă EC."
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: the client offered an encrypted External Connection but sent no usable key."
-msgstr ""
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: this aMule requires an encrypted External Connection, and the client did not negotiate one."
-msgstr "Autentificare eșuată: acest aMule necesită o conexiune externă criptată, iar clientul nu a negociat una."
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: the client could not confirm the encrypted session."
-msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Authentication failed: wrong password."
@@ -2642,8 +2682,35 @@ msgid "Client could not be swapped to that file."
 msgstr ""
 
 #: src/ExternalConn.cpp
+msgid "Duplicate remote-control preference groups are not allowed."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "Only password-authenticated sessions may change the EC password."
+msgstr ""
+
+#: src/ExternalConn.cpp src/PrefsUnifiedDlg.cpp
+msgid "Could not update EC password verifier."
+msgstr ""
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Could not apply preferences."
+msgstr "Kad este dezactivat din preferințe."
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Could not save the amuleapi password: %s"
+msgstr ""
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Could not update EC password verifier. The other preferences were saved."
+msgstr "Parola a fost setată și conexiunile externe sunt activate."
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "EC password changed by %s"
 msgstr ""
 
 #: src/ExternalConn.cpp
@@ -2947,10 +3014,6 @@ msgid "Print program version."
 msgstr "Tipărește versiunea programului."
 
 #: src/ExternalConnector.cpp
-msgid "Do not encrypt the External Connect session. Encryption is on by default whenever the remote aMule supports it; turning it off leaves everything after the login readable and modifiable by anyone on the path."
-msgstr "Nu criptați sesiunea External Connect. Criptarea este activată în mod implicit oricând aMule-ul de la distanță o suportă; dezactivarea acesteia lasă totul după autentificare accesibil și modificabil de oricine de pe traseu."
-
-#: src/ExternalConnector.cpp
 msgid "Force ZLIB compression regardless of dialed-IP locality (useful when the server is reachable over a VPN tunnel that resolves to a LAN IP)."
 msgstr ""
 
@@ -2960,6 +3023,10 @@ msgstr ""
 
 #: src/ExternalConnector.cpp
 msgid "Do not write a log file; print to the console only."
+msgstr ""
+
+#: src/ExternalConnector.cpp
+msgid "The daemon verifier cannot supply a client password. Use -P or the password prompt.\n"
 msgstr ""
 
 #: src/FileDetailDialog.cpp
@@ -3055,6 +3122,68 @@ msgstr ""
 #, fuzzy, c-format
 msgid "ERROR: Failed to show '%s' in the file manager."
 msgstr "EROARE: A eșuat deschiderea fișierului parțial '%s'"
+
+#: src/FilterSelectionSummary.h
+msgid "The message filter is off; its selected rules are saved."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "All incoming messages outside current chats will be discarded."
+msgstr "Filtrare mesaje de intrare (cu excepția chat-ului curent):"
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Messages from people not on your friend list will be discarded."
+msgstr "Filtrare mesaje de la persoane care nu sunt în lista de prieteni"
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Messages from unknown clients will be discarded."
+msgstr "Filtrare mesaje de la clienți necunoscuți"
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "Messages containing any of these terms will be discarded (ignoring case): %s."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No messages will be discarded by the message filter: the word list is empty."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No messages will be discarded by the message filter: select at least one option."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Current chats are exempt from these rules."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Advanced spam filtering for non-friends is also enabled."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "First messages from non-friends require a CAPTCHA."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Received message text will also be written to the log."
+msgstr "Arată în jurnal mesajele primite"
+
+#: src/FilterSelectionSummary.h
+msgid "File comment filtering is off."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No file comments will be hidden: the word list is empty."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "File comments containing any of these literal terms will be hidden (ignoring case): %s."
+msgstr ""
 
 #: src/FirstRunWizard.cpp
 msgid "Mobile / 4G-5G (20 / 5 Mbit)"
@@ -3240,10 +3369,6 @@ msgstr "Dosar destinație pentru descărcări"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Navigare"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Toate fișierele din acest dosar sunt partajate cu alți parteneri)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -4055,6 +4180,11 @@ msgid "Invalid password, not a MD5 hash!"
 msgstr "Parolă nevalidă, nu este un index MD5!"
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
+#, fuzzy
+msgid "Could not generate SRP credentials."
+msgstr "Dosar pentru fișiere descărcate temporar"
+
+#: src/libs/ec/cpp/RemoteConnect.cpp
 #, c-format
 msgid "Could not resolve %s to an IPv4 address."
 msgstr ""
@@ -4073,16 +4203,13 @@ msgid "EC connection failed. Empty reply."
 msgstr "Conexiune EC eșuată. Răspuns gol."
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "Could not set up connection encryption. Connection closed."
-msgstr ""
-
-#: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "The core did not negotiate an encrypted connection. It may be an older aMule without encryption support, or the connection may have been tampered with. To connect without encryption, turn it off in the connection settings."
-msgstr ""
-
-#: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "External Connection: Bad reply, handshake failed. Connection closed."
+#, fuzzy
+msgid "Invalid SRP handshake or unsupported profile. Connection closed."
 msgstr "Conexiune externă: Răspuns greșit, a eșuat strângerea de mână. Conexiune închisă."
+
+#: src/libs/ec/cpp/RemoteConnect.cpp
+msgid "An EC daemon of version 3.3.0 or later is required."
+msgstr ""
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
 #, fuzzy
@@ -5768,10 +5895,6 @@ msgid "Password"
 msgstr "Parolă"
 
 #: src/muuli_wdr.cpp
-msgid "Require encrypted connections (rejects clients that cannot encrypt)"
-msgstr ""
-
-#: src/muuli_wdr.cpp
 msgid "Folders remote clients may use"
 msgstr ""
 
@@ -6215,8 +6338,16 @@ msgid "Check for a newer GeoIP database at startup and every week while aMule is
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Filter incoming messages (except current chat):"
+#, fuzzy
+msgid "Enable incoming message filtering (except current chat):"
 msgstr "Filtrare mesaje de intrare (cu excepția chat-ului curent):"
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Enable the filter options below. Select at least one option to filter messages.\n"
+"Turning this off keeps your selected options and word list.\n"
+"Filtered messages are discarded without opening a chat or replying to the sender."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Filter all messages"
@@ -6235,8 +6366,11 @@ msgid "Filter messages containing (use ',' as separator):"
 msgstr "Filtrare mesaje conținând )utilizați ',' ca separator):"
 
 #: src/muuli_wdr.cpp
-msgid "add here the words amule should filter and block messages including it"
-msgstr "adăugați aici cuvintele pe care amule trebuie să le filtreze și să blocheze mesajele care le includ"
+msgid ""
+"Discard chat messages containing any comma-separated term. Matching ignores case and spaces around each term.\n"
+"Terms match anywhere in a message: dog matches hotdog and black dog spotted.\n"
+"Wildcards are not supported. A * is literal, except that a word list of exactly * blocks every message."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Enable advanced spam filter"
@@ -6259,12 +6393,26 @@ msgid "Show received messages in the log"
 msgstr "Arată în jurnal mesajele primite"
 
 #: src/muuli_wdr.cpp
-msgid "Comments"
-msgstr "Comentarii"
+#, fuzzy
+msgid "File comments"
+msgstr "Comentarii fișier"
 
 #: src/muuli_wdr.cpp
-msgid "Filter comments containing (use ',' as separator):"
+#, fuzzy
+msgid "Filter file comments containing (use ',' as separator):"
 msgstr "Filtrare comentarii conținând (utilizați ',' ca separator):"
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Hide file comments from other users containing any comma-separated term. This does not filter chat messages.\n"
+"Matching ignores case and spaces around each term. Terms match anywhere in a comment: dog matches hotdog and black dog spotted.\n"
+"Wildcards are not supported; * is matched literally."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "With these settings"
+msgstr "Amintește aceste configurări"
 
 #: src/muuli_wdr.cpp
 msgid "Enable Proxy"
@@ -6321,11 +6469,6 @@ msgstr "Autentificare la amule distant"
 #: src/muuli_wdr.cpp
 msgid "Remember those settings"
 msgstr "Amintește aceste configurări"
-
-#: src/muuli_wdr.cpp
-#, fuzzy
-msgid "Encrypt the connection (recommended)"
-msgstr "Conexiune externă închisă."
 
 #: src/muuli_wdr.cpp
 msgid "Force ZLIB compression"
@@ -6497,6 +6640,10 @@ msgstr ""
 #, c-format
 msgid "%s:"
 msgstr ""
+
+#: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Toate fișierele din acest dosar sunt partajate cu alți parteneri)"
 
 #: src/OtherFunctions.cpp
 msgid "all"
@@ -8432,14 +8579,6 @@ msgid "Shared Files"
 msgstr "Fișiere partajate"
 
 #: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Adaugă comentariu/evaluare"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Editare comentariu/evaluare"
-
-#: src/SharedFilesCtrl.cpp
 msgid "Rename"
 msgstr "Rdenumire"
 
@@ -8653,6 +8792,16 @@ msgid "Crypt overhead (UDP): %s"
 msgstr "Adițional criptate (UDP): %s"
 
 #: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "LowID to LowID Data (Session): %s"
+msgstr "Date descărcate (sesiune(total)): %s"
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "IPv6 Data (Session): %s"
+msgstr "Date încărcate (sesiune (total)): %s"
+
+#: src/Statistics.cpp
 #, c-format
 msgid "Active Uploads: %s"
 msgstr "Încărcări active: %s"
@@ -8751,6 +8900,30 @@ msgstr "Medie conexiuni (estimativ): %g"
 #, c-format
 msgid "Peak Connections (estimate): %i"
 msgstr "Vârf conexiuni (estimare): %i"
+
+#: src/Statistics.cpp
+msgid "NAT Traversal (Session)"
+msgstr ""
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "Server Hole Punches: %s"
+msgstr "Adițional server (pachete): %s"
+
+#: src/Statistics.cpp
+#, c-format
+msgid "Successful Server Hole Punches: %s"
+msgstr ""
+
+#: src/Statistics.cpp
+#, c-format
+msgid "Lugdunum Callbacks: %s"
+msgstr ""
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "Successful Lugdunum Callbacks: %s"
+msgstr "Actualizat cu succes %s"
 
 #: src/Statistics.cpp
 #, c-format
@@ -10405,6 +10578,70 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not remove legacy ECPassword; cleanup will be retried on restart."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not persist ECPasswordVerifier; using the legacy ECPassword in memory for this run. Migration will be retried on restart."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+#, fuzzy
+msgid "Could not generate ECPasswordVerifier; external connections are disabled."
+msgstr "Parola a fost setată și conexiunile externe sunt activate."
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not generate ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not persist ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not store ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "ECPassword contains an invalid or empty-password digest. Run amuled --ec-config to set a new EC password."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Invalid or unsupported ECPasswordVerifier; refusing external connections."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not compare legacy ECPassword with ECPasswordVerifier; refusing external connections."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
+msgstr ""
+
+#, fuzzy
+#~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
+#~ msgstr "EROARE: Este necesară o parolă validă pentru utilizarea conexiunilor externe, iar demonul aMule nu se poate utiliza fără conexiuni externe. Pentru a rula demonul aMule, trebuie să configurați câmpul \"ECPassword\" în fișierul ~/.aMule/amule.conf cu o valoare corespunzătoare. Executați amuled cu marcajul --ec-config pentru configurarea parolei. Mai multe informații pot fi găsite la https://amule-org.github.io/docs"
+
+#~ msgid "Authentication failed: invalid hash specified as EC password."
+#~ msgstr "Autentificare eșuată: indexul specificat este nevalid ca parolă EC."
+
+#~ msgid "Authentication failed: this aMule requires an encrypted External Connection, and the client did not negotiate one."
+#~ msgstr "Autentificare eșuată: acest aMule necesită o conexiune externă criptată, iar clientul nu a negociat una."
+
+#~ msgid "Do not encrypt the External Connect session. Encryption is on by default whenever the remote aMule supports it; turning it off leaves everything after the login readable and modifiable by anyone on the path."
+#~ msgstr "Nu criptați sesiunea External Connect. Criptarea este activată în mod implicit oricând aMule-ul de la distanță o suportă; dezactivarea acesteia lasă totul după autentificare accesibil și modificabil de oricine de pe traseu."
+
+#, fuzzy
+#~ msgid "Encrypt the connection (recommended)"
+#~ msgstr "Conexiune externă închisă."
+
+#~ msgid "add here the words amule should filter and block messages including it"
+#~ msgstr "adăugați aici cuvintele pe care amule trebuie să le filtreze și să blocheze mesajele care le includ"
+
+#~ msgid "Comments"
+#~ msgstr "Comentarii"
 
 #~ msgid "ERROR: "
 #~ msgstr "EROARE:"

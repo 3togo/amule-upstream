@@ -921,7 +921,7 @@ Same envelope as the list item, plus the detail-only fields below (all omitted f
 | `lost_to_corruption_bytes` | int | Bytes discarded to corruption. |
 | `gained_by_compression_bytes` | int | Bytes saved by on-the-wire compression. |
 | `ich_recovered_packet_count` | int | Packets recovered by **I.C.H.** (Intelligent Corruption Handling), the recovery pass aMule's own UI names. Packets, not bytes -- unlike its two byte-valued neighbours above. |
-| `aich_hash` | string\|null | AICH master hash (hex), or `null` until the hashset exists. |
+| `aich_hash` | string\|null | AICH master hash (base32), or `null` until the hashset exists. |
 | `part_file_name` | string | The partfile's `.part` control-file basename (e.g. `001.part`). **Omitted entirely** once the download has completed (status `completed`, before `clear_completed`): a completed file structurally has no partfile, so the key is absent rather than `null`. Branch on key existence, or read `status`. |
 | `directory` | string | Directory the file lives in on disk — the Temp directory while downloading, the destination directory once completed. |
 | `upload_queue_count` | int | Clients waiting on this file's upload queue. |
@@ -1319,7 +1319,7 @@ The last five are on this row and on the `client_added` / `client_updated` SSE p
 
 `upload_file_hash` / `download_file_hash` are the 32-char MD4 hex hashes of the partfile or shared file the client is currently transferring with — directly resolvable against [`/api/v1/downloads/{hash}`](#get-apiv1downloadshash) (in-progress) or the corresponding entry in [`/api/v1/shared`](#get-apiv1shared) by `.hash`. Either field is `null` when the client is queued / idle in that direction. `download_file_name` is the filename the client advertised in `OP_REQFILENAMEANSWER` and is populated only while we're actively downloading from them. `upload_file_name` is the partfile the client is downloading **from us**, resolved locally against our own partfile list — present only while we're uploading to them.
 
-`software` and `software_version` are locale-independent, per the API's English-only contract. `software` is one of the tokens in the enumerated-fields table below; `software_version` is a free-form string. A client the daemon could not identify reports `"software": "unknown"` and `"software_version": null` — never a daemon-localized string, since the daemon's own version formatting is gettext-translated and is deliberately not surfaced here. The two differ because `software` is an enum with an `unknown` member to name that case, while `software_version` is free text with no such member, so an unrecorded version is `null` like every other unknown value. `reported_os` is the client's *own* self-reported OS string (raw external data, not normalized by amuled) and is frequently `null`, since most clients don't send it.
+`software` and `software_version` are locale-independent, per the API's English-only contract. `software` is one of the tokens in the enumerated-fields table below; `software_version` is the bare version string (for example, `v0.70b`); the peer's self-declared mod identity is returned separately in `client_mod_name` (for example, `AI v1.6`). The mod name is descriptive and does not establish protocol capabilities. A client the daemon could not identify reports `"software": "unknown"` and `"software_version": null` — never a daemon-localized string, since the daemon's own version formatting is gettext-translated and is deliberately not surfaced here. The two differ because `software` is an enum with an `unknown` member to name that case, while `software_version` is free text with no such member, so an unrecorded version is `null` like every other unknown value. `reported_os` is the client's *own* self-reported OS string (raw external data, not normalized by amuled) and is frequently `null`, since most clients don't send it.
 
 `ident_state` is the client's secure-identification (SecIdent) state, one of `"not_available"` (the client does not support SecIdent, or this build has no crypto), `"id_needed"` (its public key is known but the signature exchange has not completed), `"identified"` (verified), `"id_failed"` (signature verification failed), `"bad_guy"` (verified earlier, but currently connecting from a *different* IP than the one it was verified on) or `"unknown"` (state not yet reported for a newly seen client). `"bad_guy"` is also briefly reported for a legitimate client that reconnected after an IP change and has not re-identified yet, so treat it as a hint rather than a verdict.
 
@@ -1495,6 +1495,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
       "country_code": "de",
       "software": "amule",
       "software_version": "v2.3.1",
+      "client_mod_name": null,
       "source_origin": "kad",
       "obfuscation_state": "supported",
       "uploaded_bytes_total": 0,
@@ -1516,7 +1517,8 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 | `name` | Client-chosen name. `null` when never recorded. |
 | `ip`, `port`, `kad_port` | Last address the client was seen at. `null` together. |
 | `country_code` | ISO 3166-1 alpha-2, lowercase, resolved by the daemon's GeoIP. `null` when GeoIP is off or the address does not resolve. Artwork: [`GET /flags/{code}.png`](#get-flagscodepng). |
-| `software`, `software_version` | Same tokens `GET /clients` uses. `null` together. |
+| `software`, `software_version` | Same tokens and bare version `GET /clients` uses. `null` together. |
+| `client_mod_name` | Self-declared mod identity, as on `GET /clients`; `null` if not recorded. Older history records gain it when the peer is encountered again. |
 | `source_origin` | How the client was first found — `local_server`, `remote_server`, `kad`, `source_exchange`, … |
 | `obfuscation_state` | Protocol-obfuscation state as of the last session. |
 | `uploaded_bytes_total`, `downloaded_bytes_total` | Lifetime bytes, from the credit record. Always present. |
@@ -1625,7 +1627,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 | `upload_ratio` | number | `xfer.total / size`; `0` when `size == 0`. |
 | `directory` | string | Directory path of the on-disk file — the temp directory while the file is still an incomplete partfile, the destination directory once it has completed. Identical to `directory` on `/downloads/{hash}` for the same file. |
 | `sources.complete_min` / `sources.complete_max` | int | The low and high ends of the estimated full-copy source range behind `sources.complete`. Two scalars, not a nested object. |
-| `aich_hash` | string\|null | AICH master hash (hex), or `null` until the hashset exists. |
+| `aich_hash` | string\|null | AICH master hash (base32), or `null` until the hashset exists. |
 | `total_part_count` | int | Total parts, `ceil(size / 9.28 MiB)`. |
 | `parts` | array | Per-part source availability, `[{ "sources": int }, ...]`, exactly `total_part_count` entries in file order. **`null`** until the first decode has landed, so "no data yet" and "no sources for any part" stay distinguishable. The key is always present. See below. |
 | `upload_queue_count` | int | Clients waiting on this file's upload queue. |
@@ -2431,7 +2433,7 @@ Returns every preference category amuled carries over EC. The `general` and `con
     "amuleapi": { "enabled": true, "port": 4713, "bind_address": "0.0.0.0" },
     "external_connections": {
       "enabled": true, "bind_address": "127.0.0.1", "bind_interface": "", "port": 4712,
-      "upnp_enabled": false, "encryption_required": false, "password_set": true
+      "upnp_enabled": false, "encryption_required": true, "password_set": true
     }
   },
   "online_signature": { "enabled": false, "directory": "/home/me/.aMule", "update_frequency_seconds": 5 },
@@ -2520,7 +2522,7 @@ Body shape mirrors the GET; every sub-object and every field is optional, and fi
 
 `remote_controls` nests its three independent subsystems as `remote_controls.webserver`, `remote_controls.amuleapi` and `remote_controls.external_connections` rather than prefixing every field. It reports amuleapi's `enabled` / `port` / `bind_address`, but **not** whether its admin or guest password is set. Those live in `amuleapi-passwords`, which amuleapi owns and which may sit on a different host from amuled — so the daemon's view of that file can be the wrong one. Ask the API that actually reads it: [`GET /auth/passwords`](#get-apiv1authpasswords), which is admin-only, whereas this endpoint is readable by any authenticated role. `webserver.guest_enabled` is reported because it is a genuine amuled preference rather than a fact about another process's file.
 
-`remote_controls.external_connections` is the EC listener amuleapi itself reaches the core through, and it is **read-only**. `enabled` is whether external connections are accepted, `bind_address` and `bind_interface` are the address and network interface it listens on (empty for any), `port` is its TCP port, `upnp_enabled` is whether UPnP forwards that port (no effect when `connection.upnp_supported` is `false`), and `encryption_required` is whether a client that cannot encrypt is refused. `password_set` says whether an EC password is configured; the password itself is never returned. These are the saved settings, which the core applies on its next start, so after a change they can differ from the listener serving this connection. Against an amuled that predates them, all seven are `null`.
+`remote_controls.external_connections` is the EC listener amuleapi itself reaches the core through, and it is **read-only**. `enabled` is whether external connections are accepted, `bind_address` and `bind_interface` are the address and network interface it listens on (empty for any), `port` is its TCP port, `upnp_enabled` is whether UPnP forwards that port (no effect when `connection.upnp_supported` is `false`), and `encryption_required` is always true: EC encryption is mandatory. `password_set` says whether an EC password is configured; the password itself is never returned. These are the saved settings, which the core applies on its next start, so after a change they can differ from the listener serving this connection. Against an amuled that predates them, all seven are `null`.
 
 **Write-only passwords** (accepted here, never echoed on GET) live under `remote_controls.webserver`: `password`, `guest_password`. Send the plaintext — amuled stores the hash. `guest_password` is accepted whether or not the webserver's guest access is enabled: amuled stores the hash either way, and it simply sits inert until `guest_enabled` is turned on. (amuleapi's own [`PATCH /auth/passwords`](#patch-apiv1authpasswords) does enforce the pairing, and answers `400`; these are different credentials on different daemons.)
 

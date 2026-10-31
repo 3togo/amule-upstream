@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2026-10-29 11:58+0100\n"
-"PO-Revision-Date: 2026-10-29 17:31+0000\n"
+"POT-Creation-Date: 2026-10-30 11:29+0000\n"
+"PO-Revision-Date: 2026-10-30 11:27+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: none\n"
 "Language: nl\n"
@@ -464,11 +464,6 @@ msgstr "Maak configuratiebestand op basis van I<E<lt>padE<gt>>, wat naar een gel
 
 #. type: Plain text
 #: amulecmd.1.in amuleweb.1.in
-msgid "Do not encrypt the External Connection link.  Encryption is negotiated automatically whenever the remote aMule supports it, and is on by default for every destination, local or remote.  Turning it off leaves everything after the login readable, and modifiable, by anyone able to observe the connection."
-msgstr "Versleutel de Externe Verbinding-koppeling niet.  Er wordt automatisch over versleuteling onderhandeld als aMule het ondersteunt en het staat standaard aan voor elke bestemming, lokaal of extern.  Het uitschakelen laat alles na de aanmeldgegevens leesbaar, en aanpasbaar, door iedereen die de verbinding kan zien."
-
-#. type: Plain text
-#: amulecmd.1.in amuleweb.1.in
 msgid "Force ZLIB compression on the External Connection link regardless of the dialed-IP locality.  Useful when the server side is reachable over a VPN tunnel that resolves to a LAN IP and the heuristic would otherwise skip compression."
 msgstr "Forceer ZLIB-compressie naar de Externe Verbinding-koppeling onafhankelijk van de lokaliteit van het opgevraagde IP-adres.  Nuttig wanneer de server bereikbaar is via een VPN-tunnel die naar een LAN-IP-adres verwijst waarvan de heuristiek anders de compressie zou overslaan."
 
@@ -842,6 +837,11 @@ msgstr "B<amulecmd> B<--create-config-from>=I</home/Gebruikersnaam/.aMule/amule.
 
 #. type: Plain text
 #: amulecmd.1.in amuleweb.1.in
+msgid "After daemon credential migration, supply the client password with B<-P> or enter it at the password prompt; the daemon verifier cannot supply it."
+msgstr ""
+
+#. type: Plain text
+#: amulecmd.1.in amuleweb.1.in
 msgid "These will save settings to I<$HOME/.aMule/remote.conf>, and later you only need to type:"
 msgstr "Dit zal instellingen opslaan naar I<$HOME/.aMule/remote.conf> en later hoeft u alleen nog het volgende te typen:"
 
@@ -935,7 +935,7 @@ msgstr "MEDIA-METADATA"
 #. type: Plain text
 #: amuled.1.in
 msgid "B<amuled> runs its bundled B<amule-media-probe> helper on each received file to extract the length, bitrate and codec tags it then publishes to the network. The helper must sit next to the B<amuled> executable. This is on by default (B<Enabled=1> under B<[MediaMetadata]> in I<amule.conf>); set B<Enabled=0> there and restart to turn it off."
-msgstr ""
+msgstr "B<amuled> voert de bijgevoegde B<amule-media-probe> helper uit op elk ontvangen bestand om de lengte, bitwaarde en codeclabels te bepalen en publiceert dit naar het netwerk. De helper moet naast het uitvoerbare bestand van B<amuled> in een map staan. Dit staat standaard aan (B<Enabled=1> onder B<[MediaMetadata]> in I<amule.conf>). Stel B<Enabled=0> daar in en herstart om het uit te schakelen."
 
 #. type: TH
 #: amulegui.1.in
@@ -1464,6 +1464,9 @@ msgstr "B<wxcas> is een programma om de inhoud van uw online handtekeningsbestan
 #: ../../src/utils/wxCas/docs/wxcas.1.in
 msgid "Based on Pedro de Oliveira's B<cas>(1).  B<wxcas> was written by ThePolish E<lt>thepolish@vipmail.ruE<gt>"
 msgstr "Gebaseerd op Pedro de Oliveira's B<cas>(1).  B<wxcas> is geschreven door ThePolish E<lt>thepolish@vipmail.ruE<gt>"
+
+#~ msgid "Do not encrypt the External Connection link.  Encryption is negotiated automatically whenever the remote aMule supports it, and is on by default for every destination, local or remote.  Turning it off leaves everything after the login readable, and modifiable, by anyone able to observe the connection."
+#~ msgstr "Versleutel de Externe Verbinding-koppeling niet.  Er wordt automatisch over versleuteling onderhandeld als aMule het ondersteunt en het staat standaard aan voor elke bestemming, lokaal of extern.  Het uitschakelen laat alles na de aanmeldgegevens leesbaar, en aanpasbaar, door iedereen die de verbinding kan zien."
 
 #, fuzzy
 #~| msgid "B<[ -geometry >I<E<lt>geomE<gt>> B<]>"

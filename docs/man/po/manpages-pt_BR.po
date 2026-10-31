@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: aMule man pages\n"
-"POT-Creation-Date: 2026-10-29 11:58+0100\n"
-"PO-Revision-Date: 2026-10-29 00:16+0000\n"
+"POT-Creation-Date: 2026-10-30 11:29+0000\n"
+"PO-Revision-Date: 2026-10-29 21:57+0000\n"
 "Last-Translator: \n"
 "Language-Team: Marcelo Roberto Jimenez <mroberto@users.sourceforge.net>\n"
 "Language: pt_BR\n"
@@ -465,11 +465,6 @@ msgstr "Cria o arquivo de configuração com base em I<E<lt>caminhoE<gt>>, que d
 
 #. type: Plain text
 #: amulecmd.1.in amuleweb.1.in
-msgid "Do not encrypt the External Connection link.  Encryption is negotiated automatically whenever the remote aMule supports it, and is on by default for every destination, local or remote.  Turning it off leaves everything after the login readable, and modifiable, by anyone able to observe the connection."
-msgstr "Não criptografa o link de Conexões Externas. A criptografia é negociada automaticamente sempre que o aMule remoto a suporta e vem ativada por padrão para todos os destinos, locais ou remotos. Desativá-la deixa tudo o que vem depois do login legível, e modificável, por qualquer um que possa observar a conexão."
-
-#. type: Plain text
-#: amulecmd.1.in amuleweb.1.in
 msgid "Force ZLIB compression on the External Connection link regardless of the dialed-IP locality.  Useful when the server side is reachable over a VPN tunnel that resolves to a LAN IP and the heuristic would otherwise skip compression."
 msgstr "Força a compressão ZLIB no link de Conexões Externas, independentemente de o IP discado ser local. Útil quando o servidor é alcançável por um túnel VPN que resolve para um IP de LAN e a heurística, caso contrário, pularia a compressão."
 
@@ -843,6 +838,11 @@ msgstr "B<amulecmd> B<--create-config-from>=I</home/username/.aMule/amule.conf>"
 
 #. type: Plain text
 #: amulecmd.1.in amuleweb.1.in
+msgid "After daemon credential migration, supply the client password with B<-P> or enter it at the password prompt; the daemon verifier cannot supply it."
+msgstr ""
+
+#. type: Plain text
+#: amulecmd.1.in amuleweb.1.in
 msgid "These will save settings to I<$HOME/.aMule/remote.conf>, and later you only need to type:"
 msgstr "Isso salva as configurações em I<$HOME/.aMule/remote.conf>, e depois você só precisa digitar:"
 
@@ -935,10 +935,8 @@ msgstr "METADADOS DE MÍDIA"
 
 #. type: Plain text
 #: amuled.1.in
-#, fuzzy
-#| msgid "B<amuled> runs B<ffprobe> on each received file to extract the length, bitrate and codec tags it then publishes to the network. This is on by default (B<Enabled=1> under B<[MediaMetadata]> in I<amule.conf>); set B<Enabled=0> there and restart to turn it off. The B<ffprobe> binary is chosen by B<FFProbePath> in the same section and is local daemon configuration; it cannot be set over EC or amuleapi."
 msgid "B<amuled> runs its bundled B<amule-media-probe> helper on each received file to extract the length, bitrate and codec tags it then publishes to the network. The helper must sit next to the B<amuled> executable. This is on by default (B<Enabled=1> under B<[MediaMetadata]> in I<amule.conf>); set B<Enabled=0> there and restart to turn it off."
-msgstr "O B<amuled> executa o B<ffprobe> em cada arquivo recebido para extrair a duração, a taxa de bits e as tags de codec que depois publica na rede. Isso vem ativado por padrão (B<Enabled=1> em B<[MediaMetadata]> no I<amule.conf>); defina B<Enabled=0> lá e reinicie para desativar. O binário do B<ffprobe> é escolhido por B<FFProbePath> na mesma seção e é configuração local do daemon; não pode ser definido via EC ou amuleapi."
+msgstr "O B<amuled> executa seu auxiliar embutido B<amule-media-probe> em cada arquivo recebido para extrair a duração, a taxa de bits e as tags de codec que depois publica na rede. O auxiliar deve ficar ao lado do executável do B<amuled>. Isso vem ativado por padrão (B<Enabled=1> em B<[MediaMetadata]> no I<amule.conf>); defina B<Enabled=0> lá e reinicie para desativar."
 
 #. type: TH
 #: amulegui.1.in
@@ -1467,6 +1465,9 @@ msgstr "O B<wxcas> é um programa que mostra o conteúdo do seu arquivo de assin
 #: ../../src/utils/wxCas/docs/wxcas.1.in
 msgid "Based on Pedro de Oliveira's B<cas>(1).  B<wxcas> was written by ThePolish E<lt>thepolish@vipmail.ruE<gt>"
 msgstr "Baseado em B<cas>(1) de Pedro de Oliveira. B<wxcas> foi escrito por ThePolish E<lt>thepolish@vipmail.ruE<gt>"
+
+#~ msgid "Do not encrypt the External Connection link.  Encryption is negotiated automatically whenever the remote aMule supports it, and is on by default for every destination, local or remote.  Turning it off leaves everything after the login readable, and modifiable, by anyone able to observe the connection."
+#~ msgstr "Não criptografa o link de Conexões Externas. A criptografia é negociada automaticamente sempre que o aMule remoto a suporta e vem ativada por padrão para todos os destinos, locais ou remotos. Desativá-la deixa tudo o que vem depois do login legível, e modificável, por qualquer um que possa observar a conexão."
 
 #, fuzzy
 #~| msgid "B<[ -geometry >I<E<lt>geomE<gt>> B<]>"
