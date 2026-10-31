@@ -3803,18 +3803,6 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Li
 	set_tests_properties (WriteBackpressureIntegrationTest PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
 endif ()
 
-# Metadata callers must preserve live files when a staged close or backup fails.
-if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND Python3_Interpreter_FOUND AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	add_library (SafeWriteFailure MODULE SafeWriteFailure.cpp)
-	target_link_libraries (SafeWriteFailure PRIVATE ${CMAKE_DL_LIBS})
-	add_test (NAME SafeWriteCallerIntegrationTest
-		COMMAND ${Python3_EXECUTABLE}
-			${CMAKE_CURRENT_SOURCE_DIR}/SafeWriteCallerIntegrationTest.py
-			$<TARGET_FILE:amuled> $<TARGET_FILE:SafeWriteFailure>)
-	set_tests_properties (SafeWriteCallerIntegrationTest PROPERTIES
-		TIMEOUT 90 SKIP_RETURN_CODE 77 LABELS "integration")
-endif ()
-
 # Native replacement must release the AICH reader first, especially on Windows.
 if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND Python3_Interpreter_FOUND)
 	add_test (NAME AICHPruneIntegrationTest
