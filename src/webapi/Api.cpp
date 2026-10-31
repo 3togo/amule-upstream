@@ -10894,6 +10894,8 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 	// "min_source_count": optional uint32 }
 	std::string error;
 	std::string query;
+	if (obj.find("query") == obj.end())
+		return ErrorResponse(400, "bad_request", "Missing required field: query");
 	if (!TakeSearchString(obj, "query", query, error))
 		return ErrorResponse(400, "bad_request", error.c_str());
 	if (query.empty())
@@ -10957,10 +10959,19 @@ CHttpServer::Response CApiDispatcher::HandleSearchStart(const CHttpServer::Reque
 		return ErrorResponse(400, "bad_request", error.c_str());
 	if (!TakeBoundedInteger(obj, "min_source_count", 0, 4294967295ULL, min_avail, error))
 		return ErrorResponse(400, "bad_request", error.c_str());
-	if (!TakeBoundedInteger(
-		    obj, "min_bitrate_kilobits_per_second", 0, 1000000, metadata.minBitrateKbps, error))
+	if (!TakeBoundedInteger(obj,
+		    "min_bitrate_kilobits_per_second",
+		    0,
+		    SEARCH_MAX_MIN_BITRATE_KBPS,
+		    metadata.minBitrateKbps,
+		    error))
 		return ErrorResponse(400, "bad_request", error.c_str());
-	if (!TakeBoundedInteger(obj, "min_duration_seconds", 0, 86400, metadata.minLength, error))
+	if (!TakeBoundedInteger(obj,
+		    "min_duration_seconds",
+		    0,
+		    SEARCH_MAX_MIN_DURATION_SECONDS,
+		    metadata.minLength,
+		    error))
 		return ErrorResponse(400, "bad_request", error.c_str());
 	std::string codec;
 	if (!TakeSearchString(obj, "codec", codec, error))

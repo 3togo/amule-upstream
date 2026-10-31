@@ -743,6 +743,9 @@ private:
 	CMD4Hash GetMD4Data(); // Block it, because it doesn't work anymore!
 };
 
+constexpr uint64 SEARCH_MAX_MIN_BITRATE_KBPS = 1000000;
+constexpr uint64 SEARCH_MAX_MIN_DURATION_SECONDS = 86400;
+
 // Optional media filters passed to the search-request constructor.
 struct CSearchMetadata
 {

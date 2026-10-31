@@ -3062,7 +3062,7 @@ The following optional fields add media metadata filters:
 | `album` | String | Album metadata term. |
 | `artist` | String | Artist metadata term. |
 
-Strings default to empty (no filter). Text terms are sent as metadata constraints, separately from the filename query. They do not use the filename query's Boolean expression syntax. Invalid types, fractions, negative or oversized values and strings containing NUL or invalid UTF-8 return `400 bad_request` before starting a search. Values are rejected rather than clamped or silently ignored.
+Strings default to empty (no filter). Text terms are sent as metadata constraints, separately from the filename query. They do not use the filename query's Boolean expression syntax. Invalid types, fractions, negative or oversized values and strings containing NUL or invalid UTF-8 return `400 bad_request` before starting a search.
 
 For example:
 
@@ -3070,7 +3070,7 @@ For example:
 {"query":"concert","type":"kad","min_bitrate_kilobits_per_second":320,"min_duration_seconds":3723,"codec":"FLAC","artist":"Example Artist"}
 ```
 
-A non-default media filter requires the connected daemon to advertise `EC_TAG_CAN_SEARCH_METADATA`. The API returns `503 ec_unsupported` if that capability is absent, or `503 ec_unavailable` if EC is disconnected. Requests without media filters retain their existing compatibility with older daemons. Recorded filters survive daemon restarts when search history is enabled.
+A non-default media filter requires the connected daemon to advertise `EC_TAG_CAN_SEARCH_METADATA`. The API returns `503 ec_unsupported` if that capability is absent, or `503 ec_unavailable` if EC is disconnected. Recorded filters survive daemon restarts when search history is enabled.
 
 **Network limits:** Kad nodes apply the metadata terms. eD2k servers may ignore them. amuleapi does no local result filtering.
 

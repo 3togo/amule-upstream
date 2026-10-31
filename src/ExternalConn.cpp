@@ -3360,24 +3360,6 @@ static CECPacket *Get_EC_Response_Search(const CECPacket *request, bool multiSea
 	params.album = search_request->Album();
 	params.artist = search_request->Artist();
 
-	bool invalidMediaFilter = false;
-	for (const CECTag &tag : *search_request) {
-		switch (tag.GetTagName()) {
-		case EC_TAG_SEARCH_MIN_BITRATE:
-		case EC_TAG_SEARCH_MIN_LENGTH:
-			invalidMediaFilter |= !tag.IsInt();
-			break;
-		case EC_TAG_SEARCH_CODEC:
-		case EC_TAG_SEARCH_TITLE:
-		case EC_TAG_SEARCH_ALBUM:
-		case EC_TAG_SEARCH_ARTIST:
-			invalidMediaFilter |= !tag.IsString();
-			break;
-		default:
-			break;
-		}
-	}
-
 	EC_SEARCH_TYPE search_type = search_request->SearchType();
 	uint32 op = EC_OP_FAILED;
 	uint32 search_id = 0xffffffff;
@@ -3385,8 +3367,8 @@ static CECPacket *Get_EC_Response_Search(const CECPacket *request, bool multiSea
 
 	if (search_type == EC_SEARCH_WEB) {
 		response = wxTRANSLATE("WebSearch from remote interface makes no sense.");
-	} else if (invalidMediaFilter || search_request->MinBitrate() > 1000000 ||
-		   search_request->MinLength() > 86400) {
+	} else if (search_request->MinBitrate() > SEARCH_MAX_MIN_BITRATE_KBPS ||
+		   search_request->MinLength() > SEARCH_MAX_MIN_DURATION_SECONDS) {
 		response = wxTRANSLATE("Invalid media search filter.");
 	} else if (search_type == EC_SEARCH_BROWSE) {
 		// Reported by the daemon, never accepted here: a browse is started by
