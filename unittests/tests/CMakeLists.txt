@@ -235,6 +235,12 @@ add_test (NAME KadBuddyLivenessTest COMMAND KadBuddyLivenessTest)
 target_include_directories (KadBuddyLivenessTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (KadBuddyLivenessTest muleunit mulecommon)
 
+# Failed buddy IP cooldown with a deterministic clock.
+add_executable (KadBuddyRetryTest KadBuddyRetryTest.cpp)
+add_test (NAME KadBuddyRetryTest COMMAND KadBuddyRetryTest)
+target_include_directories (KadBuddyRetryTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (KadBuddyRetryTest muleunit mulecommon)
+
 # The Kad firewall state across an hourly recheck, with the clock passed in.
 add_executable (KadFirewallRecheckTest KadFirewallRecheckTest.cpp)
 add_test (NAME KadFirewallRecheckTest COMMAND KadFirewallRecheckTest)
