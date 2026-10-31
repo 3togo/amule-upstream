@@ -27,11 +27,9 @@
 #ifndef KADEMLIA_NET_PACKETTRACKING_H
 #define KADEMLIA_NET_PACKETTRACKING_H
 
-#include "../utils/KadConstraints.h"
 #include <cstddef>
 #include <map>
 #include <list>
-#include <set>
 #include "../utils/UInt128.h"
 #include "../../Types.h"
 
@@ -88,7 +86,10 @@ public:
 		MassiveFlood
 	};
 
-	CPacketTracking() = default;
+	CPacketTracking()
+	: lastTrackInCleanup(0)
+	{
+	}
 	virtual ~CPacketTracking();
 
 protected:
@@ -109,9 +110,7 @@ private:
 	TrackedPacketList listTrackedRequests;
 	TrackChallengeList listChallengeRequests;
 	TrackedPacketInMap m_mapTrackPacketsIn;
-	// Ordered expiry avoids a full table scan on every new address under a flood.
-	std::set<std::pair<uint64_t, uint32_t>> m_incomingExpiry;
-	void UpdateIncomingExpiry(TrackPacketsIn_Struct &entry, uint64_t expires);
+	uint64_t lastTrackInCleanup;
 };
 
 } // namespace Kademlia

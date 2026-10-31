@@ -3805,18 +3805,6 @@ target_include_directories (KadPacketTrackingTest PRIVATE
 target_link_libraries (KadPacketTrackingTest muleunit mulecommon)
 add_test (NAME KadPacketTrackingTest COMMAND KadPacketTrackingTest)
 
-# Shared Kad policy parsing, validation and persistence without the application.
-add_executable (KadConstraintsTest KadConstraintsTest.cpp)
-target_include_directories (KadConstraintsTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries (KadConstraintsTest muleunit mulecommon)
-add_test (NAME KadConstraintsTest COMMAND KadConstraintsTest)
-
-if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND Python3_Interpreter_FOUND AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	add_test (NAME KadConstraintsIntegrationTest
-		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/KadConstraintsIntegrationTest.py $<TARGET_FILE:amuled>)
-	set_tests_properties (KadConstraintsIntegrationTest PROPERTIES SKIP_RETURN_CODE 77 LABELS "integration")
-endif ()
-
 add_executable (ECSRPTest ECSRPTest.cpp ${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp)
 target_include_directories (ECSRPTest PRIVATE ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
 target_link_libraries (ECSRPTest PRIVATE ec mulecommon)

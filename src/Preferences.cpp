@@ -25,7 +25,6 @@
 
 #include <wx/wx.h>
 #include "Preferences.h"
-#include "kademlia/utils/KadConstraintsConfig.h"
 #include "ECClientPassword.h"
 #include "libs/ec/cpp/ECSRPConfig.h"
 #include "ServerListSources.h"
@@ -1698,15 +1697,6 @@ void CPreferences::EraseItemList()
 	}
 }
 
-namespace
-{
-Kademlia::SKadConstraints kadConstraints;
-}
-const Kademlia::SKadConstraints &Kademlia::GetKadConstraints()
-{
-	return kadConstraints;
-}
-
 void CPreferences::LoadAllItems(wxConfigBase *cfg)
 {
 	if (cfg->HasEntry("/MediaMetadata/FFProbePath")) {
@@ -1835,19 +1825,12 @@ void CPreferences::LoadAllItems(wxConfigBase *cfg)
 	s_sourceReaskMins = SOURCE_REASK_MINUTES.Clamp(s_sourceReaskMins);
 #endif
 
-#ifndef CLIENT_GUI
-	kadConstraints = Kademlia::LoadKadConstraints(*cfg, GetMaxConnections(), GetKadMaxSourceSearches());
-#endif
-
 	// Compile the shared-file exclusion filter from the values just loaded.
 	RecompileShareExcludeFilter();
 }
 
 void CPreferences::SaveAllItems(wxConfigBase *cfg)
 {
-#ifndef CLIENT_GUI
-	Kademlia::SaveKadConstraints(*cfg, kadConstraints);
-#endif
 	// Save the Cfg values
 	CFGMap::iterator it_a = s_CfgList.begin();
 	for (; it_a != s_CfgList.end(); ++it_a)

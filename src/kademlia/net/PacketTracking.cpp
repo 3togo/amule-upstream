@@ -36,6 +36,12 @@
 
 using namespace Kademlia;
 
+namespace
+{
+constexpr size_t MAX_TRACKED_IPS = 10000;
+constexpr size_t MAX_OUTGOING_REQUESTS = 4096;
+} // namespace
+
 CPacketTracking::~CPacketTracking()
 {
 	DeleteContents(m_mapTrackPacketsIn);
@@ -52,8 +58,8 @@ void CPacketTracking::AddTrackedOutPacket(uint32_t ip, uint8_t opcode)
 	TrackPackets_Struct track = { ip, now, opcode };
 	listTrackedRequests.push_front(track);
 	while (!listTrackedRequests.empty()) {
-		if (now - listTrackedRequests.back().inserted >= GetKadConstraints().trackingLifetimeMs ||
-			listTrackedRequests.size() > GetKadConstraints().outgoingRequests) {
+		if (now - listTrackedRequests.back().inserted >= SEC2MS(180) ||
+			listTrackedRequests.size() > MAX_OUTGOING_REQUESTS) {
 			listTrackedRequests.pop_back();
 		} else {
 			break;
@@ -93,8 +99,7 @@ bool CPacketTracking::IsOnOutTrackList(uint32_t ip, uint8_t opcode, bool dontRem
 	uint64_t now = ::GetTickCount64();
 	for (TrackedPacketList::iterator it = listTrackedRequests.begin(); it != listTrackedRequests.end();
 		++it) {
-		if (it->ip == ip && it->opcode == opcode &&
-			now - it->inserted < GetKadConstraints().trackingLifetimeMs) {
+		if (it->ip == ip && it->opcode == opcode && now - it->inserted < SEC2MS(180)) {
 			if (!dontRemove) {
 				listTrackedRequests.erase(it);
 			}
@@ -116,52 +121,51 @@ CPacketTracking::IncomingPacket CPacketTracking::InTrackListIsAllowedPacket(
 	// limits come from the estimated maximum frequency of such packets in normal operation,
 	// plus a buffer -- they are flood detection, not a guide to normal usage.
 
-	const auto &policy = GetKadConstraints();
 	uint32_t allowedPacketsPerMinute;
 	DEBUG_ONLY(const uint8_t dbgOrgOpcode = opcode;)
 
 	switch (opcode) {
 	case KADEMLIA2_BOOTSTRAP_REQ:
-		allowedPacketsPerMinute = policy.bootstrapRate;
+		allowedPacketsPerMinute = 2;
 		break;
 	case KADEMLIA2_HELLO_REQ:
-		allowedPacketsPerMinute = policy.helloRate;
+		allowedPacketsPerMinute = 3;
 		break;
 	case KADEMLIA2_REQ:
-		allowedPacketsPerMinute = policy.routingRate;
+		allowedPacketsPerMinute = 10;
 		break;
 	case KADEMLIA2_SEARCH_NOTES_REQ:
-		allowedPacketsPerMinute = policy.searchRate;
+		allowedPacketsPerMinute = 3;
 		break;
 	case KADEMLIA2_SEARCH_KEY_REQ:
-		allowedPacketsPerMinute = policy.searchRate;
+		allowedPacketsPerMinute = 3;
 		break;
 	case KADEMLIA2_SEARCH_SOURCE_REQ:
-		allowedPacketsPerMinute = policy.searchRate;
+		allowedPacketsPerMinute = 3;
 		break;
 	case KADEMLIA2_PUBLISH_KEY_REQ:
-		allowedPacketsPerMinute = policy.publishKeywordRate;
+		allowedPacketsPerMinute = 3;
 		break;
 	case KADEMLIA2_PUBLISH_SOURCE_REQ:
-		allowedPacketsPerMinute = policy.publishSourceRate;
+		allowedPacketsPerMinute = 2;
 		break;
 	case KADEMLIA2_PUBLISH_NOTES_REQ:
-		allowedPacketsPerMinute = policy.publishNotesRate;
+		allowedPacketsPerMinute = 2;
 		break;
 	case KADEMLIA_FIREWALLED2_REQ:
 		opcode = KADEMLIA_FIREWALLED_REQ;
 	/* fall through */
 	case KADEMLIA_FIREWALLED_REQ:
-		allowedPacketsPerMinute = policy.firewallRate;
+		allowedPacketsPerMinute = 2;
 		break;
 	case KADEMLIA_FINDBUDDY_REQ:
-		allowedPacketsPerMinute = policy.buddyRate;
+		allowedPacketsPerMinute = 2;
 		break;
 	case KADEMLIA_CALLBACK_REQ:
-		allowedPacketsPerMinute = policy.callbackRate;
+		allowedPacketsPerMinute = 1;
 		break;
 	case KADEMLIA2_PING:
-		allowedPacketsPerMinute = policy.pingRate;
+		allowedPacketsPerMinute = 2;
 		break;
 	default:
 		// not any request packets, so it's a response packet - no further checks on this point
@@ -169,17 +173,19 @@ CPacketTracking::IncomingPacket CPacketTracking::InTrackListIsAllowedPacket(
 	}
 
 	const uint32_t intervalMs = 60000 / allowedPacketsPerMinute;
-	const uint32_t floodThreshold = allowedPacketsPerMinute * policy.floodMultiplier;
+	const uint32_t floodThreshold = allowedPacketsPerMinute * 5;
 	const uint64_t currentTick = ::GetTickCount64();
 
-	InTrackListCleanup();
+	if (currentTick - lastTrackInCleanup > MIN2MS(12)) {
+		InTrackListCleanup();
+	}
 
 	// check for existing entries
 	TrackedPacketInMap::iterator it2 = m_mapTrackPacketsIn.find(ip);
 	TrackPacketsIn_Struct *trackEntry;
 	if (it2 == m_mapTrackPacketsIn.end()) {
 		// Do not evict live quotas: address churn must not reset an abuser's budget.
-		if (m_mapTrackPacketsIn.size() >= GetKadConstraints().trackedIPs) {
+		if (m_mapTrackPacketsIn.size() >= MAX_TRACKED_IPS) {
 			return IncomingPacket::Drop;
 		}
 		trackEntry = new TrackPacketsIn_Struct();
@@ -213,9 +219,8 @@ CPacketTracking::IncomingPacket CPacketTracking::InTrackListIsAllowedPacket(
 				charge(it->m_verifiedCount, it->m_verifiedFirstAdded);
 			}
 			// remember only for easier cleanup
-			UpdateIncomingExpiry(*trackEntry,
-				std::max(trackEntry->m_lastExpire,
-					currentTick + static_cast<uint64_t>(intervalMs) * it->m_count));
+			trackEntry->m_lastExpire = std::max(trackEntry->m_lastExpire,
+				currentTick + static_cast<uint64_t>(intervalMs) * it->m_count);
 
 			if (CKademlia::IsRunningInLANMode() && ::IsLanIP(wxUINT32_SWAP_ALWAYS(ip))) {
 				return IncomingPacket::Allowed; // no flood detection in LAN mode
@@ -260,28 +265,29 @@ CPacketTracking::IncomingPacket CPacketTracking::InTrackListIsAllowedPacket(
 	curTrackedRequest.m_verifiedCount = validReceiverKey ? 1 : 0;
 	curTrackedRequest.m_verifiedFirstAdded = currentTick;
 	// remember only for easier cleanup
-	UpdateIncomingExpiry(*trackEntry, std::max(trackEntry->m_lastExpire, currentTick + intervalMs));
+	trackEntry->m_lastExpire = std::max(trackEntry->m_lastExpire, currentTick + intervalMs);
 	trackEntry->m_trackedRequests.push_back(curTrackedRequest);
 	return IncomingPacket::Allowed;
 }
 
-void CPacketTracking::UpdateIncomingExpiry(TrackPacketsIn_Struct &entry, uint64_t expires)
-{
-	m_incomingExpiry.erase({ entry.m_lastExpire, entry.m_ip });
-	entry.m_lastExpire = expires;
-	m_incomingExpiry.insert({ expires, entry.m_ip });
-}
-
 void CPacketTracking::InTrackListCleanup()
 {
-	const uint64_t now = ::GetTickCount64();
-	while (!m_incomingExpiry.empty() && m_incomingExpiry.begin()->first <= now) {
-		const uint32_t ip = m_incomingExpiry.begin()->second;
-		auto it = m_mapTrackPacketsIn.find(ip);
-		delete it->second;
-		m_mapTrackPacketsIn.erase(it);
-		m_incomingExpiry.erase(m_incomingExpiry.begin());
+	const uint64_t currentTick = ::GetTickCount64();
+	DEBUG_ONLY(const uint32_t dbgOldSize = m_mapTrackPacketsIn.size();)
+	lastTrackInCleanup = currentTick;
+	for (TrackedPacketInMap::iterator it = m_mapTrackPacketsIn.begin();
+		it != m_mapTrackPacketsIn.end();) {
+		TrackedPacketInMap::iterator it2 = it++;
+		if (it2->second->m_lastExpire < currentTick) {
+			delete it2->second;
+			m_mapTrackPacketsIn.erase(it2);
+		}
 	}
+#ifdef __DEBUG__
+	AddDebugLogLineN(logKadPacketTracking,
+		CFormat("Cleaned up Kad Incoming Requests Tracklist, entries before: %u, after %u") %
+			dbgOldSize % m_mapTrackPacketsIn.size());
+#endif
 }
 
 void CPacketTracking::AddLegacyChallenge(
@@ -291,8 +297,7 @@ void CPacketTracking::AddLegacyChallenge(
 	TrackChallenge_Struct sTrack = { ip, now, opcode, contactID, challengeID };
 	listChallengeRequests.push_front(sTrack);
 	while (!listChallengeRequests.empty()) {
-		if (now - listChallengeRequests.back().inserted >= GetKadConstraints().trackingLifetimeMs ||
-			listChallengeRequests.size() > GetKadConstraints().legacyChallenges) {
+		if (now - listChallengeRequests.back().inserted > SEC2MS(180)) {
 			AddDebugLogLineN(logKadPacketTracking,
 				"Challenge timed out, client not verified - " +
 					KadIPToString(listChallengeRequests.back().ip));
@@ -311,8 +316,7 @@ bool CPacketTracking::IsLegacyChallenge(
 	for (TrackChallengeList::iterator it = listChallengeRequests.begin();
 		it != listChallengeRequests.end();) {
 		TrackChallengeList::iterator it2 = it++;
-		if (it2->ip == ip && it2->opcode == opcode &&
-			now - it2->inserted < GetKadConstraints().trackingLifetimeMs) {
+		if (it2->ip == ip && it2->opcode == opcode && now - it2->inserted < SEC2MS(180)) {
 			wxASSERT(it2->challenge != 0 || opcode == KADEMLIA2_PING);
 			if (it2->challenge == 0 || it2->challenge == challengeID) {
 				contactID = it2->contactID;
@@ -335,8 +339,10 @@ bool CPacketTracking::IsLegacyChallenge(
 bool CPacketTracking::HasActiveLegacyChallenge(uint32_t ip) const
 {
 	uint64_t now = ::GetTickCount64();
-	for (const auto &request : listChallengeRequests) {
-		if (request.ip == ip && now - request.inserted < GetKadConstraints().trackingLifetimeMs) {
+	for (TrackChallengeList::const_iterator it = listChallengeRequests.begin();
+		it != listChallengeRequests.end();
+		++it) {
+		if (it->ip == ip && now - it->inserted <= SEC2MS(180)) {
 			return true;
 		}
 	}

@@ -37,7 +37,6 @@ there client on the eMule forum..
 */
 
 #include "RoutingBin.h"
-#include "../utils/KadConstraints.h"
 #include "../../Logger.h"
 #include "../../NetworkFunctions.h"
 #include "../../RandomFunctions.h"
@@ -48,6 +47,9 @@ using namespace Kademlia;
 
 CRoutingBin::GlobalTrackingMap CRoutingBin::s_globalContactIPs;
 CRoutingBin::GlobalTrackingMap CRoutingBin::s_globalContactSubnets;
+
+#define MAX_CONTACTS_SUBNET 10
+#define MAX_CONTACTS_IP 1
 
 CRoutingBin::~CRoutingBin()
 {
@@ -70,8 +72,7 @@ bool CRoutingBin::AddContact(CContact *contact)
 		if (contact->GetClientID() == (*it)->GetClientID()) {
 			return false;
 		}
-		if ((GetKadConstraints().Subnet(contact->GetIPAddress())) ==
-			(GetKadConstraints().Subnet((*it)->GetIPAddress()))) {
+		if ((contact->GetIPAddress() & 0xFFFFFF00) == ((*it)->GetIPAddress() & 0xFFFFFF00)) {
 			sameSubnets++;
 		}
 	}
@@ -85,8 +86,7 @@ bool CRoutingBin::AddContact(CContact *contact)
 
 	// no more than 2 IPs from the same /24 netmask in one bin, except if its a LANIP (if we don't accept
 	// LANIPs they already have been filtered before)
-	if (sameSubnets >= GetKadConstraints().contactsPerSubnet &&
-		!::IsLanIP(wxUINT32_SWAP_ALWAYS(contact->GetIPAddress()))) {
+	if (sameSubnets >= 2 && !::IsLanIP(wxUINT32_SWAP_ALWAYS(contact->GetIPAddress()))) {
 		AddDebugLogLineN(logKadRouting,
 			"Ignored kad contact (IP=" +
 				KadIPPortToString(contact->GetIPAddress(), contact->GetUDPPort()) +
@@ -221,7 +221,7 @@ void CRoutingBin::AdjustGlobalTracking(uint32_t ip, bool increase)
 		sameIPCount = itIP->second;
 	}
 	if (increase) {
-		if (sameIPCount >= GetKadConstraints().contactsPerIP) {
+		if (sameIPCount >= MAX_CONTACTS_IP) {
 			AddDebugLogLineN(logKadRouting,
 				"Global IP Tracking inconsistency on increase (" + KadIPToString(ip) + ")");
 			wxFAIL;
@@ -243,14 +243,12 @@ void CRoutingBin::AdjustGlobalTracking(uint32_t ip, bool increase)
 
 	// Subnet
 	uint32_t sameSubnetCount = 0;
-	GlobalTrackingMap::const_iterator itSubnet =
-		s_globalContactSubnets.find(GetKadConstraints().Subnet(ip));
+	GlobalTrackingMap::const_iterator itSubnet = s_globalContactSubnets.find(ip & 0xFFFFFF00);
 	if (itSubnet != s_globalContactSubnets.end()) {
 		sameSubnetCount = itSubnet->second;
 	}
 	if (increase) {
-		if (sameSubnetCount >= GetKadConstraints().globalContactsPerSubnet &&
-			!::IsLanIP(wxUINT32_SWAP_ALWAYS(ip))) {
+		if (sameSubnetCount >= MAX_CONTACTS_SUBNET && !::IsLanIP(wxUINT32_SWAP_ALWAYS(ip))) {
 			AddDebugLogLineN(logKadRouting,
 				"Global Subnet Tracking inconsistency on increase (" + KadIPToString(ip) +
 					"/24)");
@@ -267,9 +265,9 @@ void CRoutingBin::AdjustGlobalTracking(uint32_t ip, bool increase)
 		sameSubnetCount--;
 	}
 	if (sameSubnetCount != 0) {
-		s_globalContactSubnets[GetKadConstraints().Subnet(ip)] = sameSubnetCount;
+		s_globalContactSubnets[ip & 0xFFFFFF00] = sameSubnetCount;
 	} else {
-		s_globalContactSubnets.erase(GetKadConstraints().Subnet(ip));
+		s_globalContactSubnets.erase(ip & 0xFFFFFF00);
 	}
 }
 
@@ -291,7 +289,7 @@ bool CRoutingBin::ChangeContactIPAddress(CContact *contact, uint32_t newIP)
 	if (itIP != s_globalContactIPs.end()) {
 		sameIPCount = itIP->second;
 	}
-	if (sameIPCount >= GetKadConstraints().contactsPerIP) {
+	if (sameIPCount >= MAX_CONTACTS_IP) {
 		AddDebugLogLineN(logKadRouting,
 			"Rejected kad contact IP change on update (old IP=" +
 				KadIPToString(contact->GetIPAddress()) + ", requested IP=" +
@@ -299,17 +297,16 @@ bool CRoutingBin::ChangeContactIPAddress(CContact *contact, uint32_t newIP)
 		return false;
 	}
 
-	if ((GetKadConstraints().Subnet(contact->GetIPAddress())) != (GetKadConstraints().Subnet(newIP))) {
+	if ((contact->GetIPAddress() & 0xFFFFFF00) != (newIP & 0xFFFFFF00)) {
 		// no more than 10 IPs from the same /24 netmask global, except if it's a LAN IP (if we don't
 		// accept LAN IPs they already have been filtered before)
 		uint32_t sameSubnetGlobalCount = 0;
 		GlobalTrackingMap::const_iterator itGlobalSubnet =
-			s_globalContactSubnets.find(GetKadConstraints().Subnet(newIP));
+			s_globalContactSubnets.find(newIP & 0xFFFFFF00);
 		if (itGlobalSubnet != s_globalContactSubnets.end()) {
 			sameSubnetGlobalCount = itGlobalSubnet->second;
 		}
-		if (sameSubnetGlobalCount >= GetKadConstraints().globalContactsPerSubnet &&
-			!::IsLanIP(wxUINT32_SWAP_ALWAYS(newIP))) {
+		if (sameSubnetGlobalCount >= MAX_CONTACTS_SUBNET && !::IsLanIP(wxUINT32_SWAP_ALWAYS(newIP))) {
 			AddDebugLogLineN(logKadRouting,
 				"Rejected kad contact IP change on update (old IP=" +
 					KadIPToString(contact->GetIPAddress()) +
@@ -324,13 +321,11 @@ bool CRoutingBin::ChangeContactIPAddress(CContact *contact, uint32_t newIP)
 		// Check if we already have a contact with this ID in the list.
 		for (ContactList::const_iterator itContact = m_entries.begin(); itContact != m_entries.end();
 			++itContact) {
-			if ((GetKadConstraints().Subnet(newIP)) ==
-				(GetKadConstraints().Subnet((*itContact)->GetIPAddress()))) {
+			if ((newIP & 0xFFFFFF00) == ((*itContact)->GetIPAddress() & 0xFFFFFF00)) {
 				sameSubnets++;
 			}
 		}
-		if (sameSubnets >= GetKadConstraints().contactsPerSubnet &&
-			!::IsLanIP(wxUINT32_SWAP_ALWAYS(newIP))) {
+		if (sameSubnets >= 2 && !::IsLanIP(wxUINT32_SWAP_ALWAYS(newIP))) {
 			AddDebugLogLineN(logKadRouting,
 				"Rejected kad contact IP change on update (old IP=" +
 					KadIPToString(contact->GetIPAddress()) +
@@ -398,7 +393,7 @@ bool CRoutingBin::CheckGlobalIPLimits(uint32_t ip, uint16_t port)
 	if (itIP != s_globalContactIPs.end()) {
 		sameIPCount = itIP->second;
 	}
-	if (sameIPCount >= GetKadConstraints().contactsPerIP) {
+	if (sameIPCount >= MAX_CONTACTS_IP) {
 		AddDebugLogLineN(logKadRouting,
 			"Ignored kad contact (IP=" + KadIPPortToString(ip, port) +
 				") - too many contacts with the same IP (global)");
@@ -407,13 +402,11 @@ bool CRoutingBin::CheckGlobalIPLimits(uint32_t ip, uint16_t port)
 	//  no more than 10 IPs from the same /24 netmask global, except if its a LANIP (if we don't accept
 	//  LANIPs they already have been filtered before)
 	uint32_t sameSubnetGlobalCount = 0;
-	GlobalTrackingMap::const_iterator itSubnet =
-		s_globalContactSubnets.find(GetKadConstraints().Subnet(ip));
+	GlobalTrackingMap::const_iterator itSubnet = s_globalContactSubnets.find(ip & 0xFFFFFF00);
 	if (itSubnet != s_globalContactSubnets.end()) {
 		sameSubnetGlobalCount = itSubnet->second;
 	}
-	if (sameSubnetGlobalCount >= GetKadConstraints().globalContactsPerSubnet &&
-		!::IsLanIP(wxUINT32_SWAP_ALWAYS(ip))) {
+	if (sameSubnetGlobalCount >= MAX_CONTACTS_SUBNET && !::IsLanIP(wxUINT32_SWAP_ALWAYS(ip))) {
 		AddDebugLogLineN(logKadRouting,
 			"Ignored kad contact (IP=" + KadIPPortToString(ip, port) +
 				") - too many contacts with the same subnet (global)");

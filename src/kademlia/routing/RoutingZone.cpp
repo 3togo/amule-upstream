@@ -476,7 +476,7 @@ bool CRoutingZone::AddUnfiltered(const CUInt128 &id,
 		// default.
 		//
 		// onlyOneNodePerIP is deliberately off: CRoutingBin already caps the table at
-		// the configured IP and subnet allowances, and
+		// MAX_CONTACTS_IP Kad ID per address plus MAX_CONTACTS_SUBNET per /24, and
 		// duplicating that here would be a second, weaker copy of the same rule.
 		if (safeKad.IsBadNode(ip, port, id, version, ipVerified, false, time(nullptr))) {
 			AddDebugLogLineN(logKadRouting,
