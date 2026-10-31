@@ -237,36 +237,6 @@ a manual check. Repeating a manual request keeps the existing manual check and
 its progress.
 
 
-## Keep the core awake while transferring
-
-Preferences → Advanced → **Disable computer's timed standby mode** applies to
-the computer running `amule` or `amuled`. The remote `amulegui` keeps this option
-disabled; it does not change power policy on either computer through EC.
-For a daemon, set `PreventSleepWhileDownloading=1` in the `[PowerManagement]`
-section of its configuration while it is stopped.
-
-The core requests inhibition through libwakeguard while its existing download/
-upload eligibility policy requires it. Turning the option off releases the
-request. Acquisition, retries and service checks run on a worker; application
-shutdown joins that worker and releases any late result.
-
-Windows and macOS request prevention of idle system sleep. On Unix desktops,
-aMule first tries the desktop portal's Suspend request, then logind-compatible
-or ConsoleKit2 `sleep:idle` locks. These desktop requests may make a user-started
-suspend require confirmation; they do not request screen, lock or logout
-inhibition. A daemon launched with a nonempty `XDG_CURRENT_DESKTOP` uses this
-same desktop policy. A service without that desktop-session indication uses
-idle-only logind/ConsoleKit2 requests. Desktop and operating-system policy can
-override an inhibitor.
-
-An unavailable bus or a refused request is nonfatal; normal transfers continue and
-a later retry is scheduled. Debug General logging records backend failures.
-Linux/BSD support needs GIO's Unix D-Bus support at build time and a compatible
-service at runtime. Flatpak needs a working Inhibit portal backend; AppImage
-uses the services available on its host. The checkbox stays disabled in builds
-without a compiled backend. Builders can disable the feature with
-`-DENABLE_SLEEP_INHIBITION=OFF`.
-
 ## Common file types
 
 | Group     | Extensions |

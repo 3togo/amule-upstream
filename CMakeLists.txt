@@ -684,8 +684,6 @@ add_subdirectory (docs)
 if(BUILD_TESTING)
     enable_testing()
 endif()
-include (cmake/wakeguard.cmake)
-
 add_subdirectory (src)
 
 if (BUILD_TESTING)

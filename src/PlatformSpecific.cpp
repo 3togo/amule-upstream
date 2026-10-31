@@ -324,3 +324,123 @@ PlatformSpecific::EFSType PlatformSpecific::GetFilesystemType(const CPath &path)
 
 	return s_fscache[path.GetRaw()] = doGetFilesystemType(path);
 }
+
+#if defined(__linux__) && defined(HAVE_GIO)
+#include "Logger.h"
+#include "common/Format.h"
+#include <gio/gio.h>
+#include <gio/gunixfdlist.h>
+#include <unistd.h>
+static int sleepInhibitorFd = -1;
+#endif
+
+// Power event vetoing
+
+static bool m_preventingSleepMode = false;
+
+#if defined(__WXMAC__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 // 10.5 only
+#include <IOKit/pwr_mgt/IOPMLib.h>
+static IOPMAssertionID assertionID;
+#endif
+
+void PlatformSpecific::PreventSleepMode()
+{
+	if (!m_preventingSleepMode) {
+#ifdef __WINDOWS__
+		SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
+		m_preventingSleepMode = true;
+
+// IOPMAssertionCreate arrived in Leopard (10.5) but is deprecated from Snow Leopard (10.6). See
+// http://developer.apple.com/library/mac/#qa/qa1340/_index.html and
+// http://www.cimgf.com/2009/10/14/the-journey-to-disabling-sleep-with-iokit/
+#elif defined(__WXMAC__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 1060 // 10.6 only
+		CFStringRef reasonForActivity = CFSTR("aMule is transferring files");
+		IOReturn success = IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleSystemSleep,
+			kIOPMAssertionLevelOn,
+			reasonForActivity,
+			&assertionID);
+		if (success == kIOReturnSuccess) {
+			// Correctly vetoed, flag so we don't do it again.
+			m_preventingSleepMode = true;
+		} else {
+			// May be should be better to trace in log?
+		}
+
+#elif defined(__WXMAC__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 // 10.5 only
+		IOReturn success = IOPMAssertionCreate(
+			kIOPMAssertionTypeNoIdleSleep, kIOPMAssertionLevelOn, &assertionID);
+		if (success == kIOReturnSuccess) {
+			// Correctly vetoed, flag so we don't do it again.
+			m_preventingSleepMode = true;
+		} else {
+			// ??
+		}
+#elif defined(__linux__) && defined(HAVE_GIO)
+		// Make one attempt per state change, including when logind denies the request.
+		m_preventingSleepMode = true;
+		GError *error = nullptr;
+		GDBusConnection *bus = g_bus_get_sync(G_BUS_TYPE_SYSTEM, nullptr, &error);
+		if (bus != nullptr) {
+			GUnixFDList *fds = nullptr;
+			GVariant *reply = g_dbus_connection_call_with_unix_fd_list_sync(bus,
+				"org.freedesktop.login1",
+				"/org/freedesktop/login1",
+				"org.freedesktop.login1.Manager",
+				"Inhibit",
+				g_variant_new("(ssss)", "idle", "aMule", "Transferring files", "block"),
+				G_VARIANT_TYPE("(h)"),
+				G_DBUS_CALL_FLAGS_NONE,
+				5000,
+				nullptr,
+				&fds,
+				nullptr,
+				&error);
+			if (reply != nullptr) {
+				gint handle = -1;
+				g_variant_get(reply, "(h)", &handle);
+				sleepInhibitorFd = g_unix_fd_list_get(fds, handle, &error);
+				g_variant_unref(reply);
+			}
+			if (fds != nullptr) {
+				g_object_unref(fds);
+			}
+			g_object_unref(bus);
+		}
+		if (error != nullptr) {
+			AddDebugLogLineN(logGeneral,
+				CFormat("Cannot inhibit idle sleep: %s") %
+					wxString::FromUTF8(error->message));
+			g_error_free(error);
+		}
+#else
+		// #warning Power event vetoing not implemented.
+		//  Not implemented
+#endif
+	}
+}
+
+void PlatformSpecific::AllowSleepMode()
+{
+	if (m_preventingSleepMode) {
+#ifdef __WINDOWS__
+		SetThreadExecutionState(ES_CONTINUOUS); // Clear the system request flag.
+		m_preventingSleepMode = false;
+#elif defined(__WXMAC__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 // 10.5 only
+		IOReturn success = IOPMAssertionRelease(assertionID);
+		if (success == kIOReturnSuccess) {
+			// Correctly restored, flag so we don't do it again.
+			m_preventingSleepMode = false;
+		} else {
+			// ??
+		}
+#elif defined(__linux__) && defined(HAVE_GIO)
+		if (sleepInhibitorFd >= 0) {
+			close(sleepInhibitorFd);
+			sleepInhibitorFd = -1;
+		}
+		m_preventingSleepMode = false;
+#else
+		// Not implemented
+#endif
+	}
+}
