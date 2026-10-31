@@ -546,7 +546,8 @@ TEST(QuicContext, FullTableRefusesOutboundBeforeCreatingHandshake)
 		ASSERT_TRUE(
 			context.ProcessDatagram(payload.data(), payload.size(), PeerNumber(i + 1), 4662, 0));
 	}
+	factory.next = std::make_unique<FakeConnection>();
 	ASSERT_TRUE(!context.Dial(PeerNumber(CQuicContext::kMaxConnections + 1), 4662, kPeerIdentity, 0));
-	ASSERT_EQUALS(CQuicContext::kMaxConnections, factory.calls);
+	ASSERT_EQUALS(0u, factory.outboundCalls);
 	ASSERT_EQUALS(CQuicContext::kMaxConnections, context.ConnectionCount());
 }
