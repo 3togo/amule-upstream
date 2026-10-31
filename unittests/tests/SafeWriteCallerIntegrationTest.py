@@ -23,7 +23,8 @@ def run(binary, fixture, mode):
         # Initialize the server-list writer without joining any network. Its only
         # saved server is loopback, and all shared offline download defaults stay.
         write_amule_conf(root, ec_port, Port=peer_port, UDPEnable=0, FilterLanIPs=0,
-                         ConnectToED2K=1, Autoconnect=0)
+                         ConnectToED2K=1, Autoconnect=0, VerboseDebug=1,
+                         sections={'Debug': {'Cat_KnownFileList': 1}})
         name = b'offline-save-regression'
         tag = b'\x02\x01\x00\x01' + struct.pack('<H', len(name)) + name
         server_before = (b'\xe0' + struct.pack('<I', 1) + socket.inet_aton('127.0.0.2')
@@ -65,6 +66,7 @@ def run(binary, fixture, mode):
                     assert 'Cannot commit saved known files' in text, 'known-file commit failure was not reported'
                     assert 'finished saving known.met' not in text, 'failed commit reported success'
                 else:
+                    assert 'finished saving known.met' in text, 'normal-save success-log control was not exercised'
                     assert (root / 'server.met.bak').read_bytes() == server_before, 'backup did not retain old server list'
                     assert server.read_bytes() != server_before, 'normal save did not commit updated server metadata'
                     assert not (root / 'server.met.new').exists(), 'normal commit left a staging file'
