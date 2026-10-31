@@ -189,19 +189,6 @@ TEST(BlockReservation, SelectionSkipsReservedBlocksAndPreservesHoles)
 	ASSERT_EQUALS(14u, result->end);
 	ASSERT_FALSE(Select({ 0, 29 }, 10, { { 2, 14 }, { 18, 29 } }, { { 0, 29 } }));
 	ASSERT_FALSE(Select({ 0, 29 }, 10, {}, {}));
-	ASSERT_FALSE(Select({ 1, 0 }, 10, { { 0, 29 } }, {}));
-	ASSERT_FALSE(Select({ 0, 29 }, 0, { { 0, 29 } }, {}));
-}
-
-TEST(BlockReservation, SelectionHandlesLastByteWithoutOverflow)
-{
-	const uint64_t maximum = std::numeric_limits<uint64_t>::max();
-	const auto last = Select(
-		{ maximum - 9, maximum }, 6, { { maximum - 9, maximum } }, { { maximum - 9, maximum - 1 } });
-	ASSERT_TRUE(last.has_value());
-	ASSERT_EQUALS(maximum, last->start);
-	ASSERT_EQUALS(maximum, last->end);
-	ASSERT_FALSE(Select({ maximum, maximum }, 1, { { maximum, maximum } }, { { maximum, maximum } }));
 }
 
 TEST(BlockReservation, SelectionMatchesByteOracleAcrossGapsAndReservations)

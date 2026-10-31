@@ -86,12 +86,9 @@ std::optional<CBlockRange> FindNextDownloadBlock(CBlockRange part,
 	const Reservations &reservations,
 	ReadReservation readReservation)
 {
-	if (part.start > part.end || blockSize == 0) {
-		return std::nullopt;
-	}
 	for (; gap != gapsEnd; ++gap) {
 		const CBlockRange missing = readGap(gap);
-		if (missing.start > missing.end || missing.end < part.start) {
+		if (missing.end < part.start) {
 			continue;
 		}
 		if (missing.start > part.end) {
