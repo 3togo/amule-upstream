@@ -1,75 +1,58 @@
-// Copyright (c) 2026 aMule Team
-// SPDX-License-Identifier: GPL-2.0-or-later
+//
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+//
+
 #ifndef UPLOADREADDIAGNOSTICS_H
 #define UPLOADREADDIAGNOSTICS_H
 
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <cstdint>
-#include <limits>
 
 namespace UploadReadDiagnostics
 {
-// The coordinator publishes zero when disabled. A read spanning a toggle is
-// excluded from the new interval; an untimed job never acquires timestamps.
-template <typename Work, typename Clock>
-void RunTimed(uint64_t epoch,
-	const std::atomic<uint64_t> &activeEpoch,
-	std::atomic<uint64_t> &started,
-	uint64_t &finished,
-	Work work,
-	Clock clock)
-{
-	const bool timed = epoch != 0 && activeEpoch.load(std::memory_order_relaxed) == epoch;
-	if (timed) {
-		started.store(clock(), std::memory_order_relaxed);
-	}
-	const auto finish = [&] {
-		if (timed && activeEpoch.load(std::memory_order_relaxed) == epoch) {
-			finished = clock();
-		}
-	};
-	try {
-		work();
-	} catch (...) {
-		finish();
-		throw;
-	}
-	finish();
-}
-
-// Millisecond buckets with power-of-two upper bounds. Median is an upper
-// estimate (less than twice the observed value); maximum remains exact.
+// Millisecond buckets with power-of-two upper bounds; the last one takes everything above.
+// Median is an upper estimate (less than twice the observed value); maximum remains exact.
 struct Histogram
 {
-	std::array<uint64_t, 66> buckets{};
+	static constexpr unsigned BucketCount = 32;
+	std::array<uint64_t, BucketCount> buckets{};
 	uint64_t count = 0;
 	uint64_t maximum = 0;
+	static uint64_t Bound(unsigned bucket) { return bucket == 0 ? 0 : uint64_t{ 1 } << (bucket - 1); }
 	void Add(uint64_t value)
 	{
 		unsigned bucket = 0;
-		uint64_t bound = 0;
-		while (bound < value && bucket < 65) {
+		while (bucket < BucketCount - 1 && Bound(bucket) < value) {
 			++bucket;
-			bound = bucket == 65 ? std::numeric_limits<uint64_t>::max()
-					     : uint64_t{ 1 } << (bucket - 1);
 		}
 		++buckets[bucket];
 		++count;
-		if (value > maximum) {
-			maximum = value;
-		}
+		maximum = std::max(maximum, value);
 	}
 	uint64_t Median() const
 	{
 		uint64_t cumulative = 0;
-		for (unsigned i = 0; i < buckets.size(); ++i) {
+		for (unsigned i = 0; i < BucketCount; ++i) {
 			cumulative += buckets[i];
 			if (cumulative >= (count + 1) / 2) {
-				return i == 0 ? 0
-					      : (i == 65 ? std::numeric_limits<uint64_t>::max()
-							 : uint64_t{ 1 } << (i - 1));
+				return i == BucketCount - 1 ? maximum : Bound(i);
 			}
 		}
 		return 0;

@@ -148,14 +148,15 @@ void *CUploadDiskIOThread::Entry()
 {
 	try {
 		m_pool = std::make_unique<StorageReadPool<ReadRequest_Struct>>(
-			[this](ReadRequest_Struct &req) {
-				UploadReadDiagnostics::RunTimed(
-					req.diagnosticEpoch,
-					m_activeDiagnosticEpoch,
-					req.readStarted,
-					req.readFinished,
-					[&] { req.result = ReadBlock(&req); },
-					[] { return GetTickCount64(); });
+			[](ReadRequest_Struct &req) {
+				// The coordinator ignores timings from an earlier diagnostics interval.
+				if (req.diagnosticEpoch != 0) {
+					req.readStarted.store(GetTickCount64(), std::memory_order_relaxed);
+				}
+				req.result = ReadBlock(&req);
+				if (req.diagnosticEpoch != 0) {
+					req.readFinished = GetTickCount64();
+				}
 			},
 			[this] { NewBlockRequestsAvailable(); });
 	} catch (const std::exception &error) {
@@ -199,7 +200,6 @@ void CUploadDiskIOThread::DispatchReads()
 	if (enabled != m_diagnostics) {
 		m_diagnostics = enabled;
 		++m_diagnosticEpoch;
-		m_activeDiagnosticEpoch.store(enabled ? m_diagnosticEpoch : 0, std::memory_order_relaxed);
 		m_reportStarted = 0;
 		m_lastSample = 0;
 		m_volumes.clear();

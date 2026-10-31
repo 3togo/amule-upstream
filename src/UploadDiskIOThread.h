@@ -131,7 +131,6 @@ private:
 
 	bool m_diagnostics = false;
 	uint64 m_diagnosticEpoch = 0;
-	std::atomic<uint64_t> m_activeDiagnosticEpoch{ 0 };
 	uint64 m_reportStarted = 0;
 	uint64 m_lastSample = 0;
 	std::map<std::string, UploadReadDiagnostics::Volume> m_volumes;

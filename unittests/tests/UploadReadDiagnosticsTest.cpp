@@ -1,9 +1,26 @@
-// Copyright (c) 2026 aMule Team
-// SPDX-License-Identifier: GPL-2.0-or-later
+//
+// This file is part of the aMule Project.
+//
+// Copyright (c) 2003-2026 aMule Team ( https://amule-org.github.io )
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+//
+
 #include <muleunit/test.h>
 #include "UploadReadDiagnostics.h"
 #include <limits>
-#include <stdexcept>
 
 using namespace muleunit;
 using namespace UploadReadDiagnostics;
@@ -47,60 +64,9 @@ TEST(UploadReadDiagnostics, EverySampleHasOneState)
 	}
 }
 
-TEST(UploadReadDiagnostics, TimingIsOptInAndDoesNotCrossIntervals)
-{
-	std::atomic<uint64_t> active{ 1 };
-	std::atomic<uint64_t> started{ 0 };
-	uint64_t finished = 0;
-	unsigned clocks = 0;
-	unsigned calls = 0;
-	auto clock = [&] { return uint64_t{ ++clocks }; };
-	auto work = [&] { ++calls; };
-	RunTimed(0, active, started, finished, work, clock);
-	ASSERT_EQUALS(0u, clocks);
-	RunTimed(1, active, started, finished, work, clock);
-	ASSERT_EQUALS(2u, clocks);
-	ASSERT_EQUALS(uint64_t{ 1 }, started.load());
-	ASSERT_EQUALS(uint64_t{ 2 }, finished);
-	active = 0;
-	RunTimed(1, active, started, finished, work, clock);
-	ASSERT_EQUALS(2u, clocks);
-	active = 2;
-	RunTimed(1, active, started, finished, work, clock);
-	ASSERT_EQUALS(2u, clocks);
-	ASSERT_EQUALS(4u, calls);
-	finished = 0;
-	RunTimed(2, active, started, finished, [&] { active = 0; }, clock);
-	ASSERT_EQUALS(3u, clocks);
-	ASSERT_EQUALS(uint64_t{ 0 }, finished);
-}
-
-TEST(UploadReadDiagnostics, FailedReadsStillHaveTiming)
-{
-	std::atomic<uint64_t> active{ 1 };
-	std::atomic<uint64_t> started{ 0 };
-	uint64_t finished = 0;
-	uint64_t now = 10;
-	bool caught = false;
-	try {
-		RunTimed(
-			1,
-			active,
-			started,
-			finished,
-			[] { throw std::runtime_error("read failed"); },
-			[&] { return now++; });
-	} catch (const std::runtime_error &) {
-		caught = true;
-	}
-	ASSERT_TRUE(caught);
-	ASSERT_EQUALS(uint64_t{ 10 }, started.load());
-	ASSERT_EQUALS(uint64_t{ 11 }, finished);
-}
-
 TEST(UploadReadDiagnostics, HistogramCoversEveryPowerOfTwoBoundary)
 {
-	for (unsigned bit = 0; bit < 64; ++bit) {
+	for (unsigned bit = 0; bit < 30; ++bit) {
 		const uint64_t bound = uint64_t{ 1 } << bit;
 		Histogram exact;
 		exact.Add(bound);
@@ -110,10 +76,16 @@ TEST(UploadReadDiagnostics, HistogramCoversEveryPowerOfTwoBoundary)
 			lower.Add(bound - 1);
 			ASSERT_EQUALS(bound == 2 ? uint64_t{ 1 } : bound, lower.Median());
 		}
-		Histogram upper;
-		upper.Add(bound + 1);
-		ASSERT_EQUALS(bit == 63 ? std::numeric_limits<uint64_t>::max() : bound << 1, upper.Median());
+		if (bit < 29) {
+			Histogram upper;
+			upper.Add(bound + 1);
+			ASSERT_EQUALS(bound << 1, upper.Median());
+		}
 	}
+	// Above the last bound, the median is the exact maximum.
+	Histogram overflow;
+	overflow.Add((uint64_t{ 1 } << 29) + 1);
+	ASSERT_EQUALS((uint64_t{ 1 } << 29) + 1, overflow.Median());
 }
 
 TEST(UploadReadDiagnostics, DispatchWaitResetsForChangedRequestsAndInactiveSlots)
