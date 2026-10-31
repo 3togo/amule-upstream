@@ -2438,7 +2438,7 @@ Returns every preference category amuled carries over EC. The `general` and `con
   "online_signature": { "enabled": false, "directory": "/home/me/.aMule", "update_frequency_seconds": 5 },
   "advanced": {
     "max_new_connections_per_5_seconds": 200, "verbose_logging": false,
-    "write_buffer_limit_mib": 128, "file_buffer_bytes": 240000, "max_upload_queue_client_count": 5000,
+    "write_buffer_limit_supported": true, "write_buffer_limit_mib": 128, "file_buffer_bytes": 240000, "max_upload_queue_client_count": 5000,
     "server_keepalive_timeout_minutes": 0, "kad_max_concurrent_source_search_count": 50,
     "kad_source_reask_minutes": 30, "source_reask_minutes": 15
   },
@@ -2528,6 +2528,9 @@ Downloading a database **now** is [`POST /geoip/update`](#post-apiv1geoipupdate)
 **Response:** `200 OK` — full preferences object (post-mutation), so a read-modify-write client can confirm what landed without a follow-up GET.
 
 **Numeric fields are bounded to what the daemon can actually hold**, not to the width of their JSON type. A value outside the range is a `400` naming the range; it is never accepted and quietly changed. Several of these bounds are much narrower than they look, because the core stores the setting differently from how the API spells it:
+
+`advanced.write_buffer_limit_supported` is read-only. Older daemons report false;
+setting the write buffer limit then returns HTTP 409 (`option_not_supported`).
 
 | Field | Range | Step | Why |
 |---|---|---|---|

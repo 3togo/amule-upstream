@@ -543,8 +543,10 @@ CEC_Prefs_Packet::CEC_Prefs_Packet(
 			cwPrefs.AddTag(CECEmptyTag(EC_TAG_CORETW_VERBOSE));
 		}
 		cwPrefs.AddTag(CECTag(EC_TAG_CORETW_FILEBUFFER, thePrefs::GetFileBufferSize()));
-		cwPrefs.AddTag(
-			CECTag(EC_TAG_CORETW_WRITE_BUFFER_LIMIT_MIB, thePrefs::GetWriteBufferLimitMiB()));
+		if (thePrefs::IsWriteBufferLimitSupported()) {
+			cwPrefs.AddTag(CECTag(
+				EC_TAG_CORETW_WRITE_BUFFER_LIMIT_MIB, thePrefs::GetWriteBufferLimitMiB()));
+		}
 		cwPrefs.AddTag(CECTag(EC_TAG_CORETW_UL_QUEUE, thePrefs::GetQueueSize()));
 		cwPrefs.AddTag(
 			CECTag(EC_TAG_CORETW_SRV_KEEPALIVE_TIMEOUT, thePrefs::GetServerKeepAliveTimeout()));
@@ -1193,6 +1195,10 @@ bool CEC_Prefs_Packet::Apply(wxArrayString *refusedDirs) const
 			thePrefs::SetMaxConsPerFive(oneTag->GetInt());
 		}
 		ApplyBoolean(use_tag, thisTab, thePrefs::SetVerbose, EC_TAG_CORETW_VERBOSE);
+#ifdef CLIENT_GUI
+		thePrefs::SetWriteBufferLimitSupported(
+			thisTab->GetTagByName(EC_TAG_CORETW_WRITE_BUFFER_LIMIT_MIB) != nullptr);
+#endif
 		if ((oneTag = thisTab->GetTagByName(EC_TAG_CORETW_WRITE_BUFFER_LIMIT_MIB)) != nullptr) {
 			thePrefs::SetWriteBufferLimitMiB(oneTag->GetInt());
 		}

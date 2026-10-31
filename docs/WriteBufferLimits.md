@@ -14,6 +14,11 @@ lowering the limit does not discard that data. The default applies to existing
 profiles without this new setting. Configuration and EC values are clamped to
 the supported range; the HTTP API rejects out-of-range values.
 
+An older daemon without the setting disables the control in remote clients.
+The API reports `advanced.write_buffer_limit_supported: false` and rejects an
+attempt to set the limit with HTTP 409 (`option_not_supported`). The web UI omits
+the unsupported setting when saving other preferences.
+
 The larger default leaves room for short write stalls, including bursts of part
 hashing on fast LAN downloads. It is a tradeoff against memory use, not a promise
 of higher throughput on every disk. Larger values cannot fix a disk that is

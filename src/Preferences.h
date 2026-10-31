@@ -396,6 +396,9 @@ public:
 
 	static const wxString &GetVideoPlayer() { return s_VideoPlayer; }
 
+	// Runtime capability, learned from the daemon by amulegui and never persisted.
+	static bool IsWriteBufferLimitSupported() { return s_writeBufferLimitSupported; }
+	static void SetWriteBufferLimitSupported(bool val) { s_writeBufferLimitSupported = val; }
 	static uint32 GetWriteBufferLimitMiB() { return s_writeBufferLimitMiB; }
 	static uint64 GetWriteBufferLimitBytes()
 	{
@@ -1138,6 +1141,7 @@ protected:
 
 	static uint8 s_iFileBufferSize;
 	static uint32 s_writeBufferLimitMiB;
+	static bool s_writeBufferLimitSupported;
 	static uint8 s_iQueueSize;
 
 	static bool s_ToolbarOrientation;

@@ -193,6 +193,7 @@ bool CPreferences::s_msgsecure;
 uint8 CPreferences::s_filterlevel;
 uint8 CPreferences::s_iFileBufferSize;
 uint32 CPreferences::s_writeBufferLimitMiB = WriteBufferLimits::defaultMiB;
+bool CPreferences::s_writeBufferLimitSupported = true;
 uint8 CPreferences::s_iQueueSize;
 wxString CPreferences::s_sWebPath;
 wxString CPreferences::s_sWebPassword;
