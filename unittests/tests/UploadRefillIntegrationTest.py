@@ -262,7 +262,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(json.dumps(retry_port_collisions(
         run, str(Path(args.binary).resolve()), args.seconds, args.slots, args.rate,
-        args.compress, args.pause_ms, fileio=args.fileio)))
+        args.compress, args.pause_ms, False, args.fileio)))
     if args.storage_delay_fixture:
         from UploadStorageDelayIntegrationTest import run as run_storage_delay
         for case in ('small', 'full', 'large', 'mixed'):
