@@ -105,9 +105,8 @@
 #include "kademlia/routing/RoutingZone.h"
 #include "KadBuddyIdLayout.h" // Needed for ConvertBuddyIdLayout (#1835)
 #ifdef ENABLE_NATT_SERVER_COORDINATION
-#include "LugdunumNatTraversal.h"    // Needed for ShouldRequestLugdunumNatCallback
-#include "NatServerHolePunch.h"      // Needed for ShouldRequestLowIdHolePunch
-#include "EncryptedDatagramSocket.h" // Needed for CEncryptedDatagramSocket::EncryptSendServer
+#include "LugdunumNatTraversal.h" // Needed for ShouldRequestLugdunumNatCallback
+#include "NatServerHolePunch.h"   // Needed for ShouldRequestLowIdHolePunch
 #endif
 
 // #define __PACKET_DEBUG__
@@ -516,6 +515,7 @@ bool CUpDownClient::ProcessHelloAnswer(const uint8_t *pachPacket, uint32 nSize)
 
 bool CUpDownClient::ProcessHelloTypePacket(const CMemFile &data)
 {
+	m_strModVersion.Clear();
 	uint32 dwEmuleTags = 0;
 
 	CMD4Hash hash = data.ReadHash();
@@ -872,18 +872,7 @@ bool CUpDownClient::ProcessHelloTypePacket(const CMemFile &data)
 	// The session count is taken once per client object rather than once per call: an outgoing
 	// connection processes a hello answer as well as a hello, and a count that rose per packet
 	// would measure traffic instead of visits.
-	if (credits != nullptr) {
-		credits->UpdateMeta(m_Username,
-			GetIP(),
-			m_nUserPort,
-			m_nKadPort,
-			m_nClientVersion,
-			m_clientSoft,
-			static_cast<uint8>(m_nSourceFrom),
-			GetObfuscationStatus(),
-			!m_metaSessionCounted);
-		m_metaSessionCounted = true;
-	}
+	UpdateClientMeta(!m_metaSessionCounted);
 
 	m_byInfopacketsReceived |= IP_EDONKEYPROTPACK;
 
@@ -903,6 +892,25 @@ bool CUpDownClient::ProcessHelloTypePacket(const CMemFile &data)
 	}
 
 	return bIsMule;
+}
+
+void CUpDownClient::UpdateClientMeta(bool countSession)
+{
+	if (credits != nullptr) {
+		credits->UpdateMeta(m_Username,
+			GetIP(),
+			m_nUserPort,
+			m_nKadPort,
+			m_nClientVersion,
+			m_clientSoft,
+			m_strModVersion,
+			static_cast<uint8>(m_nSourceFrom),
+			GetObfuscationStatus(),
+			countSession);
+		if (countSession) {
+			m_metaSessionCounted = true;
+		}
+	}
 }
 
 bool CUpDownClient::SendHelloPacket()
@@ -1181,6 +1189,9 @@ bool CUpDownClient::ProcessMuleInfoPacket(const uint8_t *pachPacket, uint32 nSiz
 		}
 
 		ReGetClientSoft();
+		if (m_metaSessionCounted) {
+			UpdateClientMeta(false);
+		}
 
 		m_byInfopacketsReceived |= IP_EMULEPROTPACK;
 	}
@@ -1484,6 +1495,12 @@ bool CUpDownClient::Disconnected(const wxString &strReason, bool bFromSocket)
 			0); // inform the tester that this test has failed
 	} else if (GetKadState() == KS_CONNECTED_BUDDY) {
 		AddDebugLogLineN(logClient, "Buddy client disconnected - " + strReason);
+	}
+
+	// Local filtering, settings refusals and cleanup do not mark the IP as failed.
+	// An advertised IPv6 dial did not try GetConnectIP(); leave IPv4 fallback eligible.
+	if (GetKadState() == KS_CONNECTING_BUDDY && bFromSocket && !m_dialingIPv6) {
+		theApp->clientlist->RecordBuddyFailure(GetConnectIP());
 	}
 
 	// If this is a KAD client object, just delete it!
@@ -1825,25 +1842,33 @@ EContactResult CUpDownClient::CheckContactPreconditions()
 }
 
 #ifdef ENABLE_NATT_SERVER_COORDINATION
-void CUpDownClient::TrySendLugdunumNatCallbackRequest() const
+void CUpDownClient::TrySendLugdunumNatCallbackRequest()
 {
-	TrySendLugdunumNatCallbackRequest(GetUserIDHybrid());
+	if (!TrySendLugdunumNatCallbackRequest(GetUserIDHybrid())) {
+		return;
+	}
+#ifdef AMULE_UTP_TRANSPORT
+	// The source's target dials us: the attempt is the request, its success that source's hello.
+	theStats::AddLugdunumCallbackAttempt();
+	m_lugdunumCallbackRequest.NoteSent(::GetTickCount64());
+	theApp->clientudp->NoteLugdunumCallbackRequested(GetUserIDHybrid());
+#endif
 }
 
-void CUpDownClient::TrySendLugdunumNatCallbackRequest(uint32 targetId) const
+bool CUpDownClient::TrySendLugdunumNatCallbackRequest(uint32 targetId) const
 {
 	if (theApp->serverconnect == nullptr || theApp->clientudp == nullptr) {
-		return;
+		return false;
 	}
 	CServer *server = theApp->serverconnect->GetCurrentServer();
 	if (server == nullptr) {
-		return;
+		return false;
 	}
 	// The server UDP fields are updated on the server-list entry, not on cur_server's snapshot.
 	CServer *serverListEntry =
 		theApp->serverlist->GetServerByAddress(server->GetAddress(), server->GetPort());
 	if (serverListEntry == nullptr) {
-		return;
+		return false;
 	}
 	const LugdunumNatTraversal::CallbackRequestFacts facts{ theApp->serverconnect->GetClientID(),
 		targetId,
@@ -1854,7 +1879,7 @@ void CUpDownClient::TrySendLugdunumNatCallbackRequest(uint32 targetId) const
 		serverListEntry->SupportsObfuscationUDP(),
 		thePrefs::IsLugdunumNatCallbackEnabled() };
 	if (!LugdunumNatTraversal::ShouldRequestLugdunumNatCallback(facts)) {
-		return;
+		return false;
 	}
 
 	const LugdunumNatTraversal::CallbackRequest request{ targetId, theApp->serverconnect->GetClientID() };
@@ -1862,32 +1887,14 @@ void CUpDownClient::TrySendLugdunumNatCallbackRequest(uint32 targetId) const
 	CMemFile data(payload.data(), payload.size());
 	CPacket *packet = new CPacket(data, OP_EDONKEYPROT, OP_NAT_CALLBACKREQUEST);
 
-	// Encrypted the server way, as CServerUDPSocket::SendPacket does, but sent from the client
-	// socket so the server sees the UDP port peers must punch.
-	uint16 uRawPacketSize = static_cast<uint16>(packet->GetPacketSize() + 2);
-	uint8_t *pRawPacket = new uint8_t[uRawPacketSize];
-	memcpy(pRawPacket, packet->GetUDPHeader(), 2);
-	memcpy(pRawPacket + 2, packet->GetDataBuffer(), packet->GetPacketSize());
-	delete packet;
-
-	uRawPacketSize = static_cast<uint16>(CEncryptedDatagramSocket::EncryptSendServer(
-		&pRawPacket, uRawPacketSize, serverListEntry->GetServerKeyUDP()));
-
-	CMemFile encryptedPacket(pRawPacket + 2, uRawPacketSize - 2);
-	CPacket *encrypted = new CPacket(encryptedPacket, pRawPacket[0], pRawPacket[1]);
-	delete[] pRawPacket;
-
 	AddDebugLogLineN(logClientUDP,
 		CFormat("Client UDP socket: OP_NAT_CALLBACKREQUEST for source %u to %s") % targetId %
 			Uint32_16toStringIP_Port(server->GetIP(), serverListEntry->GetObfuscationPortUDP()));
-	theStats::AddUpOverheadOther(encrypted->GetPacketSize());
-	theApp->clientudp->SendPacket(encrypted,
+	theStats::AddUpOverheadOther(theApp->clientudp->SendServerWayObfuscated(packet,
 		server->GetIP(),
 		serverListEntry->GetObfuscationPortUDP(),
-		false,
-		nullptr,
-		false,
-		0);
+		serverListEntry->GetServerKeyUDP()));
+	return true;
 }
 
 namespace
@@ -1936,6 +1943,10 @@ bool CUpDownClient::TrySendLowIdHolePunchRequest()
 	theStats::AddUpOverheadServer(packet->GetPacketSize());
 	theApp->serverconnect->SendPacket(packet);
 	theApp->serverconnect->LowIdHolePunchPendingRequests().OnSent(GetUserIDHybrid(), ::GetTickCount64());
+	// On an extension server one 0x9F goes with each 0x60, so the 0x61 carries our current port.
+	if (theApp->serverconnect->IsHolePunchExtensionActive()) {
+		theApp->serverconnect->TrySendLowIdHolePunchKeepalive();
+	}
 	m_lowIdHolePunchRequested = true;
 	return true;
 }
@@ -2572,15 +2583,11 @@ void CUpDownClient::ReGetClientSoft()
 	}
 
 	int iHashType = GetHashType();
-	wxString clientModString;
 	if (iHashType == SO_EMULE) {
 
 		m_clientSoft = m_byCompatibleClient;
-		m_clientSoftString = GetSoftName(m_clientSoft);
+		m_clientSoftString = GetSoftName(m_clientSoft, m_strModVersion);
 		// Special issues:
-		if (!GetClientModString().IsEmpty() && (m_clientSoft != SO_EMULE)) {
-			m_clientSoftString = GetClientModString();
-		}
 		// Isn't xMule annoying?
 		if ((m_clientSoft == SO_LXMULE) && (GetMuleVersion() > 0x26) && (GetMuleVersion() != 0x99)) {
 			m_clientSoftString += CFormat(_(" (Fake eMule version %#x)")) % GetMuleVersion();
@@ -2644,7 +2651,6 @@ void CUpDownClient::ReGetClientSoft()
 				m_clientVerString = "< v0.05";
 				break;
 			default:
-				clientModString = GetClientModString();
 				m_clientVerString = CFormat("v0.%u") % nClientMinVersion;
 				break;
 			}
@@ -2656,12 +2662,6 @@ void CUpDownClient::ReGetClientSoft()
 			m_nClientVersion =
 				MAKE_CLIENT_VERSION(nClientMajVersion, nClientMinVersion, nClientUpVersion);
 
-			if (m_clientSoft != SO_AMULE && m_clientSoft != SO_LXMULE &&
-				m_clientSoft != SO_HYDRANODE && m_clientSoft != SO_MLDONKEY &&
-				m_clientSoft != SO_NEW_MLDONKEY && m_clientSoft != SO_NEW2_MLDONKEY &&
-				m_clientSoft != SO_LPHANT && m_clientSoft != SO_EMULEPLUS) {
-				clientModString = GetClientModString();
-			}
 			// One renderer for every consumer: the history rows derive the same
 			// string from the stored numeric, and used to disagree with this one.
 			m_clientVerString = FormatClientVersion(
@@ -2734,10 +2734,7 @@ void CUpDownClient::ReGetClientSoft()
 	}
 
 	m_clientVersionString = m_clientVerString;
-	if (!clientModString.IsEmpty()) {
-		m_clientVerString += " - " + clientModString;
-	}
-	m_fullClientVerString = m_clientSoftString + " " + m_clientVerString;
+	m_fullClientVerString = FormatClientSoftware(m_clientSoftString, m_strModVersion, m_clientVerString);
 
 	UpdateStats();
 }
@@ -3900,6 +3897,7 @@ void CUpDownClient::ProcessChatMessage(wxString message)
 
 // Prefs-based and GUI-free, so it's shared by both builds -- the daemon's
 // read-only chat relay applies the same message filter the monolithic GUI does.
+// Keep FilterSelectionSummary::Describe() in sync with changes to these filtering rules.
 bool CUpDownClient::IsMessageFiltered(const wxString &message)
 {
 	bool filtered = false;

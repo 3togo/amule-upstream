@@ -29,6 +29,7 @@
 #include "DeadSourceList.h"
 #include "BanRecord.h" // Needed for CBanRecord // Needed for CDeadSourceList
 #include "ClientRef.h"
+#include "KadBuddyRetry.h"
 #include "ChatSessionStore.h"
 #include "CanonicalPeerIndex.h"
 #include "TrackedClientRecord.h"
@@ -276,6 +277,8 @@ public:
 	uint16 GetBuddyPort();
 	bool RequestTCP(Kademlia::CContact *contact, uint8_t connectOptions);
 	void RequestBuddy(Kademlia::CContact *contact, uint8_t connectOptions);
+	bool CanRequestBuddy(uint32_t ip) const;
+	void RecordBuddyFailure(uint32_t ip);
 	bool IncomingBuddy(Kademlia::CContact *contact, Kademlia::CUInt128 *buddyID);
 	void RemoveFromKadList(CUpDownClient *torem);
 	void AddToKadList(CUpDownClient *toadd);
@@ -364,6 +367,7 @@ private:
 	CClientRefSet m_KadSources;
 	CClientRef m_pBuddy;
 	uint8 m_nBuddyStatus;
+	Kademlia::CBuddyRetry m_buddyRetry;
 
 	Kademlia::CFirewallCheckRequests m_firewallCheckRequests;
 

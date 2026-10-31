@@ -438,6 +438,10 @@ msgstr ""
 "EC-konfiguration"
 
 #: src/amule.cpp
+msgid "Could not save AcceptExternalConnections to amule.conf."
+msgstr ""
+
+#: src/amule.cpp
 msgid "Password set and external connections enabled."
 msgstr "Lösenord sparad och extern anslutning aktiverad."
 
@@ -517,18 +521,26 @@ msgid "Not starting %s: it is neither next to aMule nor on PATH."
 msgstr ""
 
 #: src/amule.cpp
+msgid "An exception occurred while launching amuleweb."
+msgstr ""
+
+#: src/amule.cpp
 #, c-format
 msgid "web server running on pid %d"
 msgstr "webbservern kör på pid %d"
 
 #: src/amule.cpp
-msgid "You requested to run web server on startup, but the amuleweb binary cannot be run. Please install the package containing aMule web server, or build aMule from source with -DBUILD_WEBSERVER=YES and install it."
-msgstr "Du har begärt att webbservern ska köras vid start, men binärfilen amuleweb kan inte köras. Installera paketet som innehåller aMules webbserver, eller bygg aMule från källkod med -DBUILD_WEBSERVER=YES och installera det."
+msgid "Could not prepare the amuleweb authentication token. The web server was not started."
+msgstr ""
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
 #: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "FEL"
+
+#: src/amule.cpp
+msgid "You requested to run web server on startup, but the amuleweb binary cannot be run. Please install the package containing aMule web server, or build aMule from source with -DBUILD_WEBSERVER=YES and install it."
+msgstr "Du har begärt att webbservern ska köras vid start, men binärfilen amuleweb kan inte köras. Installera paketet som innehåller aMules webbserver, eller bygg aMule från källkod med -DBUILD_WEBSERVER=YES och installera det."
 
 #: src/amule.cpp
 #, c-format
@@ -551,6 +563,16 @@ msgstr ""
 #: src/amule.cpp
 msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot be run. Please install the package containing aMule's REST API server, or build aMule from source with -DBUILD_AMULEAPI=YES and install it."
 msgstr "Du har begärt att amuleapi ska köras vid start, men binärfilen amuleapi kan inte köras. Installera paketet som innehåller aMules REST API-server, eller bygg aMule från källkod med -DBUILD_AMULEAPI=YES och installera den."
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Could not prepare the amuleweb EC token."
+msgstr "Kunde inte spara amuleapi-lösenordet: %s"
+
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Could not remove the amuleweb EC token file: %s"
+msgstr "Kunde inte spara amuleapi-lösenordet: %s"
 
 #: src/amule.cpp
 #, fuzzy, c-format
@@ -750,6 +772,11 @@ msgstr "Loggen har nollställts"
 msgid "ServerMessage: %s"
 msgstr "Servermeddelande: %s"
 
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "Kunde inte öppna MaxMindDB-databasen ”%s”: %s"
+
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
 msgid "Skipped download of %s, because requested file is not newer."
@@ -866,8 +893,12 @@ msgid "ERROR: aMule daemon cannot be used when external connections are disabled
 msgstr "FEL: aMule-deamon kan inte användas när externa anslutningar är inaktiverade. För att aktivera Externa Anslutningar, använd en normal aMule, starta amuled med optionen --ec-config eller sätt nyckeln \"AcceptExternalConnections\" till 1 i filen ~/.aMule/amule.conf"
 
 #: src/amuled.cpp
-msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
-msgstr "FEL: Ett giltigt lösenord krävs för externa anslutningar, och aMule-daemonen kan inte användas utan dem. För att köra aMule-daemonen måste du ange ett lämpligt värde för fältet ”ECPassword” i filen ~/.aMule/amule.conf. Kör amuled med flaggan --ec-config för att ange lösenordet. Mer information finns på https://amule-org.github.io/docs"
+msgid "ERROR: An EC password is required. Run amuled --ec-config to set it."
+msgstr ""
+
+#: src/amuled.cpp
+msgid "ERROR: Invalid ECPasswordVerifier in amule.conf. Run amuled --ec-config to set a new EC password."
+msgstr ""
 
 #: src/amuled.cpp
 msgid "amuled: OnInit - starting timer"
@@ -1284,6 +1315,10 @@ msgstr ""
 msgid "All"
 msgstr "Alla"
 
+#: src/amule-remote-gui.cpp
+msgid "The EC password changed on the daemon, but the saved client password could not be updated."
+msgstr ""
+
 #: src/amule-remote-gui.cpp src/muuli_wdr.cpp
 msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
 msgstr ""
@@ -1293,8 +1328,13 @@ msgstr ""
 msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
 msgstr ""
 
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp
+#, fuzzy
+msgid "The EC password was not changed."
+msgstr "- TCP-port ändrad.\n"
+
 #: src/amule-remote-gui.cpp
-msgid "The daemon could not apply the connection port changes."
+msgid "The daemon could not apply the preference changes."
 msgstr ""
 
 #: src/amule-remote-gui.cpp
@@ -1851,6 +1891,14 @@ msgstr "Användare %s (%u) nekade tillgång till listan för delade mappar/filer
 msgid "File Comments"
 msgstr "Filkommentarer"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Lägg till Kommentar/Betyg"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Redigera Kommentar/Betyg"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Användarnamn"
@@ -2394,6 +2442,16 @@ msgid "External connections disabled due to empty password!"
 msgstr "Externa anslutningar inaktiverade pga. tomt lösenord!"
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "External connections disabled due to invalid ECPasswordVerifier!"
+msgstr "Externa anslutningar inaktiverade pga. tomt lösenord!"
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "External connections disabled: could not prepare the EC token verifier."
+msgstr "Externa anslutningar inaktiverade i konfigfilen"
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote clients cannot change folders: no folder is listed in %s"
 msgstr ""
@@ -2416,12 +2474,21 @@ msgstr "Extern anslutning nekad pga. tomt lösenord i inställningarna!"
 
 #: src/ExternalConn.cpp
 #, c-format
+msgid "Too many failed connection attempts; try again in %d seconds."
+msgstr "För många misslyckade anslutningsförsök; försök igen om %d sekunder."
+
+#: src/ExternalConn.cpp
+#, c-format
 msgid "Connecting client: %s %s"
 msgstr "Ansluter klient: %s %s"
 
 #: src/ExternalConn.cpp
 msgid "Unknown version"
 msgstr "Okänd version"
+
+#: src/ExternalConn.cpp
+msgid "An EC client of version 3.3.0 or later is required."
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Incorrect EC version ID, there might be binary incompatibility. Use core and remote from same snapshot."
@@ -2432,33 +2499,16 @@ msgid "You cannot connect to a release version from an arbitrary development sna
 msgstr "Du kan inte ansluta en release-version från en godtycklig utvecklings-snapshot! *suck* Trolig krasch förhindrad "
 
 #: src/ExternalConn.cpp
+msgid "Invalid SRP handshake or EC verifier."
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "Invalid protocol version."
 msgstr "Fel protokoll-version"
 
 #: src/ExternalConn.cpp
 msgid "Missing protocol version tag."
 msgstr "Saknar tag för protokoll-version"
-
-#: src/ExternalConn.cpp
-#, c-format
-msgid "Too many failed connection attempts; try again in %d seconds."
-msgstr "För många misslyckade anslutningsförsök; försök igen om %d sekunder."
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: invalid hash specified as EC password."
-msgstr "Autentisering misslyckades: fel hash specificerad som EC-lösenord"
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: the client offered an encrypted External Connection but sent no usable key."
-msgstr "Autentisering misslyckades: klienten erbjöd en krypterad extern anslutning men skickade ingen användbar nyckel."
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: this aMule requires an encrypted External Connection, and the client did not negotiate one."
-msgstr "Autentisering misslyckades: den här aMule-instansen kräver en krypterad extern anslutning, och klienten förhandlade inte fram en sådan."
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: the client could not confirm the encrypted session."
-msgstr "Autentisering misslyckades: klienten kunde inte bekräfta den krypterade sessionen."
 
 #: src/ExternalConn.cpp
 msgid "Authentication failed: wrong password."
@@ -2624,9 +2674,37 @@ msgid "Client could not be swapped to that file."
 msgstr "Klienten kunde inte växlas till den filen."
 
 #: src/ExternalConn.cpp
+msgid "Duplicate remote-control preference groups are not allowed."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "Only password-authenticated sessions may change the EC password."
+msgstr ""
+
+#: src/ExternalConn.cpp src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Could not update EC password verifier."
+msgstr "Kunde inte spara amuleapi-lösenordet: %s"
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Could not apply preferences."
+msgstr "Kad inaktiverad i inställningarna."
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Could not save the amuleapi password: %s"
 msgstr "Kunde inte spara amuleapi-lösenordet: %s"
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Could not update EC password verifier. The other preferences were saved."
+msgstr "Lösenord sparad och extern anslutning aktiverad."
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "EC password changed by %s"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "One or more folders were outside the allowed remote directories and were left unchanged."
@@ -2926,10 +3004,6 @@ msgid "Print program version."
 msgstr "Skriv ut programversion."
 
 #: src/ExternalConnector.cpp
-msgid "Do not encrypt the External Connect session. Encryption is on by default whenever the remote aMule supports it; turning it off leaves everything after the login readable and modifiable by anyone on the path."
-msgstr "Kryptera inte sessionen för extern anslutning. Kryptering är som standard på när fjärranslutna aMule stöder den; om den stängs av kan allt efter inloggningen läsas och ändras av vem som helst på vägen."
-
-#: src/ExternalConnector.cpp
 msgid "Force ZLIB compression regardless of dialed-IP locality (useful when the server is reachable over a VPN tunnel that resolves to a LAN IP)."
 msgstr "Tvinga ZLIB-komprimering oavsett den uppringda IP-adressens lokalitet (användbart när servern nås genom en VPN-tunnel som löses till en LAN-IP-adress)."
 
@@ -2940,6 +3014,10 @@ msgstr "Lägg till en kopia av all konsolutdata i den här loggfilen (standard: 
 #: src/ExternalConnector.cpp
 msgid "Do not write a log file; print to the console only."
 msgstr "Skriv ingen loggfil; skriv endast till konsolen."
+
+#: src/ExternalConnector.cpp
+msgid "The daemon verifier cannot supply a client password. Use -P or the password prompt.\n"
+msgstr ""
 
 #: src/FileDetailDialog.cpp
 msgid "File Details"
@@ -3034,6 +3112,68 @@ msgstr "FEL: Kunde inte öppna ”%s” med standardprogrammet."
 #, c-format
 msgid "ERROR: Failed to show '%s' in the file manager."
 msgstr "FEL: Kunde inte visa ”%s” i filhanteraren."
+
+#: src/FilterSelectionSummary.h
+msgid "The message filter is off; its selected rules are saved."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "All incoming messages outside current chats will be discarded."
+msgstr "Filtrera inkommande meddelanden (utom nuvarande chatt):"
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Messages from people not on your friend list will be discarded."
+msgstr "Filtrera meddelanden från folk som inte finns i din kompislista"
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Messages from unknown clients will be discarded."
+msgstr "Filtrera meddelanden från okända klienter"
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "Messages containing any of these terms will be discarded (ignoring case): %s."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No messages will be discarded by the message filter: the word list is empty."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No messages will be discarded by the message filter: select at least one option."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Current chats are exempt from these rules."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Advanced spam filtering for non-friends is also enabled."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "First messages from non-friends require a CAPTCHA."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Received message text will also be written to the log."
+msgstr "Visa mottagna meddelanden i loggen"
+
+#: src/FilterSelectionSummary.h
+msgid "File comment filtering is off."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No file comments will be hidden: the word list is empty."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "File comments containing any of these literal terms will be hidden (ignoring case): %s."
+msgstr ""
 
 #: src/FirstRunWizard.cpp
 msgid "Mobile / 4G-5G (20 / 5 Mbit)"
@@ -3219,10 +3359,6 @@ msgstr "Målmapp för hämtningar"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Bläddra"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Alla filer i den här mappen delas med andra noder)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -3488,14 +3624,9 @@ msgstr[0] "%u felaktigt linje kastades."
 msgstr[1] "%u felaktiga linjer kastades."
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "Kunde inte ta bort %s filen, avbryter uppdateringen."
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr "Det gick inte att byta namn på ny %s fil, avbryter uppdateringen."
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "Kunde inte byta namn på %s filen, avbryter uppdateringen."
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -4029,6 +4160,11 @@ msgid "Invalid password, not a MD5 hash!"
 msgstr "Ogiltigt lösenord, inte en MD5-hash!"
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
+#, fuzzy
+msgid "Could not generate SRP credentials."
+msgstr "Kunde inte ta bort kategorin: %s"
+
+#: src/libs/ec/cpp/RemoteConnect.cpp
 #, c-format
 msgid "Could not resolve %s to an IPv4 address."
 msgstr "Kunde inte slå upp %s till en IPv4-adress."
@@ -4046,16 +4182,13 @@ msgid "EC connection failed. Empty reply."
 msgstr "EC-anslutningen misslyckades. Tomt svar."
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "Could not set up connection encryption. Connection closed."
-msgstr "Kunde inte konfigurera anslutningskryptering. Anslutningen stängdes."
-
-#: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "The core did not negotiate an encrypted connection. It may be an older aMule without encryption support, or the connection may have been tampered with. To connect without encryption, turn it off in the connection settings."
-msgstr "Kärnan förhandlade inte fram en krypterad anslutning. Den kan vara en äldre aMule utan krypteringsstöd, eller så kan anslutningen ha manipulerats. Om du vill ansluta utan kryptering stänger du av den i anslutningsinställningarna."
-
-#: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "External Connection: Bad reply, handshake failed. Connection closed."
+#, fuzzy
+msgid "Invalid SRP handshake or unsupported profile. Connection closed."
 msgstr "Extern Anslutning: Fel svar, handskakning misslyckades. Anslutning stängd."
+
+#: src/libs/ec/cpp/RemoteConnect.cpp
+msgid "An EC daemon of version 3.3.0 or later is required."
+msgstr ""
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
 msgid "External Connection: the daemon failed to prove it knows the password. Connection closed."
@@ -5720,10 +5853,6 @@ msgid "Password"
 msgstr "Lösenord"
 
 #: src/muuli_wdr.cpp
-msgid "Require encrypted connections (rejects clients that cannot encrypt)"
-msgstr "Kräv krypterade anslutningar (avvisar klienter som inte kan kryptera)"
-
-#: src/muuli_wdr.cpp
 msgid "Folders remote clients may use"
 msgstr ""
 
@@ -6165,8 +6294,16 @@ msgid "Check for a newer GeoIP database at startup and every week while aMule is
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Filter incoming messages (except current chat):"
+#, fuzzy
+msgid "Enable incoming message filtering (except current chat):"
 msgstr "Filtrera inkommande meddelanden (utom nuvarande chatt):"
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Enable the filter options below. Select at least one option to filter messages.\n"
+"Turning this off keeps your selected options and word list.\n"
+"Filtered messages are discarded without opening a chat or replying to the sender."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Filter all messages"
@@ -6185,8 +6322,11 @@ msgid "Filter messages containing (use ',' as separator):"
 msgstr "Filtrera meddelanden som innehåller (använd ',' som separator):"
 
 #: src/muuli_wdr.cpp
-msgid "add here the words amule should filter and block messages including it"
-msgstr "skriv här orden amule ska filtrera och blockera meddelanden med dem"
+msgid ""
+"Discard chat messages containing any comma-separated term. Matching ignores case and spaces around each term.\n"
+"Terms match anywhere in a message: dog matches hotdog and black dog spotted.\n"
+"Wildcards are not supported. A * is literal, except that a word list of exactly * blocks every message."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Enable advanced spam filter"
@@ -6209,12 +6349,26 @@ msgid "Show received messages in the log"
 msgstr "Visa mottagna meddelanden i loggen"
 
 #: src/muuli_wdr.cpp
-msgid "Comments"
-msgstr "Kommentarer"
+#, fuzzy
+msgid "File comments"
+msgstr "Filkommentarer"
 
 #: src/muuli_wdr.cpp
-msgid "Filter comments containing (use ',' as separator):"
+#, fuzzy
+msgid "Filter file comments containing (use ',' as separator):"
 msgstr "Filtrera kommentarer som innehåller (använd ',' som separator):"
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Hide file comments from other users containing any comma-separated term. This does not filter chat messages.\n"
+"Matching ignores case and spaces around each term. Terms match anywhere in a comment: dog matches hotdog and black dog spotted.\n"
+"Wildcards are not supported; * is matched literally."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "With these settings"
+msgstr "Kom ihåg dessa inställningar"
 
 #: src/muuli_wdr.cpp
 msgid "Enable Proxy"
@@ -6271,10 +6425,6 @@ msgstr "Logga in på fjärr-amule"
 #: src/muuli_wdr.cpp
 msgid "Remember those settings"
 msgstr "Kom ihåg dessa inställningar"
-
-#: src/muuli_wdr.cpp
-msgid "Encrypt the connection (recommended)"
-msgstr "Kryptera anslutningen (rekommenderas)"
 
 #: src/muuli_wdr.cpp
 msgid "Force ZLIB compression"
@@ -6444,6 +6594,10 @@ msgstr ""
 #, c-format
 msgid "%s:"
 msgstr "%s:"
+
+#: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Alla filer i den här mappen delas med andra noder)"
 
 #: src/OtherFunctions.cpp
 msgid "all"
@@ -8343,14 +8497,6 @@ msgid "Shared Files"
 msgstr "Utdelade filer"
 
 #: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Lägg till Kommentar/Betyg"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Redigera Kommentar/Betyg"
-
-#: src/SharedFilesCtrl.cpp
 msgid "Rename"
 msgstr "Byt namn"
 
@@ -8555,6 +8701,16 @@ msgid "Crypt overhead (UDP): %s"
 msgstr "Crypt overhead (UDP): %s"
 
 #: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "LowID to LowID Data (Session): %s"
+msgstr "Nedladdad data (Session (Total)): %s"
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "IPv6 Data (Session): %s"
+msgstr "Överförd data (Session (Total)): %s"
+
+#: src/Statistics.cpp
 #, c-format
 msgid "Active Uploads: %s"
 msgstr "Aktiva uppladdningar: %s"
@@ -8653,6 +8809,31 @@ msgstr "Genomsnittliga anslutningar (uppskattning): %g"
 #, c-format
 msgid "Peak Connections (estimate): %i"
 msgstr "Toppar anslutningar (uppskattning): %i"
+
+#: src/Statistics.cpp
+#, fuzzy
+msgid "NAT Traversal (Session)"
+msgstr "NAT-traversering (uTP)"
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "Server Hole Punches: %s"
+msgstr "Server Overhead (paket): %s"
+
+#: src/Statistics.cpp
+#, c-format
+msgid "Successful Server Hole Punches: %s"
+msgstr ""
+
+#: src/Statistics.cpp
+#, c-format
+msgid "Lugdunum Callbacks: %s"
+msgstr ""
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "Successful Lugdunum Callbacks: %s"
+msgstr "Lyckad uppdatering av %s"
 
 #: src/Statistics.cpp
 #, c-format
@@ -10303,7 +10484,7 @@ msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
@@ -10313,6 +10494,91 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not remove legacy ECPassword; cleanup will be retried on restart."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not persist ECPasswordVerifier; using the legacy ECPassword in memory for this run. Migration will be retried on restart."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+#, fuzzy
+msgid "Could not generate ECPasswordVerifier; external connections are disabled."
+msgstr "Lösenord sparad och extern anslutning aktiverad."
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not generate ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not persist ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not store ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "ECPassword contains an invalid or empty-password digest. Run amuled --ec-config to set a new EC password."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Invalid or unsupported ECPasswordVerifier; refusing external connections."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not compare legacy ECPassword with ECPasswordVerifier; refusing external connections."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
+msgstr ""
+
+#, c-format
+#~ msgid "Failed to remove %s file, aborting update."
+#~ msgstr "Kunde inte ta bort %s filen, avbryter uppdateringen."
+
+#, c-format
+#~ msgid "Failed to rename new %s file, aborting update."
+#~ msgstr "Det gick inte att byta namn på ny %s fil, avbryter uppdateringen."
+
+#~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
+#~ msgstr "FEL: Ett giltigt lösenord krävs för externa anslutningar, och aMule-daemonen kan inte användas utan dem. För att köra aMule-daemonen måste du ange ett lämpligt värde för fältet ”ECPassword” i filen ~/.aMule/amule.conf. Kör amuled med flaggan --ec-config för att ange lösenordet. Mer information finns på https://amule-org.github.io/docs"
+
+#~ msgid "Authentication failed: invalid hash specified as EC password."
+#~ msgstr "Autentisering misslyckades: fel hash specificerad som EC-lösenord"
+
+#~ msgid "Authentication failed: the client offered an encrypted External Connection but sent no usable key."
+#~ msgstr "Autentisering misslyckades: klienten erbjöd en krypterad extern anslutning men skickade ingen användbar nyckel."
+
+#~ msgid "Authentication failed: this aMule requires an encrypted External Connection, and the client did not negotiate one."
+#~ msgstr "Autentisering misslyckades: den här aMule-instansen kräver en krypterad extern anslutning, och klienten förhandlade inte fram en sådan."
+
+#~ msgid "Authentication failed: the client could not confirm the encrypted session."
+#~ msgstr "Autentisering misslyckades: klienten kunde inte bekräfta den krypterade sessionen."
+
+#~ msgid "Do not encrypt the External Connect session. Encryption is on by default whenever the remote aMule supports it; turning it off leaves everything after the login readable and modifiable by anyone on the path."
+#~ msgstr "Kryptera inte sessionen för extern anslutning. Kryptering är som standard på när fjärranslutna aMule stöder den; om den stängs av kan allt efter inloggningen läsas och ändras av vem som helst på vägen."
+
+#~ msgid "Could not set up connection encryption. Connection closed."
+#~ msgstr "Kunde inte konfigurera anslutningskryptering. Anslutningen stängdes."
+
+#~ msgid "The core did not negotiate an encrypted connection. It may be an older aMule without encryption support, or the connection may have been tampered with. To connect without encryption, turn it off in the connection settings."
+#~ msgstr "Kärnan förhandlade inte fram en krypterad anslutning. Den kan vara en äldre aMule utan krypteringsstöd, eller så kan anslutningen ha manipulerats. Om du vill ansluta utan kryptering stänger du av den i anslutningsinställningarna."
+
+#~ msgid "Require encrypted connections (rejects clients that cannot encrypt)"
+#~ msgstr "Kräv krypterade anslutningar (avvisar klienter som inte kan kryptera)"
+
+#~ msgid "Encrypt the connection (recommended)"
+#~ msgstr "Kryptera anslutningen (rekommenderas)"
+
+#~ msgid "add here the words amule should filter and block messages including it"
+#~ msgstr "skriv här orden amule ska filtrera och blockera meddelanden med dem"
+
+#~ msgid "Comments"
+#~ msgstr "Kommentarer"
 
 #~ msgid "ERROR: "
 #~ msgstr "FEL: "
@@ -10405,10 +10671,6 @@ msgstr ""
 
 #~ msgid "Upload graph scale:"
 #~ msgstr "Uppladdningsgraf-skala:"
-
-#, c-format
-#~ msgid "Failed to rename %s file, aborting update."
-#~ msgstr "Kunde inte byta namn på %s filen, avbryter uppdateringen."
 
 #~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
 #~ msgstr "Hämta GeoIP-databasen på nytt från den valda källan varje gång aMule startar."

@@ -13,7 +13,7 @@ msgstr ""
 "Project-Id-Version: aMule\n"
 "Report-Msgid-Bugs-To: https://github.com/amule-org/amule/issues\n"
 "POT-Creation-Date: 2026-10-09 12:39+0000\n"
-"PO-Revision-Date: 2026-10-29 17:24+0000\n"
+"PO-Revision-Date: 2026-10-30 09:27+0000\n"
 "Last-Translator: Marcel Pol <marcel@timelord.nl>\n"
 "Language-Team: Dutch <nl@li.org>\n"
 "Language: nl\n"
@@ -449,6 +449,10 @@ msgstr ""
 "EV-configuratie"
 
 #: src/amule.cpp
+msgid "Could not save AcceptExternalConnections to amule.conf."
+msgstr ""
+
+#: src/amule.cpp
 msgid "Password set and external connections enabled."
 msgstr "Wachtwoord ingesteld en externe verbindingen ingeschakeld."
 
@@ -525,18 +529,27 @@ msgid "Not starting %s: it is neither next to aMule nor on PATH."
 msgstr "Kan %s niet starten: het staat niet in de map naast aMule en ook niet op PATH."
 
 #: src/amule.cpp
+#, fuzzy
+msgid "An exception occurred while launching amuleweb."
+msgstr "En uitzondering vond plaats tijdens het opstarten van amuleapi."
+
+#: src/amule.cpp
 #, c-format
 msgid "web server running on pid %d"
 msgstr "webserver draait met pid %d"
 
 #: src/amule.cpp
-msgid "You requested to run web server on startup, but the amuleweb binary cannot be run. Please install the package containing aMule web server, or build aMule from source with -DBUILD_WEBSERVER=YES and install it."
-msgstr "U hebt gevraagd om de webserver bij het opstarten uit te voeren, maar het programma amuleweb kan niet worden uitgevoerd. Installeer het pakket met de aMule-webserver, of bouw aMule vanuit de broncode met -DBUILD_WEBSERVER=YES en installeer het."
+msgid "Could not prepare the amuleweb authentication token. The web server was not started."
+msgstr ""
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
 #: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "FOUT"
+
+#: src/amule.cpp
+msgid "You requested to run web server on startup, but the amuleweb binary cannot be run. Please install the package containing aMule web server, or build aMule from source with -DBUILD_WEBSERVER=YES and install it."
+msgstr "U hebt gevraagd om de webserver bij het opstarten uit te voeren, maar het programma amuleweb kan niet worden uitgevoerd. Installeer het pakket met de aMule-webserver, of bouw aMule vanuit de broncode met -DBUILD_WEBSERVER=YES en installeer het."
 
 #: src/amule.cpp
 #, c-format
@@ -559,6 +572,16 @@ msgstr "Kon amuleapi tijdens automatisch herstarten niet opstarten."
 #: src/amule.cpp
 msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot be run. Please install the package containing aMule's REST API server, or build aMule from source with -DBUILD_AMULEAPI=YES and install it."
 msgstr "U hebt gevraagd om amuleapi bij het opstarten uit te voeren, maar het programma amuleapi kan niet worden uitgevoerd. Installeer het pakket met de REST API-server van aMule, of bouw aMule vanuit de broncode met -DBUILD_AMULEAPI=YES en installeer het."
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Could not prepare the amuleweb EC token."
+msgstr "Kon het amuleapi EC-tokenbestand niet verwijderen: %s"
+
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Could not remove the amuleweb EC token file: %s"
+msgstr "Kon het amuleapi EC-tokenbestand niet verwijderen: %s"
 
 #: src/amule.cpp
 #, c-format
@@ -756,6 +779,11 @@ msgstr "Logboek is gewist"
 msgid "ServerMessage: %s"
 msgstr "Server-bericht: %s"
 
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "Vervangen van MaxMindDB database '%s' mislukt: %s"
+
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
 msgid "Skipped download of %s, because requested file is not newer."
@@ -872,8 +900,12 @@ msgid "ERROR: aMule daemon cannot be used when external connections are disabled
 msgstr "FOUT: aMule daemon kan niet gebruikt worden wanneer externe verbindingen uitgeschakeld zijn. Gebruik, om Externe Verbindingen in te schakelen, of een normale aMule, start amuled met de optie --ec-config of stel de waarde van \"AcceptExternalConnections\" in op 1 in het bestand ~/.aMule/amule.conf"
 
 #: src/amuled.cpp
-msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
-msgstr "FOUT: Er is een geldig wachtwoord vereist om externe verbindingen te gebruiken, en de aMule-daemon kan niet worden gebruikt zonder externe verbindingen. Om de aMule-daemon uit te voeren, moet u het veld \"ECPassword\" in het bestand ~/.aMule/amule.conf instellen op een geschikte waarde. Voer amuled uit met de vlag --ec-config om het wachtwoord in te stellen. Meer informatie vindt u op https://amule-org.github.io/docs"
+msgid "ERROR: An EC password is required. Run amuled --ec-config to set it."
+msgstr ""
+
+#: src/amuled.cpp
+msgid "ERROR: Invalid ECPasswordVerifier in amule.conf. Run amuled --ec-config to set a new EC password."
+msgstr ""
 
 #: src/amuled.cpp
 msgid "amuled: OnInit - starting timer"
@@ -1290,6 +1322,10 @@ msgstr "*** CAPTCHA mislukt, geen verdere pogingen mogelijk."
 msgid "All"
 msgstr "Alle"
 
+#: src/amule-remote-gui.cpp
+msgid "The EC password changed on the daemon, but the saved client password could not be updated."
+msgstr ""
+
 #: src/amule-remote-gui.cpp src/muuli_wdr.cpp
 msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
 msgstr "Om een map toe te staan voegt u deze toe aan allowed-remote-dirs.dat in de configuratiemap van de daemon, één absoluut pad per regel, en herstart u daarna de daemon."
@@ -1299,8 +1335,14 @@ msgstr "Om een map toe te staan voegt u deze toe aan allowed-remote-dirs.dat in 
 msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
 msgstr "De daemon weigerde deze mappen omdat ze buiden de mappen liggen die het toestaat (ingesteld op de daemon):%s"
 
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp
+#, fuzzy
+msgid "The EC password was not changed."
+msgstr "- TCP-poort veranderd.\n"
+
 #: src/amule-remote-gui.cpp
-msgid "The daemon could not apply the connection port changes."
+#, fuzzy
+msgid "The daemon could not apply the preference changes."
 msgstr "De daemon kon de veranderingen van de verbindingspoorten niet toepassen."
 
 #: src/amule-remote-gui.cpp
@@ -1855,6 +1897,14 @@ msgstr "Gebruiker %s (%u) weigerde toegang tot gedeelde mappen/bestanden-lijst"
 msgid "File Comments"
 msgstr "Bestand commentaren"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Voeg commentaar/waardering toe"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Bewerk commentaar/waardering"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Gebruikersnaam"
@@ -2399,6 +2449,16 @@ msgid "External connections disabled due to empty password!"
 msgstr "Externe verbindingen uitgeschakeld vanwege leeg wachtwoord!"
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "External connections disabled due to invalid ECPasswordVerifier!"
+msgstr "Externe verbindingen uitgeschakeld vanwege leeg wachtwoord!"
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "External connections disabled: could not prepare the EC token verifier."
+msgstr "Externe verbindingen uitgeschakeld in configuratiebestand"
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote clients cannot change folders: no folder is listed in %s"
 msgstr "Externe clients kunnen mappen niet veranderen: geen map is genoemd in %s"
@@ -2421,12 +2481,21 @@ msgstr "Externe verbinding geweigerd vanwege leeg wachtwoord bij voorkeuren!"
 
 #: src/ExternalConn.cpp
 #, c-format
+msgid "Too many failed connection attempts; try again in %d seconds."
+msgstr "Te veel mislukte verbindingspogingen; probeer opnieuw over %d secondes."
+
+#: src/ExternalConn.cpp
+#, c-format
 msgid "Connecting client: %s %s"
 msgstr "Client verbinden: %s %s"
 
 #: src/ExternalConn.cpp
 msgid "Unknown version"
 msgstr "Onbekende versie"
+
+#: src/ExternalConn.cpp
+msgid "An EC client of version 3.3.0 or later is required."
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Incorrect EC version ID, there might be binary incompatibility. Use core and remote from same snapshot."
@@ -2437,33 +2506,16 @@ msgid "You cannot connect to a release version from an arbitrary development sna
 msgstr "U kunt niet verbinden met een release-versie vanaf een willekeurig ontwikkelingssnapshot! *zucht* mogelijke crash voorkomen"
 
 #: src/ExternalConn.cpp
+msgid "Invalid SRP handshake or EC verifier."
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "Invalid protocol version."
 msgstr "Ongeldige protocolversie."
 
 #: src/ExternalConn.cpp
 msgid "Missing protocol version tag."
 msgstr "Ontbrekend label van protocolversie."
-
-#: src/ExternalConn.cpp
-#, c-format
-msgid "Too many failed connection attempts; try again in %d seconds."
-msgstr "Te veel mislukte verbindingspogingen; probeer opnieuw over %d secondes."
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: invalid hash specified as EC password."
-msgstr "Authenticatie mislukt: ongeldige hash opgegeven als EV-wachtwoord."
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: the client offered an encrypted External Connection but sent no usable key."
-msgstr "Authenticatie mislukt: de client bood een versleutelde Externe Verbinding aan maar stuurde geen bruikbare sleutel."
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: this aMule requires an encrypted External Connection, and the client did not negotiate one."
-msgstr "Authenticatie mistlut: deze aMule vereist een versleutelde Externe Verbinding, en de client onderhandelde er niet over."
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: the client could not confirm the encrypted session."
-msgstr "Authenticatie mislukt: de client kon de versleutelde sessie niet bevestigen."
 
 #: src/ExternalConn.cpp
 msgid "Authentication failed: wrong password."
@@ -2627,9 +2679,37 @@ msgid "Client could not be swapped to that file."
 msgstr "Kan de client niet naar dat bestand overschakelen."
 
 #: src/ExternalConn.cpp
+msgid "Duplicate remote-control preference groups are not allowed."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "Only password-authenticated sessions may change the EC password."
+msgstr ""
+
+#: src/ExternalConn.cpp src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Could not update EC password verifier."
+msgstr "Kon het amuleapi-wachtwoord niet opslaan: %s"
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Could not apply preferences."
+msgstr "Kad is uitgeschakeld in voorkeuren."
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Could not save the amuleapi password: %s"
 msgstr "Kon het amuleapi-wachtwoord niet opslaan: %s"
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Could not update EC password verifier. The other preferences were saved."
+msgstr "Wachtwoord ingesteld en externe verbindingen ingeschakeld."
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "EC password changed by %s"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "One or more folders were outside the allowed remote directories and were left unchanged."
@@ -2665,7 +2745,7 @@ msgstr "Uitlezen van media-metadata is uitgeschakeld in voorkeuren"
 
 #: src/ExternalConn.cpp
 msgid "This aMule has no media helper (amule-media-probe)"
-msgstr ""
+msgstr "Deze aMule heeft geen mediahelper (amule-media-probe)"
 
 #: src/ExternalConn.cpp
 msgid "File is not eligible for media metadata extraction (not an audio/video file, or an incomplete download)"
@@ -2929,10 +3009,6 @@ msgid "Print program version."
 msgstr "Toon programma-versie."
 
 #: src/ExternalConnector.cpp
-msgid "Do not encrypt the External Connect session. Encryption is on by default whenever the remote aMule supports it; turning it off leaves everything after the login readable and modifiable by anyone on the path."
-msgstr "Versleutel de Externe Verbinding-sessie niet. Versleuteling staat standaard aan als de externe aMule het ondersteund; door het uit te schakelen laat u alles na de aanmelding leesbaar en aanpasbaar door iedereen op het pad."
-
-#: src/ExternalConnector.cpp
 msgid "Force ZLIB compression regardless of dialed-IP locality (useful when the server is reachable over a VPN tunnel that resolves to a LAN IP)."
 msgstr "Forceer ZLIB-compressie onafhankelijk van de lokaliteit van het opgevraagde IP-adres (nuttig wanneer de server bereikbaar is via een VPN-tunnel die naar een LAN-IP-adres verwijst)."
 
@@ -2943,6 +3019,10 @@ msgstr "Voeg een kopie van alle consoleuitvoer toe aan dit logbestand (standaard
 #: src/ExternalConnector.cpp
 msgid "Do not write a log file; print to the console only."
 msgstr "Schrijf geen logbestand; alleen weergeven op de console."
+
+#: src/ExternalConnector.cpp
+msgid "The daemon verifier cannot supply a client password. Use -P or the password prompt.\n"
+msgstr ""
 
 #: src/FileDetailDialog.cpp
 msgid "File Details"
@@ -3037,6 +3117,68 @@ msgstr "FOUT: Openen van '%s' met de standaardapp mislukt."
 #, c-format
 msgid "ERROR: Failed to show '%s' in the file manager."
 msgstr "FOUT: Tonen van '%s' in bestandsbeheer mislukt."
+
+#: src/FilterSelectionSummary.h
+msgid "The message filter is off; its selected rules are saved."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "All incoming messages outside current chats will be discarded."
+msgstr "Filter binnenkomende berichten (behalve huidige chat):"
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Messages from people not on your friend list will be discarded."
+msgstr "Filter berichten van mensen niet op uw vriendenlijst"
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Messages from unknown clients will be discarded."
+msgstr "Filter berichten van onbekende clients"
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "Messages containing any of these terms will be discarded (ignoring case): %s."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No messages will be discarded by the message filter: the word list is empty."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No messages will be discarded by the message filter: select at least one option."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Current chats are exempt from these rules."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Advanced spam filtering for non-friends is also enabled."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "First messages from non-friends require a CAPTCHA."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Received message text will also be written to the log."
+msgstr "Toon ontvangen berichten in het logbestand"
+
+#: src/FilterSelectionSummary.h
+msgid "File comment filtering is off."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No file comments will be hidden: the word list is empty."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "File comments containing any of these literal terms will be hidden (ignoring case): %s."
+msgstr ""
 
 #: src/FirstRunWizard.cpp
 msgid "Mobile / 4G-5G (20 / 5 Mbit)"
@@ -3222,10 +3364,6 @@ msgstr "Doelmap voor downloads"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Bladeren"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Alle bestanden in deze map worden gedeeld met andere peers)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -3491,14 +3629,9 @@ msgstr[0] "%u misvormde regel is genegeerd."
 msgstr[1] "%u misvormde regels zijn genegeerd."
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "Verwijderen van bestand %s mislukt, update wordt afgebroken."
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr "Heroemen van nieuw bestand %s mislukt, update wordt afgebroken."
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "Kon bestand %s niet hernoemen, update wordt gestopt."
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -4021,6 +4154,11 @@ msgid "Invalid password, not a MD5 hash!"
 msgstr "Ongeldig wachtwoord, geen MD5-hash!"
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
+#, fuzzy
+msgid "Could not generate SRP credentials."
+msgstr "Kon '%s' niet verwijderen van de schijf."
+
+#: src/libs/ec/cpp/RemoteConnect.cpp
 #, c-format
 msgid "Could not resolve %s to an IPv4 address."
 msgstr "Kon %s niet herleiden naar een IPv4-adres."
@@ -4038,16 +4176,13 @@ msgid "EC connection failed. Empty reply."
 msgstr "EV-verbinding mislukt. Leeg antwoord."
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "Could not set up connection encryption. Connection closed."
-msgstr "Kon verbindingsversleuteling niet instellen. Connectie gesloten."
-
-#: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "The core did not negotiate an encrypted connection. It may be an older aMule without encryption support, or the connection may have been tampered with. To connect without encryption, turn it off in the connection settings."
-msgstr "De kern onderhandelde niet over een versleutelde verbinding. Het kan een oudere aMule-versie zonder versleutelingsondersteuning zijn of de verbinding kan gemanipuleerd zijn. Om te verbinden zonder versleuteling zet u deze uit in de verbindingsinstellingen."
-
-#: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "External Connection: Bad reply, handshake failed. Connection closed."
+#, fuzzy
+msgid "Invalid SRP handshake or unsupported profile. Connection closed."
 msgstr "Externe verbinding: slecht antwoord, handshake mislukt. Verbinding verbroken."
+
+#: src/libs/ec/cpp/RemoteConnect.cpp
+msgid "An EC daemon of version 3.3.0 or later is required."
+msgstr ""
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
 msgid "External Connection: the daemon failed to prove it knows the password. Connection closed."
@@ -4094,7 +4229,7 @@ msgstr "FOUT: Luisteren op TCP-poort mislukt."
 
 #: src/MediaProbe.cpp
 msgid "Media metadata: bundled amule-media-probe helper is unavailable."
-msgstr ""
+msgstr "Media-metadata: bijgevoegde amule-media-probe helper is niet beschikbaar."
 
 #: src/MediaProbe.cpp
 #, c-format
@@ -4102,14 +4237,14 @@ msgid "Media metadata: %s is gone, nothing to extract"
 msgstr "Media-metadata: %s is verdwenen, niets om uit te lezen"
 
 #: src/MediaProbe.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Extracting media metadata: %s"
-msgstr "Media-metadata wordt uitgelezen met ffprobe: %s"
+msgstr "Media-metadata wordt uitgelezen: %s"
 
 #: src/MediaProbe.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Media metadata: parser failed for %s"
-msgstr "Media-metadata: ffprobe mislukt (code %d) voor %s"
+msgstr "Media-metadata: parser mislukt voor %s"
 
 #: src/MediaProbeThread.cpp
 #, c-format
@@ -4704,7 +4839,7 @@ msgstr "Lengte"
 
 #: src/muuli_wdr.cpp src/SearchListCtrl.cpp src/SharedFilesCtrl.cpp
 msgid "Bitrate"
-msgstr "Bitrate"
+msgstr "Bitwaarde"
 
 #: src/muuli_wdr.cpp src/SearchListCtrl.cpp src/SharedFilesCtrl.cpp
 msgid "Codec"
@@ -5216,11 +5351,11 @@ msgstr "Zet handmatig toegevoegde servers op hoge prioriteit"
 
 #: src/muuli_wdr.cpp
 msgid "Publish shared files faster on servers that allow it"
-msgstr ""
+msgstr "Publiceer gedeelde bestanden sneller op servers die het toestaan"
 
 #: src/muuli_wdr.cpp
 msgid "Follow the publication pace that the server advertises. Other servers get the standard pace."
-msgstr ""
+msgstr "Volg de publicatiesnelheid waarmee de server adverteert. Andere servers gebruiken de standaardsnelheid."
 
 #: src/muuli_wdr.cpp
 msgid "Add files to download in pause mode"
@@ -5368,11 +5503,11 @@ msgstr "Uitlezen van media-metadata"
 
 #: src/muuli_wdr.cpp
 msgid "Extract length / bitrate / codec from shared audio and video files"
-msgstr "Precieze lengte/bitrate/codec uitlezen uit gedeelde audio- en videobestanden"
+msgstr "Precieze lengte/bitwaarde/codec uitlezen uit gedeelde audio- en videobestanden"
 
 #: src/muuli_wdr.cpp
 msgid "When enabled, aMule uses its bundled MediaInfo parser to extract metadata from shared media files."
-msgstr ""
+msgstr "Wanneer ingeschakeld gebruikt aMule de bijgevoegde MediaInfo parser om metadata van gedeelde mediabestanden uit te lezen."
 
 #: src/muuli_wdr.cpp
 msgid ""
@@ -5713,10 +5848,6 @@ msgstr "Schakel UPnP portforwarding van de EV-poort in"
 #: src/muuli_wdr.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Password"
 msgstr "Wachtwoord"
-
-#: src/muuli_wdr.cpp
-msgid "Require encrypted connections (rejects clients that cannot encrypt)"
-msgstr "Vereis versleutelde verbindingen (weigert clients die niet kunnen versleutelen)"
 
 #: src/muuli_wdr.cpp
 msgid "Folders remote clients may use"
@@ -6157,8 +6288,16 @@ msgid "Check for a newer GeoIP database at startup and every week while aMule is
 msgstr "Controleer op nieuwere GeoIP-database bij het opstarten en elke week terwijl aMule wordt uitgevoerd."
 
 #: src/muuli_wdr.cpp
-msgid "Filter incoming messages (except current chat):"
+#, fuzzy
+msgid "Enable incoming message filtering (except current chat):"
 msgstr "Filter binnenkomende berichten (behalve huidige chat):"
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Enable the filter options below. Select at least one option to filter messages.\n"
+"Turning this off keeps your selected options and word list.\n"
+"Filtered messages are discarded without opening a chat or replying to the sender."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Filter all messages"
@@ -6177,8 +6316,11 @@ msgid "Filter messages containing (use ',' as separator):"
 msgstr "Filter berichten met (gebruik ',' als scheiding):"
 
 #: src/muuli_wdr.cpp
-msgid "add here the words amule should filter and block messages including it"
-msgstr "voeg hier de woorden toe die amule moet filteren en berichten daarmee blokkeren"
+msgid ""
+"Discard chat messages containing any comma-separated term. Matching ignores case and spaces around each term.\n"
+"Terms match anywhere in a message: dog matches hotdog and black dog spotted.\n"
+"Wildcards are not supported. A * is literal, except that a word list of exactly * blocks every message."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Enable advanced spam filter"
@@ -6201,12 +6343,26 @@ msgid "Show received messages in the log"
 msgstr "Toon ontvangen berichten in het logbestand"
 
 #: src/muuli_wdr.cpp
-msgid "Comments"
-msgstr "Opmerkingen"
+#, fuzzy
+msgid "File comments"
+msgstr "Bestand commentaren"
 
 #: src/muuli_wdr.cpp
-msgid "Filter comments containing (use ',' as separator):"
+#, fuzzy
+msgid "Filter file comments containing (use ',' as separator):"
 msgstr "Filter commentaren die de volgende tekens bevatten (gebruik ',' als scheiding):"
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Hide file comments from other users containing any comma-separated term. This does not filter chat messages.\n"
+"Matching ignores case and spaces around each term. Terms match anywhere in a comment: dog matches hotdog and black dog spotted.\n"
+"Wildcards are not supported; * is matched literally."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "With these settings"
+msgstr "Onthoud deze instellingen"
 
 #: src/muuli_wdr.cpp
 msgid "Enable Proxy"
@@ -6263,10 +6419,6 @@ msgstr "Inloggen op amule op afstand"
 #: src/muuli_wdr.cpp
 msgid "Remember those settings"
 msgstr "Onthoud deze instellingen"
-
-#: src/muuli_wdr.cpp
-msgid "Encrypt the connection (recommended)"
-msgstr "Versleutel de verbinding (aanbevolen)"
 
 #: src/muuli_wdr.cpp
 msgid "Force ZLIB compression"
@@ -6436,6 +6588,10 @@ msgstr "%u kb/s"
 #, c-format
 msgid "%s:"
 msgstr "%s:"
+
+#: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Alle bestanden in deze map worden gedeeld met andere peers)"
 
 #: src/OtherFunctions.cpp
 msgid "all"
@@ -6802,7 +6958,7 @@ msgstr "geen opties beschikbaar"
 
 #: src/Preferences.cpp
 msgid "Media metadata: FFProbePath is obsolete; aMule now uses its bundled MediaInfo parser. Removing the old setting."
-msgstr ""
+msgstr "Media-metadata: FFProbePath is verouderd. aMule gebruikt nu de bijgevoegde MediaInfo parser. De oude instelling wordt verwijderd."
 
 #: src/Preferences.cpp
 msgid "Invalid path mapping found, skipping"
@@ -6933,7 +7089,7 @@ msgstr "Overdragen van gegevens van Cfg naar widget met ID %d en sleutel %s misl
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "This aMule has no media helper (amule-media-probe), so it cannot extract media metadata."
-msgstr ""
+msgstr "Deze aMule heeft geen mediahelper (amule-media-probe), dus het kan geen media-metadata uitlezen."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "The type of proxy you are connecting to"
@@ -7139,15 +7295,14 @@ msgid "The aMule web server is deprecated. Consider running the aMule API instea
 msgstr "De aMule-webserver is verouderd. Overweeg in plaats daarvan de aMule API uit te voeren."
 
 #: src/PrefsUnifiedDlg.cpp
-#, fuzzy
 msgid ""
 "Your server list sources are empty.\n"
 "Please add at least one URL of a valid server.met file.\n"
 "Click the \"Edit sources...\" button next to this checkbox to add one."
 msgstr ""
-"Uw Auto-update servers lijst is leeg.\n"
-"Vul minimaal een URL naar een geldig server.met bestand in.\n"
-"Klik op de knop \"Lijst\" hiernaast om een URL in te voeren."
+"Uw serverlijst bronnen zijn leeg.\n"
+"Vul minimaal één URL naar een geldig server.met bestand in.\n"
+"Klik op de knop \"Bronnen bewerken...\" hiernaast om er een in te voeren."
 
 #: src/PrefsUnifiedDlg.cpp
 msgid "Temporary files"
@@ -8227,7 +8382,7 @@ msgstr "Uitlezen van media-metadata is uitgeschakeld in voorkeuren, dus er is ni
 
 #: src/SharedFileList.cpp
 msgid "This aMule has no media helper (amule-media-probe), so it cannot re-extract media metadata."
-msgstr ""
+msgstr "Deze aMule heeft geen mediahelper (amule-media-probe) dus het hkan geen media-metadata opnieuw uitlezen."
 
 #: src/SharedFileList.cpp
 #, c-format
@@ -8321,14 +8476,6 @@ msgstr "Pad naar map"
 #: src/SharedFilesCtrl.cpp src/Statistics.cpp
 msgid "Shared Files"
 msgstr "Gedeelde Bestanden"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Voeg commentaar/waardering toe"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Bewerk commentaar/waardering"
 
 #: src/SharedFilesCtrl.cpp
 msgid "Rename"
@@ -8534,6 +8681,16 @@ msgid "Crypt overhead (UDP): %s"
 msgstr "Crypt overhead (UDP): %s"
 
 #: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "LowID to LowID Data (Session): %s"
+msgstr "Gedownloadde Gegevens (sessie (totaal)): %s"
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "IPv6 Data (Session): %s"
+msgstr "Geuploadde Gegevens (Sessie (Totaal)): %s"
+
+#: src/Statistics.cpp
 #, c-format
 msgid "Active Uploads: %s"
 msgstr "Actieve uploads: %s"
@@ -8632,6 +8789,31 @@ msgstr "Gemiddelde Verbindingen (schatting): %g"
 #, c-format
 msgid "Peak Connections (estimate): %i"
 msgstr "Aantal Piekverbindingen (schatting): %i"
+
+#: src/Statistics.cpp
+#, fuzzy
+msgid "NAT Traversal (Session)"
+msgstr "NAT traversal (uTP)"
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "Server Hole Punches: %s"
+msgstr "Server Overhead (Pakketten): %s"
+
+#: src/Statistics.cpp
+#, c-format
+msgid "Successful Server Hole Punches: %s"
+msgstr ""
+
+#: src/Statistics.cpp
+#, c-format
+msgid "Lugdunum Callbacks: %s"
+msgstr ""
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "Successful Lugdunum Callbacks: %s"
+msgstr "%s succesvol geüpdatet"
 
 #: src/Statistics.cpp
 #, c-format
@@ -10286,8 +10468,8 @@ msgid "Kad could not read %s. It was renamed to %s.bad, and a new index will be 
 msgstr "Kadd kon %s niet lezen. Het was hernoemd naar %s.bad en een nieuwe index zal worden opgeslagen bij het afluiten."
 
 #: src/kademlia/kademlia/Indexed.cpp
-#, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+#, fuzzy, c-format
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr "Kad kon de onleesbare index %s niet bewaren als %s.bad. Het oorspronkelijke bestand zal niet overschreven worden."
 
 #: src/kademlia/kademlia/Indexed.cpp
@@ -10297,6 +10479,91 @@ msgstr "Kad kon de opgeslagen index niet laden. Bestaande indexbestanden zijn be
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr "Kad kon een index niet opslaan. De vorige kopie van dat bestand is bewaard."
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not remove legacy ECPassword; cleanup will be retried on restart."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not persist ECPasswordVerifier; using the legacy ECPassword in memory for this run. Migration will be retried on restart."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+#, fuzzy
+msgid "Could not generate ECPasswordVerifier; external connections are disabled."
+msgstr "Wachtwoord ingesteld en externe verbindingen ingeschakeld."
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not generate ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not persist ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not store ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "ECPassword contains an invalid or empty-password digest. Run amuled --ec-config to set a new EC password."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Invalid or unsupported ECPasswordVerifier; refusing external connections."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not compare legacy ECPassword with ECPasswordVerifier; refusing external connections."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
+msgstr ""
+
+#, c-format
+#~ msgid "Failed to remove %s file, aborting update."
+#~ msgstr "Verwijderen van bestand %s mislukt, update wordt afgebroken."
+
+#, c-format
+#~ msgid "Failed to rename new %s file, aborting update."
+#~ msgstr "Heroemen van nieuw bestand %s mislukt, update wordt afgebroken."
+
+#~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
+#~ msgstr "FOUT: Er is een geldig wachtwoord vereist om externe verbindingen te gebruiken, en de aMule-daemon kan niet worden gebruikt zonder externe verbindingen. Om de aMule-daemon uit te voeren, moet u het veld \"ECPassword\" in het bestand ~/.aMule/amule.conf instellen op een geschikte waarde. Voer amuled uit met de vlag --ec-config om het wachtwoord in te stellen. Meer informatie vindt u op https://amule-org.github.io/docs"
+
+#~ msgid "Authentication failed: invalid hash specified as EC password."
+#~ msgstr "Authenticatie mislukt: ongeldige hash opgegeven als EV-wachtwoord."
+
+#~ msgid "Authentication failed: the client offered an encrypted External Connection but sent no usable key."
+#~ msgstr "Authenticatie mislukt: de client bood een versleutelde Externe Verbinding aan maar stuurde geen bruikbare sleutel."
+
+#~ msgid "Authentication failed: this aMule requires an encrypted External Connection, and the client did not negotiate one."
+#~ msgstr "Authenticatie mistlut: deze aMule vereist een versleutelde Externe Verbinding, en de client onderhandelde er niet over."
+
+#~ msgid "Authentication failed: the client could not confirm the encrypted session."
+#~ msgstr "Authenticatie mislukt: de client kon de versleutelde sessie niet bevestigen."
+
+#~ msgid "Do not encrypt the External Connect session. Encryption is on by default whenever the remote aMule supports it; turning it off leaves everything after the login readable and modifiable by anyone on the path."
+#~ msgstr "Versleutel de Externe Verbinding-sessie niet. Versleuteling staat standaard aan als de externe aMule het ondersteund; door het uit te schakelen laat u alles na de aanmelding leesbaar en aanpasbaar door iedereen op het pad."
+
+#~ msgid "Could not set up connection encryption. Connection closed."
+#~ msgstr "Kon verbindingsversleuteling niet instellen. Connectie gesloten."
+
+#~ msgid "The core did not negotiate an encrypted connection. It may be an older aMule without encryption support, or the connection may have been tampered with. To connect without encryption, turn it off in the connection settings."
+#~ msgstr "De kern onderhandelde niet over een versleutelde verbinding. Het kan een oudere aMule-versie zonder versleutelingsondersteuning zijn of de verbinding kan gemanipuleerd zijn. Om te verbinden zonder versleuteling zet u deze uit in de verbindingsinstellingen."
+
+#~ msgid "Require encrypted connections (rejects clients that cannot encrypt)"
+#~ msgstr "Vereis versleutelde verbindingen (weigert clients die niet kunnen versleutelen)"
+
+#~ msgid "Encrypt the connection (recommended)"
+#~ msgstr "Versleutel de verbinding (aanbevolen)"
+
+#~ msgid "add here the words amule should filter and block messages including it"
+#~ msgstr "voeg hier de woorden toe die amule moet filteren en berichten daarmee blokkeren"
+
+#~ msgid "Comments"
+#~ msgstr "Opmerkingen"
 
 #~ msgid "Refused a remote request to change the media-probe (ffprobe) path: it can only be set in the daemon's own configuration."
 #~ msgstr "Een extern verzoek om het media-peilings- (ffprobe-)pad te veranderen is geweigerd. Het kan alleen ingesteld worden in de eigen instellingen van de daemon."
@@ -10402,10 +10669,6 @@ msgstr "Kad kon een index niet opslaan. De vorige kopie van dat bestand is bewaa
 
 #~ msgid "Upload graph scale:"
 #~ msgstr "Schaal uploadgrafiek:"
-
-#, c-format
-#~ msgid "Failed to rename %s file, aborting update."
-#~ msgstr "Kon bestand %s niet hernoemen, update wordt gestopt."
 
 #~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
 #~ msgstr "Download de GeoIP-database opnieuw van de geselecteerde bron telkens wanneer aMule wordt gestart."

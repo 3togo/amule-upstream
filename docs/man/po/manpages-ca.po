@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2026-10-29 11:58+0100\n"
-"PO-Revision-Date: 2026-10-29 00:16+0000\n"
+"POT-Creation-Date: 2026-10-30 11:29+0000\n"
+"PO-Revision-Date: 2026-10-30 18:06+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: none\n"
 "Language: ca\n"
@@ -464,11 +464,6 @@ msgstr "Crea un fitxer de configuració basat en I<E<lt>pathE<gt>>, que ha d'apu
 
 #. type: Plain text
 #: amulecmd.1.in amuleweb.1.in
-msgid "Do not encrypt the External Connection link.  Encryption is negotiated automatically whenever the remote aMule supports it, and is on by default for every destination, local or remote.  Turning it off leaves everything after the login readable, and modifiable, by anyone able to observe the connection."
-msgstr "No xifris l'enllaç de connexió externa.  El xifratge es negocia automàticament sempre que l'aMule remot l'admet, i està activat per defecte per a totes les destinacions, locals o remotes.  Si es desactiva, tot el que ve després de l'inici de sessió pot ser llegit, i modificat, per qualsevol que pugui observar la connexió."
-
-#. type: Plain text
-#: amulecmd.1.in amuleweb.1.in
 msgid "Force ZLIB compression on the External Connection link regardless of the dialed-IP locality.  Useful when the server side is reachable over a VPN tunnel that resolves to a LAN IP and the heuristic would otherwise skip compression."
 msgstr "Força la compressió ZLIB a l'enllaç de connexió externa independentment de si la IP marcada és local.  Útil quan el costat del servidor és accessible per un túnel VPN que resol a una IP de la LAN i l'heurística ometria la compressió."
 
@@ -842,6 +837,11 @@ msgstr "B<amulecmd> B<--create-config-from>=I</home/username/.aMule/amule.conf>"
 
 #. type: Plain text
 #: amulecmd.1.in amuleweb.1.in
+msgid "After daemon credential migration, supply the client password with B<-P> or enter it at the password prompt; the daemon verifier cannot supply it."
+msgstr ""
+
+#. type: Plain text
+#: amulecmd.1.in amuleweb.1.in
 msgid "These will save settings to I<$HOME/.aMule/remote.conf>, and later you only need to type:"
 msgstr "Això desarà la configuració a I<$HOME/.aMule/remote.conf>, i després només caldrà que escriviu:"
 
@@ -934,10 +934,8 @@ msgstr "METADADES MULTIMÈDIA"
 
 #. type: Plain text
 #: amuled.1.in
-#, fuzzy
-#| msgid "B<amuled> runs B<ffprobe> on each received file to extract the length, bitrate and codec tags it then publishes to the network. This is on by default (B<Enabled=1> under B<[MediaMetadata]> in I<amule.conf>); set B<Enabled=0> there and restart to turn it off. The B<ffprobe> binary is chosen by B<FFProbePath> in the same section and is local daemon configuration; it cannot be set over EC or amuleapi."
 msgid "B<amuled> runs its bundled B<amule-media-probe> helper on each received file to extract the length, bitrate and codec tags it then publishes to the network. The helper must sit next to the B<amuled> executable. This is on by default (B<Enabled=1> under B<[MediaMetadata]> in I<amule.conf>); set B<Enabled=0> there and restart to turn it off."
-msgstr "B<amuled> executa B<ffprobe> sobre cada fitxer rebut per extreure'n la durada, la taxa de bits i les etiquetes de còdec que després publica a la xarxa. Està activat de manera predeterminada (B<Enabled=1> a la secció B<[MediaMetadata]> del fitxer I<amule.conf>); definiu-hi B<Enabled=0> i reinicieu per desactivar-ho. El binari B<ffprobe> es tria amb B<FFProbePath> a la mateixa secció i és configuració local del dimoni; no es pot definir mitjançant EC ni amuleapi."
+msgstr "B<amuled> executa el programa auxiliar inclòs B<amule-media-probe> sobre cada fitxer rebut per extreure'n la durada, la taxa de bits i les etiquetes de còdec que després publica a la xarxa. El programa auxiliar ha d'estar al costat de l'executable B<amuled>. Està activat de manera predeterminada (B<Enabled=1> a la secció B<[MediaMetadata]> del fitxer I<amule.conf>); definiu-hi B<Enabled=0> i reinicieu per desactivar-ho."
 
 #. type: TH
 #: amulegui.1.in
@@ -1466,6 +1464,9 @@ msgstr "B<wxcas> és un programa per mostrar el contingut del fitxer de signatur
 #: ../../src/utils/wxCas/docs/wxcas.1.in
 msgid "Based on Pedro de Oliveira's B<cas>(1).  B<wxcas> was written by ThePolish E<lt>thepolish@vipmail.ruE<gt>"
 msgstr "Basat en el B<cas>(1) de Pedro de Oliveira.  B<wxcas> el va escriure ThePolish E<lt>thepolish@vipmail.ruE<gt>"
+
+#~ msgid "Do not encrypt the External Connection link.  Encryption is negotiated automatically whenever the remote aMule supports it, and is on by default for every destination, local or remote.  Turning it off leaves everything after the login readable, and modifiable, by anyone able to observe the connection."
+#~ msgstr "No xifris l'enllaç de connexió externa.  El xifratge es negocia automàticament sempre que l'aMule remot l'admet, i està activat per defecte per a totes les destinacions, locals o remotes.  Si es desactiva, tot el que ve després de l'inici de sessió pot ser llegit, i modificat, per qualsevol que pugui observar la connexió."
 
 #, fuzzy
 #~| msgid "B<[ -geometry >I<E<lt>geomE<gt>> B<]>"

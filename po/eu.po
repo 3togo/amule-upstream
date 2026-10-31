@@ -433,6 +433,10 @@ msgstr ""
 "EC konfigurazioa"
 
 #: src/amule.cpp
+msgid "Could not save AcceptExternalConnections to amule.conf."
+msgstr ""
+
+#: src/amule.cpp
 msgid "Password set and external connections enabled."
 msgstr "Pasahitza ezarria eta kanpo konexioak gaiturik."
 
@@ -515,18 +519,26 @@ msgid "Not starting %s: it is neither next to aMule nor on PATH."
 msgstr ""
 
 #: src/amule.cpp
+msgid "An exception occurred while launching amuleweb."
+msgstr ""
+
+#: src/amule.cpp
 #, c-format
 msgid "web server running on pid %d"
 msgstr "web zerbitzaria abiarazirik %d pid-arekin"
 
 #: src/amule.cpp
-msgid "You requested to run web server on startup, but the amuleweb binary cannot be run. Please install the package containing aMule web server, or build aMule from source with -DBUILD_WEBSERVER=YES and install it."
-msgstr "Abioan web zerbitzaria exekutatzeko eskatu duzu, baina amuleweb bitarra ezin da exekutatu. Mesedez, instalatu aMule web zerbitzaria duen paketea, edo eraiki aMule iturburutik -DBUILD_WEBSERVER=YES aukerarekin eta instalatu."
+msgid "Could not prepare the amuleweb authentication token. The web server was not started."
+msgstr ""
 
 #: src/amule.cpp src/amule-remote-gui.cpp src/DownloadQueue.cpp
 #: src/EditServerListDlg.cpp src/PrefsUnifiedDlg.cpp src/SearchDlg.cpp
 msgid "ERROR"
 msgstr "ERROREA"
+
+#: src/amule.cpp
+msgid "You requested to run web server on startup, but the amuleweb binary cannot be run. Please install the package containing aMule web server, or build aMule from source with -DBUILD_WEBSERVER=YES and install it."
+msgstr "Abioan web zerbitzaria exekutatzeko eskatu duzu, baina amuleweb bitarra ezin da exekutatu. Mesedez, instalatu aMule web zerbitzaria duen paketea, edo eraiki aMule iturburutik -DBUILD_WEBSERVER=YES aukerarekin eta instalatu."
 
 #: src/amule.cpp
 #, c-format
@@ -549,6 +561,16 @@ msgstr ""
 #: src/amule.cpp
 msgid "You requested to run amuleapi on startup, but the amuleapi binary cannot be run. Please install the package containing aMule's REST API server, or build aMule from source with -DBUILD_AMULEAPI=YES and install it."
 msgstr "Abioan amuleapi exekutatzeko eskatu duzu, baina amuleapi bitarra ezin da exekutatu. Mesedez, instalatu aMule-ren REST API zerbitzaria duen paketea, edo eraiki aMule iturburutik -DBUILD_AMULEAPI=YES aukerarekin eta instalatu."
+
+#: src/amule.cpp
+#, fuzzy
+msgid "Could not prepare the amuleweb EC token."
+msgstr "Ezin izan da amuleapi pasahitza gorde: %s"
+
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Could not remove the amuleweb EC token file: %s"
+msgstr "Ezin izan da amuleapi pasahitza gorde: %s"
 
 #: src/amule.cpp
 #, fuzzy, c-format
@@ -748,6 +770,11 @@ msgstr "Erregistroa berrezarri egin da"
 msgid "ServerMessage: %s"
 msgstr "ZerbitzariMezua: %s"
 
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "Huts egin du irekitzerakoan: %s (%s)"
+
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
 msgid "Skipped download of %s, because requested file is not newer."
@@ -864,8 +891,12 @@ msgid "ERROR: aMule daemon cannot be used when external connections are disabled
 msgstr "ERROREA: aMule deabrua ezin da erabili kanpo konexioak ezgaiturik badaude. Kanpo konexioak gaitzeko aMule arrunta erabili, amuled --ec-config aukeraz abiarazi edo ezarri \"AcceptExternalConnections\" gakoa 1 balioaz ~/.aMule/amule.conf fitxategian"
 
 #: src/amuled.cpp
-msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
-msgstr "ERROREA: baliozko pasahitz bat behar da kanpo-konexioak erabiltzeko, eta aMule deabrua ezin da erabili kanpo-konexiorik gabe. aMule deabrua exekutatzeko, \"ECPassword\" eremua ezarri behar duzu ~/.aMule/amule.conf fitxategian balio egoki batekin. Exekutatu amuled --ec-config banderarekin pasahitza ezartzeko. Informazio gehiago hemen aurki daiteke: https://amule-org.github.io/docs"
+msgid "ERROR: An EC password is required. Run amuled --ec-config to set it."
+msgstr ""
+
+#: src/amuled.cpp
+msgid "ERROR: Invalid ECPasswordVerifier in amule.conf. Run amuled --ec-config to set a new EC password."
+msgstr ""
 
 #: src/amuled.cpp
 msgid "amuled: OnInit - starting timer"
@@ -1285,6 +1316,10 @@ msgstr ""
 msgid "All"
 msgstr "Guztiak"
 
+#: src/amule-remote-gui.cpp
+msgid "The EC password changed on the daemon, but the saved client password could not be updated."
+msgstr ""
+
 #: src/amule-remote-gui.cpp src/muuli_wdr.cpp
 msgid "To allow a folder, add it to allowed-remote-dirs.dat in the daemon's configuration folder, one absolute path per line, then restart the daemon."
 msgstr ""
@@ -1294,8 +1329,13 @@ msgstr ""
 msgid "The daemon refused these folders because they are outside the folders it allows (configured on the daemon):%s"
 msgstr ""
 
+#: src/amule-remote-gui.cpp src/ExternalConn.cpp
+#, fuzzy
+msgid "The EC password was not changed."
+msgstr "- TCP ataka aldaturik.\n"
+
 #: src/amule-remote-gui.cpp
-msgid "The daemon could not apply the connection port changes."
+msgid "The daemon could not apply the preference changes."
 msgstr ""
 
 #: src/amule-remote-gui.cpp
@@ -1859,6 +1899,14 @@ msgstr "%s (%u) erabiltzaileak fitxategi/direktorio partekatuen zerrenda ikustea
 msgid "File Comments"
 msgstr "Fitxategi Iruzkinak"
 
+#: src/CommentDialog.cpp
+msgid "Add Comment/Rating"
+msgstr "Iruzkina/Kalifikazioa gehitu"
+
+#: src/CommentDialog.cpp
+msgid "Edit Comment/Rating"
+msgstr "Iruzkina/Kalifikazioa editatu"
+
 #: src/CommentDialogLst.cpp src/FriendListCtrl.cpp src/muuli_wdr.cpp
 msgid "Username"
 msgstr "Erabiltzaile izena"
@@ -2402,6 +2450,16 @@ msgid "External connections disabled due to empty password!"
 msgstr "Pasahitz zuria dela eta kanpo konexioak ezgaiturik!"
 
 #: src/ExternalConn.cpp
+#, fuzzy
+msgid "External connections disabled due to invalid ECPasswordVerifier!"
+msgstr "Pasahitz zuria dela eta kanpo konexioak ezgaiturik!"
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "External connections disabled: could not prepare the EC token verifier."
+msgstr "Kanpo konexioak ezgaiturik konfigurazio fitxategian"
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Remote clients cannot change folders: no folder is listed in %s"
 msgstr ""
@@ -2423,6 +2481,11 @@ msgid "External connection refused due to empty password in preferences!"
 msgstr "Hobespenetan pasahitza zurian dela eta kanpo konexioak ukaturik!"
 
 #: src/ExternalConn.cpp
+#, fuzzy, c-format
+msgid "Too many failed connection attempts; try again in %d seconds."
+msgstr "Zerbitzariarekiko konexio automatikoa berriz saiatuko da segundo %d-etan"
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Connecting client: %s %s"
 msgstr "Bezerora konektatzen: %s %s"
@@ -2430,6 +2493,10 @@ msgstr "Bezerora konektatzen: %s %s"
 #: src/ExternalConn.cpp
 msgid "Unknown version"
 msgstr "Bertsio ezezaguna"
+
+#: src/ExternalConn.cpp
+msgid "An EC client of version 3.3.0 or later is required."
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Incorrect EC version ID, there might be binary incompatibility. Use core and remote from same snapshot."
@@ -2440,33 +2507,16 @@ msgid "You cannot connect to a release version from an arbitrary development sna
 msgstr "Ezin zara argitaratutako bertsio batetara konektatu edozein garapen bertsiotik! *ikusi* apurketa aukera saihestua"
 
 #: src/ExternalConn.cpp
+msgid "Invalid SRP handshake or EC verifier."
+msgstr ""
+
+#: src/ExternalConn.cpp
 msgid "Invalid protocol version."
 msgstr "Protokolo bertsio baliogabea."
 
 #: src/ExternalConn.cpp
 msgid "Missing protocol version tag."
 msgstr "Protokolo bertsio marka falta da."
-
-#: src/ExternalConn.cpp
-#, fuzzy, c-format
-msgid "Too many failed connection attempts; try again in %d seconds."
-msgstr "Zerbitzariarekiko konexio automatikoa berriz saiatuko da segundo %d-etan"
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: invalid hash specified as EC password."
-msgstr "Autentifikazio errorea: okerreko egiaztapena ezarri da EC pasahitz gisa."
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: the client offered an encrypted External Connection but sent no usable key."
-msgstr ""
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: this aMule requires an encrypted External Connection, and the client did not negotiate one."
-msgstr ""
-
-#: src/ExternalConn.cpp
-msgid "Authentication failed: the client could not confirm the encrypted session."
-msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "Authentication failed: wrong password."
@@ -2632,9 +2682,37 @@ msgid "Client could not be swapped to that file."
 msgstr ""
 
 #: src/ExternalConn.cpp
+msgid "Duplicate remote-control preference groups are not allowed."
+msgstr ""
+
+#: src/ExternalConn.cpp
+msgid "Only password-authenticated sessions may change the EC password."
+msgstr ""
+
+#: src/ExternalConn.cpp src/PrefsUnifiedDlg.cpp
+#, fuzzy
+msgid "Could not update EC password verifier."
+msgstr "Ezin izan da amuleapi pasahitza gorde: %s"
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Could not apply preferences."
+msgstr "Kad ezgaiturik dago hobespenetan."
+
+#: src/ExternalConn.cpp
 #, c-format
 msgid "Could not save the amuleapi password: %s"
 msgstr "Ezin izan da amuleapi pasahitza gorde: %s"
+
+#: src/ExternalConn.cpp
+#, fuzzy
+msgid "Could not update EC password verifier. The other preferences were saved."
+msgstr "Pasahitza ezarria eta kanpo konexioak gaiturik."
+
+#: src/ExternalConn.cpp
+#, c-format
+msgid "EC password changed by %s"
+msgstr ""
 
 #: src/ExternalConn.cpp
 msgid "One or more folders were outside the allowed remote directories and were left unchanged."
@@ -2939,10 +3017,6 @@ msgid "Print program version."
 msgstr "Programa bertsioa bistarazi."
 
 #: src/ExternalConnector.cpp
-msgid "Do not encrypt the External Connect session. Encryption is on by default whenever the remote aMule supports it; turning it off leaves everything after the login readable and modifiable by anyone on the path."
-msgstr ""
-
-#: src/ExternalConnector.cpp
 msgid "Force ZLIB compression regardless of dialed-IP locality (useful when the server is reachable over a VPN tunnel that resolves to a LAN IP)."
 msgstr "Behartu ZLIB konpresioa markatutako IParen kokapena kontuan hartu gabe (erabilgarria zerbitzaria LAN IP batera ebazten den VPN tunel baten bidez atzigarria denean)."
 
@@ -2953,6 +3027,10 @@ msgstr "Erantsi kontsolako irteera osoaren kopia bat erregistro-fitxategi honi (
 #: src/ExternalConnector.cpp
 msgid "Do not write a log file; print to the console only."
 msgstr "Ez idatzi erregistro-fitxategirik; inprimatu kontsolan soilik."
+
+#: src/ExternalConnector.cpp
+msgid "The daemon verifier cannot supply a client password. Use -P or the password prompt.\n"
+msgstr ""
 
 #: src/FileDetailDialog.cpp
 msgid "File Details"
@@ -3047,6 +3125,68 @@ msgstr ""
 #, fuzzy, c-format
 msgid "ERROR: Failed to show '%s' in the file manager."
 msgstr "ERROREA: Huts '%s' zati fitxategia irekitzean"
+
+#: src/FilterSelectionSummary.h
+msgid "The message filter is off; its selected rules are saved."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "All incoming messages outside current chats will be discarded."
+msgstr "sarrera mezu iragazkia (txat honetan ezik):"
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Messages from people not on your friend list will be discarded."
+msgstr "Lagun zerrendan ez daudenen mezuak iragazi"
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Messages from unknown clients will be discarded."
+msgstr "Bezero ezezagunen mezuak iragazi"
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "Messages containing any of these terms will be discarded (ignoring case): %s."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No messages will be discarded by the message filter: the word list is empty."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No messages will be discarded by the message filter: select at least one option."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Current chats are exempt from these rules."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "Advanced spam filtering for non-friends is also enabled."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "First messages from non-friends require a CAPTCHA."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, fuzzy
+msgid "Received message text will also be written to the log."
+msgstr "Ikusi jasotako mezuak erregistroan"
+
+#: src/FilterSelectionSummary.h
+msgid "File comment filtering is off."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+msgid "No file comments will be hidden: the word list is empty."
+msgstr ""
+
+#: src/FilterSelectionSummary.h
+#, c-format
+msgid "File comments containing any of these literal terms will be hidden (ignoring case): %s."
+msgstr ""
 
 #: src/FirstRunWizard.cpp
 msgid "Mobile / 4G-5G (20 / 5 Mbit)"
@@ -3232,10 +3372,6 @@ msgstr "Deskargentzat helburu karpeta"
 #: src/utils/aLinkCreator/src/alcframe.cpp src/utils/wxCas/src/wxcasprefs.cpp
 msgid "Browse"
 msgstr "Arakatu"
-
-#: src/FirstRunWizard.cpp src/muuli_wdr.cpp
-msgid "(All files in this folder are shared with other peers)"
-msgstr "(Karpeta honetako fitxategi guztiak beste pareekin partekatzen dira)"
 
 #: src/FirstRunWizard.cpp src/muuli_wdr.cpp
 msgid "Folder for temporary download files"
@@ -3501,14 +3637,9 @@ msgstr[0] "Gaizki eratutako lerro %u alde batetara utzi da."
 msgstr[1] "Gaizki eratutako %u lerro alde batetara utzi dira."
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "Huts %s fitxategia ezabatzean, eguneraketa baztertzen."
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr "Huts %s fitxategi berria berrizendatzean, eguneraketa baztertzen."
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "Huts %s fitxategia berrizendatzean, eguneraketa baztertzen."
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -4042,6 +4173,11 @@ msgid "Invalid password, not a MD5 hash!"
 msgstr "Pasahitz baliogabea, ez da MD5 egiaztapena!"
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
+#, fuzzy
+msgid "Could not generate SRP credentials."
+msgstr "Aldiroko deskarga fitxategientzat karpeta"
+
+#: src/libs/ec/cpp/RemoteConnect.cpp
 #, c-format
 msgid "Could not resolve %s to an IPv4 address."
 msgstr ""
@@ -4059,16 +4195,13 @@ msgid "EC connection failed. Empty reply."
 msgstr "EC konexioa huts egin du. Erantzun hutsa."
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "Could not set up connection encryption. Connection closed."
-msgstr ""
-
-#: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "The core did not negotiate an encrypted connection. It may be an older aMule without encryption support, or the connection may have been tampered with. To connect without encryption, turn it off in the connection settings."
-msgstr ""
-
-#: src/libs/ec/cpp/RemoteConnect.cpp
-msgid "External Connection: Bad reply, handshake failed. Connection closed."
+#, fuzzy
+msgid "Invalid SRP handshake or unsupported profile. Connection closed."
 msgstr "Kanpo konexioa: Okerreko erantzuna, esku-emateak huts egin du. Konexioa itxirik."
+
+#: src/libs/ec/cpp/RemoteConnect.cpp
+msgid "An EC daemon of version 3.3.0 or later is required."
+msgstr ""
 
 #: src/libs/ec/cpp/RemoteConnect.cpp
 #, fuzzy
@@ -5741,10 +5874,6 @@ msgid "Password"
 msgstr "Pasahitza"
 
 #: src/muuli_wdr.cpp
-msgid "Require encrypted connections (rejects clients that cannot encrypt)"
-msgstr ""
-
-#: src/muuli_wdr.cpp
 msgid "Folders remote clients may use"
 msgstr ""
 
@@ -6188,8 +6317,16 @@ msgid "Check for a newer GeoIP database at startup and every week while aMule is
 msgstr ""
 
 #: src/muuli_wdr.cpp
-msgid "Filter incoming messages (except current chat):"
+#, fuzzy
+msgid "Enable incoming message filtering (except current chat):"
 msgstr "sarrera mezu iragazkia (txat honetan ezik):"
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Enable the filter options below. Select at least one option to filter messages.\n"
+"Turning this off keeps your selected options and word list.\n"
+"Filtered messages are discarded without opening a chat or replying to the sender."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Filter all messages"
@@ -6208,8 +6345,11 @@ msgid "Filter messages containing (use ',' as separator):"
 msgstr "Hau duten mezuak iragazi (erabili ',' bereizle bezala):"
 
 #: src/muuli_wdr.cpp
-msgid "add here the words amule should filter and block messages including it"
-msgstr "Gehitu amulek mezuetan blokeatzea nahi dituzun hitzak"
+msgid ""
+"Discard chat messages containing any comma-separated term. Matching ignores case and spaces around each term.\n"
+"Terms match anywhere in a message: dog matches hotdog and black dog spotted.\n"
+"Wildcards are not supported. A * is literal, except that a word list of exactly * blocks every message."
+msgstr ""
 
 #: src/muuli_wdr.cpp
 msgid "Enable advanced spam filter"
@@ -6232,12 +6372,26 @@ msgid "Show received messages in the log"
 msgstr "Ikusi jasotako mezuak erregistroan"
 
 #: src/muuli_wdr.cpp
-msgid "Comments"
-msgstr "Iruzkinak"
+#, fuzzy
+msgid "File comments"
+msgstr "Fitxategi Iruzkinak"
 
 #: src/muuli_wdr.cpp
-msgid "Filter comments containing (use ',' as separator):"
+#, fuzzy
+msgid "Filter file comments containing (use ',' as separator):"
 msgstr "Fitxategi iruzkinak hau du (',' erabili bereizle gisa):"
+
+#: src/muuli_wdr.cpp
+msgid ""
+"Hide file comments from other users containing any comma-separated term. This does not filter chat messages.\n"
+"Matching ignores case and spaces around each term. Terms match anywhere in a comment: dog matches hotdog and black dog spotted.\n"
+"Wildcards are not supported; * is matched literally."
+msgstr ""
+
+#: src/muuli_wdr.cpp
+#, fuzzy
+msgid "With these settings"
+msgstr "Ezarpen hauek gogoratu"
 
 #: src/muuli_wdr.cpp
 msgid "Enable Proxy"
@@ -6294,11 +6448,6 @@ msgstr "Urruneko aMulen saioa hasi"
 #: src/muuli_wdr.cpp
 msgid "Remember those settings"
 msgstr "Ezarpen hauek gogoratu"
-
-#: src/muuli_wdr.cpp
-#, fuzzy
-msgid "Encrypt the connection (recommended)"
-msgstr "Kanpo konexioa ukaturik."
 
 #: src/muuli_wdr.cpp
 msgid "Force ZLIB compression"
@@ -6468,6 +6617,10 @@ msgstr ""
 #, c-format
 msgid "%s:"
 msgstr ""
+
+#: src/OtherFunctions.cpp
+msgid "(All files in this folder are shared with other peers)"
+msgstr "(Karpeta honetako fitxategi guztiak beste pareekin partekatzen dira)"
 
 #: src/OtherFunctions.cpp
 msgid "all"
@@ -8383,14 +8536,6 @@ msgid "Shared Files"
 msgstr "Partekatutako fitxategiak"
 
 #: src/SharedFilesCtrl.cpp
-msgid "Add Comment/Rating"
-msgstr "Iruzkina/Kalifikazioa gehitu"
-
-#: src/SharedFilesCtrl.cpp
-msgid "Edit Comment/Rating"
-msgstr "Iruzkina/Kalifikazioa editatu"
-
-#: src/SharedFilesCtrl.cpp
 msgid "Rename"
 msgstr "Izena aldatu"
 
@@ -8597,6 +8742,16 @@ msgid "Crypt overhead (UDP): %s"
 msgstr "Zifratu goiburua (UDP): %s"
 
 #: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "LowID to LowID Data (Session): %s"
+msgstr "Deskargaturiko datuak (saioa (guztira)): %s"
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "IPv6 Data (Session): %s"
+msgstr "Igotako datuak (saioa (guztira)): %s"
+
+#: src/Statistics.cpp
 #, c-format
 msgid "Active Uploads: %s"
 msgstr "Igoera aktiboak: %s"
@@ -8695,6 +8850,30 @@ msgstr "Batez besteko konexioak (ebaluazioa): %g"
 #, c-format
 msgid "Peak Connections (estimate): %i"
 msgstr "Puntako konexioak (estimazioa): %i"
+
+#: src/Statistics.cpp
+msgid "NAT Traversal (Session)"
+msgstr ""
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "Server Hole Punches: %s"
+msgstr "Zerbitzari buruak (paketeak): %s"
+
+#: src/Statistics.cpp
+#, c-format
+msgid "Successful Server Hole Punches: %s"
+msgstr ""
+
+#: src/Statistics.cpp
+#, c-format
+msgid "Lugdunum Callbacks: %s"
+msgstr ""
+
+#: src/Statistics.cpp
+#, fuzzy, c-format
+msgid "Successful Lugdunum Callbacks: %s"
+msgstr "%s behar bezala eguneratu da"
 
 #: src/Statistics.cpp
 #, c-format
@@ -10339,7 +10518,7 @@ msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
 #, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr ""
 
 #: src/kademlia/kademlia/Indexed.cpp
@@ -10349,6 +10528,71 @@ msgstr ""
 #: src/kademlia/kademlia/Indexed.cpp
 msgid "Kad could not save an index. The previous copy of that file was preserved."
 msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not remove legacy ECPassword; cleanup will be retried on restart."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not persist ECPasswordVerifier; using the legacy ECPassword in memory for this run. Migration will be retried on restart."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+#, fuzzy
+msgid "Could not generate ECPasswordVerifier; external connections are disabled."
+msgstr "Pasahitza ezarria eta kanpo konexioak gaiturik."
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not generate ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not persist ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "EC password change rejected: could not store ECPasswordVerifier. The active credential is unchanged."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "ECPassword contains an invalid or empty-password digest. Run amuled --ec-config to set a new EC password."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Invalid or unsupported ECPasswordVerifier; refusing external connections."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Could not compare legacy ECPassword with ECPasswordVerifier; refusing external connections."
+msgstr ""
+
+#: src/libs/ec/cpp/ECSRPConfig.cpp
+msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
+msgstr ""
+
+#, c-format
+#~ msgid "Failed to remove %s file, aborting update."
+#~ msgstr "Huts %s fitxategia ezabatzean, eguneraketa baztertzen."
+
+#, c-format
+#~ msgid "Failed to rename new %s file, aborting update."
+#~ msgstr "Huts %s fitxategi berria berrizendatzean, eguneraketa baztertzen."
+
+#~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
+#~ msgstr "ERROREA: baliozko pasahitz bat behar da kanpo-konexioak erabiltzeko, eta aMule deabrua ezin da erabili kanpo-konexiorik gabe. aMule deabrua exekutatzeko, \"ECPassword\" eremua ezarri behar duzu ~/.aMule/amule.conf fitxategian balio egoki batekin. Exekutatu amuled --ec-config banderarekin pasahitza ezartzeko. Informazio gehiago hemen aurki daiteke: https://amule-org.github.io/docs"
+
+#~ msgid "Authentication failed: invalid hash specified as EC password."
+#~ msgstr "Autentifikazio errorea: okerreko egiaztapena ezarri da EC pasahitz gisa."
+
+#, fuzzy
+#~ msgid "Encrypt the connection (recommended)"
+#~ msgstr "Kanpo konexioa ukaturik."
+
+#~ msgid "add here the words amule should filter and block messages including it"
+#~ msgstr "Gehitu amulek mezuetan blokeatzea nahi dituzun hitzak"
+
+#~ msgid "Comments"
+#~ msgstr "Iruzkinak"
 
 #~ msgid "ERROR: "
 #~ msgstr "ERROREA: "
@@ -10422,10 +10666,6 @@ msgstr ""
 
 #~ msgid "Upload graph scale:"
 #~ msgstr "Igoera grafiko eskala:"
-
-#, c-format
-#~ msgid "Failed to rename %s file, aborting update."
-#~ msgstr "Huts %s fitxategia berrizendatzean, eguneraketa baztertzen."
 
 #~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
 #~ msgstr "Berriz deskargatu GeoIP datu-basea hautatutako iturburutik aMule abiarazten den bakoitzean."

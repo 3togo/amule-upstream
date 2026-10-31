@@ -28,6 +28,8 @@ on:
       - '.github/workflows/packaging.yml'
       - '.github/workflows/flatpak-smoke.yml'
       - 'src/**'
+      # Web UI translations; I18n CI checks them.
+      - '!src/webapi/static/i18n/**'
       - 'CMakeLists.txt'
       - 'cmake/**'
   workflow_dispatch:
@@ -66,6 +68,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
+# Master pushes build each matrix's legs one at a time, so a run holds about half
+# as many runners and leaves room for Build CI. Releases, packaging branches and
+# manual runs keep every leg in parallel: 10 is more than any matrix has.
+
 permissions:
   contents: read
   # cache-save-newest lists the repository's caches and deletes the generations
@@ -78,10 +84,8 @@ permissions:
 # CMAKE_<LANG>_COMPILER_LAUNCHER; with the cache warm, the second build
 # of the same arch on the same branch skips most of the compile step.
 #
-# Skipped on workflow_call (release.yml tag builds) so the release
-# artifact set is always produced from a cold compile -- belt-and-
-# suspenders against any "could ccache be lying to me" worry on a binary
-# that's about to ship. PR / branch / dispatch runs use the cache.
+# Release builds (release.yml) restore the cache too. Only master pushes
+# save it.
 env:
   CCACHE_DIR: ${{ github.workspace }}/.ccache
   CCACHE_MAXSIZE: 1G
@@ -114,6 +118,7 @@ jobs:
       contains(inputs.only, 'appimage')
     strategy:
       fail-fast: false
+      max-parallel: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && 1 || 10 }}
       matrix:
         include:
           - { arch: x86_64,  runs-on: ubuntu-22.04 }
@@ -124,18 +129,17 @@ jobs:
         with:
           fetch-depth: 0  # for git describe in build.sh
       - name: Install ccache
-        if: github.event_name != 'workflow_call'
         run: sudo apt-get update && sudo apt-get install -y ccache
       - name: Restore ccache
-        if: github.event_name != 'workflow_call'
         uses: actions/cache/restore@v6
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ runner.os }}-appimage-${{ matrix.arch }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
           restore-keys: ${{ runner.os }}-appimage-${{ matrix.arch }}-ccache-
       - name: Zero ccache stats
-        if: github.event_name != 'workflow_call'
-        run: ccache --zero-stats
+        run: |
+          ccache --zero-stats
+          echo "BUILD_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       # buildx + a gha layer cache for the image build, matching the static
       # track. wxWidgets is compiled inside the image, so ccache never sees
       # it; without this every run rebuilds it from scratch.
@@ -143,12 +147,18 @@ jobs:
         uses: docker/setup-buildx-action@v4
       - name: Build AppImage
         env:
-          APPIMAGE_CACHE_SCOPE: ${{ github.event_name != 'workflow_call' && format('appimage-{0}', matrix.arch) || '' }}
+          APPIMAGE_CACHE_SCOPE: appimage-${{ matrix.arch }}
         run: packaging/linux/build.sh appimage
       - name: Test packaged media runtime
         run: python3 packaging/media/test-runtime.py --appimage "$(ls dist/aMule-*-Linux-*.AppImage | head -1)"
       - name: Validate via cross-distro Docker matrix
         run: packaging/linux/build.sh validate
+      # Keep only what this build used: a hit or a new write updates an entry's
+      # timestamp, so anything older is left over from earlier commits.
+      # The build container writes the cache as root.
+      - name: Evict unused ccache entries
+        continue-on-error: true
+        run: sudo env CCACHE_DIR="$CCACHE_DIR" ccache --evict-older-than "$(( $(date +%s) - BUILD_START_EPOCH ))s"
       - name: Save ccache
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: ./.github/actions/cache-save-newest
@@ -156,7 +166,7 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ runner.os }}-appimage-${{ matrix.arch }}-ccache-${{ github.run_id }}
       - name: ccache stats
-        if: always() && github.event_name != 'workflow_call'
+        if: always()
         run: ccache --show-stats
       - uses: actions/upload-artifact@v7
         with:
@@ -178,6 +188,7 @@ jobs:
       contains(inputs.only, 'linux-static')
     strategy:
       fail-fast: false
+      max-parallel: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && 1 || 10 }}
       matrix:
         include:
           - { arch: x86_64,  runs-on: ubuntu-22.04 }
@@ -197,11 +208,10 @@ jobs:
       # STATIC_CACHE_SCOPE turns on buildx's gha layer cache (the ccache
       # analogue for this track): the dep layers (Crypto++ / wxWidgets /
       # pupnp / apk) persist across runs, so only the aMule compile re-runs
-      # on a src change. Empty on workflow_call (release.yml tag builds) so
-      # the shipped binaries always come from a cold compile.
+      # on a src change.
       - name: Build static tarball
         env:
-          STATIC_CACHE_SCOPE: ${{ github.event_name != 'workflow_call' && format('linux-static-{0}', matrix.arch) || '' }}
+          STATIC_CACHE_SCOPE: linux-static-${{ matrix.arch }}
         run: packaging/linux/build.sh static
       - name: Test packaged media runtime
         run: |
@@ -228,6 +238,7 @@ jobs:
       !(github.event_name == 'workflow_dispatch' && inputs.flatpak_smoke && inputs.flatpak_smoke_run_id != '')
     strategy:
       fail-fast: false
+      max-parallel: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && 1 || 10 }}
       matrix:
         # ubuntu-24.04 (not 22.04 like the AppImage job) so the host
         # ships appstream 1.0+ which provides /usr/bin/appstream-compose.
@@ -263,7 +274,6 @@ jobs:
       # so flatpak-builder writes its ccache state to the same shared
       # path the other jobs use.
       - name: Restore flatpak-builder ccache
-        if: github.event_name != 'workflow_call'
         uses: actions/cache/restore@v6
         with:
           path: ${{ env.CCACHE_DIR }}
@@ -274,11 +284,13 @@ jobs:
       # entry had grown to 4.4 GB of the repository's 10 GB budget -- evicting
       # the caches every other job depends on. max_size in the cache's own
       # config travels with it and is read wherever ccache runs. One build
-      # writes ~350 MB, so 1 GB keeps the current generation and two behind it.
+      # writes ~350 MB, which is all the eviction before the save keeps, so the
+      # cap is only a backstop.
       - name: Cap the flatpak-builder ccache
         run: |
           mkdir -p "$CCACHE_DIR"
           echo "max_size = 1.0G" > "$CCACHE_DIR/ccache.conf"
+          echo "BUILD_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Check Flatpak source provenance
         run: python3 -m unittest discover -s packaging/linux/tests -p test_flatpak_source.py -v
       - name: Build Flatpak
@@ -289,6 +301,14 @@ jobs:
           LOCATION=$(flatpak info --user --show-location org.amule.aMule)
           python3 packaging/media/test-runtime.py --flatpak org.amule.aMule \
             --licenses "$LOCATION/files/share/licenses/amule-media-probe"
+      # With the SDK's ccache, the one that wrote the cache.
+      - name: Evict unused ccache entries
+        continue-on-error: true
+        run: |
+          set -a; . packaging/linux/versions.env; set +a
+          flatpak run --no-documents-portal --filesystem="$CCACHE_DIR" --env=CCACHE_DIR="$CCACHE_DIR" \
+              --command=ccache "org.gnome.Sdk//${GNOME_RUNTIME_VERSION}" \
+              --evict-older-than "$(( $(date +%s) - BUILD_START_EPOCH ))s"
       - name: Save flatpak-builder ccache
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: ./.github/actions/cache-save-newest
@@ -337,6 +357,7 @@ jobs:
     # benefit of running on a much beefier ARM host.
     strategy:
       fail-fast: false
+      max-parallel: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && 1 || 10 }}
       matrix:
         include:
           - arch: arm64
@@ -398,7 +419,7 @@ jobs:
       # would orphan every saved entry.
       - name: Restore x86_64 source-built kegs
         id: kegcache
-        if: matrix.arch == 'x86_64' && github.event_name != 'workflow_call'
+        if: matrix.arch == 'x86_64'
         uses: actions/cache/restore@v6
         with:
           path: ~/intel-kegs.tar
@@ -592,15 +613,15 @@ jobs:
           path: ~/intel-kegs.tar
           key: ${{ runner.os }}-macos-intel-kegtar-partial-${{ github.run_id }}
       - name: Restore ccache
-        if: github.event_name != 'workflow_call'
         uses: actions/cache/restore@v6
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ runner.os }}-macos-${{ matrix.arch }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
           restore-keys: ${{ runner.os }}-macos-${{ matrix.arch }}-ccache-
       - name: Zero ccache stats
-        if: github.event_name != 'workflow_call'
-        run: ccache --zero-stats
+        run: |
+          ccache --zero-stats
+          echo "BUILD_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       # Homebrew's gd links libavif, which bundled aom, dav1d and libvmaf that
       # nothing in aMule uses. Only cas links libgd, and it needs PNG, JPEG and
       # FreeType. build.sh finds this one through LIBGD_PREFIX.
@@ -663,6 +684,9 @@ jobs:
               --bin-dir "${MNT}/aMule.app/Contents/MacOS" \
               --licenses "${MNT}/aMule.app/Contents/Resources/licenses/amule-media-probe"
           hdiutil detach "${MNT}"
+      - name: Evict unused ccache entries
+        continue-on-error: true
+        run: ccache --evict-older-than "$(( $(date +%s) - BUILD_START_EPOCH ))s"
       - name: Save ccache
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: ./.github/actions/cache-save-newest
@@ -670,7 +694,7 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ runner.os }}-macos-${{ matrix.arch }}-ccache-${{ github.run_id }}
       - name: ccache stats
-        if: always() && github.event_name != 'workflow_call'
+        if: always()
         run: ccache --show-stats
       - uses: actions/upload-artifact@v7
         with:
@@ -807,6 +831,7 @@ jobs:
       contains(inputs.only, 'windows')
     strategy:
       fail-fast: false
+      max-parallel: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && 1 || 10 }}
       matrix:
         include:
           - arch: x64
@@ -875,15 +900,15 @@ jobs:
             sleep "$delay"
           done
       - name: Restore ccache
-        if: github.event_name != 'workflow_call'
         uses: actions/cache/restore@v6
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ runner.os }}-windows-${{ matrix.arch }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
           restore-keys: ${{ runner.os }}-windows-${{ matrix.arch }}-ccache-
       - name: Zero ccache stats
-        if: github.event_name != 'workflow_call'
-        run: ccache --zero-stats
+        run: |
+          ccache --zero-stats
+          echo "BUILD_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Configure git safe.directory for MSYS2 git
         # MSYS2 git (now installed above) uses a global config separate
         # from the Windows git at C:\Program Files\Git\bin\git.exe that
@@ -962,6 +987,9 @@ jobs:
           BUNDLE=$(find "$STAGE" -mindepth 1 -maxdepth 1 -type d | head -1)
           "$MINGW_PREFIX/bin/python.exe" packaging/media/test-runtime.py \
               --bin-dir "$BUNDLE/bin" --licenses "$BUNDLE/share/licenses/amule-media-probe"
+      - name: Evict unused ccache entries
+        continue-on-error: true
+        run: ccache --evict-older-than "$(( $(date +%s) - BUILD_START_EPOCH ))s"
       - name: Save ccache
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: ./.github/actions/cache-save-newest
@@ -969,7 +997,7 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ runner.os }}-windows-${{ matrix.arch }}-ccache-${{ github.run_id }}
       - name: ccache stats
-        if: always() && github.event_name != 'workflow_call' && steps.windows-deps.outcome == 'success'
+        if: always() && steps.windows-deps.outcome == 'success'
         run: ccache --show-stats
       - uses: actions/upload-artifact@v7
         with:
@@ -996,6 +1024,7 @@ jobs:
       contains(inputs.only, 'windows')
     strategy:
       fail-fast: false
+      max-parallel: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && 1 || 10 }}
       matrix:
         include:
           - arch: x64
