@@ -24,10 +24,6 @@
 //
 
 #include "MagnetURI.h"
-#include "Types.h"
-#include <protocol/ed2k/Constants.h> // MAX_FILE_SIZE, shared with the native link parser
-#include <cstdint>
-#include <limits>
 
 #ifdef USE_STD_STRING
 #ifdef _T
@@ -164,6 +160,29 @@ CMagnetURI::Value_List CMagnetURI::GetField(const STRING &name) const
 	return retval;
 }
 
+bool CMagnetED2KConverter::CanConvertToED2K() const
+{
+	bool has_urn = false;
+	bool has_xl = false;
+
+	for (List_Type::const_iterator it = m_fields.begin(); it != m_fields.end(); ++it) {
+		if (it->first.compare(_T("xl")) == 0) {
+			has_xl = true;
+			continue;
+		}
+		if (it->first.compare(_T("xt")) == 0) {
+			if (StartsWithNoCase(DecodeAsciiEscapes(it->second), "urn:ed2k:") ||
+				StartsWithNoCase(DecodeAsciiEscapes(it->second), "urn:ed2khash:")) {
+				has_urn = true;
+				continue;
+			}
+		}
+		if (has_urn && has_xl)
+			break;
+	}
+	return has_urn && has_xl;
+}
+
 namespace
 {
 
@@ -188,142 +207,59 @@ bool IsWellFormedAich(const STRING &s)
 
 } // namespace
 
-CMagnetED2KImport CMagnetED2KConverter::Parse() const
-{
-	CMagnetED2KImport result;
-	const auto names = GetField(_T("dn"));
-	result.name = names.empty() ? STRING(_T("FileName.ext")) : names.front();
-	const auto sizes = GetField(_T("xl"));
-	if (!sizes.empty()) {
-		result.size = DecodeAsciiEscapes(sizes.front());
-	}
-	for (const auto &encoded : GetField(_T("xt"))) {
-		const STRING urn = DecodeAsciiEscapes(encoded);
-		if (result.hash.empty() && StartsWithNoCase(urn, "urn:ed2k:")) {
-			result.hash = urn.substr(9);
-		} else if (result.hash.empty() && StartsWithNoCase(urn, "urn:ed2khash:")) {
-			result.hash = urn.substr(13);
-		} else if (result.aich.empty() && StartsWithNoCase(urn, "urn:aich:")) {
-			result.aich = urn.substr(9);
-		}
-	}
-	for (const auto &field : m_fields) {
-		if (field.first == _T("xs")) {
-			result.sourceHints.push_back({ CMagnetED2KImport::SourceKind::Exact, field.second });
-		} else if (field.first == _T("as")) {
-			result.sourceHints.push_back(
-				{ CMagnetED2KImport::SourceKind::Acceptable, field.second });
-		} else if (field.first == _T("ws")) {
-			result.sourceHints.push_back(
-				{ CMagnetED2KImport::SourceKind::WebSeed, field.second });
-		}
-	}
-	// Keep the established optional-AICH behavior: normalize and discard junk.
-	const STRING &readAich = result.aich;
-	for (size_t i = 0; i < result.aich.length(); ++i) {
-		const unsigned c = CharCode(readAich[i]);
-		if (c >= 'a' && c <= 'z') {
-			result.aich[i] = static_cast<char>(c - ('a' - 'A'));
-		}
-	}
-	if (!IsWellFormedAich(result.aich)) {
-		result.aich.clear();
-	}
-	if (result.hash.empty()) {
-		return result;
-	}
-	if (result.hash.length() != 32) {
-		result.error = CMagnetED2KImport::Error::InvalidED2KHash;
-		return result;
-	}
-	const STRING &readHash = result.hash;
-	for (const auto c : readHash) {
-		const unsigned code = AsciiLower(CharCode(c));
-		if (!((code >= '0' && code <= '9') || (code >= 'a' && code <= 'f'))) {
-			result.error = CMagnetED2KImport::Error::InvalidED2KHash;
-			return result;
-		}
-	}
-	if (sizes.empty()) {
-		result.error = CMagnetED2KImport::Error::MissingSize;
-		return result;
-	}
-	uint64_t size = 0;
-	bool validSize = !result.size.empty();
-	const STRING &readSize = result.size;
-	for (const auto c : readSize) {
-		const unsigned code = CharCode(c);
-		if (code < '0' || code > '9' ||
-			size > (std::numeric_limits<uint64_t>::max() - (code - '0')) / 10) {
-			validSize = false;
-			break;
-		}
-		size = size * 10 + (code - '0');
-	}
-	result.error = validSize && size != 0 && size <= MAX_FILE_SIZE
-			       ? CMagnetED2KImport::Error::None
-			       : CMagnetED2KImport::Error::InvalidSize;
-	if (result.IsValid()) {
-		// A raw separator would change the identity/size fields when serialized
-		// to ed2k. URI-escaped characters remain escaped until the native parser.
-		if (result.name.empty() || result.name.find(_C('|')) != STRING::npos) {
-			result.error = CMagnetED2KImport::Error::InvalidName;
-		}
-		const STRING readName = DecodeAsciiEscapes(result.name);
-		for (const auto c : readName) {
-			const unsigned code = CharCode(c);
-			if (code < 32 || code == 127) {
-				result.error = CMagnetED2KImport::Error::InvalidName;
-				break;
-			}
-		}
-	}
-	return result;
-}
-
-const char *CMagnetED2KImport::GetErrorMessage() const
-{
-	switch (error) {
-	case Error::None:
-		return "";
-	case Error::MissingED2KHash:
-		return "missing supported eD2k exact-topic hash";
-	case Error::InvalidED2KHash:
-		return "eD2k hash must contain 32 hexadecimal digits";
-	case Error::MissingSize:
-		return "missing exact length (xl)";
-	case Error::InvalidSize:
-		return "exact length must be a positive decimal integer within the supported file-size limit";
-	case Error::InvalidName:
-		return "display name must be nonempty and contain no raw separators or control characters";
-	}
-	return "invalid magnet";
-}
-
-STRING CMagnetED2KImport::GetED2KLink() const
-{
-	if (!IsValid()) {
-		return STRING();
-	}
-	STRING link = STRING(_T("ed2k://|file|"))
-			      .append(name)
-			      .append(1, _C('|'))
-			      .append(size)
-			      .append(1, _C('|'))
-			      .append(hash)
-			      .append(1, _C('|'));
-	if (!aich.empty()) {
-		link.append(_T("h=")).append(aich).append(1, _C('|'));
-	}
-	return link.append(_T("/"));
-}
-
-bool CMagnetED2KConverter::CanConvertToED2K() const
-{
-	return Parse().IsValid();
-}
-
 STRING CMagnetED2KConverter::GetED2KLink() const
 {
-	return Parse().GetED2KLink();
+	if (CanConvertToED2K()) {
+		STRING dn;
+		STRING hash;
+		STRING len(DecodeAsciiEscapes(GetField(_T("xl")).front()));
+
+		Value_List dn_val = GetField(_T("dn"));
+		if (!dn_val.empty()) {
+			dn = dn_val.front();
+		} else {
+			// This should never happen. Has anyone seen a link without a file name?
+			// Just in case, assign a reasonable(?) name to that unnamed file.
+			dn = _T("FileName.ext");
+		}
+		if (dn.find(_C('|')) != STRING::npos) {
+			return STRING();
+		}
+		Value_List urn_list = GetField(_T("xt"));
+		STRING aich;
+		// Use the first ed2k hash found, and separately the first AICH urn if the magnet
+		// carries one (amule-org/amule#331). Both loop over the same xt list, since either
+		// can come in any order relative to the other.
+		for (Value_List::iterator it = urn_list.begin(); it != urn_list.end(); ++it) {
+			*it = DecodeAsciiEscapes(*it);
+			if (hash.empty() && StartsWithNoCase(*it, "urn:ed2k:")) {
+				hash = it->substr(9);
+			} else if (hash.empty() && StartsWithNoCase(*it, "urn:ed2khash:")) {
+				hash = it->substr(13);
+			} else if (aich.empty() && StartsWithNoCase(*it, "urn:aich:")) {
+				aich = it->substr(9);
+			}
+		}
+		// Base32 is case-insensitive too (RFC 4648 section 6); the ed2k link parser wants upper.
+		const STRING &readAich = aich;
+		for (size_t i = 0; i < aich.length(); ++i) {
+			const unsigned c = CharCode(readAich[i]);
+			if (c >= 'a' && c <= 'z') {
+				aich[i] = static_cast<char>(c - ('a' - 'A'));
+			}
+		}
+		STRING link = STRING(_T("ed2k://|file|"))
+				      .append(dn)
+				      .append(1, _C('|'))
+				      .append(len)
+				      .append(1, _C('|'))
+				      .append(hash)
+				      .append(1, _C('|'));
+		if (IsWellFormedAich(aich)) {
+			link.append(_T("h=")).append(aich).append(1, _C('|'));
+		}
+		return link.append(_T("/"));
+	} else {
+		return STRING();
+	}
 }

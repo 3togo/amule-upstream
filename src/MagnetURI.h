@@ -64,43 +64,6 @@ protected:
 	List_Type m_fields;
 };
 
-// Parsed metadata is separate from serialization and from download side effects.
-// Source hints remain opaque and untrusted; retaining them does not enable HTTP
-// downloads or authenticate any advertised source. Names and source hints retain URI escaping.
-struct CMagnetED2KImport
-{
-	enum class Error
-	{
-		None,
-		MissingED2KHash,
-		InvalidED2KHash,
-		MissingSize,
-		InvalidSize,
-		InvalidName
-	};
-	Error error = Error::MissingED2KHash;
-	STRING name;
-	STRING size;
-	STRING hash;
-	STRING aich;
-	enum class SourceKind
-	{
-		Exact,
-		Acceptable,
-		WebSeed
-	};
-	struct SourceHint
-	{
-		SourceKind kind;
-		STRING uri;
-	};
-	std::list<SourceHint> sourceHints;
-
-	bool IsValid() const { return error == Error::None; }
-	const char *GetErrorMessage() const;
-	STRING GetED2KLink() const;
-};
-
 class CMagnetED2KConverter : private CMagnetURI
 {
 public:
@@ -109,7 +72,6 @@ public:
 	{
 	}
 
-	CMagnetED2KImport Parse() const;
 	bool CanConvertToED2K() const;
 	STRING GetED2KLink() const;
 

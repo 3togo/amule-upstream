@@ -1136,11 +1136,9 @@ bool CamuleAppCommon::CheckPassedLink(const wxString &in, wxString &out, int cat
 	wxString link(in);
 
 	if (CMagnetURI::IsMagnet(link)) {
-		const auto imported = CMagnetED2KConverter(link).Parse();
-		link = imported.GetED2KLink();
-		if (!imported.IsValid()) {
-			AddLogLineCS(CFormat(_("Cannot convert magnet link to eD2k: %s")) %
-				     (in + " (" + wxString::FromUTF8(imported.GetErrorMessage()) + ")"));
+		link = CMagnetED2KConverter(link);
+		if (link.empty()) {
+			AddLogLineCS(CFormat(_("Cannot convert magnet link to eD2k: %s")) % in);
 			return false;
 		}
 	}

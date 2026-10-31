@@ -394,16 +394,13 @@ int main(int argc, char *argv[])
 	string category = "";
 	for (int i = 1; i < argc; i++) {
 		const string input = strip(string(argv[i]));
-		// Decode magnet fields after splitting the query. A whole-URI decode
-		// turns %26 in a filename into a new field and %7C into an ed2k delimiter.
+		// Split magnet fields before decoding escaped delimiters.
 		string arg = CMagnetURI::IsMagnet(input) ? input : strip(Unescape(input));
 
 		if (CMagnetURI::IsMagnet(arg)) {
-			const auto imported = CMagnetED2KConverter(arg).Parse();
-			string ed2k = imported.GetED2KLink();
-			if (!imported.IsValid()) {
-				std::cerr << "Cannot convert magnet URI to ed2k:\n\t" << arg << " ("
-					  << imported.GetErrorMessage() << ")\n";
+			string ed2k = CMagnetED2KConverter(arg);
+			if (ed2k.empty()) {
+				std::cerr << "Cannot convert magnet URI to ed2k:\n\t" << arg << '\n';
 				errors = true;
 				continue;
 			} else {
