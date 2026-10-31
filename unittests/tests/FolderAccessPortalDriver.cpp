@@ -37,6 +37,7 @@
 #include "CamuleFileConfig.h"
 #include "Preferences.h"
 #include "FolderAccess.h"
+#include <common/FileFunctions.h>
 
 wxString CPreferences::s_configDir;
 CPath CPreferences::s_tempdir;
@@ -158,6 +159,25 @@ bool CheckRejectedPromotion(const wxString &profile)
 	       saved.ReadAll(&backupContents) && originalContents == "old=1\n" && backupContents == "old=1\n";
 }
 
+bool CheckArchive(const wxString &path, bool reject)
+{
+	struct rlimit previous;
+	if (reject) {
+		if (getrlimit(RLIMIT_FSIZE, &previous) != 0)
+			return false;
+		struct rlimit limited = previous;
+		limited.rlim_cur = 8;
+		std::signal(SIGXFSZ, SIG_IGN);
+		if (setrlimit(RLIMIT_FSIZE, &limited) != 0)
+			return false;
+	}
+	const char *members[] = { "sample.dat", nullptr };
+	const auto result = UnpackArchive(CPath(path), members);
+	if (reject && setrlimit(RLIMIT_FSIZE, &previous) != 0)
+		return false;
+	return reject ? !result.first : result.first && result.second != EFT_Error;
+}
+
 int main(int argc, char **argv)
 {
 	if (argc != 4 || !wxEntryStart(argc, argv)) {
@@ -176,6 +196,12 @@ int main(int argc, char **argv)
 		std::fprintf(stderr, "%s\n", sandboxError.utf8_str().data());
 		wxEntryCleanup();
 		return 77;
+	}
+	if (mode == "archive" || mode == "archive-fail") {
+		const bool ok = CheckArchive(wxString::FromUTF8(argv[2]), mode == "archive-fail");
+		wxTheApp->OnExit();
+		wxEntryCleanup();
+		return ok ? 0 : 1;
 	}
 	if (mode == "signature-enabled" || mode == "signature-disabled") {
 		const wxString path = wxString::FromUTF8(argv[2]) + "/onlinesig.dat";

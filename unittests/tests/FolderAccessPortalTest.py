@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Run on a private D-Bus and X server; no real user files or portals are touched."""
 import os
+import gzip
+import io
+import tarfile
+import zipfile
 from pathlib import Path
 import subprocess
 import sys
@@ -164,6 +168,45 @@ class PortalTest(unittest.TestCase):
             self.assertEqual(saved.read_bytes(), b"")
             self.assertEqual(saved.stat().st_mode & 0o777, 0o600)
             self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+
+    def check_archive(self, kind, reject):
+        with tempfile.TemporaryDirectory(prefix="amule-unpack-") as directory:
+            archive = Path(directory) / ("download." + kind)
+            payload = b"compressed payload\n" * 64
+            if kind == "gz":
+                archive.write_bytes(gzip.compress(payload))
+            elif kind == "zip":
+                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as packed:
+                    packed.writestr("sample.dat", payload)
+            else:
+                with tarfile.open(archive, "w") as packed:
+                    entry = tarfile.TarInfo("sample.dat")
+                    entry.size = len(payload)
+                    packed.addfile(entry, io.BytesIO(payload))
+            original = archive.read_bytes()
+            env = dict(os.environ, FLATPAK_ID="org.amule.aMule",
+                GIO_USE_VFS="local", GSETTINGS_BACKEND="memory", NO_AT_BRIDGE="1")
+            proc = subprocess.run([DRIVER, directory, str(archive),
+                "archive-fail" if reject else "archive"], env=env,
+                capture_output=True, text=True, timeout=15)
+            if proc.returncode == 77:
+                self.skipTest(proc.stderr)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertEqual(archive.read_bytes(), original if reject else payload)
+            if not reject:
+                self.assertNotIn("Error:", proc.stderr)
+                self.assertEqual(archive.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(list(Path(directory).iterdir()), [archive])
+
+    def test_archive_updates_do_not_attempt_metadata_changes(self):
+        for kind in ("gz", "zip", "tar"):
+            with self.subTest(kind=kind):
+                self.check_archive(kind, False)
+
+    def test_failed_archive_write_preserves_download(self):
+        for kind in ("gz", "zip", "tar"):
+            with self.subTest(kind=kind):
+                self.check_archive(kind, True)
 
     def test_configured_signature_directory_is_writable_only_when_enabled(self):
         with tempfile.TemporaryDirectory(prefix="amule-signature-", dir=Path(DRIVER).parent) as directory:

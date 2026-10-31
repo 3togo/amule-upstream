@@ -30,6 +30,8 @@
 #include <wx/zipstrm.h>  // Needed for wxZipInputStream
 #include <wx/zstream.h>  // Needed for wxZlibInputStream
 #include <wx/log.h>      // Needed for wxSysErrorMsg
+#include <wx/filename.h> // Needed for wxFileName::CreateTempFileName
+#include <wx/utils.h>    // Needed for wxGetEnv
 
 #ifdef __WXMAC__
 #include <zlib.h> // Do_not_auto_remove
@@ -191,12 +193,78 @@ static bool IsWantedMember(const wxString &internalName, const char *files[])
 	return false;
 }
 
+namespace
+{
+// wxTempFile copies permissions with chmod, which the folder sandbox denies.
+// Keep its native behavior outside Flatpak and use an owner-only temporary
+// file inside it. Remember short writes even when an extractor ignores Write().
+class CArchiveReplacement
+{
+public:
+	explicit CArchiveReplacement(const wxString &path)
+	: m_destination(path)
+	{
+		if (wxFileExists("/.flatpak-info") || wxGetEnv("FLATPAK_ID", nullptr)) {
+			m_temporary = wxFileName::CreateTempFileName(path + ".tmp.", &m_file);
+			m_ok = !m_temporary.empty();
+		} else {
+			m_native = std::make_unique<wxTempFile>(path);
+			m_ok = m_native->IsOpened();
+		}
+	}
+
+	~CArchiveReplacement()
+	{
+		if (!m_temporary.empty()) {
+			if (m_file.IsOpened()) {
+				m_file.Close();
+			}
+			wxRemoveFile(m_temporary);
+		}
+	}
+
+	bool Write(const void *bytes, size_t length)
+	{
+		if (m_ok) {
+			m_ok = m_native ? m_native->Write(bytes, length)
+					: m_file.Write(bytes, length) == length;
+		}
+		return m_ok;
+	}
+
+	wxFileOffset Length() const { return m_ok ? (m_native ? m_native->Length() : m_file.Length()) : 0; }
+
+	bool Commit()
+	{
+		if (!m_ok) {
+			return false;
+		}
+		m_ok = false;
+		if (m_native) {
+			return m_native->Commit();
+		}
+		if (!m_file.Close() || !CPath::ReplaceEntry(CPath(m_temporary), CPath(m_destination))) {
+			return false;
+		}
+		m_temporary.clear();
+		return true;
+	}
+
+private:
+	wxString m_destination;
+	wxString m_temporary;
+	wxFile m_file;
+	std::unique_ptr<wxTempFile> m_native;
+	bool m_ok = false;
+};
+} // namespace
+
 /**
  * Replaces the zip archive with the first member matching @a files.
  */
 static bool UnpackZipFile(const wxString &file, const char *files[])
 {
-	wxTempFile target(file);
+	CArchiveReplacement target(file);
 	CSmartPtr<wxZipEntry> entry;
 	wxFFileInputStream fileInputStream(file);
 	wxZipInputStream zip(fileInputStream);
@@ -235,12 +303,7 @@ static bool UnpackZipFile(const wxString &file, const char *files[])
 		break;
 	}
 
-	if (target.Length()) {
-		target.Commit();
-		return true;
-	}
-
-	return false;
+	return target.Length() > 0 && target.Commit();
 }
 
 /**
@@ -248,7 +311,7 @@ static bool UnpackZipFile(const wxString &file, const char *files[])
  */
 static bool UnpackTarFile(const wxString &file, const char *files[])
 {
-	wxTempFile target(file);
+	CArchiveReplacement target(file);
 	wxFFileInputStream fileInputStream(file);
 	wxTarInputStream tar(fileInputStream);
 	while (true) {
@@ -277,7 +340,7 @@ static bool UnpackTarFile(const wxString &file, const char *files[])
  */
 static bool UnpackGZipFile(const wxString &file)
 {
-	wxTempFile target(file);
+	CArchiveReplacement target(file);
 
 	bool write = false;
 	size_t written = 0;
@@ -351,12 +414,7 @@ static bool UnpackGZipFile(const wxString &file)
 	}
 #endif
 
-	if (write) {
-		target.Commit();
-		// AddDebugLogLineN( logFileIO, "Committed gzip stream" );
-	}
-
-	return write;
+	return write && target.Commit();
 }
 
 static UnpackResult UnpackArchiveAt(const CPath &path, const char *files[], int depth)
