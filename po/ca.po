@@ -781,6 +781,11 @@ msgstr "S'ha reiniciat el registre"
 msgid "ServerMessage: %s"
 msgstr "Missatge del servidor: %s"
 
+#: src/amule.cpp
+#, fuzzy, c-format
+msgid "Failed to replace nodes.dat: %s"
+msgstr "No s'ha pogut substituir la base de dades MaxMindDB «%s»: %s"
+
 #: src/amule.cpp src/IP2Country.cpp src/IPFilter.cpp src/ServerList.cpp
 #, c-format
 msgid "Skipped download of %s, because requested file is not newer."
@@ -3622,14 +3627,9 @@ msgstr[0] "S'ha descartat %u línia malformada."
 msgstr[1] "S'han descartat %u línies malformades."
 
 #: src/IPFilter.cpp
-#, c-format
-msgid "Failed to remove %s file, aborting update."
-msgstr "Fallada a l'esborrar el fitxer %s, actualització interrompuda."
-
-#: src/IPFilter.cpp
-#, c-format
-msgid "Failed to rename new %s file, aborting update."
-msgstr "Fallada al canviar de nom el nou fitxer %s, actualització interrompuda."
+#, fuzzy, c-format
+msgid "Failed to replace %s file, aborting update: %s"
+msgstr "Fallada al canviar de nom el fitxer %s, actualització interrompuda."
 
 #: src/IPFilter.cpp
 msgid "IP filter is ready"
@@ -10466,8 +10466,8 @@ msgid "Kad could not read %s. It was renamed to %s.bad, and a new index will be 
 msgstr "Kad no ha pogut llegir %s. S'ha canviat el nom a %s.bad i es desarà un índex nou en tancar."
 
 #: src/kademlia/kademlia/Indexed.cpp
-#, c-format
-msgid "Kad could not preserve the unreadable index %s as %s.bad. Its original file will not be overwritten."
+#, fuzzy, c-format
+msgid "Kad could not preserve the unreadable index %s as %s.bad: %s. Its original file will not be overwritten."
 msgstr "Kad no ha pogut conservar l'índex il·legible %s com a %s.bad. El fitxer original no se sobreescriurà."
 
 #: src/kademlia/kademlia/Indexed.cpp
@@ -10518,6 +10518,14 @@ msgstr "No s'ha pogut comparar l'ECPassword antic amb l'ECPasswordVerifier; es r
 #: src/libs/ec/cpp/ECSRPConfig.cpp
 msgid "Migrating a changed legacy ECPassword after downgrade; the previous verifier no longer authenticates this run."
 msgstr "S'està migrant un ECPassword antic modificat després de tornar a una versió anterior; el verificador anterior ja no autentica aquesta execució."
+
+#, c-format
+#~ msgid "Failed to remove %s file, aborting update."
+#~ msgstr "Fallada a l'esborrar el fitxer %s, actualització interrompuda."
+
+#, c-format
+#~ msgid "Failed to rename new %s file, aborting update."
+#~ msgstr "Fallada al canviar de nom el nou fitxer %s, actualització interrompuda."
 
 #~ msgid "ERROR: A valid password is required to use external connections, and aMule daemon cannot be used without external connections. To run aMule daemon, you must set the \"ECPassword\" field in the file ~/.aMule/amule.conf with an appropriate value. Execute amuled with the flag --ec-config to set the password. More information can be found at https://amule-org.github.io/docs"
 #~ msgstr "ERROR: cal una contrasenya vàlida per usar connexions externes, i el dimoni de l'aMule no es pot fer servir sense connexions externes. Per executar el dimoni de l'aMule, heu d'assignar un valor adequat al camp \"ECPassword\" del fitxer ~/.aMule/amule.conf. Executeu amuled amb el paràmetre --ec-config per establir la contrasenya. Trobareu més informació a https://amule-org.github.io/docs"
@@ -10659,10 +10667,6 @@ msgstr "S'està migrant un ECPassword antic modificat després de tornar a una v
 
 #~ msgid "Upload graph scale:"
 #~ msgstr "Escala del gràfic de pujada:"
-
-#, c-format
-#~ msgid "Failed to rename %s file, aborting update."
-#~ msgstr "Fallada al canviar de nom el fitxer %s, actualització interrompuda."
 
 #~ msgid "Re-download the GeoIP database from the selected source every time aMule starts."
 #~ msgstr "Torna a baixar la base de dades GeoIP de la font seleccionada cada cop que s'inicia l'aMule."
