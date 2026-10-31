@@ -150,6 +150,39 @@ class PortalTest(unittest.TestCase):
             self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
             self.assertFalse(list(Path(directory).glob("*.tmp.*")))
 
+    def test_server_url_text_save_does_not_attempt_metadata_changes(self):
+        with tempfile.TemporaryDirectory(prefix="amule-url-save-") as directory:
+            env = dict(os.environ, FLATPAK_ID="org.amule.aMule",
+                GIO_USE_VFS="local", GSETTINGS_BACKEND="memory", NO_AT_BRIDGE="1")
+            proc = subprocess.run([DRIVER, directory, "", "text"], env=env,
+                capture_output=True, text=True, timeout=15)
+            if proc.returncode == 77:
+                self.skipTest(proc.stderr)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertNotIn("Error:", proc.stderr)
+            saved = Path(directory) / "addresses.dat"
+            self.assertEqual(saved.read_bytes(), b"")
+            self.assertEqual(saved.stat().st_mode & 0o777, 0o600)
+            self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+
+    def test_configured_signature_directory_is_writable_only_when_enabled(self):
+        with tempfile.TemporaryDirectory(prefix="amule-signature-", dir=Path(DRIVER).parent) as directory:
+            base = Path(directory)
+            profile = base / "profile"
+            profile.mkdir()
+            signatures = base / "signatures"
+            signatures.mkdir()
+            env = dict(os.environ, FLATPAK_ID="org.amule.aMule",
+                GIO_USE_VFS="local", GSETTINGS_BACKEND="memory", NO_AT_BRIDGE="1")
+            for mode in ("signature-disabled", "signature-enabled"):
+                proc = subprocess.run([DRIVER, str(profile), str(signatures), mode], env=env,
+                    capture_output=True, text=True, timeout=15)
+                if proc.returncode == 77:
+                    self.skipTest(proc.stderr)
+                self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+                self.assertNotIn("Error:", proc.stderr)
+                self.assertEqual((signatures / "onlinesig.dat").exists(), mode == "signature-enabled")
+
     def test_read_only_default_and_early_response(self):
         self.run_case("success")
 

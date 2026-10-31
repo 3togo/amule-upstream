@@ -873,7 +873,7 @@ bool CamuleApp::OnInit()
 		while (vfile.GetLineCount() > 10)
 			vfile.RemoveLine(vfile.GetLineCount() - 1);
 
-		vfile.Write();
+		FolderAccess::SaveTextFile(vfile);
 		vfile.Close();
 	}
 
@@ -2266,8 +2266,8 @@ void CamuleApp::OnlineSig(bool zero /* reset stats (used on shutdown) */)
 	}
 
 	// Flush the files
-	emulesig_out.Write();
-	amulesig_out.Write();
+	FolderAccess::SaveTextFile(emulesig_out);
+	FolderAccess::SaveTextFile(amulesig_out);
 } // End Added By Bouc7
 
 #if wxUSE_ON_FATAL_EXCEPTION

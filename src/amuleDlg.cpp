@@ -46,8 +46,9 @@
 
 #include <common/EventIDs.h>
 
-#include "config.h"           // Needed for GITDATE, PACKAGE, VERSION
-#include "amuleDlg.h"         // Interface declarations.
+#include "config.h"   // Needed for GITDATE, PACKAGE, VERSION
+#include "amuleDlg.h" // Interface declarations.
+#include "FolderAccess.h"
 #include "AutostartManager.h" // Needed for AutostartManager::RequestFlatpakBackground
 
 #include <common/Format.h>    // Needed for CFormat
@@ -1005,7 +1006,7 @@ void CamuleDlg::ShowVersionAvailable(const wxString &latest)
 		if (wxFileExists(stampPath) ? stamp.Open() : stamp.Create()) {
 			stamp.Clear();
 			stamp.AddLine(latest);
-			stamp.Write();
+			FolderAccess::SaveTextFile(stamp);
 			stamp.Close();
 		}
 	}

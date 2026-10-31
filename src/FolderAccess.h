@@ -27,6 +27,7 @@
 class wxWindow;
 class wxFileConfig;
 class wxMBConv;
+class wxTextFile;
 
 namespace FolderAccess
 {
@@ -35,6 +36,8 @@ bool IsSandboxed();
 bool RestrictWrites(wxString &error);
 // Atomic owner-only profile writes which need no metadata mutation after startup.
 bool SaveConfig(wxFileConfig &config, const wxString &path, const wxMBConv &conversion);
+bool SaveText(const wxString &path, const wxString &contents);
+bool SaveTextFile(wxTextFile &file);
 bool BackupConfig(const wxString &path);
 // Original host location of a portal path, retained for safe reauthorization.
 wxString HostPath(const wxString &path);

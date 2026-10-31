@@ -24,6 +24,7 @@
 #include <wx/file.h>
 #include <wx/mstream.h>
 #include <wx/log.h>
+#include <wx/textfile.h>
 #include "CamuleFileConfig.h"
 #include <wx/filename.h>
 #ifdef __linux__
@@ -99,6 +100,25 @@ bool BackupConfig(const wxString &path)
 	return CPath::BackupFile(CPath(path), ".bak");
 }
 
+bool SaveText(const wxString &path, const wxString &contents)
+{
+	const auto bytes = contents.utf8_str();
+	return AtomicProfileWrite(path, [&](wxFile &file) {
+		return bytes.length() == 0 || file.Write(bytes.data(), bytes.length()) == bytes.length();
+	});
+}
+
+bool SaveTextFile(wxTextFile &file)
+{
+	if (!IsSandboxed())
+		return file.Write();
+	wxString contents;
+	for (size_t i = 0; i < file.GetLineCount(); ++i) {
+		contents += file.GetLine(i) + wxTextBuffer::GetEOL(file.GetLineType(i));
+	}
+	return SaveText(file.GetName(), contents);
+}
+
 wxString HostPath(const wxString &path)
 {
 #ifdef __linux__
@@ -168,6 +188,9 @@ bool RestrictWrites(wxString &error)
 	writableFolders.emplace_back(thePrefs::GetConfigDir());
 	writableFolders.emplace_back(thePrefs::GetTempDir());
 	writableFolders.emplace_back(thePrefs::GetIncomingDir());
+	if (thePrefs::IsOnlineSignatureEnabled() && thePrefs::GetOSDir().IsOk()) {
+		writableFolders.push_back(thePrefs::GetOSDir());
+	}
 #ifndef CLIENT_GUI
 	for (unsigned i = 1; i < theApp->glob_prefs->GetCatCount(); ++i) {
 		writableFolders.push_back(theApp->glob_prefs->GetCatPath(i));

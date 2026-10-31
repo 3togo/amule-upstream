@@ -1962,15 +1962,25 @@ bool CPreferences::SetServerListURLs(const wxArrayString &urls)
 			unique.Add(url);
 	}
 #ifndef CLIENT_GUI
-	wxTempFile file(GetConfigDir() + "addresses.dat");
-	if (!file.IsOpened())
-		return false;
-	for (const auto &url : unique) {
-		if (!file.Write(url + "\n", wxConvUTF8))
+	if (FolderAccess::IsSandboxed()) {
+		wxString contents;
+		for (const auto &url : unique) {
+			contents += url + "\n";
+		}
+		// wxTempFile attempts chmod, which the folder sandbox deliberately denies.
+		if (!FolderAccess::SaveText(GetConfigDir() + "addresses.dat", contents))
+			return false;
+	} else {
+		wxTempFile file(GetConfigDir() + "addresses.dat");
+		if (!file.IsOpened())
+			return false;
+		for (const auto &url : unique) {
+			if (!file.Write(url + "\n", wxConvUTF8))
+				return false;
+		}
+		if (!file.Commit())
 			return false;
 	}
-	if (!file.Commit())
-		return false;
 #endif
 	s_serverListURLs = unique;
 	return true;

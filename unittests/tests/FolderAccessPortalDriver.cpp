@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <wx/file.h>
 #include <wx/log.h>
+#include <wx/textfile.h>
 #include "CamuleFileConfig.h"
 #include "Preferences.h"
 #include "FolderAccess.h"
@@ -40,6 +41,8 @@
 wxString CPreferences::s_configDir;
 CPath CPreferences::s_tempdir;
 CPath CPreferences::s_incomingdir;
+bool CPreferences::s_onlineSig = false;
+CPath CPreferences::s_OSDirectory;
 
 class PortalTestApp : public wxApp
 {
@@ -83,6 +86,39 @@ bool CheckAtomicSave(const wxString &profile)
 	const bool retry = config.Flush();
 	return rejected && originalContents == "old=1\n" && retry && FolderAccess::BackupConfig(path) &&
 	       CPath::BackupFile(CPath(path), ".credits.bak");
+}
+
+bool CheckTextSave(const wxString &profile)
+{
+	const wxString path = profile + "/addresses.dat";
+	const wxString contents = "https://example.test/servers.met\n";
+	if (!FolderAccess::SaveText(path, "old\n") || !FolderAccess::SaveText(path, contents))
+		return false;
+	{
+		wxFile file(path);
+		wxString saved;
+		if (!file.ReadAll(&saved) || saved != contents)
+			return false;
+	}
+	if (!FolderAccess::SaveText(path, wxEmptyString))
+		return false;
+	wxFile empty(path);
+	if (!empty.IsOpened() || empty.Length() != 0)
+		return false;
+	empty.Close();
+	// Preserve mixed line endings, Unicode, and a final line without a terminator.
+	const wxString mixed = wxString::FromUTF8("first\r\n\u672b\u884c");
+	if (!FolderAccess::SaveText(path, mixed))
+		return false;
+	wxTextFile lines(path);
+	if (!lines.Open() || !FolderAccess::SaveTextFile(lines))
+		return false;
+	wxFile saved(path);
+	wxString actual;
+	if (!saved.ReadAll(&actual, wxConvUTF8) || actual != mixed)
+		return false;
+	saved.Close();
+	return FolderAccess::SaveText(path, wxEmptyString);
 }
 
 // Fail the rename after writing the complete temporary file. A copy fallback
@@ -130,11 +166,26 @@ int main(int argc, char **argv)
 	wxTheApp->CallOnInit();
 	delete wxLog::SetActiveTarget(new wxLogStderr());
 	CPreferences::SetConfigDir(wxString::FromUTF8(argv[1]) + "/");
+	const std::string mode(argv[3]);
+	if (mode == "signature-enabled" || mode == "signature-disabled") {
+		CPreferences::SetOnlineSignatureEnabled(mode == "signature-enabled");
+		CPreferences::SetOSDir(CPath(wxString::FromUTF8(argv[2])));
+	}
 	wxString sandboxError;
 	if (!FolderAccess::RestrictWrites(sandboxError)) {
 		std::fprintf(stderr, "%s\n", sandboxError.utf8_str().data());
 		wxEntryCleanup();
 		return 77;
+	}
+	if (mode == "signature-enabled" || mode == "signature-disabled") {
+		const wxString path = wxString::FromUTF8(argv[2]) + "/onlinesig.dat";
+		const int fd = open(path.fn_str(), O_CREAT | O_WRONLY, 0600);
+		const bool ok = mode == "signature-enabled" ? fd >= 0 : fd < 0 && errno == EACCES;
+		if (fd >= 0)
+			close(fd);
+		wxTheApp->OnExit();
+		wxEntryCleanup();
+		return ok ? 0 : 1;
 	}
 	if (std::string(argv[3]) == "renamefail") {
 		const bool ok = CheckRejectedPromotion(wxString::FromUTF8(argv[1]));
@@ -144,6 +195,12 @@ int main(int argc, char **argv)
 	}
 	if (std::string(argv[3]) == "atomic") {
 		const bool ok = CheckAtomicSave(wxString::FromUTF8(argv[1]));
+		wxTheApp->OnExit();
+		wxEntryCleanup();
+		return ok ? 0 : 1;
+	}
+	if (std::string(argv[3]) == "text") {
+		const bool ok = CheckTextSave(wxString::FromUTF8(argv[1]));
 		wxTheApp->OnExit();
 		wxEntryCleanup();
 		return ok ? 0 : 1;

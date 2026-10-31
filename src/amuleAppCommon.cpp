@@ -812,7 +812,7 @@ bool CamuleAppCommon::InitCommon(int argc, wxChar **argv)
 					linksActuallyPassed++;
 				}
 			}
-			ed2kFile.Write();
+			FolderAccess::SaveTextFile(ed2kFile);
 		} else {
 			AddLogLineCS(LOG_PRELOCALE("Failed to open 'ED2KLinks', cannot add links."));
 		}
@@ -915,7 +915,7 @@ bool CamuleAppCommon::InitCommon(int argc, wxChar **argv)
 
 		if (ed2kFile.Open()) {
 			ed2kFile.AddLine("RAISE_DIALOG");
-			ed2kFile.Write();
+			FolderAccess::SaveTextFile(ed2kFile);
 
 			AddLogLineNS(LOG_PRELOCALE("Raising current running instance."));
 		} else {

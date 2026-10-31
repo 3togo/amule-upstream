@@ -23,6 +23,7 @@
 //
 
 #include "ProtocolHandlerManager.h"
+#include "FolderAccess.h"
 
 #include <wx/app.h>      // Needed for wxTheApp
 #include <wx/filename.h> // Needed for wxFileName
@@ -200,7 +201,7 @@ void ProtocolHandler_QueueLinks(const wxArrayString &links)
 			ed2kFile.AddLine(links[i]);
 		}
 		ed2kFile.AddLine(wxT("RAISE_DIALOG"));
-		ed2kFile.Write();
+		FolderAccess::SaveTextFile(ed2kFile);
 		ed2kFile.Close();
 		AMULE_URL_LOG(wxT("wrote ED2KLinks OK"));
 	} else {
