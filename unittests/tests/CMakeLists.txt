@@ -235,6 +235,12 @@ add_test (NAME KadBuddyLivenessTest COMMAND KadBuddyLivenessTest)
 target_include_directories (KadBuddyLivenessTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (KadBuddyLivenessTest muleunit mulecommon)
 
+# Failed buddy IP cooldown with a deterministic clock.
+add_executable (KadBuddyRetryTest KadBuddyRetryTest.cpp)
+add_test (NAME KadBuddyRetryTest COMMAND KadBuddyRetryTest)
+target_include_directories (KadBuddyRetryTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (KadBuddyRetryTest muleunit mulecommon)
+
 # The Kad firewall state across an hourly recheck, with the clock passed in.
 add_executable (KadFirewallRecheckTest KadFirewallRecheckTest.cpp)
 add_test (NAME KadFirewallRecheckTest COMMAND KadFirewallRecheckTest)
@@ -328,6 +334,12 @@ add_executable (KadPublishPolicyTest KadPublishPolicyTest.cpp)
 add_test (NAME KadPublishPolicyTest COMMAND KadPublishPolicyTest)
 target_include_directories (KadPublishPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries (KadPublishPolicyTest muleunit mulecommon)
+
+# Deterministic source retry eligibility and dead-source expiry policy.
+add_executable (SourceRetryPolicyTest SourceRetryPolicyTest.cpp)
+target_include_directories (SourceRetryPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include)
+target_link_libraries (SourceRetryPolicyTest muleunit mulecommon)
+add_test (NAME SourceRetryPolicyTest COMMAND SourceRetryPolicyTest)
 
 # EC writes reach these setters directly, so they must clamp to the shared limits.
 add_executable (SourceSearchLimitsTest SourceSearchLimitsTest.cpp)
@@ -454,6 +466,12 @@ target_include_directories (UdpObfuscationPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}
 target_compile_features (UdpObfuscationPolicyTest PRIVATE cxx_std_17)
 target_link_libraries (UdpObfuscationPolicyTest muleunit mulecommon)
 add_test (NAME UdpObfuscationPolicyTest COMMAND UdpObfuscationPolicyTest)
+
+add_executable (UdpThrottleChargeTest UdpThrottleChargeTest.cpp)
+target_include_directories (UdpThrottleChargeTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
+target_compile_features (UdpThrottleChargeTest PRIVATE cxx_std_17)
+target_link_libraries (UdpThrottleChargeTest muleunit mulecommon)
+add_test (NAME UdpThrottleChargeTest COMMAND UdpThrottleChargeTest)
 
 add_executable (EncryptionRequirementTest EncryptionRequirementTest.cpp)
 target_include_directories (EncryptionRequirementTest PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
@@ -2141,6 +2159,12 @@ target_link_libraries (ChatSessionStoreTest
 	mulecommon
 )
 
+# A wake sent while the upload throttler is busy is kept for its next wait.
+add_executable (ThrottlerWakeTest ThrottlerWakeTest.cpp)
+add_test (NAME ThrottlerWakeTest COMMAND ThrottlerWakeTest)
+target_include_directories (ThrottlerWakeTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (ThrottlerWakeTest muleunit mulecommon)
+
 # Queue bookkeeping and the one-per-type limit for queued and running tasks.
 add_executable (ThreadSchedulerTest
 	ThreadSchedulerTest.cpp
@@ -3060,6 +3084,13 @@ if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND UNIX AND NOT APPLE)
 		if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 			add_library (UploadReadDelay MODULE UploadReadDelay.cpp)
 			target_link_libraries (UploadReadDelay ${CMAKE_DL_LIBS} ZLIB::ZLIB)
+			foreach (diagnostic_stage diagnostics diagnostics-off)
+				add_test (NAME UploadRead-${diagnostic_stage}
+					COMMAND ${Python3_EXECUTABLE} -u
+						${CMAKE_CURRENT_SOURCE_DIR}/UploadStoragePoolIntegrationTest.py
+						$<TARGET_FILE:amuled> $<TARGET_FILE:UploadReadDelay> --stage ${diagnostic_stage})
+				set_tests_properties (UploadRead-${diagnostic_stage} PROPERTIES TIMEOUT 120 LABELS "integration")
+			endforeach ()
 			add_test (NAME DisplayRatesIntegrationTest
 				COMMAND ${Python3_EXECUTABLE} -u
 					${CMAKE_CURRENT_SOURCE_DIR}/DisplayRatesIntegrationTest.py $<TARGET_FILE:amuled>
@@ -3856,6 +3887,14 @@ if (BUILD_DAEMON AND ENABLE_INTEGRATION_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Li
 	set_tests_properties (WriteBackpressureIntegrationTest PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
 endif ()
 
+# Native replacement must release the AICH reader first, especially on Windows.
+if (ENABLE_INTEGRATION_TESTS AND BUILD_DAEMON AND Python3_Interpreter_FOUND)
+	add_test (NAME AICHPruneIntegrationTest
+		COMMAND ${Python3_EXECUTABLE}
+			${CMAKE_CURRENT_SOURCE_DIR}/AICHPruneIntegrationTest.py $<TARGET_FILE:amuled>)
+	set_tests_properties (AICHPruneIntegrationTest PROPERTIES SKIP_RETURN_CODE 77 LABELS "integration")
+endif ()
+
 add_executable (ECSRPTest ECSRPTest.cpp ${CMAKE_SOURCE_DIR}/src/LoggerConsole.cpp)
 target_include_directories (ECSRPTest PRIVATE ${CMAKE_SOURCE_DIR}/src/libs ${CMAKE_BINARY_DIR}/src/libs ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/src/libs/ec/cpp)
 target_link_libraries (ECSRPTest PRIVATE ec mulecommon)
@@ -3935,3 +3974,8 @@ foreach (ec_wire_test IN ITEMS
 		set_tests_properties (${ec_wire_test} PROPERTIES SKIP_RETURN_CODE 77)
 	endif ()
 endforeach ()
+
+add_executable (UploadReadDiagnosticsTest UploadReadDiagnosticsTest.cpp)
+add_test (NAME UploadReadDiagnosticsTest COMMAND UploadReadDiagnosticsTest)
+target_include_directories (UploadReadDiagnosticsTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries (UploadReadDiagnosticsTest muleunit mulecommon)

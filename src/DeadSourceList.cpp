@@ -24,15 +24,13 @@
 //
 
 #include "DeadSourceList.h"
+#include "SourceRetryPolicy.h"
 
 #include <common/Macros.h>
 
 #include "updownclient.h" // Needed for CUpDownClient
 
 #define CLEANUPTIME MIN2MS(60)
-
-#define BLOCKTIME (::GetTickCount64() + (m_bGlobalList ? MIN2MS(30) : MIN2MS(45)))
-#define BLOCKTIMEFW (::GetTickCount64() + (m_bGlobalList ? MIN2MS(45) : MIN2MS(60)))
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //// CDeadSource
@@ -108,7 +106,8 @@ void CDeadSourceList::AddDeadSource(const CUpDownClient *client)
 	CDeadSource source(key);
 
 	// Set the timeout for the new source
-	source.SetTimeout(client->HasLowID() ? BLOCKTIMEFW : BLOCKTIME);
+	source.SetTimeout(
+		SourceRetryPolicy::DeadSourceDeadline(::GetTickCount64(), m_bGlobalList, client->HasLowID()));
 
 	// Check if the source is already listed
 	DeadSourcePair range = m_sources.equal_range(key);

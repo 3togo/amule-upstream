@@ -27,6 +27,7 @@
 #include <wx/app.h> // Needed for wxTheApp
 
 #include <algorithm>     // std::min
+#include <optional>      // Reset abandons a partial safe-write without promoting it
 #include <unordered_set> // CAICHSyncTask orphan-prune liveRoots set
 
 #include "ThreadTasks.h"      // Interface declarations
@@ -342,18 +343,20 @@ void CAICHSyncTask::Entry()
 		// so a crash mid-prune leaves the original known2_64.met untouched. Opened only
 		// when there is a live-roots set to filter against.
 		const bool prune = !liveRoots.empty();
-		CFile rewriteFile;
+		std::optional<CFile> rewriteFile;
 		bool rewriteOk = false;
 		size_t droppedCount = 0;
 		size_t keptCount = 0;
 		if (prune) {
-			rewriteOk = rewriteFile.Open(fullpath, CFile::write_safe);
+			rewriteFile.emplace();
+			rewriteOk = rewriteFile->Open(fullpath, CFile::write_safe);
 			if (rewriteOk) {
 				try {
-					rewriteFile.WriteUInt8(KNOWN2_MET_VERSION);
+					rewriteFile->WriteUInt8(KNOWN2_MET_VERSION);
 				} catch (const CIOFailureException &) {
 					rewriteOk = false;
-					rewriteFile.Close();
+					rewriteFile.reset();
+					CPath::RemoveFile(fullpath.AppendExt(".new"));
 				}
 			} else {
 				AddDebugLogLineN(logAICHThread,
@@ -387,8 +390,8 @@ void CAICHSyncTask::Entry()
 
 				if (rewriteOk) {
 					if (keep) {
-						rootHash.Write(&rewriteFile);
-						rewriteFile.WriteUInt32(nHashCount);
+						rootHash.Write(&*rewriteFile);
+						rewriteFile->WriteUInt32(nHashCount);
 						// Stream the hashset bytes through a small fixed
 						// buffer rather than slurping into RAM: large files
 						// can have many MB of leaf and tree SHA-1s.
@@ -398,7 +401,7 @@ void CAICHSyncTask::Entry()
 							const size_t chunk = static_cast<size_t>(
 								std::min<uint64>(sizeof(buf), remaining));
 							file.Read(buf, chunk);
-							rewriteFile.Write(buf, chunk);
+							rewriteFile->Write(buf, chunk);
 							remaining -= chunk;
 						}
 						++keptCount;
@@ -425,26 +428,30 @@ void CAICHSyncTask::Entry()
 			CAICHHashSet::InvalidateRootHashCache();
 			// Do not finalise the rewrite when the source was corrupt: the partial .new
 			// file would replace the just-truncated source with something different.
-			// Abort explicitly so its destructor cannot rename a stale .new over the
-			// recovered file.
+			// Destroy the safe writer without Close(), which would promote its partial
+			// .new over the recovered file. Remove the abandoned candidate afterwards.
 			if (rewriteOk) {
-				rewriteFile.Close();
-				CPath::RemoveFile(CPath(fullpath.GetRaw() + wxT(".new")));
+				rewriteFile.reset(); // CFile's destructor closes without promoting.
+				CPath::RemoveFile(fullpath.AppendExt(".new"));
 				rewriteOk = false;
 			}
 		} catch (const CIOFailureException &e) {
 			AddDebugLogLineC(
 				logAICHThread, "IO failure while reading hashlist (Aborting): " + e.what());
 			if (rewriteOk) {
-				rewriteFile.Close();
-				CPath::RemoveFile(CPath(fullpath.GetRaw() + wxT(".new")));
+				rewriteFile.reset(); // CFile's destructor closes without promoting.
+				CPath::RemoveFile(fullpath.AppendExt(".new"));
 			}
 			return;
 		}
 
 		if (rewriteOk) {
-			rewriteFile.Close();
-			if (droppedCount > 0) {
+			// Windows cannot replace the live entry while this reader holds it open.
+			file.Close();
+			if (!rewriteFile->Close()) {
+				AddDebugLogLineC(logAICHThread,
+					"Could not commit pruned known2_64.met; previous file preserved.");
+			} else if (droppedCount > 0) {
 				AddDebugLogLineN(logAICHThread,
 					CFormat("known2_64.met orphan prune: dropped %u, kept %u") %
 						(unsigned)droppedCount % (unsigned)keptCount);
