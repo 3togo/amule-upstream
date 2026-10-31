@@ -3310,20 +3310,15 @@ void CamuleApp::OnFinishedHTTPDownload(CMuleInternalEvent &event)
 		if (event.GetExtraInt64() == HTTP_Success) {
 
 			const CPath file(thePrefs::GetConfigDir() + "nodes.dat");
-			const bool wasRunning = Kademlia::CKademlia::IsRunning();
-			// Stop first: Kad saves its current nodes on shutdown and may hold the file open.
-			if (wasRunning) {
+			// Stop first: Kad saves its nodes on shutdown, which would overwrite the new file.
+			if (Kademlia::CKademlia::IsRunning()) {
 				Kademlia::CKademlia::Stop();
 			}
 
+			// On failure the old nodes.dat is intact, so Kad starts from it.
 			wxString detail;
 			if (!CPath::ReplaceEntry(file.AppendExt(".download"), file, &detail)) {
 				AddLogLineC(CFormat(_("Failed to replace nodes.dat: %s")) % detail);
-				if (wasRunning) {
-					Kademlia::CKademlia::Start();
-					ShowConnectionState();
-				}
-				break;
 			}
 
 			Kademlia::CKademlia::Start();
