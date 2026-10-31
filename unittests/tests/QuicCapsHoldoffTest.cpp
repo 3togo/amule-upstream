@@ -106,7 +106,7 @@ struct Fake
 {
 	std::set<int> alive{ 1 };
 	QuicCapabilityState state = QuicCapabilityState::Unknown;
-	QuicDialResult dialResult = QuicDialResult::Started;
+	bool dialStarts = true;
 	int capsSent = 0;
 	std::vector<int> dialed;
 	std::vector<int> failed;
@@ -116,7 +116,7 @@ struct Fake
 		[this](const CQuicCapsHoldoffs<int>::STarget &) { ++capsSent; },
 		[this](const CQuicCapsHoldoffs<int>::STarget &, int &owner, uint64_t) {
 			dialed.push_back(owner);
-			return dialResult;
+			return dialStarts;
 		},
 		[this](const CQuicCapsHoldoffs<int>::STarget &, int &owner, uint64_t) {
 			failed.push_back(owner);
@@ -170,30 +170,10 @@ TEST(QuicCapsHoldoffs, QuicDialThatDoesNotStartIsReportedAsFailed)
 {
 	Fake f;
 	f.state = QuicCapabilityState::Compatible;
-	f.dialResult = QuicDialResult::Failed;
+	f.dialStarts = false;
 	f.holdoffs.Service(1100);
 	ASSERT_EQUALS(1, static_cast<int>(f.failed.size()));
 	ASSERT_TRUE(f.utp.empty());
-	ASSERT_TRUE(f.holdoffs.Empty());
-}
-
-TEST(QuicCapsHoldoffs, CapacityRefusalFallsBackWithoutReportingPeerFailure)
-{
-	Fake f;
-	f.state = QuicCapabilityState::Compatible;
-	f.dialResult = QuicDialResult::AtCapacity;
-	f.holdoffs.Service(1100);
-	ASSERT_EQUALS(1u, f.dialed.size());
-	ASSERT_EQUALS(1u, f.utp.size());
-	ASSERT_TRUE(f.failed.empty());
-	ASSERT_TRUE(f.holdoffs.Empty());
-
-	f.dialResult = QuicDialResult::Started;
-	f.holdoffs.Add({ {}, 1, 2, {} }, 1101, 1);
-	f.holdoffs.Service(1101);
-	ASSERT_EQUALS(2u, f.dialed.size());
-	ASSERT_EQUALS(1u, f.utp.size());
-	ASSERT_TRUE(f.failed.empty());
 	ASSERT_TRUE(f.holdoffs.Empty());
 }
 
@@ -214,9 +194,7 @@ TEST(QuicCapsHoldoffs, AFallbackCanAddAHoldoff)
 	CQuicCapsHoldoffs<int> holdoffs{ { [](int &) { return true; },
 		[](const std::array<uint8_t, 16> &, uint64_t) { return QuicCapabilityState::Incompatible; },
 		[](const CQuicCapsHoldoffs<int>::STarget &) {},
-		[](const CQuicCapsHoldoffs<int>::STarget &, int &, uint64_t) {
-			return QuicDialResult::Started;
-		},
+		[](const CQuicCapsHoldoffs<int>::STarget &, int &, uint64_t) { return true; },
 		[](const CQuicCapsHoldoffs<int>::STarget &, int &, uint64_t) {},
 		[&](int &) {
 			if (fallbacks++ == 0) {

@@ -143,15 +143,10 @@ void CQuicContext::EraseClosedConnections()
 	}
 }
 
-bool CQuicContext::HasConnectionCapacity()
-{
-	EraseClosedConnections();
-	return m_connectionLimit && m_connections.size() < m_connectionLimit();
-}
-
 bool CQuicContext::AdmitNewConnection(const CNetworkAddress &address, uint64_t nowMs)
 {
-	if (!HasConnectionCapacity()) {
+	EraseClosedConnections();
+	if (m_connections.size() >= kMaxConnections) {
 		return false;
 	}
 	const CNetworkAddress scope = PeerAddressing::RateLimitScope(address);
@@ -166,27 +161,28 @@ bool CQuicContext::AdmitNewConnection(const CNetworkAddress &address, uint64_t n
 	return m_newConnectionLimiter.Admit(address, nowMs);
 }
 
-QuicDialResult CQuicContext::Dial(const CNetworkAddress &address,
+bool CQuicContext::Dial(const CNetworkAddress &address,
 	uint16_t port,
 	const std::array<uint8_t, 16> &expectedPeerIdentity,
 	uint64_t nowMs,
 	CUpDownClient *owner)
 {
 	if (port == 0 || m_factory == nullptr) {
-		return QuicDialResult::Failed;
+		return false;
 	}
-	if (!HasConnectionCapacity()) {
-		return QuicDialResult::AtCapacity;
+	EraseClosedConnections();
+	if (m_connections.size() >= kMaxConnections) {
+		return false;
 	}
 	std::unique_ptr<IQuicConnection> connection =
 		m_factory->CreateOutboundForClient(address, port, expectedPeerIdentity, nowMs, owner);
 	if (!connection || connection->IsClosed()) {
-		return QuicDialResult::Failed;
+		return false;
 	}
 	const std::string cid = connection->GetIssuedConnectionId();
 	const auto inserted =
 		m_connections.emplace(SConnectionKey{ address, port, cid }, std::move(connection));
-	return inserted.second ? QuicDialResult::Started : QuicDialResult::Failed;
+	return inserted.second;
 }
 
 bool CQuicContext::ProcessDatagram(
