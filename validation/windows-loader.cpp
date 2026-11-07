@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "sandbox.h"
-#include <winternl.h>
 #include <algorithm>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <winternl.h>
 #include <sddl.h>
 #include <cstdio>
 #include <string>
