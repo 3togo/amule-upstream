@@ -14,3 +14,4 @@ jobs:
           cmake -S src/mediaprobe -B build-probe -DCMAKE_BUILD_TYPE=Release
           cmake --build build-probe --config Release --parallel 2
           python src/mediaprobe/test_helper.py build-probe/src/Release/amule-media-probe.exe HelperTests.test_extracts_wav
+          python validation/nested.py
