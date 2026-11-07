@@ -2,6 +2,7 @@ name: Media probe Linux CPU validation
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
