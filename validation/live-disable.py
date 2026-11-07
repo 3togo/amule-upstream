@@ -51,7 +51,7 @@ def run():
                 _, tags = ec.call(C['EC_OP_GET_PREFERENCES'],
                                   [integer(C['EC_TAG_SELECT_PREFS'], C['EC_PREFS_FILES'])])
                 files = tags[C['EC_TAG_PREFS_FILES']][1]
-                enabled = files[C['EC_TAG_FILES_MEDIA_METADATA_ENABLED']][0]
+                enabled = int(C['EC_TAG_FILES_MEDIA_METADATA_ENABLED'] in files)
                 available = files[C['EC_TAG_FILES_MEDIA_METADATA_AVAILABLE']][0]
                 assert enabled == 1, files
                 if str(role) == 'current':
@@ -80,7 +80,7 @@ def run():
                               [integer(C['EC_TAG_SELECT_PREFS'], C['EC_PREFS_FILES'])])
             files = tags[C['EC_TAG_PREFS_FILES']][1]
             assert files[C['EC_TAG_FILES_MEDIA_METADATA_AVAILABLE']][0] == 1, files
-            assert files[C['EC_TAG_FILES_MEDIA_METADATA_ENABLED']][0] == 1, files
+            assert C['EC_TAG_FILES_MEDIA_METADATA_ENABLED'] in files, files
             deadline = time.monotonic() + 45
             while True:
                 try:
