@@ -1,8 +1,43 @@
-name: Media probe review validation
+name: Media probe live failure validation
 on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
-  kernel:
-    uses: ./.github/workflows/media-probe-qemu.yml
+  live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-static-x86_64
+          run-id: 42411330038
+          github-token: ${{ github.token }}
+          path: current
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-static-x86_64
+          run-id: 42390771444
+          github-token: ${{ github.token }}
+          path: old
+      - name: Verify unavailable helpers, failed confinement and recovery
+        run: |
+          set -euo pipefail
+          cat /etc/os-release
+          g++ --version
+          tar -xzf current/aMule-b3c834bcf-Linux-x64-static.tar.gz -C current
+          tar -xzf old/aMule-e8257f9bf-Linux-x64-static.tar.gz -C old
+          g++ -std=c++17 -O2 -I src validation/setup-failure.cpp -o setup-failure
+          current="$PWD/current/aMule-b3c834bcf-Linux-x64-static"
+          old="$PWD/old/aMule-e8257f9bf-Linux-x64-static"
+          timeout --kill-after=5 120 python3 unittests/tests/MediaProbeUnavailableTest.py             "$current/amuled" "$current/amule-media-probe"
+          timeout --kill-after=5 150 python3 validation/live-disable.py             "$PWD" "$current/amuled" "$PWD/setup-failure" "$PWD/live-evidence" current
+          timeout --kill-after=5 150 python3 validation/live-disable.py             "$PWD" "$old/amuled" "$PWD/setup-failure" "$PWD/live-evidence" old
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: media-probe-live-failure-evidence
+          path: live-evidence/
+          if-no-files-found: warn
