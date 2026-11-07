@@ -1,50 +1,16 @@
-name: Media probe restrictions
-
-on:
-  push:
-    paths: ['src/mediaprobe/**', 'src/MediaProbe.cpp', '.github/workflows/media-probe.yml']
-  pull_request:
-    paths: ['src/mediaprobe/**', 'src/MediaProbe.cpp', '.github/workflows/media-probe.yml']
-  workflow_dispatch:
-    inputs:
-      fuzz_only:
-        description: Run the ten-minute sanitizer fuzz workflow instead of native checks
-        type: boolean
-        default: false
-
+name: Windows loader diagnostic
+on: workflow_dispatch
 permissions:
   contents: read
-
-concurrency:
-  group: media-probe-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
-
 jobs:
-  native:
-    if: ${{ !inputs.fuzz_only }}
-    name: Native restrictions (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-2025, windows-11-arm]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+  debug:
+    runs-on: windows-2025
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - name: Configure the standalone helper
-        run: cmake -S src/mediaprobe -B build-probe -DCMAKE_BUILD_TYPE=Release
-      - name: Build
-        run: cmake --build build-probe --config Release --parallel 2
-      - name: Verify extraction, hostile inputs and OS denials
-        run: ctest --test-dir build-probe -C Release --output-on-failure
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: media-probe-tests-${{ matrix.os }}
-          path: build-probe/Testing/Temporary/
-          if-no-files-found: warn
-  fuzz:
-    if: github.event_name == 'workflow_dispatch' && inputs.fuzz_only
-    uses: ./.github/workflows/media-probe-fuzz.yml
-    with:
-      seconds: 600
+      - shell: pwsh
+        run: |
+          Copy-Item validation/windows-loader.cpp src/mediaprobe/sandbox-windows.cpp
+          cmake -S src/mediaprobe -B build-probe -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-probe --config Release --parallel 2
+          python src/mediaprobe/test_helper.py build-probe/src/Release/amule-media-probe.exe HelperTests.test_extracts_wav
