@@ -280,7 +280,7 @@ int launch()
 				     nullptr,
 				     nullptr,
 				     TRUE,
-				     CREATE_SUSPENDED | CREATE_NO_WINDOW | DEBUG_ONLY_THIS_PROCESS | EXTENDED_STARTUPINFO_PRESENT |
+				     CREATE_SUSPENDED | DETACHED_PROCESS | DEBUG_ONLY_THIS_PROCESS | EXTENDED_STARTUPINFO_PRESENT |
 					     CREATE_UNICODE_ENVIRONMENT,
 				     environment.data(),
 				     nullptr,
