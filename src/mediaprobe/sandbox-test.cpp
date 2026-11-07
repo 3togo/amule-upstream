@@ -18,7 +18,6 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
 #include <sys/uio.h>
 #include <unistd.h>
 #ifdef __linux__
@@ -171,8 +170,9 @@ int main(int argc, char **argv)
 #endif
 	} else if (action == "inherited") {
 #ifndef _WIN32
-		struct stat info;
-		blocked = fstat(std::atoi(path.c_str()), &info) < 0 && errno == EBADF;
+		// Test closure directly. Some 32-bit libc fstat wrappers use path-based
+		// stat syscalls, which remain denied even for an already-closed descriptor.
+		blocked = close(std::atoi(path.c_str())) < 0 && errno == EBADF;
 #endif
 	} else if (action == "unix-network") {
 #ifndef _WIN32
@@ -227,6 +227,11 @@ int main(int argc, char **argv)
 		std::string memory(4 * 1024 * 1024, 'x');
 		return memory.back() == 'x' ? 0 : 1;
 	}
+	if (!blocked)
+		std::fprintf(stderr,
+			"sandbox test: %s did not produce the expected denial (errno %d)\n",
+			action.c_str(),
+			errno);
 	std::fputs(blocked ? "blocked\n" : "UNRESTRICTED\n", stdout);
 	return blocked ? 0 : 1;
 }
