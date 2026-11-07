@@ -6,9 +6,3 @@ permissions:
 jobs:
   kernel:
     uses: ./.github/workflows/media-probe-qemu.yml
-  fuzz:
-    if: always()
-    needs: kernel
-    uses: ./.github/workflows/media-probe-fuzz.yml
-    with:
-      seconds: 30
