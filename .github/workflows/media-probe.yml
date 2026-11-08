@@ -1,43 +1,36 @@
-name: Media probe live failure validation
+name: Media probe review validation
 on:
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
 jobs:
-  live:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
+  windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        with:
-          name: linux-static-x86_64
-          run-id: 42411330038
-          github-token: ${{ github.token }}
-          path: current
-      - uses: actions/download-artifact@v8
-        with:
-          name: linux-static-x86_64
-          run-id: 42390771444
-          github-token: ${{ github.token }}
-          path: old
-      - name: Verify unavailable helpers, failed confinement and recovery
-        run: |
-          set -euo pipefail
-          cat /etc/os-release
-          g++ --version
-          tar -xzf current/aMule-b3c834bcf-Linux-x64-static.tar.gz -C current
-          tar -xzf old/aMule-e8257f9bf-Linux-x64-static.tar.gz -C old
-          g++ -std=c++17 -O2 -I src validation/setup-failure.cpp -o setup-failure
-          current="$PWD/current/aMule-b3c834bcf-Linux-x64-static"
-          old="$PWD/old/aMule-e8257f9bf-Linux-x64-static"
-          timeout --kill-after=5 120 python3 unittests/tests/MediaProbeUnavailableTest.py             "$current/amuled" "$current/amule-media-probe"
-          timeout --kill-after=5 150 python3 validation/live-disable.py             "$PWD" "$current/amuled" "$PWD/setup-failure" "$PWD/live-evidence" current
-          timeout --kill-after=5 150 python3 validation/live-disable.py             "$PWD" "$old/amuled" "$PWD/setup-failure" "$PWD/live-evidence" old
+      - run: cmake -S src/mediaprobe -B build-probe -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build-probe --config Release --parallel 2
+      - run: ctest --test-dir build-probe -C Release --output-on-failure
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: media-probe-live-failure-evidence
-          path: live-evidence/
-          if-no-files-found: warn
+          name: review-tests-${{ matrix.os }}
+          path: build-probe/Testing/Temporary/
+  intel:
+    runs-on: macos-15-intel
+    timeout-minutes: 10
+    steps:
+      - name: Inspect native Intel packaging toolchain
+        run: |
+          sw_vers
+          uname -m
+          clang --version
+          cmake --version
+          /usr/local/bin/brew --version
+          /usr/local/bin/brew list --versions
+          /usr/local/bin/brew info --json=v2 cmake wxwidgets cryptopp libupnp freetype jpeg-turbo libpng gettext boost dylibbundler libmaxminddb ccache
