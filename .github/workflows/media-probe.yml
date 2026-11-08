@@ -1,10 +1,209 @@
-name: Media probe fresh seed validation
-on:
-  workflow_dispatch:
+name: Media probe Windows caller validation
+'on':
+  workflow_dispatch: null
 permissions:
   contents: read
+env:
+  AMULE_ICON_TEST_REQUIRE_GUI: '1'
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_MAXSIZE: 500M
+  cmake_ubuntu_deps: 'binutils-dev \
+
+    build-essential \
+
+    ccache \
+
+    cmake \
+
+    gettext \
+
+    libayatana-appindicator3-dev \
+
+    libboost-dev \
+
+    libcrypto++-dev \
+
+    libgd-dev \
+
+    libglib2.0-dev \
+
+    libgnutls28-dev \
+
+    libmaxminddb-dev \
+
+    libreadline-dev \
+
+    libupnp-dev \
+
+    libwxgtk3.2-dev \
+
+    locales \
+
+    pkg-config \
+
+    po4a \
+
+    python3-cryptography \
+
+    xvfb \
+
+    xauth \
+
+    wx3.2-headers'
+  cmake_macos_deps: 'boost \
+
+    ccache \
+
+    cryptopp \
+
+    gd \
+
+    gettext \
+
+    libmaxminddb \
+
+    libupnp \
+
+    pkg-config \
+
+    wxwidgets'
+  cmake_mingw_w64_deps: 'mingw-w64-clang-x86_64-boost
+
+    mingw-w64-clang-x86_64-ccache
+
+    mingw-w64-clang-x86_64-cmake
+
+    mingw-w64-clang-x86_64-crypto++
+
+    mingw-w64-clang-x86_64-gettext
+
+    mingw-w64-clang-x86_64-libgd
+
+    mingw-w64-clang-x86_64-libmaxminddb
+
+    mingw-w64-clang-x86_64-ngtcp2
+
+    mingw-w64-clang-x86_64-ninja
+
+    mingw-w64-clang-x86_64-pkgconf
+
+    mingw-w64-clang-x86_64-readline
+
+    mingw-w64-clang-x86_64-toolchain
+
+    mingw-w64-clang-x86_64-wxwidgets3.3-msw
+
+    mingw-w64-clang-x86_64-zlib
+
+    '
+  cmake_common_config_flags: '-B build \
+
+    -DBUILD_ALC=YES \
+
+    -DBUILD_ALCC=YES \
+
+    -DBUILD_AMULECMD=YES \
+
+    -DBUILD_AMULEAPI=YES \
+
+    -DBUILD_CAS=YES \
+
+    -DBUILD_DAEMON=YES \
+
+    -DBUILD_WXCAS=YES \
+
+    -DBUILD_ED2K=YES \
+
+    -DBUILD_MONOLITHIC=YES \
+
+    -DBUILD_REMOTEGUI=YES \
+
+    -DBUILD_TESTING=YES \
+
+    -DENABLE_INTEGRATION_TESTS=YES \
+
+    -DBUILD_WEBSERVER=YES \
+
+    -DENABLE_NLS=YES \
+
+    -DENABLE_UPNP=YES'
+  cmake_ubuntu_config_flags: -DENABLE_IP2COUNTRY=YES
+  cmake_macos_config_flags: -DENABLE_IP2COUNTRY=YES
+  cmake_mingw_w64_config_flags: '-G Ninja \
+
+    -DENABLE_IP2COUNTRY=YES'
+  ctest_flags: '--test-dir build \
+
+    --output-on-failure'
 jobs:
-  fuzz:
-    uses: ./.github/workflows/media-probe-fuzz.yml
-    with:
-      seconds: 600
+  windows:
+    name: Windows confinement propagation and pre-fix control
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - uses: actions/checkout@v7
+    - name: restore ccache
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ env.CCACHE_DIR }}
+        key: ${{ runner.os }}-Release-ccache-${{ hashFiles('**/CMakeLists.txt', 'cmake/**')
+          }}
+        restore-keys: ${{ runner.os }}-Release-ccache-
+    - name: set up MSYS2 mingw-w64
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: CLANG64
+        update: true
+        cache: false
+    - name: install mingw-w64 dependencies
+      id: windows-deps
+      run: "set -euo pipefail\nmapfile -t packages < <(printf '%s' \"$cmake_mingw_w64_deps\"\
+        )\n# Mirrors can rate-limit this large transaction. Keep downloaded\n# packages\
+        \ and retry after a delay instead of aborting on HTTP 429.\nfor attempt in\
+        \ 1 2 3; do\n  if pacman --noconfirm -S --needed --overwrite '*' \"${packages[@]}\"\
+        ; then\n    exit 0\n  fi\n  if (( attempt == 3 )); then\n    echo '::error::MSYS2\
+        \ dependency installation failed after 3 attempts.'\n    exit 1\n  fi\n  delay=$((attempt\
+        \ * 30))\n  echo \"::warning::MSYS2 dependency installation failed; retrying\
+        \ in ${delay}s.\"\n  sleep \"$delay\"\ndone\n"
+    - name: build libupnp (pupnp) from source
+      run: "set -euo pipefail\n. packaging/linux/versions.env\ncurl -L -o /tmp/libupnp.tar.gz\
+        \ \"$LIBUPNP_TARBALL_URL\"\necho \"$LIBUPNP_SHA256  /tmp/libupnp.tar.gz\"\
+        \ | sha256sum -c -\nmkdir -p /tmp/libupnp\ntar -xf /tmp/libupnp.tar.gz -C\
+        \ /tmp/libupnp --strip-components=1\ncmake -S /tmp/libupnp -B /tmp/libupnp/build\
+        \ -G Ninja \\\n  -DCMAKE_BUILD_TYPE=Release -DUPNP_BUILD_SHARED=ON -DUPNP_BUILD_STATIC=OFF\
+        \ \\\n  -DUPNP_BUILD_SAMPLES=OFF -DUPNP_BUILD_TESTS=OFF -Dreuseaddr=ON -Dipv6=ON\
+        \ \\\n  -DCMAKE_INSTALL_PREFIX=\"$MINGW_PREFIX\"\ncmake --build /tmp/libupnp/build\n\
+        cmake --install /tmp/libupnp/build\n"
+    - name: create build system
+      run: "cmake \\\n  -DCMAKE_BUILD_TYPE=Release \\\n  ${{ env.cmake_common_config_flags\
+        \ }} \\\n  ${{ env.cmake_mingw_w64_config_flags }} \\\n  \n"
+    - name: zero ccache stats
+      run: 'ccache --zero-stats
+
+        echo "BUILD_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
+        '
+    - name: Build affected callers and helper tests
+      run: cmake --build build --target MediaProbeParseTest MediaProbeEnvTest MediaProbeDisableTest
+        media-probe-sandbox-test --parallel 3
+    - name: Run all affected groups
+      run: ctest --test-dir build --output-on-failure --timeout 60 --no-tests=error
+        -R '^(MediaProbeStartup|MediaProbeSandbox|MediaProbeCorpus|MediaProbeHelper|MediaProbeHostile|MediaProbeParseTest|MediaProbeEnvTest|MediaProbeDisableTest)$'
+    - name: Prove regression fails with the old launcher status
+      run: "set -euo pipefail\npython - <<'PYCONTROL'\nfrom pathlib import Path\n\
+        p = Path('src/mediaprobe/sandbox-windows.cpp')\ns = p.read_text()\nassert\
+        \ ', kSetupFailed)' in s\np.write_text(s.replace(', kSetupFailed)', ')'))\n\
+        PYCONTROL\ncmake --build build --target amule-media-probe --parallel 3\nif\
+        \ ctest --test-dir build --output-on-failure --timeout 20 --no-tests=error\
+        \ -R '^MediaProbeDisableTest$'; then\n  echo 'Regression unexpectedly passed\
+        \ with pre-fix launcher status' >&2\n  exit 1\nfi\ngit restore src/mediaprobe/sandbox-windows.cpp\n\
+        cmake --build build --target amule-media-probe --parallel 3\nctest --test-dir\
+        \ build --output-on-failure --timeout 20 --no-tests=error -R '^MediaProbeDisableTest$'\n"
+    - uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: windows-confinement-caller-evidence
+        path: build/Testing/Temporary/
+    timeout-minutes: 20
