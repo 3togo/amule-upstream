@@ -265,8 +265,7 @@ production sandbox: it does not verify helper startup or OS containment.
 Each run generates synthetic seeds from the helper and hostile-input fixtures.
 Fuzzing starts from fresh seeds each time. After minimization, the evolving
 corpus is archived with the run artifacts. Downloaded archives contain regular
-SHA-256-named files;
-imports reject links, traversal, checksum errors and excessive sizes/counts.
+SHA-256-named files; imports reject links, traversal, checksum errors and excessive sizes/counts.
 Logs, updated archives and crash reproducers are also retained as artifacts for
 90 days. Preserve confirmed crash inputs as small, focused regression fixtures;
 do not commit the evolving corpus to Git.

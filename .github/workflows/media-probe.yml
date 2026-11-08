@@ -1,36 +1,10 @@
-name: Media probe review validation
+name: Media probe fresh seed validation
 on:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  windows:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-2025, windows-11-arm]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - run: cmake -S src/mediaprobe -B build-probe -DCMAKE_BUILD_TYPE=Release
-      - run: cmake --build build-probe --config Release --parallel 2
-      - run: ctest --test-dir build-probe -C Release --output-on-failure
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: review-tests-${{ matrix.os }}
-          path: build-probe/Testing/Temporary/
-  intel:
-    runs-on: macos-15-intel
-    timeout-minutes: 10
-    steps:
-      - name: Inspect native Intel packaging toolchain
-        run: |
-          sw_vers
-          uname -m
-          clang --version
-          cmake --version
-          /usr/local/bin/brew --version
-          /usr/local/bin/brew list --versions
-          /usr/local/bin/brew info --json=v2 cmake wxwidgets cryptopp libupnp freetype jpeg-turbo libpng gettext boost dylibbundler libmaxminddb ccache
+  fuzz:
+    uses: ./.github/workflows/media-probe-fuzz.yml
+    with:
+      seconds: 600

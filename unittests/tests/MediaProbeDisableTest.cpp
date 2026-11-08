@@ -50,7 +50,8 @@ TEST(MediaProbeDisable, FailedRestrictionsDisableFurtherProbesWithoutFileVerdict
 		// Remove the injected outer restriction. Subsequent probes must still
 		// remain disabled, even though their confinement would now succeed.
 		ui.UIRestrictionsClass = 0;
-		ASSERT_TRUE(SetInformationJobObject(job, JobObjectBasicUIRestrictions, &ui, sizeof(ui)) != FALSE);
+		ASSERT_TRUE(
+			SetInformationJobObject(job, JobObjectBasicUIRestrictions, &ui, sizeof(ui)) != FALSE);
 #endif
 		ASSERT_TRUE(outcome == MediaProbe::ProbeOutcome::Unavailable);
 		ASSERT_FALSE(MediaProbe::IsFileVerdict(outcome));

@@ -282,9 +282,9 @@ int RunBoundedHelper(const wxString &exe,
 	// Reject the suspended launcher if either boundary cannot be established.
 	// Running without the outer Job would weaken cancellation and resource limits.
 	const bool confined = ::AssignProcessToJobObject(hJob, pi.hProcess) != FALSE;
-	if (!confined ||
-		::ResumeThread(pi.hThread) == static_cast<DWORD>(-1)) {
-		windowsFailure(confined ? wxT("resume confined helper") : wxT("confine suspended helper"), ::GetLastError());
+	if (!confined || ::ResumeThread(pi.hThread) == static_cast<DWORD>(-1)) {
+		windowsFailure(confined ? wxT("resume confined helper") : wxT("confine suspended helper"),
+			::GetLastError());
 		::TerminateProcess(pi.hProcess, 1);
 		::WaitForSingleObject(pi.hProcess, 5000);
 		::CloseHandle(pi.hProcess);

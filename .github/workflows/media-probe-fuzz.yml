@@ -1,6 +1,12 @@
 name: Media probe pre-release fuzzing
 
 on:
+  workflow_call:
+    inputs:
+      seconds:
+        type: number
+        default: 600
+        required: false
   workflow_dispatch:
     inputs:
       seconds:
@@ -74,7 +80,7 @@ jobs:
           if test -d fuzz-results/corpus; then
             mkdir -p fuzz-results/minimized
             # Shared workers leave superseded inputs on disk. Merge them before
-            # archiving so repeated runs do not accumulate redundant files.
+            # archiving so each artifact contains only the minimized inputs.
             timeout 180 build-fuzz/amule-media-probe-fuzz -merge=1 \
               -timeout=10 -rss_limit_mb=2048 \
               fuzz-results/minimized fuzz-results/corpus fuzz-results/seeds > fuzz-results/merge.log 2>&1
