@@ -193,14 +193,17 @@ jobs:
         -R '^(MediaProbeStartup|MediaProbeSandbox|MediaProbeCorpus|MediaProbeHelper|MediaProbeHostile|MediaProbeParseTest|MediaProbeEnvTest|MediaProbeDisableTest)$'
     - name: Prove regression fails with the old launcher status
       run: "set -euo pipefail\npython - <<'PYCONTROL'\nfrom pathlib import Path\n\
-        p = Path('src/mediaprobe/sandbox-windows.cpp')\ns = p.read_text()\nassert\
-        \ ', kSetupFailed)' in s\np.write_text(s.replace(', kSetupFailed)', ')'))\n\
+        import os\np = Path('src/mediaprobe/sandbox-windows.cpp')\ns = p.read_text()\n\
+        (Path(os.environ['RUNNER_TEMP']) / 'sandbox-windows-original.cpp').write_text(s)\n\
+        assert ', kSetupFailed)' in s\np.write_text(s.replace(', kSetupFailed)', ')'))\n\
         PYCONTROL\ncmake --build build --target amule-media-probe --parallel 3\nif\
         \ ctest --test-dir build --output-on-failure --timeout 20 --no-tests=error\
         \ -R '^MediaProbeDisableTest$'; then\n  echo 'Regression unexpectedly passed\
-        \ with pre-fix launcher status' >&2\n  exit 1\nfi\ngit restore src/mediaprobe/sandbox-windows.cpp\n\
-        cmake --build build --target amule-media-probe --parallel 3\nctest --test-dir\
-        \ build --output-on-failure --timeout 20 --no-tests=error -R '^MediaProbeDisableTest$'\n"
+        \ with pre-fix launcher status' >&2\n  exit 1\nfi\npython - <<'PYRESTORE'\n\
+        from pathlib import Path\nimport os\noriginal = Path(os.environ['RUNNER_TEMP'])\
+        \ / 'sandbox-windows-original.cpp'\nPath('src/mediaprobe/sandbox-windows.cpp').write_text(original.read_text())\n\
+        PYRESTORE\ncmake --build build --target amule-media-probe --parallel 3\nctest\
+        \ --test-dir build --output-on-failure --timeout 20 --no-tests=error -R '^MediaProbeDisableTest$'\n"
     - uses: actions/upload-artifact@v7
       if: always()
       with:
