@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: b58ea7e4e
+          ref: b58ea7e4eeead5e60d1870715547d061d5665119
       - name: Dependencies
         run: |
           brew install boost cryptopp gd gettext libmaxminddb libupnp pkg-config wxwidgets
