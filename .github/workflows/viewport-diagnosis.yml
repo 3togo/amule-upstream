@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: b58ea7e4e
       - name: Dependencies
         run: |
           brew install boost cryptopp gd gettext libmaxminddb libupnp pkg-config wxwidgets
@@ -18,24 +20,11 @@ jobs:
           echo "LIBRARY_PATH=$(brew --prefix)/lib" >> "$GITHUB_ENV"
           echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$(brew --prefix gd)/lib/pkgconfig:$(brew --prefix libupnp)/lib/pkgconfig:$(brew --prefix gettext)/lib/pkgconfig" >> "$GITHUB_ENV"
           echo "$(brew --prefix gettext)/bin" >> "$GITHUB_PATH"
-      - name: Instrument fixture
-        run: |
-          python3 - <<'PYCODE'
-          from pathlib import Path
-          p=Path('unittests/tests/VirtualListViewportTest.cpp')
-          s=p.read_text()
-          s=s.replace('\t\tSettle();', '\t\tSettle();')
-          lines=s.splitlines()
-          result=[]
-          for n,line in enumerate(lines,1):
-              if line.strip() == 'Settle();' or line.strip().startswith('Check(') or line.strip() == 'TestRefreshAndSort();':
-                  result.append('\tstd::cerr << "line '+str(n)+'" << std::endl;')
-              result.append(line)
-          p.write_text('\n'.join(result)+'\n')
-          PYCODE
       - name: Build
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DBUILD_REMOTEGUI=ON -DBUILD_MONOLITHIC=OFF
           cmake --build build --target VirtualListViewportTest --parallel 3
-      - name: Diagnose
-        run: ctest --test-dir build -V -R '^VirtualListViewportTest$' --timeout 60
+      - name: Verify published fix
+        run: |
+          git rev-parse HEAD
+          ctest --test-dir build -V -R '^VirtualListViewportTest$' -L '^slow$' --no-tests=error --timeout 60 --repeat until-fail:3
