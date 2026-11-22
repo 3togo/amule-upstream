@@ -44,6 +44,7 @@
 #include "updownclient.h" // Needed for CUpDownClient
 #endif
 
+#include "SourceExchangePacket.h"
 #include "MemFile.h"          // Needed for CMemFile
 #include "PartStatusWriter.h" // Needed for WriteCompleteFilePartStatus
 #include "UploadQueue.h"      // Needed for CUploadQueue (EndCorruptUploadSessions)
@@ -1041,36 +1042,11 @@ CPacket *CKnownFile::CreateSrcInfoPacket(
 		return NULL;
 	}
 
-	CMemFile data(1024);
-
-	uint8 byUsedVersion;
-	bool bIsSX2Packet;
-	if (forClient->SupportsSourceExchange2() && byRequestedVersion > 0) {
-		// the client uses SourceExchange2 and requested the highest version he knows
-		// and we send the highest version we know, but of course not higher than his request
-		byUsedVersion = std::min(byRequestedVersion, (uint8)SOURCEEXCHANGE2_VERSION);
-		bIsSX2Packet = true;
-		data.WriteUInt8(byUsedVersion);
-
-		// we don't support any special SX2 options yet, reserved for later use
-		if (nRequestedOptions != 0) {
-			AddDebugLogLineN(logKnownFiles,
-				CFormat("Client requested unknown options for SourceExchange2: %u") %
-					nRequestedOptions);
-		}
-	} else {
-		byUsedVersion = forClient->GetSourceExchange1Version();
-		bIsSX2Packet = false;
-		if (forClient->SupportsSourceExchange2()) {
-			AddDebugLogLineN(logKnownFiles,
-				"Client which announced to support SX2 sent SX1 packet instead");
-		}
-	}
-
-	uint16 nCount = 0;
-
-	data.WriteHash(forClient->GetUploadFileID());
-	data.WriteUInt16(nCount);
+	CSourceExchangePacket packet(GetFileHash(),
+		forClient->GetSourceExchange1Version(),
+		forClient->SupportsSourceExchange2(),
+		byRequestedVersion,
+		nRequestedOptions);
 	uint32 cDbgNoSrc = 0;
 
 	SourceSet::iterator it = m_ClientUploadList.begin();
@@ -1133,58 +1109,21 @@ CPacket *CKnownFile::CreateSrcInfoPacket(
 		}
 
 		if (bNeeded) {
-			nCount++;
 			uint32 dwID;
-			if (byUsedVersion >= 3) {
+			if (packet.GetVersion() >= 3) {
 				dwID = cur_src->GetUserIDHybrid();
 			} else {
 				dwID = cur_src->GetIP();
 			}
-			data.WriteUInt32(dwID);
-			data.WriteUInt16(cur_src->GetUserPort());
-			data.WriteUInt32(cur_src->GetServerIP());
-			data.WriteUInt16(cur_src->GetServerPort());
+			packet.AddSource(dwID, *cur_src);
 
-			if (byUsedVersion >= 2) {
-				data.WriteHash(cur_src->GetUserHash());
-			}
-
-			if (byUsedVersion >= 4) {
-				// CryptSettings - SourceExchange V4
-				// 5 Reserved (!)
-				// 1 CryptLayer Required
-				// 1 CryptLayer Requested
-				// 1 CryptLayer Supported
-				const uint8 uSupportsCryptLayer = cur_src->SupportsCryptLayer() ? 1 : 0;
-				const uint8 uRequestsCryptLayer = cur_src->RequestsCryptLayer() ? 1 : 0;
-				const uint8 uRequiresCryptLayer = cur_src->RequiresCryptLayer() ? 1 : 0;
-				const uint8 byCryptOptions = (uRequiresCryptLayer << 2) |
-							     (uRequestsCryptLayer << 1) |
-							     (uSupportsCryptLayer << 0);
-				data.WriteUInt8(byCryptOptions);
-			}
-
-			if (nCount > 500) {
+			if (packet.IsFull()) {
 				break;
 			}
 		}
 	}
 
-	if (!nCount) {
-		return 0;
-	}
-
-	data.Seek(bIsSX2Packet ? 17 : 16, wxFromStart);
-	data.WriteUInt16(nCount);
-
-	CPacket *result =
-		new CPacket(data, OP_EMULEPROT, bIsSX2Packet ? OP_ANSWERSOURCES2 : OP_ANSWERSOURCES);
-
-	if (result->GetPacketSize() > 354) {
-		result->PackPacket();
-	}
-
-	return result;
+	return packet.CreatePacket();
 }
 
 void CKnownFile::CreateOfferedFilePacket(CMemFile *files, CServer *pServer, CUpDownClient *pClient) const
